@@ -1,36 +1,41 @@
-
 #include<stdio.h>
 #include<math.h>
 #include<stdlib.h>
 
-float  y_n, e, eps, z, t , k, c, h, k1, k2, k3, k4, y_n1, i, sixieme ; 
+float  i, e, eps, y, yc, u, xc0, xc1, t, Ac00, Ac01, Ac10, Ac11, Bc0, Bc1, Cc0, Cc1, Dc, yd ; 
+int z;
 
 int main() {
-
-for(z=1;z<=1000;z++) {
-
-sixieme = 0.16666667 ;
+    for(z=1;z<=1000;z++) {
+i = 0.0;   
+eps = 0.01 ;
 e = 1.0 ;
-eps = 0.005 ; 
-y_n  = 10.1 ; 
-t = 0.0 ;
-k = 1.2 ;
-c = 100.1 ;
-h = 0.1 ;
-i = 0.0 ; 
+y = 2.5 ; 
+xc0 = 0.0 ;
+xc1 = 0.0 ;
+Ac00 = 0.4990 ;
+Ac01 = -0.0500 ;
+Ac10 = 0.0100 ;
+Ac11 = 1.0000 ;
+Bc0 = 1.0 ;
+Bc1 = 0.0 ;
+Cc0 = 564.48 ;
+Cc1 = 0.0 ;
+Dc = -1280.0 ;
+yd = 5.0 ;
 
-while (e > eps) {
-  k1   = k * (c - y_n) * (c - y_n) ;
-  k2   = k * (c - (y_n + (0.5 * h * k1))) * (c - (y_n + (0.5 * h * k1))) ;
-  k3   = k * (c - (y_n + (0.5 * h * k2))) * (c - (y_n + (0.5 * h * k2))) ;
-  k4   = k * (c - (y_n + (h * k3))) * (c - (y_n + (h * k3))) ;
-  y_n1 = y_n + (sixieme * h * (k1 + (2.0 * k2) + (2.0 * k3) + k4)) ;
-  t    = t + 0.1 ; 
-  i    = i + 1.0 ;
-  y_n  = y_n1 ;  
-  e    = e - eps; 
-e=(e>=0)?e:(-e);
-printf("\nnb iterations = %f e=%f\n",i, e);
+while (e > eps)  {
+  yc = y - yd ;
+  if (yc < (-1.0)) { yc = (-1.0) ;}
+  if (1.0 < yc) { yc = 1.0 ;}  
+  u = Cc0 * xc0 + (Cc1 * xc1 + Dc * yc);
+  xc0 = Ac00 * xc0 + (Ac01 * xc1 + Bc0 * yc);
+  xc1 = Ac10 * xc0 + (Ac11 * xc1 + Bc1 * yc);
+  i = i + 1.0 ;
+  e = yc - xc1 ;
+  e=(e>=0)?e:(-e); 
+  printf("\n %f",xc1);
 }
-} 
+}
+
 }

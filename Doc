@@ -28,4 +28,13 @@ Outputs: xc0, xc1
 Ranges:  0 < yd,y < 50, the coefficients Acii, Bci, Cci may be slightly modified.   
 Bib: [E. Feron IEEE Control system magazine, 2010]                              
 
+                                   
+                                  Rocket Trajectory
+Goal:   Compute the trajectory of a rocket around earth 
+Inputs: Mf (mass of the rocket) , A (acceleration of rocket) 
+Output: position x, y 
+Bib: [Damouche, Martel, Chapoutot, CF Computing Frontiers 2015]
+  
+
+
 

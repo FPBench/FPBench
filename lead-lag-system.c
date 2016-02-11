@@ -6,7 +6,7 @@ float  i, e, eps, y, yc, u, xc0, xc1, t, Ac00, Ac01, Ac10, Ac11, Bc0, Bc1, Cc0, 
 int z;
 
 int main() {
-    for(z=1;z<=1000;z++) {
+
 i = 0.0;   
 eps = 0.01 ;
 e = 1.0 ;
@@ -38,4 +38,4 @@ while (e > eps)  {
 }
 }
 
-}
+

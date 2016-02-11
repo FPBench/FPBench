@@ -1,0 +1,4 @@
+Odometry 
+The most relevant input variables are the speed of the left and right wheels 'sl' and 'sr' in radian/second. 
+The most relevant outputs are 'x' and 'y' corresponding to the position of the robot. 
+Typycally, 0.05 < sl,sr < 2*Pi

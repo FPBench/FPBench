@@ -1,4 +1,31 @@
-Odometry 
-The most relevant input variables are the speed of the left and right wheels 'sl' and 'sr' in radian/second. 
-The most relevant outputs are 'x' and 'y' corresponding to the position of the robot. 
-Typycally, 0.05 < sl,sr < 2*Pi
+                                    Odometry 
+Goal:   To compute the position of a robot depending on the speed of the wheels. 
+Inputs: The most relevant input variables are the speed of the left and right wheels 'sl' and 'sr' in radian/second. 
+Output: The most relevant outputs are 'x' and 'y' corresponding to the position of the robot. 
+Ranges: Typycally, 0.05 < sl,sr < 2*Pi
+Bib : [Damouche, Martel, Chapoutot, FMICS 2015]
+
+                                    PID
+Goal:   To keep the measure 'm' at the setpoint 'c' using the PID controller. 
+Inputs: Measure 'm', the gains 'kp','ki', 'kd' and the setpoint 'c'. 
+Outputs: the response 'r' and the new measure 'm'. 
+Ranges:  Typically, -10.0 < m,c < 10.0 
+Bib : [Damouche, Martel, Chapoutot, NSV 2014]
+
+
+                                    Runge-Kutta 4 Order
+Goal:    Solve diffrential equation 
+Inputs:  y_n, h, c  
+Output:  y_n1, 
+Ranges:  Typically,  0 < y_n1 < 100, 0.1 < h < 10e-6,  50 < c < 200
+Bib : [Damouche, Martel, Chapoutot, FMICS 2015]
+
+
+                                   Lead-Lag System
+Goal:    Controller which tries to move the mass from an initial position 'y' to desired position 'yd'. 
+Inputs:  yd, y
+Outputs: xc0, xc1
+Ranges:  0 < yd,y < 50, the coefficients Acii, Bci, Cci may be slightly modified.   
+Bib: [E. Feron IEEE Control system magazine, 2010]                              
+
+

@@ -1,0 +1,62 @@
+#include<stdio.h>
+#include<math.h>
+#include<stdlib.h>
+
+int main() {
+        
+ float i, eps, e, v1, v2, v3, v4, vx, vy, vz , vw , d ;
+ float a11, a12, a13, a14, a21, a22, a23, a24, a31, a32, a33, a34, a41, a42, a43, a44  ;
+ i = 0.0 ;
+ eps = 0.0005 ;
+ d = 150.0;
+
+ while(d <= 200.0) {
+
+  e = 1.0 ; 
+  v1 =  0.0 ;  
+  v2 =  0.0 ; 
+  v3 =  0.0 ;  
+  v4 =  1.0 ; 
+
+  a11 =  d ; 
+  a12 =   0.01 ;  
+  a13 =   0.01 ;
+  a14 =   0.01 ;
+
+  a21 =    0.01 ;
+  a22 =    d ; 
+  a23 =    0.01 ;
+  a24 =    0.01 ;
+
+  a31 =  0.01 ;
+  a32 =  0.01 ;
+  a33 =  d;
+  a34 =  0.01 ;
+
+  a41 =  0.01 ;
+  a42 =  0.01 ;
+  a43 =  0.01 ;
+  a44 =  d ;
+
+  i = 0.0;
+
+  while (e > eps) {
+    vx = a11 * v1 + a12 * v2 + a13 * v3 + a14 * v4 ;
+    vy = a21 * v1 + a22 * v2 + a23 * v3 + a24 * v4 ;
+    vz = a31 * v1 + a32 * v2 + a33 * v3 + a34 * v4 ;
+    vw = a41 * v1 + a42 * v2 + a43 * v3 + a44 * v4 ;
+    i = i + 1.0; 
+    v1 = vx / vw ; 
+    v2 = vy / vw ;  
+    v3 = vz / vw ;  
+    v4 =  1.0 ;
+    e = 1.0 - v1;
+    
+    if (v1 < 1.0) { e = 1.0 - v1 ;} else { e = v1 - 1.0 ;} 
+   
+    printf("\nnb iterations = %20.18f v1=%20.18f  vz=%20.18f  e=%20.18f\n",i,v1,vz,e); 
+  };
+   
+  d=d+1.0;
+ }
+}

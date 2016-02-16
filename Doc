@@ -34,7 +34,33 @@ Goal:   Compute the trajectory of a rocket around earth
 Inputs: Mf (mass of the rocket) , A (acceleration of rocket) 
 Output: position x, y 
 Bib: [Damouche, Martel, Chapoutot, CF Computing Frontiers 2015]
+
+
+                                   Jacobi's Method
+  Goal: Solve linear system of the form Ax = b 
+  Inputs: a_ij, b_i 
+  outputs: sequence of vectors x_ni
+  Bib: [A. Kendall. An introduction to Numerical Analysis. 1989]
   
-
-
-
+  
+                                   Newton-Raphson's Method
+  Goal: Find the zeros of a function (f = (x - 2.)**5) 
+  Inputs: 0. < x < 3.
+  Outputs: x_n 
+  Bib:  [A. Kendall. An introduction to Numerical Analysis. 1989]
+     
+     
+                                   Eigenvalue Computation 
+  Goal: Compute the largest eigenvalue of a matrix and the related eigenvector
+  Inputs: square matrix A, initial vector x containing a single non-zero element
+  outputs: eigenvector v_i
+  Bib: [G. H. Golub and C. F. Van Loan. Matrix computations (3. ed.). 1996]
+  
+  
+                                   Iterative Gram-Schmidt Method
+  Goal: Orthogonalize a set of non-zero vectors in a Euclidian or Hermitian space
+  Inputs: set of vectors q_i
+  Outputs: orthogonal set of vectors q'_i
+  Bib: [N. Abdelmalek. roundoff error analysis for gram-schmidt method and solution of linear least squares problem. BIT, 1971; 
+        G. H. Golub and C. F. Van Loan. Matrix computations (3. ed.). 1996;
+        V. Hernandez, J.E. Roman, A. Tomas and V. Vidal. Orthogonalization routine in SLEPc Technical Report STR-1. 2007]

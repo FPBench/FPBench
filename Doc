@@ -45,15 +45,17 @@ Bib: [Damouche, Martel, Chapoutot, CF Computing Frontiers 2015]
   
                                    Newton-Raphson's Method
   Goal: Find the zeros of a function (f = (x - 2.)**5) 
-  Inputs: 0. < x < 3.
+  Inputs: x 
   Outputs: x_n 
+  Ranges: 0. < x < 3.
   Bib:  [A. Kendall. An introduction to Numerical Analysis. 1989]
      
      
                                    Eigenvalue Computation 
   Goal: Compute the largest eigenvalue of a matrix and the related eigenvector
   Inputs: square matrix A, initial vector x containing a single non-zero element
-  outputs: eigenvector v_i
+  Outputs: eigenvector v_i
+  Ranges: 150. < d < 200.
   Bib: [G. H. Golub and C. F. Van Loan. Matrix computations (3. ed.). 1996]
   
   
@@ -61,6 +63,7 @@ Bib: [Damouche, Martel, Chapoutot, CF Computing Frontiers 2015]
   Goal: Orthogonalize a set of non-zero vectors in a Euclidian or Hermitian space
   Inputs: set of vectors q_i
   Outputs: orthogonal set of vectors q'_i
+  Ranges: 1.0 < q_11 < 1./7n  and   1. < q_22 < 1./25n   with    1. < n < 10. 
   Bib: [N. Abdelmalek. roundoff error analysis for gram-schmidt method and solution of linear least squares problem. BIT, 1971; 
         G. H. Golub and C. F. Van Loan. Matrix computations (3. ed.). 1996;
         V. Hernandez, J.E. Roman, A. Tomas and V. Vidal. Orthogonalization routine in SLEPc Technical Report STR-1. 2007]

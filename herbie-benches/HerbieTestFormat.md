@@ -36,9 +36,12 @@ could write a test like:
 In such tests `default` is a synonym for `float` or `double`, depending on
 whether Herbie is run in 32-bit or 64-bit mode.
 
-Because Herbie uses sampling to determine the error a floating point
-expression, users can specify the input distribution of each variable (by
-default, Herbie uses a uniform distribution over 64 bit floats):
+Because Herbie uses sampling to determine the error of a floating point
+expression, users can specify the input distribution of each variable. By
+default, Herbie uses a uniform distribution over 64 bit <em>floats</em>,
+essentially just flipping a coin to determine each bit.  To instead sample
+uniformly over the <em>reals</em> that floating point can represent, a user
+can annotate an input like so:
 
     (lambda ([y (uniform -1 1)])
       (sqrt (- 1 (sqr x))))

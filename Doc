@@ -1,0 +1,69 @@
+                                    Odometry 
+Goal:   To compute the position of a robot depending on the speed of the wheels. 
+Inputs: The most relevant input variables are the speed of the left and right wheels 'sl' and 'sr' in radian/second. 
+Output: The most relevant outputs are 'x' and 'y' corresponding to the position of the robot. 
+Ranges: Typycally, 0.05 < sl,sr < 2*Pi
+Bib : [Damouche, Martel, Chapoutot, FMICS 2015]
+
+                                    PID
+Goal:   To keep the measure 'm' at the setpoint 'c' using the PID controller. 
+Inputs: Measure 'm', the gains 'kp','ki', 'kd' and the setpoint 'c'. 
+Outputs: the response 'r' and the new measure 'm'. 
+Ranges:  Typically, -10.0 < m,c < 10.0 
+Bib : [Damouche, Martel, Chapoutot, NSV 2014]
+
+
+                                    Runge-Kutta 4 Order
+Goal:    Solve diffrential equation 
+Inputs:  y_n, h, c  
+Output:  y_n1, 
+Ranges:  Typically,  0 < y_n1 < 100, 0.1 < h < 10e-6,  50 < c < 200
+Bib : [Damouche, Martel, Chapoutot, FMICS 2015]
+
+
+                                   Lead-Lag System
+Goal:    Controller which tries to move the mass from an initial position 'y' to desired position 'yd'. 
+Inputs:  yd, y
+Outputs: xc0, xc1
+Ranges:  0 < yd,y < 50, the coefficients Acii, Bci, Cci may be slightly modified.   
+Bib: [E. Feron IEEE Control system magazine, 2010]                              
+
+                                   
+                                  Rocket Trajectory
+Goal:   Compute the trajectory of a rocket around earth 
+Inputs: Mf (mass of the rocket) , A (acceleration of rocket) 
+Output: position x, y 
+Bib: [Damouche, Martel, Chapoutot, CF Computing Frontiers 2015]
+
+
+                                   Jacobi's Method
+  Goal: Solve linear system of the form Ax = b 
+  Inputs: a_ij, b_i 
+  outputs: sequence of vectors x_ni
+  Bib: [A. Kendall. An introduction to Numerical Analysis. 1989]
+  
+  
+                                   Newton-Raphson's Method
+  Goal: Find the zeros of a function (f = (x - 2.)**5) 
+  Inputs: x 
+  Outputs: x_n 
+  Ranges: 0. < x < 3.
+  Bib:  [A. Kendall. An introduction to Numerical Analysis. 1989]
+     
+     
+                                   Eigenvalue Computation 
+  Goal: Compute the largest eigenvalue of a matrix and the related eigenvector
+  Inputs: square matrix A, initial vector x containing a single non-zero element
+  Outputs: eigenvector v_i
+  Ranges: 150. < d < 200.
+  Bib: [G. H. Golub and C. F. Van Loan. Matrix computations (3. ed.). 1996]
+  
+  
+                                   Iterative Gram-Schmidt Method
+  Goal: Orthogonalize a set of non-zero vectors in a Euclidian or Hermitian space
+  Inputs: set of vectors q_i
+  Outputs: orthogonal set of vectors q'_i
+  Ranges: 1.0 < q_11 < 1./7n  and   1. < q_22 < 1./25n   with    1. < n < 10. 
+  Bib: [N. Abdelmalek. roundoff error analysis for gram-schmidt method and solution of linear least squares problem. BIT, 1971; 
+        G. H. Golub and C. F. Van Loan. Matrix computations (3. ed.). 1996;
+        V. Hernandez, J.E. Roman, A. Tomas and V. Vidal. Orthogonalization routine in SLEPc Technical Report STR-1. 2007]

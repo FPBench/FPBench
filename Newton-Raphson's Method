@@ -1,0 +1,29 @@
+#include<stdio.h>
+#include<math.h>
+#include<stdlib.h>
+
+float i, eps, e,  x, x_n, f , ff , x0;
+
+int main() {
+    
+ eps = 0.0005 ;
+ i   = 0.0 ; 
+ e   = 1.0 ; 
+ x   = 0.0 ;
+ x0  = 0.0 ;
+
+ while ((e > eps)&&(i<10000)){
+  
+   f  = (x*x*x*x*x) - (10.0*x*x*x*x) + (40.0*x*x*x) - (80.0*x*x) + (80.0*x) - (32.0) ; 
+   ff = (5.0*x*x*x*x) - (40.0*x*x*x) + (120.0*x*x) - (160.0*x) + (80.0) ; 
+   x_n = x - (f / ff) ;
+   e = (x - x_n) ;
+   x = x_n ;
+   i = i + 1.0 ;
+
+   if (e < 0.0) { e = (e * (-1.0)) ; } else {  e = (e * 1.0) ;  } ;
+
+   printf("\nnb iterations = %20.18f x=%20.18f x_n=%20.18f e=%20.18f\n",i,x,x_n ,e); 
+
+  };
+}

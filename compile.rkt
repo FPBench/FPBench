@@ -1,7 +1,13 @@
 #lang racket
 
-(define program-body caddr)
-(define program-variables cadr)
+(define (canonicalize-program prog)
+  (match-define (list 'lambda (list args ...) props&body ...) prog)
+  (let loop ([props&body props&body] [props '()])
+    (match props&body
+      [(list (? keyword? propname) propval rest ...)
+       (loop rest (cons (cons propname propval) props))]
+      [(list body rest ...)
+       (values args body (append (reverse props) rest))])))
 
 (define constants '(E PI))
 
@@ -25,27 +31,32 @@
   (let ([reg (compile-one expr)])
     (values reg names index)))
 
-(define (program->cse expr)
+(define (program->cse expr #:break-at [break-at '(sqr)])
   (define-values (out-reg names index) (compile/gvn expr))
   (define index* '())
 
   (define (lookup reg)
     (second (assoc reg index)))
 
-  (define (cse! expr)
+  (define (cse! expr spill?)
     (cond
-     [(not (list? expr)) expr]
+     [(not (list? expr))
+      expr]
      [else
       (match-define (cons count name) (hash-ref names expr))
       (define def (lookup name))
-      (define def* (cons (car expr) (map cse! (cdr expr))))
-      (if (= count 1)
-          def*
+      (define def*
+        (cons (car expr)
+              (map (curryr cse! (member (car expr) break-at))
+                   (cdr expr))))
+
+      (if (or (> count 1) spill?)
           (begin
             (set! index* (cons (list name def) index*))
-            name))]))
+            name)
+          def*)]))
 
-  (let ([expr* (cse! expr)])
+  (let ([expr* (cse! expr #f)])
     `(let* ,(reverse (remove-duplicates index*)) ,expr*)))
 
 (define (fix-name name)
@@ -67,8 +78,8 @@
 
 (define-table operators->c
   [+        "(~a + ~a)"]
-  [-        '(#f "-~a" "(~a - ~a)")]
-  [*        "~a * ~a"]
+  [-        '(#f "-(~a)" "(~a - ~a)")]
+  [*        "(~a * ~a)"]
   [/        '(#f "(1.0/~a)" "(~a / ~a)")]
   [abs      "fabs(~a)"]
   [sqrt     "sqrt(~a)"]
@@ -130,14 +141,13 @@
     [_ (app->c expr)]))
 
 (define (program->c prog [type "double"] [fname "f"])
-  (define bound (program-variables prog))
+  (define-values (args body props) (canonicalize-program prog))
 
-  (match-define
-   `(let* ([,vars ,vals] ...) ,retexpr)
-   (program->cse (program-body prog)))
-
+  (match-define `(let* ([,vars ,vals] ...) ,retexpr) (program->cse body))
   (printf "double ~a(~a) {\n" fname
-          (string-join (for/list ([var bound]) (format "~a ~a" type (fix-name var))) ", "))
+          (string-join (for/list ([var args])
+                         (format "~a ~a" type (fix-name var)))
+                       ", "))
   
   (for ([var vars] [val vals])
     (define type* (if (comparison? (car val)) 'bool type))

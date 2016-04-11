@@ -9,54 +9,6 @@
       [(list body rest ...)
        (values args body (append (reverse props) rest))])))
 
-(define (compile/gvn expr)
-  (define index '())
-  (define names (make-hash))
-
-  (define (compile-one expr)
-    (hash-update!
-     names expr
-     (λ (rec) (cons (+ 1 (car rec)) (cdr rec)))
-     (λ ()
-       (if (list? expr)
-         (let ([expr* (cons (car expr) (map compile-one (cdr expr)))]
-               [name (gensym "r")])
-           (set! index (cons (list name expr*) index))
-           (cons 0 name))
-         (cons 0 expr))))
-    (cdr (hash-ref names expr)))
-
-  (let ([reg (compile-one expr)])
-    (values reg names index)))
-
-(define (program->cse expr #:break-at [break-at '(sqr)])
-  (define-values (out-reg names index) (compile/gvn expr))
-  (define index* '())
-
-  (define (lookup reg)
-    (second (assoc reg index)))
-
-  (define (cse! expr spill?)
-    (cond
-     [(not (list? expr))
-      expr]
-     [else
-      (match-define (cons count name) (hash-ref names expr))
-      (define def (lookup name))
-      (define def*
-        (cons (car expr)
-              (map (curryr cse! (member (car expr) break-at))
-                   (cdr expr))))
-
-      (if (or (> count 1) spill?)
-          (begin
-            (set! index* (cons (list name def) index*))
-            name)
-          def*)]))
-
-  (let ([expr* (cse! expr #f)])
-    `(let* ,(reverse (remove-duplicates index*)) ,expr*)))
-
 (define (fix-name name)
   (string-replace (~a name) #rx"[^a-zA-Z0-9]" "_"))
 

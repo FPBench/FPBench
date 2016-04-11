@@ -9,8 +9,6 @@
       [(list body rest ...)
        (values args body (append (reverse props) rest))])))
 
-(define constants '(E PI))
-
 (define (compile/gvn expr)
   (define index '())
   (define names (make-hash))
@@ -62,98 +60,83 @@
 (define (fix-name name)
   (string-replace (~a name) #rx"[^a-zA-Z0-9]" "_"))
 
-(define (apply-converter conv args)
-  (cond
-   [(string? conv) (apply format conv args)]
-   [(list? conv) (apply format (list-ref conv (length args)) args)]
-   [(procedure? conv) (apply conv args)]
-   [else (error "Unknown syntax entry" conv)]))
+(define/match (application->c . args)
+  [((list '+ a b))     (format "(~a + ~a)" a b)]
+  [((list '- a))       (format "-(~a)" a)]
+  [((list '- a b))     (format "(~a - ~a)" a b)]
+  [((list '* a b))     (format "(~a * ~a)" a b)]
+  [((list '/ a b))     (format "(~a / ~a)" a b)]
+  [((list 'abs a))     (format "fabs(~a)" a)]
+  [((list 'sqr a))     (format "(~a * ~a)" a a)]
+  [((list 'sqrt a))    (format "sqrt(~a)" a)]
+  [((list 'hypot a b)) (format "hypot(~a, ~a)" a b)]
+  [((list 'exp a))     (format "exp(~a)" a)]
+  [((list 'expm1 a))   (format "expm1(~a)" a)]
+  [((list 'pow a b))   (format "pow(~a, ~a)" a b)]
+  [((list 'log a))     (format "log(~a)" a)]
+  [((list 'log1p a))   (format "log1p(~a)" a)]
+  [((list 'sin a))     (format "sin(~a)" a)]
+  [((list 'cos a))     (format "cos(~a)" a)]
+  [((list 'tan a))     (format "tan(~a)" a)]
+  [((list 'cotan a))   (format "(1.0 / tan(~a))" a)]
+  [((list 'asin a))    (format "asin(~a)" a)]
+  [((list 'acos a))    (format "acos(~a)" a)]
+  [((list 'atan a))    (format "atan(~a)" a)]
+  [((list 'sinh a))    (format "sinh(~a)" a)]
+  [((list 'cosh a))    (format "cosh(~a)" a)]
+  [((list 'tanh a))    (format "tanh(~a)" a)]
+  [((list 'atan2 a b))   (format "atan2(~a, ~a)" a b)]
+  [((list '> a b))     (format "(~a > ~a)" a b)]
+  [((list '< a b))     (format "(~a < ~a)" a b)]
+  [((list '<= a b))    (format "(~a <= ~a)" a b)]
+  [((list '>= a b))    (format "(~a >= ~a)" a b)]
+  [((list 'and a b))   (format "(~a && ~a)" a b)]
+  [((list 'or a b))    (format "(~a || ~a)" a b)]
+  [((list 'mod a b))   (format "fmod2(~a, ~a)" a b)])
 
-(define-syntax-rule (define-table name [key values ...] ...)
-  (define name
-    (let ([hash (make-hasheq)])
-      (for ([rec (list (list 'key values ...) ...)])
-        (hash-set! hash (car rec) (cdr rec)))
-      hash)))
+(define/match (typeof expr #:fptype [fptype 'double])
+  [((list (or '> '< '>= '<= 'and 'or) _ ...) ftype) 'bool]
+  [(_ ftype) fptype])
 
-(define-table operators->c
-  [+        "(~a + ~a)"]
-  [-        '(#f "-(~a)" "(~a - ~a)")]
-  [*        "(~a * ~a)"]
-  [/        '(#f "(1.0/~a)" "(~a / ~a)")]
-  [abs      "fabs(~a)"]
-  [sqrt     "sqrt(~a)"]
-  [hypot    "hypot(~a, ~a)"]
-  [sqr      (λ (x) (format "(~a * ~a)" x x))]
-  [exp      "exp(~a)"]
-  [expm1    "expm1(~a)"]
-  [expt     "pow(~a, ~a)"]
-  [log      "log(~a)"]
-  [log1p    "log1p(~a)"]
-  [sin      "sin(~a)"]
-  [cos      "cos(~a)"]
-  [tan      "tan(~a)"]
-  [cotan    "(1.0 / tan(~a))"]
-  [asin     "asin(~a)"]
-  [acos     "acos(~a)"]
-  [atan     "atan(~a)"]
-  [sinh     "sinh(~a)"]
-  [cosh     "cosh(~a)"]
-  [tanh     "tanh(~a)"]
-  [atan2    "atan2(~a, ~a)"]
-  [if       "(~a ? ~a : ~a)"]
-  [>        "(~a > ~a)"]
-  [<        "(~a < ~a)"]
-  [<=       "(~a <= ~a)"]
-  [>=       "(~a >= ~a)"]
-  [and      "(~a && ~a)"]
-  [or       "(~a || ~a)"]
-  [mod      "fmod2(~a, ~a)"])
+(define/match (value->c expr)
+  [('E) "exp(1.0)"]
+  [('PI) "atan2(1.0, 0.0)"]
+  [((? symbol?)) (fix-name expr)]
+  [((? number?)) (~a (real->double-flonum expr))])
 
-(define-table constants->c
-  [PI    "atan2(1.0, 0.0)"]
-  [E     "exp(1.0)"])
+(define/match (if->c expr)
+  [(`(if ,cond ,ift ,iff))
+   (format "(~a ? ~a : ~a)" (expr->c cond) (expr->c ift) (expr->c iff))])
 
-(define (comparison? l)
-  (and (list? l) (member (car l) '(< > <= >= and or))))
+(define/match (expr->c expr)
+  [(`(if ,cond ,ift ,iff)) (if->c expr)]
+  [((? list?)) (apply application->c (car expr) (map expr->c (cdr expr)))]
+  [(_) (value->c expr)])
 
-(define (if->c expr)
-  (match-define `(if ,cond ,ift ,iff) expr)
-  (format "(~a ? ~a : ~a)" (expr->c cond) (expr->c ift) (expr->c iff)))
+(define (function->c args body #:type [type 'double] #:name [name 'f])
+  (define arg-strings (for/list ([var args]) (format "~a ~a" type (fix-name var))))
+  (format "~a ~a(~a) {\n~a}\n"
+          type name (string-join arg-strings ", ")
+          (with-output-to-string (λ () (program->c body #:type type)))))
 
-(define (value->c expr)
-  (cond
-   [(member expr constants) (apply-converter (car (hash-ref constants->c expr)) '())]
-   [(symbol? expr) (fix-name expr)]
-   [(number? expr) (real->double-flonum expr)]
-   [else (error "Invalid value" expr)]))
-
-(define (app->c expr)
-  (if (list? expr)
-      (let* ([rec (list-ref (hash-ref operators->c (car expr)) 0)]
-             [args (map app->c (cdr expr))])
-        (apply-converter rec args))
-      (value->c expr)))
-
-(define (expr->c expr)
-  (match expr
-    [`(if ,cond ,ift ,iff) (if->c expr)]
-    [_ (app->c expr)]))
-
-(define (program->c prog [type "double"] [fname "f"])
-  (define-values (args body props) (canonicalize-program prog))
-
-  (match-define `(let* ([,vars ,vals] ...) ,retexpr) (program->cse body))
-  (printf "double ~a(~a) {\n" fname
-          (string-join (for/list ([var args])
-                         (format "~a ~a" type (fix-name var)))
-                       ", "))
-  
-  (for ([var vars] [val vals])
-    (define type* (if (comparison? (car val)) 'bool type))
-    (printf "        ~a ~a = ~a;\n" type* var (app->c val)))
-  (printf "        return ~a;\n" (app->c retexpr))
-  (printf "}\n\n"))
+(define (program->c body #:type [type 'double])
+  (match body
+    [`(let* ([,vars ,vals] ...) ,retexpr)
+     (for ([var vars] [val vals])
+       (printf "\t~a ~a = ~a;\n" (typeof val #:fptype type) var (expr->c val)))
+     (program->c retexpr #:type type)]
+    [`(while ,cond ([,vars ,inits ,updates] ...) ,retexpr)
+     (for ([var vars] [init inits])
+       (printf "\t~a ~a = ~a;\n" (typeof init #:fptype type) var (expr->c init)))
+     (printf "\twhile (~a) {\n" (expr->c cond))
+     (for ([var vars] [update updates])
+       (printf "\t\t~a next_~a = ~a;\n" (typeof update #:fptype type) var (expr->c update)))
+     (for ([var vars])
+       (printf "\t\t~a = next_~a;\n" var var))
+     (printf "\t}\n")
+     (program->c retexpr #:type type)]
+    [_
+     (printf "\treturn ~a;\n" (expr->c body))]))
 
 (module+ main
   (require racket/cmdline)
@@ -162,4 +145,6 @@
    #:program "compile.rkt"
    #:args ()
    (for ([expr (in-port read (current-input-port))])
-     (program->c expr))))
+     (define-values (args body props) (canonicalize-program expr))
+     (printf "~a" (function->c args body))
+     (newline))))

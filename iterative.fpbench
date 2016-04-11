@@ -1,0 +1,28 @@
+(lambda ()
+  #:name "To keep the measure 'm' at the setpoint 'c' using the PID controller."
+  ;; kp   = 9.4514; 
+  ;; ki   = 0.69006;
+  ;; kd   = 2.8454;
+  ;; invdt = 5.0;
+  ;; dt   = 0.2;
+  ;; c    = 0.0;
+  ;; t    = 0.0 ; 
+  ;; m    = -5.0 ;
+  ;; eold = 0.0;
+  ;; i    = 0.0 ; 
+  ;; while (t < 100.0) {
+  (while (< t 100.0)
+    ;; e = c - m;
+    ;; p = kp * e;
+    ;; i = i + ki * dt * e;
+    ;; d = kd * invdt * (e - eold);
+    ;; r = p + i + d;
+    ;; m = m + 0.01 * r;	/* computing measure: the plant */
+    ;; eold = e;  
+    ;; t = t + dt ; 
+    ([t 0.0 (+ t 0.2)]
+     [i 0.0 (+ i (* (* 2.8454 0.2) (- 0.0 m)))]
+     [m -5.0 (+ m (* 0.01 (+ (+ (* 9.4514 (- 0.0 m)) (+ i (* (* 2.8454 0.2) (- 0.0 m)))) (* (* kd 5.0) (- (- 0.0 m) e)))))]
+     [e 0.0 (- 0.0 m)])
+    ;; printf("\n%20.18lf",m);
+    m))

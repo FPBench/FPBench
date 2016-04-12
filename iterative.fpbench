@@ -1,27 +1,27 @@
 ;; -*- mode: scheme -*-
 
-(lambda ()
-  #:name "PID"
+(lambda ([kp 9.4514] [ki 0.69006] [kd 2.8454] [dt 0.2])
+  :name "PID"
   (while (< t 100.0)
-    ([t 0.0 (+ t 0.2)]
-     [i 0.0 (+ i (* (* 2.8454 0.2) (- 0.0 m)))]
-     [m -5.0 (+ m (* 0.01 (+ (+ (* 9.4514 (- 0.0 m)) (+ i (* (* 2.8454 0.2) (- 0.0 m)))) (* (* kd 5.0) (- (- 0.0 m) e)))))]
-     [e 0.0 (- 0.0 m)])
+    ([t 0.0 (+ t dt)]
+     [i 0.0 (+ i (* (* ki dt) (- c m)))]
+     [m -5.0 (+ m (* 0.01 (+ (+ (* kp (- c m)) (+ i (* (* ki dt) (- c m)))) (* (* kd (/ 1 dt)) (- (- c m) e)))))]
+     [e 0.0 (- c m)])
     m))
 
-(lambda ()
-  #:name "Odometry"
+(lambda ([c 12.34] [sr* 0.0785398163397] [sl* 0.0525398163397] [theta* -0.985] [inv_l 0.1])
+  :name "Odometry"
   (while (< t 1000)
     ;; XXX: Inlining changes the behavior around function calls; cause unknown.
     ([t 0 (+ t 1)]
      [j 0 (if (>= j 50) 0.0 (+ j 1))]
-     [sr 0.0785398163397 (if (>= j 50) sl sr)]
-     [sl 0.0525398163397 (if (>= j 50) sr sl)]
-     [theta -0.985 (+ theta (* (- (* 12.34 sr) (* 12.34 sl)) 0.1))]
+     [sr sr* (if (>= j 50) sl sr)]
+     [sl sl* (if (>= j 50) sr sl)]
+     [theta theta* (+ theta (* (- (* c sr) (* c sl)) inv_l))]
      ;; XXX: Changed the inline sin/cos routine to an accurate routine
-     [x 0 (+ x (* (* (+ (* 12.34 sl) (* 12.34 sr)) 0.5)
-                  (cos (+ theta (* (* (- (* 12.34 sr) (* 12.34 sl)) 0.1) 0.5)))))]
-     [y 0 (+ y (* (* (+ (* 12.34 sl) (* 12.34 sr)) 0.5)
-                  (sin (+ theta (* (* (- (* 12.34 sr) (* 12.34 sl)) 0.1) 0.5)))))])
+     [x 0 (+ x (* (* (+ (* c sl) (* c sr)) 0.5)
+                  (cos (+ theta (* (* (- (* c sr) (* c sl)) inv_l) 0.5)))))]
+     [y 0 (+ y (* (* (+ (* c sl) (* c sr)) 0.5)
+                  (sin (+ theta (* (* (- (* c sr) (* c sl)) inv_l) 0.5)))))])
     ;; XXX: The original code produces x and y separately
     (+ x y)))

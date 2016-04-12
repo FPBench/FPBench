@@ -1,10 +1,13 @@
 #lang racket
 
+(define (attribute? symb)
+  (and (symbol? symb) (string-prefix (symbol->string symb) ":")))
+
 (define (canonicalize-program prog)
   (match-define (list 'lambda (list args ...) props&body ...) prog)
   (let loop ([props&body props&body] [props '()])
     (match props&body
-      [(list (? keyword? propname) propval rest ...)
+      [(list (? attribute? propname) propval rest ...)
        (loop rest (cons (cons propname propval) props))]
       [(list body rest ...)
        (values args body (append (reverse props) rest))])))
@@ -37,7 +40,7 @@
   [((list 'sinh a))    (format "sinh(~a)" a)]
   [((list 'cosh a))    (format "cosh(~a)" a)]
   [((list 'tanh a))    (format "tanh(~a)" a)]
-  [((list 'atan2 a b))   (format "atan2(~a, ~a)" a b)]
+  [((list 'atan2 a b)) (format "atan2(~a, ~a)" a b)]
   [((list '> a b))     (format "(~a > ~a)" a b)]
   [((list '< a b))     (format "(~a < ~a)" a b)]
   [((list '<= a b))    (format "(~a <= ~a)" a b)]
@@ -92,7 +95,7 @@
 
 (module+ main
   (require racket/cmdline)
-  
+
   (command-line
    #:program "compile.rkt"
    #:args ()

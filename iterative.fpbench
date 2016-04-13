@@ -2,6 +2,7 @@
 
 (lambda ([c 12.34] [sr* 0.0785398163397] [sl* 0.0525398163397] [theta* -0.985] [inv_l 0.1])
   :name "Odometry"
+  :status bug
   :description "Compute the position of a robot from the speed of the wheels."
   :inputs "Speed `sl`, `sr` of the left and right wheel, in rad/s"
   :pre (and (< 0.05 sl) (< sl (* 2 PI)) (< 0.05 sr) (< sr (* 2 PI)))
@@ -23,6 +24,7 @@
 
 (lambda ([kp 9.4514] [ki 0.69006] [kd 2.8454] [dt 0.2] [c 0.0])
   :name "PID"
+  :status good
   :description "Keep a measure at its setpoint using a PID controller."
   :inputs "Measure `m`; gains `kp`, `ki`, `kd`; setpoint `c`"
   :pre (and (< -10.0 m) (< m 10.0) (< -10.0 c) (< c 10.0))
@@ -36,6 +38,7 @@
 
 (lambda ([eps 0.05] [y_n* 10.1] [c 100.1] [k 1.2] [h 0.1])
   :name "Runge-Kutta 4"
+  :status unknown
   :description "Solve the differential equation `y' = (c - y)^2"
   :inputs "Step size `h`; initial condition `y_n*`; paramter `c`"
   :pre (and (< 0 y_n*) (< y_n* 100) (< 0.1 h) (< h 10e-6) (< 50 c) (< c 200))
@@ -64,6 +67,7 @@
 (lambda ((yd 5.0) (Dc -1280.0) (Cc1 0.0) (Cc0 564.48) (Bc1 0.0) (Bc0 1.0)
          (Ac11 1.0) (Ac10 0.01) (Ac01 -0.05) (Ac00 0.499) (y 2.5) (eps 0.01))
   :name "Lead-lag System"
+  :status unknown
   :description "Move a mass from an initial position to a desired position."
   :inputs "Initial position `y`; desired position `yd`"
   :pre (and (< 0 yd) (< yd 50) (< 0 y) (< y 50))
@@ -77,6 +81,7 @@
 (lambda ((tetaf 0.0) (vrf 0.0) (rf 6400000.0) (teta0 0.0) (vr0 0.0) (dt 0.1)
          (A 140.0) (Mf 150000.0) (Mt 5.9736e+24) (G 6.67428e-11) (R 6400000.0))
   :name "Rocket Trajectory"
+  :status unknown
   :description "Compute the trajectory of a rocket around the earth."
   :inputs "Mass `Mf`; acceleration `A`"
   :cite (damouche-martel-chapoutot-cf15)
@@ -100,6 +105,7 @@
 
 (lambda ((b4 (/ 1.0 5.0)) (b3 0.25) (b2 (/ 1.0 3.0)) (b1 0.5) (a44 0.601) (a33 0.6006) (a22 0.62) (a11 0.61) (eps 1e-17))
   :name "Jacobi's Method"
+  :status unknown
   :description "Solve a linear system `Ax = b`."
   :inputs "Array entries `aij`; vector entries `bi`"
   :cite (kendall-1989)
@@ -115,6 +121,7 @@
 
 (lambda ((x0 0.0) (eps 0.005))
   :name "Newton-Raphson's Method"
+  :status unknown
   :description "Find the zeros of a function `f = (x - 2)**5`."
   :inputs "Initial guess `x0`"
   :pre (and (< 0 x0) (< x0 3))
@@ -130,6 +137,7 @@
 
 (lambda ((eps 5e-06) (Q23 0.0) (Q21 0.0) (Q13 0.0) (Q12 0.0))
   :name "Iterative Gram-Schmidt Method"
+  :status unknown
   :description "Orthogonalize a set of non-zero vectors in a Euclidian or Hermitian space."
   :inputs "Vectors `Qij`"
   :pre (and (< 1.0 Q11) (< Q11 (/ 1 7)) (< 1 Q22) (< Q22 (/ 1 25)))

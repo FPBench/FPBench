@@ -53,9 +53,12 @@
            (loop (cons (cons var (substitute (canonicalize value) bindings))
                        bindings)
                  (cdr statements))]
-          [`(output ,value)
+          [`(output ,vals ...)
            (values
-            (substitute (canonicalize value) bindings)
+            (canonicalize
+             (cons '+
+                   (map (λ (value) (substitute (canonicalize value) bindings))
+                        vals)))
             bindings)]
           [`(while ,cond ,substatements ...)
            (define-values (outexpr outb) (compile-statements substatements))
@@ -88,12 +91,12 @@
                 `[,(car b) ,(cdr b)]))
      ,out))
 
-;;(module+ main
-;;  (require racket/cmdline)
-;;
-;;  (command-line
-;;   #:program "surface-to-core.rkt"
-;;   #:args ()
-;;   (for ([expr (in-port read (current-input-port))])
-;;     (printf "~a" (compile-program expr))
-;;     (newline))))
+(module+ main
+  (require racket/cmdline)
+
+  (command-line
+   #:program "surface-to-core.rkt"
+   #:args ()
+   (for ([expr (in-port read (current-input-port))])
+     (pretty-print (compile-program expr))
+     (newline))))

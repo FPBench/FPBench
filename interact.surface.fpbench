@@ -195,27 +195,27 @@
 (function
  [= R 6400.0e3]
  [= G 6.67428e-11]
- [= Mt5.9736e24]
+ [= Mt 5.9736e24]
  [= Mf 150000.0]
  [= A 140.0]
 
  [= dt 0.1]
- [= T 24.0 * 3600.0 ]
- [= nombrepas T / dt]
+ [= T (* 24.0 3600.0)]
+ [= nombrepas (/ T dt)]
 
- [= r0 400.0*10e3 + R]
+ [= r0 (+ (* 400.0 10e3) R)]
  [= vr0 0.0]
  [= teta0 0.0]
- [= viss sqrt(G*Mt/r0)]
- [= vteta0 viss / r0]
+ [= viss (sqrt (/ (* G Mt) r0))]
+ [= vteta0 (/ viss r0)]
 
  [= rf R]
- [= vrf 0.0 ]
+ [= vrf 0.0]
  [= tetaf 0.0]
 
- [= vl sqrt(G*Mt/R)]
- [= vlrad vl / r0]
- [= vtetaf 1.1 * vlrad]
+ [= vl (sqrt (/ (* G Mt) R))]
+ [= vlrad (/ vl r0)]
+ [= vtetaf (* 1.1 vlrad)]
 
  [= u1_im1 r0]
  [= u2_im1 vr0]

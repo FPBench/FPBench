@@ -22,19 +22,21 @@
     ;; XXX: The original code produces x and y separately
     (+ x y)))
 
-(lambda ([kp 9.4514] [ki 0.69006] [kd 2.8454] [dt 0.2] [c 0.0])
+(lambda ((c 0.0) (dt 0.2) (kd 2.8454) (ki 0.69006) (kp 9.4514))
   :name "PID"
   :status good
   :description "Keep a measure at its setpoint using a PID controller."
   :inputs "Measure `m`; gains `kp`, `ki`, `kd`; setpoint `c`"
-  :pre (and (< -10.0 m) (< m 10.0) (< -10.0 c) (< c 10.0))
+  :pre (and (and (< -10.0 m) (< m 10.0)) (and (< -10.0 c) (< c 10.0)))
   :cite (damouche-martel-chapoutot-nsv14)
   (while (< t 100.0)
     ([t 0.0 (+ t dt)]
      [i 0.0 (+ i (* (* ki dt) (- c m)))]
-     [m -5.0 (+ m (* 0.01 (+ (+ (* kp (- c m)) (+ i (* (* ki dt) (- c m)))) (* (* kd (/ 1 dt)) (- (- c m) e)))))]
-     [e 0.0 (- c m)])
-    (+ m r)))
+     (m -5.0
+        (+ m (* 0.01 (+ (+ (* kp (- c m)) (+ i (* (* ki dt) (- c m))))
+                        (* (* kd (/ 1 dt)) (- (- c m) eold))))))
+     [eold 0.0 (- c m)])
+    m))
 
 (lambda ([eps 0.05] [y_n* 10.1] [c 100.1] [k 1.2] [h 0.1])
   :name "Runge-Kutta 4"

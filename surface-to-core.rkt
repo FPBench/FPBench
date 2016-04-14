@@ -12,6 +12,9 @@
     [`(- ,args ... ,tail) `(- ,(canonicalize (cons '- args)) ,tail)]
     [`(/ ,head ,arg) `(/ ,(canonicalize head) ,(canonicalize arg))]
     [`(/ ,args ... ,tail) `(/ ,(canonicalize (cons '/ args)) ,tail)]
+    [`(,(and (or '< '> '<= '>= '==) op) ,args ...)
+     `(and ,(for/list ([fst args] [snd (cdr args)])
+              `(,op ,fst ,snd)))]
     [(? list?) (cons (car body) (map canonicalize (cdr body)))]
     [(? symbol?) body]
     [(? number?) body]))

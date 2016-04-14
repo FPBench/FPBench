@@ -1,7 +1,12 @@
 ;; -*- mode: scheme -*-
 
-;; Odometry
 (function
+ :name "Odometry"
+ :status bug
+ :description "Compute the position of a robot from the speed of the wheels."
+ :inputs "Speed `sl`, `sr` of the left and right wheel, in rad/s"
+ :pre (and (< 0.05 sl (* 2 PI)) (< 0.05 sr (* 2 PI)))
+ :cite (damouche-martel-chapoutot-fmics15)
  [= cosi 0.0]
  [= sini 0.0]
  [= arg 0.0]
@@ -35,8 +40,13 @@
    [= sr (if (== j 50) sl sr)])
  (output x y))
 
-;; PID
 (function
+  :name "PID"
+  :status good
+  :description "Keep a measure at its setpoint using a PID controller."
+  :inputs "Measure `m`; gains `kp`, `ki`, `kd`; setpoint `c`"
+  :pre (and (< -10.0 m 10.0) (< -10.0 c 10.0))
+  :cite (damouche-martel-chapoutot-nsv14)
  [= t 0.0]
  [= kp 9.4514]
  [= ki 0.69006]
@@ -58,8 +68,13 @@
    [= t (+ t dt)])
  (output m))
 
-;; Runge-Kutta 4
 (function
+ :name "Runge-Kutta 4"
+ :status unknown
+ :description "Solve the differential equation `y' = (c - y)^2"
+ :inputs "Step size `h`; initial condition `y_n*`; paramter `c`"
+ :pre (and (< 0 y_n 100) (< 10e-6 h 0.1) (< 50 c 200))
+ :cite (damouch-martel-chapoutot-fmics15)
  [= sixieme (/ 1 6)]
  [= e 1.0]
  [= eps 0.005]
@@ -82,8 +97,13 @@
  [= e (abs e)]
  (output i e))
 
-;; Lead-lag System
 (function
+ :name "Lead-lag System"
+ :status unknown
+ :description "Move a mass from an initial position to a desired position."
+ :inputs "Initial position `y`; desired position `yd`"
+ :pre (and (< 0 yd 50) (< 0 y 50))
+ :cite (feron-ieee10)
  [= i 0.0]
  [= eps 0.01]
  [= e 1.0]
@@ -111,8 +131,12 @@
    [= e (abs (- yc xc1))])
  (output xc1))
 
-;; Rocket trajectory
 (function
+ :name "Rocket Trajectory"
+ :status unknown
+ :description "Compute the trajectory of a rocket around the earth."
+ :inputs "Mass `Mf`; acceleration `A`"
+ :cite (damouche-martel-chapoutot-cf15)
  [= R 6400.0e3]
  [= G 6.67428e-11]
  [= Mt 5.9736e24]
@@ -175,8 +199,12 @@
    [= mf_im1 mf_i])
  (output x y))
 
-;; Jacobi's Method
 (function
+ :name "Jacobi's Method"
+ :status unknown
+ :description "Solve a linear system `Ax = b`."
+ :inputs "Array entries `aij`; vector entries `bi`"
+ :cite (atkinson-1989)
  [= i 0.0]
  [= eps 0.00000000000000001]
  [= x1 0.0]
@@ -210,8 +238,13 @@
    [= x4 x_n4])
  (output i x_n2 x2 e))
 
-;; Newton-Raphson's Method
 (function
+ :name "Newton-Raphson's Method"
+ :status unknown
+ :description "Find the zeros of a function `f = (x - 2)**5`."
+ :inputs "Initial guess `x0`"
+ :pre (< 0 x0 3)
+ :cite (atkinson-1989)
  [= eps 0.005]
  [= i 0.0]
  [= e 1.0]
@@ -228,8 +261,13 @@
    [= e (if (< e 0.0) (* e -1.0) (* e 1.0))])
  (output i x x_n e))
 
-;; Eigenvalue Computation
 (function
+ :name "Eigenvalue Computation"
+ :status bug
+ :description "Compute the largest eigenvalue of a matrix and return its vector."
+ :inputs "Matrix `aij`; initial guess `vi` with one nonzero element"
+ :pre (< 150 d 200)
+ :cite (golub-vanloan-1996)
  [= i 0.0]
  [= eps 0.0005]
  [= d 150.0]
@@ -268,8 +306,13 @@
    [= e (abs (- 1.0 v1))])
  (output i v1 vz e))
 
-;; Iterative Gram-Schmidt Method
 (function
+ :name "Iterative Gram-Schmidt Method"
+ :status unknown
+ :description "Orthogonalize a set of non-zero vectors in a Euclidian or Hermitian space."
+ :inputs "Vectors `Qij`"
+ :pre (and (< 1.0 Q11 (/ 1 7)) (< 1 Q22 (/ 1 25)))
+ :cite (abdelmalek-bit71 golub-vanloan-1996 hernandez-roman-tomas-vidal-tr07)
  [= Q11 (/ 1.0 63.0)]
  [= Q12 0.0]
  [= Q13 0.0]

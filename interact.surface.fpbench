@@ -1,5 +1,63 @@
 ;; -*- mode: scheme -*-
 
+;; Odometry
+(function
+ [= cosi 0.0]
+ [= sini 0.0]
+ [= arg 0.0]
+ [= delta_d 0.0]
+ [= delta_dl 0.0]
+ [= delta_dr 0.0]
+ [= delta_theta 0.0]
+ [= sr 0.0785398163397]
+ [= sl 0.0525398163397]
+ [= theta -0.985]
+ [= t 0]
+ [= x 0.0]
+ [= y 0.0]
+ [= inv_l 0.1]
+ [= c 12.34]
+ [= j 0]
+ (while (< t 1000)
+   [= delta_dl (* c sl)]
+   [= delta_dr (* c sr)]
+   [= delta_d (* (+ delta_dl delta_dr) 0.5)]
+   [= delta_theta (* (- delta_dr delta_dl) inv_l)]
+   [= arg (+ theta (* delta_theta 0.5))]
+   [= cosi (cos arg)]
+   [= x (+ x (* delta_d cosi))]
+   [= sini (sin arg)]
+   [= y (+ y (* delta_d sini))]
+   [= theta (+ theta delta_theta)]
+   [= t (+ t 1)]
+   [= j (if (== j 50) 0 (+ j 1))]
+   [= sl (if (== j 50) sr sl)]
+   [= sr (if (== j 50) sl sr)])
+ (output x y))
+
+;; PID
+(function
+ [= t 0.0]
+ [= kp 9.4514]
+ [= ki 0.69006]
+ [= kd 2.8454]
+ [= invdt 5.0]
+ [= dt 0.2]
+ [= m -5.0]
+ [= c 0.0]
+ [= eold 0.0]
+ [= i 0.0]
+ (while (< t 100.0)
+   [= e (- c m)]
+   [= p (* kp e)]
+   [= i (+ i (* ki dt e))]
+   [= d (* kd invdt (- e eold))]
+   [= r (+ p i d)]
+   [= m (+ m (* 0.01 r))]
+   [= eold e]
+   [= t (+ t dt)])
+ (output m))
+
 ;; Runge-Kutta 4
 (function
  [= sixieme (/ 1 6)]
@@ -24,23 +82,98 @@
  [= e (abs e)]
  (output i e))
 
-;; Newton-Raphson's Method
+;; Lead-lag System
 (function
- [= eps 0.005]
  [= i 0.0]
+ [= eps 0.01]
  [= e 1.0]
- [= x 0.0]
- [= x0 0.0]
- (while (and (> e eps) (< i 100000))
-   [= f (- (+ (- (+ (- (* x x x x x) (* 10.0 x x x x)) (* 40.0 x x x))
-                 (* 80.0 x x)) (* 80.0 x)) 32.0)]
-   [= ff (+ (- (+ (- (* 5.0 x x x x) (* 40.0 x x x)) (* 120.0 x x)) (* 160.0 x)) 80.0)]
-   [= x_n (- x (/ f ff))]
-   [= e (- x x_n)]
-   [= x x_n]
+ [= y 2.5]
+ [= xc0 0.0]
+ [= xc1 0.0]
+ [= Ac00 0.4990]
+ [= Ac01 -0.0500]
+ [= Ac10 0.0100]
+ [= Ac11 1.0000]
+ [= Bc0 1.0]
+ [= Bc1 0.0]
+ [= Cc0 564.48]
+ [= Cc1 0.0]
+ [= Dc -1280.0]
+ [= yd 5.0]
+ (while (> e eps)
+   [= yc (- y yd)]
+   [= yc (if (< yc -1.0) -1.0 yc)]
+   [= yc (if (< 1.0 yc) 1.0 yc)]
+   [= u (+ (* Cc0 xc0) (+ (* Cc1 xc1) (* Dc yc)))]
+   [= xc0 (+ (* Ac00 xc0) (+ (* Ac01 xc1) (* Bc0 yc)))]
+   [= xc1 (+ (* Ac10 xc0) (+ (* Ac11 xc1) (* Bc1 yc)))]
    [= i (+ i 1.0)]
-   [= e (if (< e 0.0) (* e -1.0) (* e 1.0))])
- (output i x x_n e))
+   [= e (abs (- yc xc1))])
+ (output xc1))
+
+;; Rocket trajectory
+(function
+ [= R 6400.0e3]
+ [= G 6.67428e-11]
+ [= Mt 5.9736e24]
+ [= Mf 150000.0]
+ [= A 140.0]
+ [= dt 0.1]
+ [= T (* 24.0 3600.0)]
+ [= nombrepas (/ T dt)]
+ [= r0 (+ (* 400.0 10e3) R)]
+ [= vr0 0.0]
+ [= teta0 0.0]
+ [= viss (sqrt (/ (* G Mt) r0))]
+ [= vteta0 (/ viss r0)]
+ [= rf R]
+ [= vrf 0.0]
+ [= tetaf 0.0]
+ [= vl (sqrt (/ (* G Mt) R))]
+ [= vlrad (/ vl r0)]
+ [= vtetaf (* 1.1 vlrad)]
+ [= u1_im1 r0]
+ [= u2_im1 vr0]
+ [= u3_im1 teta0]
+ [= u4_im1 vteta0]
+ [= w1_im1 rf]
+ [= w2_im1 vrf]
+ [= w3_im1 tetaf]
+ [= w4_im1 vtetaf]
+ [= i 1.0]
+ [= mf_im1 Mf]
+ [= t_im1 0.0]
+ (while (< i 2000000.0)
+   [= t_i (+ t_im1 dt)]
+   [= mf_i (- mf_im1 (* A t_im1))]
+   [= u1_i (+ (* u2_im1 dt) u1_im1)]
+   [= u3_i (+ (* ur_im1 dt) u3_im1)]
+   [= w1_i (+ (* w2_im1 dt) w1_im1)]
+   [= w3_i (+ (* w4_im1 dt) w3_im1)]
+   [= u2_i (+ (* (- G) (/ Mt (sqr u1_im1)) dt) (* u1_im1 u4_im1 u4_im1 dt))]
+   [= u4_i (+ (+ (* -2.0 (* u2_im1 (/ u4_im u1_im1)) dt) u4_im1))]
+   [= w2_i (+ (* (- G) (/ Mt (sqr w1_im1)) dt) (* w1_im1 w4_im1 w4_im1 dt)
+              (if (> mf_im1 0.0) (* (/ (* A w2_im1) (- Mf (* A t_im1))) dt) 0.0)
+              w2_im1)]
+   [= w4_i (+ (* -2.0 (* w2_im1 (/ w4_im1 w1_im1)) dt)
+              (+ (if (> mf_im1 0.0) (* A (* (/ w4_im1 (- Mf (* A t_im1))) dt)) 0.0)
+                 w4_im1))]
+   [= c (cos u3_i)]
+   [= s (sin u3_i)]
+   [= x (* u1_i c)]
+   [= y (* u1_i s)]
+   [= i (+ i 1.0)]
+   [= u1_im1 u1_i]
+   [= u2_im1 u2_i]
+   [= u3_im1 u3_i]
+   [= u4_im1 u4_i]
+   [= w1_im1 w1_i]
+   [= w2_im1 w2_i]
+   [= w3_im1 w3_i]
+   [= w4_im1 w4_i]
+   [= t_im1 t_i]
+   [= mf_im1 mf_i])
+ (output x y))
 
 ;; Jacobi's Method
 (function
@@ -76,6 +209,24 @@
    [= x3 x_n3]
    [= x4 x_n4])
  (output i x_n2 x2 e))
+
+;; Newton-Raphson's Method
+(function
+ [= eps 0.005]
+ [= i 0.0]
+ [= e 1.0]
+ [= x 0.0]
+ [= x0 0.0]
+ (while (and (> e eps) (< i 100000))
+   [= f (- (+ (- (+ (- (* x x x x x) (* 10.0 x x x x)) (* 40.0 x x x))
+                 (* 80.0 x x)) (* 80.0 x)) 32.0)]
+   [= ff (+ (- (+ (- (* 5.0 x x x x) (* 40.0 x x x)) (* 120.0 x x)) (* 160.0 x)) 80.0)]
+   [= x_n (- x (/ f ff))]
+   [= e (- x x_n)]
+   [= x x_n]
+   [= i (+ i 1.0)]
+   [= e (if (< e 0.0) (* e -1.0) (* e 1.0))])
+ (output i x x_n e))
 
 ;; Eigenvalue Computation
 (function
@@ -116,35 +267,6 @@
    [= v4 1.0]
    [= e (abs (- 1.0 v1))])
  (output i v1 vz e))
-
-;; Lead-lag System
-(function
- [= i 0.0]
- [= eps 0.01]
- [= e 1.0]
- [= y 2.5]
- [= xc0 0.0]
- [= xc1 0.0]
- [= Ac00 0.4990]
- [= Ac01 -0.0500]
- [= Ac10 0.0100]
- [= Ac11 1.0000]
- [= Bc0 1.0]
- [= Bc1 0.0]
- [= Cc0 564.48]
- [= Cc1 0.0]
- [= Dc -1280.0]
- [= yd 5.0]
- (while (> e eps)
-   [= yc (- y yd)]
-   [= yc (if (< yc -1.0) -1.0 yc)]
-   [= yc (if (< 1.0 yc) 1.0 yc)]
-   [= u (+ (* Cc0 xc0) (+ (* Cc1 xc1) (* Dc yc)))]
-   [= xc0 (+ (* Ac00 xc0) (+ (* Ac01 xc1) (* Bc0 yc)))]
-   [= xc1 (+ (* Ac10 xc0) (+ (* Ac11 xc1) (* Bc1 yc)))]
-   [= i (+ i 1.0)]
-   [= e (abs (- yc xc1))])
- (output xc1))
 
 ;; Iterative Gram-Schmidt Method
 (function
@@ -190,77 +312,3 @@
    [= i (+ i 1.0)]
    [= rold rjj])
  (output i qj1 qj2 qj3 e))
-
-;; Rocket trajectory
-(function
- [= R 6400.0e3]
- [= G 6.67428e-11]
- [= Mt 5.9736e24]
- [= Mf 150000.0]
- [= A 140.0]
-
- [= dt 0.1]
- [= T (* 24.0 3600.0)]
- [= nombrepas (/ T dt)]
-
- [= r0 (+ (* 400.0 10e3) R)]
- [= vr0 0.0]
- [= teta0 0.0]
- [= viss (sqrt (/ (* G Mt) r0))]
- [= vteta0 (/ viss r0)]
-
- [= rf R]
- [= vrf 0.0]
- [= tetaf 0.0]
-
- [= vl (sqrt (/ (* G Mt) R))]
- [= vlrad (/ vl r0)]
- [= vtetaf (* 1.1 vlrad)]
-
- [= u1_im1 r0]
- [= u2_im1 vr0]
- [= u3_im1 teta0]
- [= u4_im1 vteta0]
- [= w1_im1 rf]
- [= w2_im1 vrf]
- [= w3_im1 tetaf]
- [= w4_im1 vtetaf]
- [= i 1.0]
-
- [= mf_im1 Mf]
- [= t_im1 0.0]
- 
- (while (< i 2000000.0)
-   [= t_i (+ t_im1 dt)]
-   [= mf_i (- mf_im1 (* A t_im1))]
-   [= u1_i (+ (* u2_im1 dt) u1_im1)]
-   [= u3_i (+ (* ur_im1 dt) u3_im1)]
-   [= w1_i (+ (* w2_im1 dt) w1_im1)]
-   [= w3_i (+ (* w4_im1 dt) w3_im1)]
-   [= u2_i (+ (* (- G) (/ Mt (sqr u1_im1)) dt) (* u1_im1 u4_im1 u4_im1 dt))]
-   [= u4_i (+ (+ (* -2.0 (* u2_im1 (/ u4_im u1_im1)) dt) u4_im1))]
-
-   [= w2_i (+ (* (- G) (/ Mt (sqr w1_im1)) dt) (* w1_im1 w4_im1 w4_im1 dt)
-              (if (> mf_im1 0.0) (* (/ (* A w2_im1) (- Mf (* A t_im1))) dt) 0.0)
-              w2_im1)]
-   [= w4_i (+ (* -2.0 (* w2_im1 (/ w4_im1 w1_im1)) dt)
-              (+ (if (> mf_im1 0.0) (* A (* (/ w4_im1 (- Mf (* A t_im1))) dt)) 0.0)
-                 w4_im1))]
-
-   [= c (cos u3_i)]
-   [= s (sin u3_i)]
-   [= x (* u1_i c)]
-   [= y (* u1_i s)]
-   [= i (+ i 1.0)]
-
-   [= u1_im1 u1_i]
-   [= u2_im1 u2_i]
-   [= u3_im1 u3_i]
-   [= u4_im1 u4_i]
-   [= w1_im1 w1_i]
-   [= w2_im1 w2_i]
-   [= w3_im1 w3_i]
-   [= w4_im1 w4_i]
-   [= t_im1 t_i]
-   [= mf_im1 mf_i])
- (output x y))

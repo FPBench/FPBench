@@ -1,7 +1,7 @@
 #lang racket
 
 (define (attribute? symb)
-  (and (symbol? symb) (string-prefix (symbol->string symb) ":")))
+  (and (symbol? symb) (string-prefix? (symbol->string symb) ":")))
 
 (define (canonicalize-program prog)
   (match-define (list 'lambda (list args ...) props&body ...) prog)
@@ -43,6 +43,7 @@
   [((list 'atan2 a b)) (format "atan2(~a, ~a)" a b)]
   [((list '> a b))     (format "(~a > ~a)" a b)]
   [((list '< a b))     (format "(~a < ~a)" a b)]
+  [((list '== a b))    (format "(~a == ~a)" a b)]
   [((list '<= a b))    (format "(~a <= ~a)" a b)]
   [((list '>= a b))    (format "(~a >= ~a)" a b)]
   [((list 'and a b))   (format "(~a && ~a)" a b)]
@@ -53,23 +54,26 @@
   [((list (or '> '< '>= '<= 'and 'or) _ ...) ftype) 'bool]
   [(_ ftype) fptype])
 
-(define/match (value->c expr)
-  [('E) "exp(1.0)"]
-  [('PI) "atan2(1.0, 0.0)"]
-  [((? symbol?)) (fix-name expr)]
-  [((? number?)) (~a (real->double-flonum expr))])
+(define/match (value->c expr #:type [type 'double])
+  [('E _) "exp(1.0)"]
+  [('PI _) "atan2(1.0, 0.0)"]
+  [((? symbol?) _) (fix-name expr)]
+  [((? number?) 'float) (format "~af" (real->double-flonum expr))]
+  [((? number?) 'double) (format "~a" (real->double-flonum expr))])
 
-(define/match (if->c expr)
-  [(`(if ,cond ,ift ,iff))
-   (format "(~a ? ~a : ~a)" (expr->c cond) (expr->c ift) (expr->c iff))])
+(define/match (if->c expr #:type [type 'double])
+  [(`(if ,cond ,ift ,iff) _)
+   (format "(~a ? ~a : ~a)" (expr->c cond #:type type) (expr->c ift #:type type) (expr->c iff #:type type))])
 
-(define/match (expr->c expr)
-  [(`(if ,cond ,ift ,iff)) (if->c expr)]
-  [((? list?)) (apply application->c (car expr) (map expr->c (cdr expr)))]
-  [(_) (value->c expr)])
+(define/match (expr->c expr #:type [type 'double])
+  [(`(if ,cond ,ift ,iff) _) (if->c expr #:type type)]
+  [((? list?) _) (apply application->c (car expr) (map (λ (x) (expr->c x #:type type)) (cdr expr)))]
+  [(_ _) (value->c expr #:type type)])
 
 (define (function->c args body #:type [type 'double] #:name [name 'f])
-  (define arg-strings (for/list ([var args]) (format "~a ~a" type (fix-name var))))
+  (define arg-strings
+    (for/list ([var args])
+      (format "~a ~a" type (fix-name (if (list? var) (car var) var)))))
   (format "~a ~a(~a) {\n~a}\n"
           type name (string-join arg-strings ", ")
           (with-output-to-string (λ () (program->c body #:type type)))))
@@ -78,20 +82,20 @@
   (match body
     [`(let* ([,vars ,vals] ...) ,retexpr)
      (for ([var vars] [val vals])
-       (printf "\t~a ~a = ~a;\n" (typeof val #:fptype type) var (expr->c val)))
+       (printf "\t~a ~a = ~a;\n" (typeof val #:fptype type) var (expr->c val #:type type)))
      (program->c retexpr #:type type)]
     [`(while ,cond ([,vars ,inits ,updates] ...) ,retexpr)
      (for ([var vars] [init inits])
-       (printf "\t~a ~a = ~a;\n" (typeof init #:fptype type) var (expr->c init)))
-     (printf "\twhile (~a) {\n" (expr->c cond))
+       (printf "\t~a ~a = ~a;\n" (typeof init #:fptype type) var (expr->c init #:type type)))
+     (printf "\twhile (~a) {\n" (expr->c cond #:type type))
      (for ([var vars] [update updates])
-       (printf "\t\t~a next_~a = ~a;\n" (typeof update #:fptype type) var (expr->c update)))
+       (printf "\t\t~a next_~a = ~a;\n" (typeof update #:fptype type) var (expr->c update #:type type)))
      (for ([var vars])
        (printf "\t\t~a = next_~a;\n" var var))
      (printf "\t}\n")
      (program->c retexpr #:type type)]
     [_
-     (printf "\treturn ~a;\n" (expr->c body))]))
+     (printf "\treturn ~a;\n" (expr->c body #:type type))]))
 
 (module+ main
   (require racket/cmdline)
@@ -101,5 +105,6 @@
    #:args ()
    (for ([expr (in-port read (current-input-port))])
      (define-values (args body props) (canonicalize-program expr))
-     (printf "~a" (function->c args body))
+     (define type (if (assoc ':type props) (cdr (assoc ':type props)) 'double))
+     (printf "~a" (function->c args body #:type type))
      (newline))))

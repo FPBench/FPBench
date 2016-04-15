@@ -4,7 +4,6 @@
   (and (symbol? symb) (string-prefix? (symbol->string symb) ":")))
 
 (define (canonicalize body)
-  (pretty-print body)
   (match body
     [(or 'E 'PI) body]
     [`(+ ,branch) (canonicalize branch)]
@@ -93,10 +92,16 @@
        (error "(while) loop cannot contain (output) expression."))
      
      (define binds-extension (drop outb (length subb)))
+     
+     (define cond-expr (substitute (canonicalize cond) subb))
 
      (define binds-extension*
-       (for/list ([bind binds-extension])
-         (if (ormap (compose (curryr appears? (car bind)) cdr) binds-extension)
+       (for/list ([bind binds-extension] #:when (not (null? (cdr bind))))
+         (define appears-in-rest
+           (or (appears? cond-expr (car bind))
+               (for/or ([other binds-extension] #:when (not (null? (cdr other))))
+                 (appears? (cdr other) (car bind)))))
+         (if appears-in-rest
              bind
              (list (car bind)))))
 

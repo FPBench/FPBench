@@ -5,6 +5,7 @@
  :status bug
  :description "Compute the position of a robot from the speed of the wheels."
  :inputs "Speed `sl`, `sr` of the left and right wheel, in rad/s"
+ :type float
  :pre (and (< 0.05 sl (* 2 PI)) (< 0.05 sr (* 2 PI)))
  :cite (damouche-martel-chapoutot-fmics15)
  [= cosi 0.0]
@@ -35,9 +36,17 @@
    [= y (+ y (* delta_d sini))]
    [= theta (+ theta delta_theta)]
    [= t (+ t 1)]
-   [= j (if (== j 50) 0 (+ j 1))]
+   (if
+    [(== j 50)
+     [= j 0]
+     [= tmp sl]
+     [= sl sr]
+     [= sr tmp]]
+    [else
+     [= j (+ j 1)]])
    [= sl (if (== j 50) sr sl)]
-   [= sr (if (== j 50) sl sr)])
+   [= sr (if (== j 50) sl sr)]
+   [= j (if (== j 50) 0 (+ j 1))])
  (output x y))
 
 (function
@@ -45,6 +54,7 @@
   :status good
   :description "Keep a measure at its setpoint using a PID controller."
   :inputs "Measure `m`; gains `kp`, `ki`, `kd`; setpoint `c`"
+  :type double
   :pre (and (< -10.0 m 10.0) (< -10.0 c 10.0))
   :cite (damouche-martel-chapoutot-nsv14)
  [= t 0.0]
@@ -70,9 +80,10 @@
 
 (function
  :name "Runge-Kutta 4"
- :status unknown
+ :status good
  :description "Solve the differential equation `y' = (c - y)^2"
  :inputs "Step size `h`; initial condition `y_n*`; paramter `c`"
+ :type float
  :pre (and (< 0 y_n 100) (< 10e-6 h 0.1) (< 50 c 200))
  :cite (damouch-martel-chapoutot-fmics15)
  [= sixieme (/ 1 6)]
@@ -99,9 +110,10 @@
 
 (function
  :name "Lead-lag System"
- :status unknown
+ :status good
  :description "Move a mass from an initial position to a desired position."
  :inputs "Initial position `y`; desired position `yd`"
+ :type float
  :pre (and (< 0 yd 50) (< 0 y 50))
  :cite (feron-ieee10)
  [= i 0.0]
@@ -133,9 +145,10 @@
 
 (function
  :name "Rocket Trajectory"
- :status unknown
+ :status good
  :description "Compute the trajectory of a rocket around the earth."
  :inputs "Mass `Mf`; acceleration `A`"
+ :type float
  :cite (damouche-martel-chapoutot-cf15)
  [= R 6400.0e3]
  [= G 6.67428e-11]
@@ -171,11 +184,11 @@
    [= t_i (+ t_im1 dt)]
    [= mf_i (- mf_im1 (* A t_im1))]
    [= u1_i (+ (* u2_im1 dt) u1_im1)]
-   [= u3_i (+ (* ur_im1 dt) u3_im1)]
+   [= u3_i (+ (* u4_im1 dt) u3_im1)]
    [= w1_i (+ (* w2_im1 dt) w1_im1)]
    [= w3_i (+ (* w4_im1 dt) w3_im1)]
    [= u2_i (+ (* (- G) (/ Mt (sqr u1_im1)) dt) (* u1_im1 u4_im1 u4_im1 dt))]
-   [= u4_i (+ (+ (* -2.0 (* u2_im1 (/ u4_im u1_im1)) dt) u4_im1))]
+   [= u4_i (+ (+ (* -2.0 (* u2_im1 (/ u4_im1 u1_im1)) dt) u4_im1))]
    [= w2_i (+ (* (- G) (/ Mt (sqr w1_im1)) dt) (* w1_im1 w4_im1 w4_im1 dt)
               (if (> mf_im1 0.0) (* (/ (* A w2_im1) (- Mf (* A t_im1))) dt) 0.0)
               w2_im1)]
@@ -201,9 +214,10 @@
 
 (function
  :name "Jacobi's Method"
- :status unknown
+ :status good
  :description "Solve a linear system `Ax = b`."
  :inputs "Array entries `aij`; vector entries `bi`"
+ :type float
  :cite (atkinson-1989)
  [= i 0.0]
  [= eps 0.00000000000000001]
@@ -240,12 +254,13 @@
 
 (function
  :name "Newton-Raphson's Method"
- :status unknown
+ :status good
  :description "Find the zeros of a function `f = (x - 2)**5`."
  :inputs "Initial guess `x0`"
+ :type float
  :pre (< 0 x0 3)
  :cite (atkinson-1989)
- [= eps 0.005]
+ [= eps 0.0005]
  [= i 0.0]
  [= e 1.0]
  [= x 0.0]
@@ -255,18 +270,18 @@
                  (* 80.0 x x)) (* 80.0 x)) 32.0)]
    [= ff (+ (- (+ (- (* 5.0 x x x x) (* 40.0 x x x)) (* 120.0 x x)) (* 160.0 x)) 80.0)]
    [= x_n (- x (/ f ff))]
-   [= e (- x x_n)]
+   [= e (abs (- x x_n))]
    [= x x_n]
-   [= i (+ i 1.0)]
-   [= e (if (< e 0.0) (* e -1.0) (* e 1.0))])
+   [= i (+ i 1.0)])
  (output i x x_n e))
 
 (function
  :name "Eigenvalue Computation"
- :status bug
+ :status good
  :description "Compute the largest eigenvalue of a matrix and return its vector."
  :inputs "Matrix `aij`; initial guess `vi` with one nonzero element"
  :pre (< 150 d 200)
+ :type float
  :cite (golub-vanloan-1996)
  [= i 0.0]
  [= eps 0.0005]
@@ -304,14 +319,15 @@
    [= v3 (/ vz vw)]
    [= v4 1.0]
    [= e (abs (- 1.0 v1))])
- (output i v1 vz e))
+ (output i v1 #|vz|# e))
 
 (function
  :name "Iterative Gram-Schmidt Method"
- :status unknown
+ :status good
  :description "Orthogonalize a set of non-zero vectors in a Euclidian or Hermitian space."
  :inputs "Vectors `Qij`"
  :pre (and (< 1.0 Q11 (/ 1 7)) (< 1 Q22 (/ 1 25)))
+ :type float
  :cite (abdelmalek-bit71 golub-vanloan-1996 hernandez-roman-tomas-vidal-tr07)
  [= Q11 (/ 1.0 63.0)]
  [= Q12 0.0]
@@ -349,7 +365,7 @@
    [= r2 (+ r2 h2)]
    [= r3 (+ r3 h3)]
    ;; rjj = ||qj||2
-   [= r (+ (sqr sqj) (sqr qj2) (sqr qj3))]
+   [= r (+ (sqr qj1) (sqr qj2) (sqr qj3))]
    [= rjj (sqrt r)]
    [= e (abs (- 1.0 (/ rjj rold)))]
    [= i (+ i 1.0)]

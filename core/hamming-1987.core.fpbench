@@ -2,123 +2,151 @@
 
 (lambda (x)
   :name "NMSE example 3.1"
+  :cite (hamming-1987)
   (- (sqrt (+ x 1)) (sqrt x)))
 
 (lambda (x eps)
   :name "NMSE example 3.3"
+  :cite (hamming-1987)
   (- (sin (+ x eps)) (sin x)))
 
 (lambda (x)
   :name "NMSE example 3.4"
+  :cite (hamming-1987)
   (/ (- 1 (cos x)) (sin x)))
 
 (lambda (N)
   :name "NMSE example 3.5"
+  :cite (hamming-1987)
   (- (atan (+ N 1)) (atan N)))
 
 (lambda (x)
   :name "NMSE example 3.6"
+  :cite (hamming-1987)
   (- (/ 1 (sqrt x)) (/ 1 (sqrt (+ x 1)))))
 
 (lambda (x)
   :name "NMSE problem 3.3.1"
+  :cite (hamming-1987)
   (- (/ 1 (+ x 1)) (/ 1 x)))
 
 (lambda (x eps)
   :name "NMSE problem 3.3.2"
+  :cite (hamming-1987)
   (- (tan (+ x eps)) (tan x)))
 
 (lambda (x)
   :name "NMSE problem 3.3.3"
+  :cite (hamming-1987)
   (+ (- (/ 1 (+ x 1)) (/ 2 x)) (/ 1 (- x 1))))
 
 (lambda (x)
   :name "NMSE problem 3.3.4"
+  :cite (hamming-1987)
   (- (expt (+ x 1) (/ 1 3)) (expt x (/ 1 3))))
 
 (lambda (x eps)
   :name "NMSE problem 3.3.5"
+  :cite (hamming-1987)
   (- (cos (+ x eps)) (cos x)))
 
 (lambda (N)
   :name "NMSE problem 3.3.6"
+  :cite (hamming-1987)
   (- (log (+ N 1)) (log N)))
 
 (lambda (x)
   :name "NMSE problem 3.3.7"
+  :cite (hamming-1987)
   (+ (- (exp x) 2) (exp (- x))))
 
 (lambda (a b c)
   :name "NMSE p42, positive"
   :pre (> (sqr b) (* 4 (* a c)))
+  :cite (hamming-1987)
   (/ (+ (- b) (sqrt (- (sqr b) (* 4 (* a c))))) (* 2 a)))
 
 (lambda (a b c)
   :name "NMSE p42, negative"
   :pre (> (sqr b) (* 4 (* a c)))
+  :cite (hamming-1987)
   (/ (- (- b) (sqrt (- (sqr b) (* 4 (* a c))))) (* 2 a)))
 
 (lambda (a b2 c)
   :name "NMSE problem 3.2.1, positive"
   :pre (> (sqr b2) (* a c))
+  :cite (hamming-1987)
   (/ (+ (- b2) (sqrt (- (sqr b2) (* a c)))) a))
 
 (lambda (a b2 c)
   :name "NMSE problem 3.2.1, negative"
   :pre (> (sqr b2) (* a c))
+  :cite (hamming-1987)
   (/ (- (- b2) (sqrt (- (sqr b2) (* a c)))) a))
 
 (lambda (x)
   :name "NMSE example 3.7"
   :pre (< -0.00017 x)
+  :cite (hamming-1987)
   (- (exp x) 1))
 
 (lambda (N)
   :name "NMSE example 3.8"
   :pre (> N 6.8e15)
+  :cite (hamming-1987)
   (- (* (+ N 1) (log (+ N 1))) (* N (log N)) 1))
   
 (lambda (x)
   :name "NMSE example 3.9"
   :pre (and (< -0.026 x) (< x 0.026))
+  :cite (hamming-1987)
   (- (/ 1 x) (cotan x)))
 
 (lambda (x)
   :name "NMSE example 3.10"
   :pre (< (abs x) 1)
+  :cite (hamming-1987)
   (/ (log (- 1 x)) (log (+ 1 x))))
   
 (lambda (x)
   :name "NMSE problem 3.4.1"
+  :cite (hamming-1987)
   (/ (- 1 (cos x)) (sqr x)))
 
 (lambda (a b eps)
   :name "NMSE problem 3.4.2"
   :pre (< (abs x) 1)
+  :cite (hamming-1987)
   (/ (* eps (- (exp (* (+ a b) eps)) 1))
      (* (- (exp (* a eps)) 1) (- (exp (* b eps)) 1))))
 
 (lambda (eps)
   :name "NMSE problem 3.4.3"
   :pre (< (abs eps) 1)
+  :cite (hamming-1987)
   (log (/ (- 1 eps) (+ 1 eps))))
 
 (lambda (x)
   :name "NMSE problem 3.4.4"
+  :cite (hamming-1987)
   (sqrt (/ (- (exp (* 2 x)) 1) (- (exp x) 1))))
 
 (lambda (x)
   :name "NMSE problem 3.4.5"
+  :cite (hamming-1987)
   (/ (- x (sin x)) (- x (tan x))))
 
 (lambda (x n)
   :name "NMSE problem 3.4.6"
+  :cite (hamming-1987)
   (- (expt (+ x 1) (/ 1 n)) (expt x (/ 1 n))))
 
 (lambda (a x)
   :name "NMSE section 3.5"
+  :cite (hamming-1987)
   (- (exp (* a x)) 1))
 
 (lambda (x)
   :name "NMSE section 3.11"
+  :cite (hamming-1987)
   (/ (exp x) (- (exp x) 1)))

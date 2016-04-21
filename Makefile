@@ -6,3 +6,6 @@ core/%.core.fpbench: surface/%.surface.fpbench
 c/%.c: core/%.core.fpbench
 	printf "#include <tgmath.h>\n\n" > $@
 	racket tools/core2c.rkt < $^ >> $@
+
+table.html: $(wildcard core/*.core.fpbench)
+	cat $^ | racket tools/core2table.rkt > $@

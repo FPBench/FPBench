@@ -1,6 +1,6 @@
 ;; -*- mode: scheme -*-
 
-(lambda (((c . 12.34) ((inv_l . 0.1))) ((j . 0) ((c . 12.34) (inv_l . 0.1))))
+(lambda ((inv_l 0.1) (c 12.34))
   :name
   "Odometry"
   :status
@@ -33,8 +33,6 @@
        (sin (+ theta (* (* (- (* c sr) (* c sl)) inv_l) 0.5))))))
     (theta -0.985 (+ theta (* (- (* c sr) (* c sl)) inv_l)))
     (t 0 (+ t 1))
-    (c c c)
-    (inv_l inv_l inv_l)
     (sr 0.0785398163397 (if (== j 50) sl sr))
     (sl 0.0525398163397 (if (== j 50) sr sl))
     (tmp 0.0 (if (== j 50) sl tmp))

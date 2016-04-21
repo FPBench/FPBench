@@ -150,7 +150,7 @@
        (error "(if) statement cannot contain (output) expression."))
 
      ;; We've now run every branch and have to merge them.
-     (define constants* (set-intersect outcs))
+     (define constants* (apply set-intersect outcs))
 
      (define vars
        (remove-duplicates

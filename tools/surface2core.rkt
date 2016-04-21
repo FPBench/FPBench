@@ -54,7 +54,12 @@
            (cons (list var) (loop bindings* clean)))]
       ['() clean])))
 
-(define/match (merge-values conds vals)
+(define (merge-values conds vals)
+  (if (andmap (curryr equal? (car vals)) vals)
+      (car vals)
+      (merge-values* conds vals)))
+
+(define/match (merge-values* conds vals)
   [((list 'else) (list x)) x]
   [((list c cs ...) (list x xs ...))
    `(if ,c ,x ,(merge-values cs xs))])
@@ -99,14 +104,21 @@
      (when (not (equal? outexpr 'UNUSED))
        (error "(while) loop cannot contain (output) expression."))
      
-     (define binds-extension (drop outb (length subb)))
-     
      (define cond-expr (substitute (canonicalize cond) subb))
+
+     (define newb
+       (append (map list trashed) subb))
+
+     (define-values (out endb endc)
+       (compile-statements rest newb outc))
+     
+     (define binds-extension (drop outb (length subb)))
 
      (define binds-extension*
        (for/list ([bind binds-extension] #:when (not (null? (cdr bind))))
          (define appears-in-rest
            (or (appears? cond-expr (car bind))
+               (appears? out (car bind))
                (for/or ([other binds-extension] #:when (not (null? (cdr other))))
                  (appears? (cdr other) (car bind)))))
          (if appears-in-rest
@@ -115,17 +127,14 @@
 
      (define loopvars
        (for/list ([bind binds-extension*] #:when (not (null? (cdr bind))))
-         (define init-rec (assoc (car bind) (append notc bindings)))
+         (define init-rec
+           (or (assoc (car bind) (append notc bindings))
+               (cons (car bind) 0.0))) ; Use 0.0 if initial not found
          (define init (if (null? (cdr init-rec)) (car bind) (cdr init-rec)))
          `[,(car bind) ,init ,(cdr bind)]))
 
-     (define newb
-       (append (map list trashed) subb))
-
-     (define-values (out endb endc)
-       (compile-statements rest newb outc))
-
-     (values `(while ,(canonicalize cond) ,loopvars ,out) endb endc)]
+     (values `(while ,(canonicalize cond)
+                ,(remove-duplicates loopvars #:key car) ,out) endb endc)]
     [(list `(if [,conds ,stmtss ...] ...) rest ...)
      (define conds*
        (for/list ([cond conds])
@@ -162,7 +171,7 @@
                     [((cons _ val) _) val]
                     [(_ _) var]))))))
 
-     (values 'UNUSED (append joined bindings) constants*)]))
+     (compile-statements rest (append joined bindings) constants*)]))
 
 (define (compile-program body)
   (match-define `(function ,lines ...) body)
@@ -190,5 +199,6 @@
    #:program "surface-to-core.rkt"
    #:args ()
    (for ([expr (in-port read (current-input-port))])
-     (pretty-print (compile-program expr) (current-output-port) 1)
+     (pretty-print (compile-program expr) (current-output-port) 1
+)
      (newline))))

@@ -54,6 +54,11 @@
            (cons (list var) (loop bindings* clean)))]
       ['() clean])))
 
+(define/match (merge-values conds vals)
+  [((list 'else) (list x)) x]
+  [((list c cs ...) (list x xs ...))
+   `(if ,c ,x ,(merge-values cs xs))])
+
 ;; Bindings store variable-value bindings in an alist.
 
 (define (assigned statements)
@@ -62,7 +67,10 @@
     [(list `[= ,(? symbol? var) ,_] rest ...)
      (cons var (assigned rest))]
     [(list `(while ,_ ,sub ...) rest ...)
-     (append (assigned sub) (assigned rest))]))
+     (append (assigned sub) (assigned rest))]
+    [(list `(if [,_ ,subs ...] ...) rest ...)
+     (append (append-map assigned subs) (assigned rest))]
+    ))
 
 (define (compile-statements statements [bindings '((E) (PI))] [constants '()])
   (match statements
@@ -117,10 +125,44 @@
      (define-values (out endb endc)
        (compile-statements rest newb outc))
 
-     (values
-      `(while ,(canonicalize cond) ,loopvars ,out)
-      endb
-      endc)]))
+     (values `(while ,(canonicalize cond) ,loopvars ,out) endb endc)]
+    [(list `(if [,conds ,stmtss ...] ...) rest ...)
+     (define conds*
+       (for/list ([cond conds])
+         (substitute (canonicalize cond) bindings)))
+
+     (define-values (outexprs outbs outcs)
+       (for/lists (outexprs outbs outcs) ([stmts stmtss])
+         (define-values (outexpr outb outc)
+           (compile-statements stmts bindings constants))
+         (values outexpr (drop outb (length bindings)) outc)))
+     
+     (when (not (andmap (curryr equal? 'UNUSED) outexprs))
+       (error "(if) statement cannot contain (output) expression."))
+
+     ;; We've now run every branch and have to merge them.
+     (define constants* (set-intersect outcs))
+
+     (define vars
+       (remove-duplicates
+        (append
+         (append-map (curry map car) outbs)
+         (apply append
+                (for/list ([outc outcs])
+                  (map car (set-subtract outc constants*)))))))
+
+     (define joined
+       (for/list ([var vars])
+         (cons var
+               (merge-values
+                conds*
+                (for/list ([outb outbs] [outc outcs])
+                  (match* ((assoc var outb) (assoc var outc))
+                    [((list _) (cons _ val)) val]
+                    [((cons _ val) _) val]
+                    [(_ _) var]))))))
+
+     (values 'UNUSED (append joined bindings) constants*)]))
 
 (define (compile-program body)
   (match-define `(function ,lines ...) body)
@@ -148,5 +190,5 @@
    #:program "surface-to-core.rkt"
    #:args ()
    (for ([expr (in-port read (current-input-port))])
-     (pretty-print (compile-program expr))
+     (pretty-print (compile-program expr) (current-output-port) 1)
      (newline))))

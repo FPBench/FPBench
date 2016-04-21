@@ -1,6 +1,8 @@
 
 core/%.core.fpbench: surface/%.surface.fpbench
-	racket tools/surface2core.rkt < $^ > $@
+	printf ";; -*- mode: scheme -*-\n\n" > $@
+	racket tools/surface2core.rkt < $^ >> $@
 
 c/%.c: core/%.core.fpbench
-	racket tools/core2c.rkt < $^ > $@
+	printf "#include <tgmath.h>\n\n" > $@
+	racket tools/core2c.rkt < $^ >> $@

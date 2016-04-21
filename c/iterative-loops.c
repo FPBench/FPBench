@@ -1,25 +1,36 @@
+#include <tgmath.h>
+
 float ex0(float _c___12_34_, float _j___0_) {
 	float x = 0.0f;
 	float y = 0.0f;
 	float theta = -0.985f;
 	float t = 0.0f;
+	float c = c;
+	float inv_l = inv_l;
 	float sr = 0.0785398163397f;
 	float sl = 0.0525398163397f;
+	float tmp = 0.0f;
 	float j = 0.0f;
 	while ((t < 1000.0f)) {
 		float next_x = (x + ((((c * sl) + (c * sr)) * 0.5f) * cos((theta + ((((c * sr) - (c * sl)) * inv_l) * 0.5f)))));
 		float next_y = (y + ((((c * sl) + (c * sr)) * 0.5f) * sin((theta + ((((c * sr) - (c * sl)) * inv_l) * 0.5f)))));
 		float next_theta = (theta + (((c * sr) - (c * sl)) * inv_l));
 		float next_t = (t + 1.0f);
+		float next_c = c;
+		float next_inv_l = inv_l;
 		float next_sr = ((j == 50.0f) ? sl : sr);
 		float next_sl = ((j == 50.0f) ? sr : sl);
+		float next_tmp = ((j == 50.0f) ? sl : tmp);
 		float next_j = ((j == 50.0f) ? 0.0f : (j + 1.0f));
 		x = next_x;
 		y = next_y;
 		theta = next_theta;
 		t = next_t;
+		c = next_c;
+		inv_l = next_inv_l;
 		sr = next_sr;
 		sl = next_sl;
+		tmp = next_tmp;
 		j = next_j;
 	}
 	return (x + y);

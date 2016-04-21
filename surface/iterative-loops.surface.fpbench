@@ -43,10 +43,7 @@
      [= sl sr]
      [= sr tmp]]
     [else
-     [= j (+ j 1)]])
-   [= sl (if (== j 50) sr sl)]
-   [= sr (if (== j 50) sl sr)]
-   [= j (if (== j 50) 0 (+ j 1))])
+     [= j (+ j 1)]]))
  (output x y))
 
 (function

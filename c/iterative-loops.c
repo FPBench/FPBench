@@ -1,4 +1,4 @@
-float f(float _c___12_34_, float _j___0_) {
+float ex0(float _c___12_34_, float _j___0_) {
 	float x = 0.0f;
 	float y = 0.0f;
 	float theta = -0.985f;
@@ -25,7 +25,7 @@ float f(float _c___12_34_, float _j___0_) {
 	return (x + y);
 }
 
-double f(double c, double dt, double kd, double ki, double kp) {
+double ex1(double c, double dt, double kd, double ki, double kp) {
 	double i = 0.0;
 	double m = -5.0;
 	double eold = 0.0;
@@ -43,7 +43,7 @@ double f(double c, double dt, double kd, double ki, double kp) {
 	return m;
 }
 
-float f(float h, float c, float k, float eps) {
+float ex2(float h, float c, float k, float eps) {
 	float t = 0.0f;
 	float i = 0.0f;
 	float y_n = 10.1f;
@@ -61,7 +61,7 @@ float f(float h, float c, float k, float eps) {
 	return (i + fabs(e));
 }
 
-float f(float yd, float Dc, float Cc1, float Cc0, float Bc1, float Bc0, float Ac11, float Ac10, float Ac01, float Ac00, float y, float eps) {
+float ex3(float yd, float Dc, float Cc1, float Cc0, float Bc1, float Bc0, float Ac11, float Ac10, float Ac01, float Ac00, float y, float eps) {
 	float xc0 = 0.0f;
 	float xc1 = 0.0f;
 	float i = 0.0f;
@@ -79,7 +79,7 @@ float f(float yd, float Dc, float Cc1, float Cc0, float Bc1, float Bc0, float Ac
 	return xc1;
 }
 
-float f(float tetaf, float vrf, float teta0, float vr0, float dt, float A, float Mf, float Mt, float G, float R) {
+float ex4(float tetaf, float vrf, float teta0, float vr0, float dt, float A, float Mf, float Mt, float G, float R) {
 	float x = 0.0f;
 	float y = 0.0f;
 	float i = 1.0f;
@@ -124,7 +124,7 @@ float f(float tetaf, float vrf, float teta0, float vr0, float dt, float A, float
 	return (x + y);
 }
 
-float f(float b3, float b1, float a44, float a33, float a22, float a11, float eps) {
+float ex5(float b3, float b1, float a44, float a33, float a22, float a11, float eps) {
 	float x_n2 = 0.0f;
 	float i = 0.0f;
 	float e = 1.0f;
@@ -151,7 +151,7 @@ float f(float b3, float b1, float a44, float a33, float a22, float a11, float ep
 	return (((i + x_n2) + x2) + e);
 }
 
-float f(float x0, float eps) {
+float ex6(float x0, float eps) {
 	float x_n = 0.0f;
 	float e = 1.0f;
 	float x = 0.0f;
@@ -169,7 +169,7 @@ float f(float x0, float eps) {
 	return (((i + x) + x_n) + e);
 }
 
-float f(float v4, float a43, float a42, float a41, float a34, float a32, float a31, float a24, float a23, float a21, float a14, float a13, float a12, float d, float eps) {
+float ex7(float v4, float a43, float a42, float a41, float a34, float a32, float a31, float a24, float a23, float a21, float a14, float a13, float a12, float d, float eps) {
 	float i = 0.0f;
 	float v1 = 0.0f;
 	float v2 = 0.0f;
@@ -190,7 +190,7 @@ float f(float v4, float a43, float a42, float a41, float a34, float a32, float a
 	return ((i + v1) + e);
 }
 
-float f(float eps, float Q23, float Q21, float Q13, float Q12) {
+float ex8(float eps, float Q23, float Q21, float Q13, float Q12) {
 	float qj1 = (1.0f / 2592.0f);
 	float qj2 = (1.0f / 2601.0f);
 	float qj3 = (1.0f / 2583.0f);

@@ -103,8 +103,8 @@
   (command-line
    #:program "compile.rkt"
    #:args ()
-   (for ([expr (in-port read (current-input-port))])
+   (for ([expr (in-port read (current-input-port))] [n (in-naturals)])
      (define-values (args body props) (canonicalize-program expr))
      (define type (if (assoc ':type props) (cdr (assoc ':type props)) 'double))
-     (printf "~a" (function->c args body #:type type))
+     (printf "~a" (function->c args body #:type type #:name (format "ex~a" n)))
      (newline))))

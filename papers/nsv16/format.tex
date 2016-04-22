@@ -1,0 +1,36 @@
+\documentclass[main.tex]{subfiles}
+\begin{document}
+
+\section{Benchmark Format}
+\label{sec:format}
+
+The \name format must be easy to parse and have simple, easily-modeled
+semantics that allow the details of floating point arithmetic to come
+to the fore. These goals are fulfilled by the \core format, a
+simplified expression-based language for floating point operations
+inspired by the \smtlib format used in the SMT competition.
+
+The \core syntax is documented in Figure~\ref{fig:core}.
+
+\begin{figure}
+\begin{grammar}
+<benchmark> ::= ( `lambda' ( <argument>* ) <property>* <expression> )
+
+<argument> ::= <identifier>
+
+<property> ::= <propname> ` ' <propval>
+
+<expression> ::= <number> | <constant> | <identifier>
+\alt ( <operation> <expression>* )
+\alt ( `if' <expression> <expression> <expression> )
+\alt ( `while' <expression> ( <loopvar>* ) <expression> )
+
+<loopvar> ::= [ <identifier> <expression> <expression> ]
+
+<propval> ::= <expression> | <string> | ( <identifier>+ ) | <identifier>
+
+\end{grammar}
+
+\end{figure}
+
+\end{document}

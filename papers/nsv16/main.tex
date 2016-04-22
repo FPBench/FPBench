@@ -1,15 +1,22 @@
 \documentclass{llncs}
 \usepackage{subfiles}
+\usepackage{xspace}
+\usepackage{syntax}
 
+\newcommand{\name}{FPBench\xspace}
+\newcommand{\core}{FPCore\xspace}
+\newcommand{\code}{FPCode\xspace}
+\newcommand{\smtlib}{\textsc{smt-lib}\xspace}
 \begin{document}
 
-\title{Toward a Standard Benchmark Format for Floating Point Analysis}
+\title{Toward a Standard Benchmark Set for Floating Point Analysis}
 \author{[redacted for double blind review]}
 \institute{[redacted for double blind review]}
 \maketitle
 
 \subfile{abstract}
 \subfile{intro}
+\subfile{format}
 
 \bibliographystyle{abbrv}
 \bibliography{fpbench}

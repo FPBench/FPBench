@@ -4,17 +4,57 @@
 \section{Benchmark Format}
 \label{sec:format}
 
-The \name format must be easy to parse and have simple, easily-modeled
-semantics that allow the details of floating point arithmetic to come
-to the fore. These goals are fulfilled by the \core format, a
-simplified expression-based language for floating point operations
-inspired by the \smtlib format used in the SMT competition.
+The \name format must be easy to parse
+  and have simple, easily-modeled semantics
+  that allow the details of floating point arithmetic
+  to come to the fore.
+These goals are fulfilled by the \core format,
+  a simplified expression-based language for floating point operations
+  inspired by the \smtlib format used in the SMT competition.
+\name is also intended to grow
+  by incorporating code extracted
+  from numerical systems used in science, industry, and government;
+  so, it must be easy to translate C, C++, MatLab, and Fortran
+  into \name's format,
+  while glossing over language differences.
+These goals are fulfilled by the \surface format,
+  a simplified imperative language for floating point operations
+  which can be automatically compiled to \core.
+Users of \name can analyze benchmarks either in \core,
+  if they want to avoid the complexities of imperative programs,
+  or in \surface,
+  if the additional information latent in imperative control flow
+  is valuable to the analysis.
+  
+\subsection{\core}
+
+\core is an S-expression format featuring
+  mathematical functions, \C{if} statements, and \C{while} loops.
+All floating-point functions
+  from C11's \C{math.h} and all Fortran 2003 intrinsics
+  are supported operators,
+  as well as standard arithmetic operators like addition and comparison;
+  likewise, all constants defined in C11's \C{math.h} are available as constants.
+Since neither IEEE754 nor C and Fortran implementations specify
+  an accuracy for their mathematical functions,
+  neither does \core specify the values of these functions.
+We expect that most libraries implement these functions
+  to within a few ulps of accuracy;
+  for example, on most architectures
+  the GNU \C{libm} gives accurate answers across most of the input range.
+
+A \core benchmark specifies a \core expression,
+  a collection of free parameters,
+  and properties containing meta-data about that benchmark.
+Metadata flags included in \name include a name for each benchmark,
+  a list of citations, preconditions for the free parameters,
+  and the floating point type (\C{float} or \C{double})
+  used to evaluate that benchmark.
+The full \core syntax is as follows:
 
 \begin{figure}
 \begin{grammar}
 <benchmark> ::= ( `lambda' ( <identifier>* ) <property>* <expression> )
-
-<property> ::= <propname> ` ' <propval>
 
 <expression> ::= <number> | <constant> | <identifier>
 \alt ( <operation> <expression>* )
@@ -23,24 +63,28 @@ inspired by the \smtlib format used in the SMT competition.
 
 <loopvar> ::= [ <identifier> <expression> <expression> ]
 
-<propval> ::= <expression> | <string> | ( <identifier>* ) | <identifier>
-
 <constant> ::= `E' | `LOG2E' | `LOG10E' | `LN2' | `LN10' | `PI' | $\dotsb$
 
 <operation> ::= `+' | `*' | `<' | $\dotsb$ | `abs' | `acos' | `and' | `asin' | $\dotsb$
 
+<property> ::= <propname> <propval>
+
+<propname> ::= `:name' | `:cite' | `:pre' | `:type' | $\dotsb$
+
+<propval> ::= <expression> | <string> | ( <identifier>* ) | <identifier>
+
 \end{grammar}
 \caption{The grammar of the \core language. Since the language is an
   S-expression format, parentheses and braces are literal in this
-  grammar. See Figure~\ref{fig:supported} for supported constants and
-  operations.}
+  grammar.}
 \label{fig:core}
 \end{figure}
 
-The \core syntax is documented in Figure~\ref{fig:core}. It allows
-ordinary function calls, along with \C{if} statements and \C{while}
-loops. The semantics are standard functional semantics with the
-following rule for while loops:
+The semantics of these programs is ordinary function evaluation,
+  with \C{while} loops evaluated
+  by simultaneously updating the loop variables
+  until the condition is true,
+  and then evaluating the return value:
 
 \begin{mathpar}
 \inferrule{
@@ -61,5 +105,9 @@ following rule for while loops:
   w
 }
 \end{mathpar}
+
+\subsection{surface}
+
+sdkfjas;kljf
 
 \end{document}

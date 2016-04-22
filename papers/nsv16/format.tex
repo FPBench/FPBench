@@ -10,13 +10,9 @@ to the fore. These goals are fulfilled by the \core format, a
 simplified expression-based language for floating point operations
 inspired by the \smtlib format used in the SMT competition.
 
-The \core syntax is documented in Figure~\ref{fig:core}.
-
 \begin{figure}
 \begin{grammar}
-<benchmark> ::= ( `lambda' ( <argument>* ) <property>* <expression> )
-
-<argument> ::= <identifier>
+<benchmark> ::= ( `lambda' ( <identifier>* ) <property>* <expression> )
 
 <property> ::= <propname> ` ' <propval>
 
@@ -27,10 +23,43 @@ The \core syntax is documented in Figure~\ref{fig:core}.
 
 <loopvar> ::= [ <identifier> <expression> <expression> ]
 
-<propval> ::= <expression> | <string> | ( <identifier>+ ) | <identifier>
+<propval> ::= <expression> | <string> | ( <identifier>* ) | <identifier>
+
+<constant> ::= `E' | `LOG2E' | `LOG10E' | `LN2' | `LN10' | `PI' | $\dotsb$
+
+<operation> ::= `+' | `*' | `<' | $\dotsb$ | `abs' | `acos' | `and' | `asin' | $\dotsb$
 
 \end{grammar}
-
+\caption{The grammar of the \core language. Since the language is an
+  S-expression format, parentheses and braces are literal in this
+  grammar. See Figure~\ref{fig:supported} for supported constants and
+  operations.}
+\label{fig:core}
 \end{figure}
+
+The \core syntax is documented in Figure~\ref{fig:core}. It allows
+ordinary function calls, along with \C{if} statements and \C{while}
+loops. The semantics are standard functional semantics with the
+following rule for while loops:
+
+\begin{mathpar}
+\inferrule{
+  H[x_i \mapsto x_i^0]: c \evalto \top \\
+  H[x_i \mapsto x_i^0]: e_i \evalto x_i'
+}{
+  H: (\C{while}\:([x_i\:x_i^0\:e_i]_i)\:y)
+  \to
+  H: (\C{while}\:([x_i\:x_i'\:e_i]_i)\:y)
+}
+
+\inferrule{
+  H[x_i \mapsto x_i^0] : c \evalto \bot \\
+  H[x_i \mapsto x_i^0] : y \evalto w
+}{
+  H: (\C{while}\:([x_i\:x_i^0\:e_i]_i)\:y)
+  \evalto
+  w
+}
+\end{mathpar}
 
 \end{document}

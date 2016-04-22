@@ -47,16 +47,16 @@ following rule for while loops:
   H[x_i \mapsto x_i^0]: c \evalto \top \\
   H[x_i \mapsto x_i^0]: e_i \evalto x_i'
 }{
-  H: (\C{while}\:([x_i\:x_i^0\:e_i]_i)\:y)
+  H: (\C{while}\:c\:([x_i\:x_i^0\:e_i]_i)\:y)
   \to
-  H: (\C{while}\:([x_i\:x_i'\:e_i]_i)\:y)
+  H: (\C{while}\:c\:([x_i\:x_i'\:e_i]_i)\:y)
 }
 
 \inferrule{
   H[x_i \mapsto x_i^0] : c \evalto \bot \\
-  H[x_i \mapsto x_i^0] : y \evalto w
+  H[x_i \mapsto x_i^0] : y \evalto v
 }{
-  H: (\C{while}\:([x_i\:x_i^0\:e_i]_i)\:y)
+  H: (\C{while}\:c\:([x_i\:x_i^0\:e_i]_i)\:v)
   \evalto
   w
 }

@@ -3,8 +3,6 @@
 (lambda ((inv_l 0.1) (c 12.34))
   :name
   "Odometry"
-  :status
-  bug
   :description
   "Compute the position of a robot from the speed of the wheels."
   :inputs
@@ -42,8 +40,6 @@
 (lambda ((c 0.0) (dt 0.2) (kd 2.8454) (ki 0.69006) (kp 9.4514))
   :name
   "PID"
-  :status
-  good
   :description
   "Keep a measure at its setpoint using a PID controller."
   :inputs
@@ -73,8 +69,6 @@
 (lambda ((h 0.1) (c 100.1) (k 1.2) (eps 0.005))
   :name
   "Runge-Kutta 4"
-  :status
-  good
   :description
   "Solve the differential equation `y' = (c - y)^2"
   :inputs
@@ -223,8 +217,6 @@
          (eps 0.01))
   :name
   "Lead-lag System"
-  :status
-  good
   :description
   "Move a mass from an initial position to a desired position."
   :inputs
@@ -310,8 +302,6 @@
          (R 6400000.0))
   :name
   "Rocket Trajectory"
-  :status
-  good
   :description
   "Compute the trajectory of a rocket around the earth."
   :inputs
@@ -362,8 +352,6 @@
          (eps 1e-17))
   :name
   "Jacobi's Method"
-  :status
-  good
   :description
   "Solve a linear system `Ax = b`."
   :inputs
@@ -412,8 +400,6 @@
 (lambda ((x0 0.0) (eps 0.0005))
   :name
   "Newton-Raphson's Method"
-  :status
-  good
   :description
   "Find the zeros of a function `f = (x - 2)**5`."
   :inputs
@@ -512,8 +498,6 @@
          (eps 0.0005))
   :name
   "Eigenvalue Computation"
-  :status
-  good
   :description
   "Compute the largest eigenvalue of a matrix and return its vector."
   :inputs
@@ -555,8 +539,6 @@
 (lambda ((eps 5e-06) (Q23 0.0) (Q21 0.0) (Q13 0.0) (Q12 0.0))
   :name
   "Iterative Gram-Schmidt Method"
-  :status
-  good
   :description
   "Orthogonalize a set of non-zero vectors in a Euclidian or Hermitian space."
   :inputs

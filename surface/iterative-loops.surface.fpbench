@@ -2,7 +2,6 @@
 
 (function
  :name "Odometry"
- :status bug
  :description "Compute the position of a robot from the speed of the wheels."
  :inputs "Speed `sl`, `sr` of the left and right wheel, in rad/s"
  :type float
@@ -48,7 +47,6 @@
 
 (function
   :name "PID"
-  :status good
   :description "Keep a measure at its setpoint using a PID controller."
   :inputs "Measure `m`; gains `kp`, `ki`, `kd`; setpoint `c`"
   :type double
@@ -77,7 +75,6 @@
 
 (function
  :name "Runge-Kutta 4"
- :status good
  :description "Solve the differential equation `y' = (c - y)^2"
  :inputs "Step size `h`; initial condition `y_n*`; paramter `c`"
  :type float
@@ -107,7 +104,6 @@
 
 (function
  :name "Lead-lag System"
- :status good
  :description "Move a mass from an initial position to a desired position."
  :inputs "Initial position `y`; desired position `yd`"
  :type float
@@ -142,7 +138,6 @@
 
 (function
  :name "Rocket Trajectory"
- :status good
  :description "Compute the trajectory of a rocket around the earth."
  :inputs "Mass `Mf`; acceleration `A`"
  :type float
@@ -211,7 +206,6 @@
 
 (function
  :name "Jacobi's Method"
- :status good
  :description "Solve a linear system `Ax = b`."
  :inputs "Array entries `aij`; vector entries `bi`"
  :type float
@@ -251,7 +245,6 @@
 
 (function
  :name "Newton-Raphson's Method"
- :status good
  :description "Find the zeros of a function `f = (x - 2)**5`."
  :inputs "Initial guess `x0`"
  :type float
@@ -274,7 +267,6 @@
 
 (function
  :name "Eigenvalue Computation"
- :status good
  :description "Compute the largest eigenvalue of a matrix and return its vector."
  :inputs "Matrix `aij`; initial guess `vi` with one nonzero element"
  :pre (< 150 d 200)
@@ -320,7 +312,6 @@
 
 (function
  :name "Iterative Gram-Schmidt Method"
- :status good
  :description "Orthogonalize a set of non-zero vectors in a Euclidian or Hermitian space."
  :inputs "Vectors `Qij`"
  :pre (and (< 1.0 Q11 (/ 1 7)) (< 1 Q22 (/ 1 25)))

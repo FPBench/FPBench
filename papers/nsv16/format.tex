@@ -14,7 +14,7 @@ These goals are fulfilled by the \core format,
 \name is also intended to grow
   by incorporating code extracted
   from numerical systems used in science, industry, and government;
-  so, it must be easy to translate C, C++, MatLab, and Fortran
+  so, it must be easy to translate C, C++, Matlab, and Fortran
   into \name's format,
   while glossing over language differences.
 These goals are fulfilled by the \surface format,
@@ -25,6 +25,10 @@ Users of \name can analyze benchmarks either in \core,
   or in \surface,
   if the additional information latent in imperative control flow
   is valuable to the analysis.
+Since \surface can be compiled to \core,
+  the combination of the two languages
+  allows achieving both simplicity of analysis
+  and simplicity of translation.
   
 \subsection{\core}
 
@@ -52,9 +56,8 @@ Metadata flags included in \name include a name for each benchmark,
   used to evaluate that benchmark.
 The full \core syntax is as follows:
 
-\begin{figure}
 \begin{grammar}
-<benchmark> ::= ( `lambda' ( <identifier>* ) <property>* <expression> )
+<\core> ::= ( `lambda' ( <identifier>* ) <property>* <expression> )
 
 <expression> ::= <number> | <constant> | <identifier>
 \alt ( <operation> <expression>* )
@@ -72,14 +75,10 @@ The full \core syntax is as follows:
 <propname> ::= `:name' | `:cite' | `:pre' | `:type' | $\dotsb$
 
 <propval> ::= <expression> | <string> | ( <identifier>* ) | <identifier>
-
 \end{grammar}
-\caption{The grammar of the \core language. Since the language is an
-  S-expression format, parentheses and braces are literal in this
-  grammar.}
-\label{fig:core}
-\end{figure}
 
+In this grammar, parentheses and braces are literals
+  (since the language is S-expression based).
 The semantics of these programs is ordinary function evaluation,
   with \C{while} loops evaluated
   by simultaneously updating the loop variables
@@ -106,8 +105,62 @@ The semantics of these programs is ordinary function evaluation,
 }
 \end{mathpar}
 
-\subsection{surface}
+\subsection{\surface}
 
-sdkfjas;kljf
+While \core is a functional language
+  with a minimal set of features
+  for representing floating point formats,
+  \surface includes common imperative features
+  like variable assignments,
+  multiple return values,
+  and multi-way \C{if} statements.
+More complex features,
+  such as arrays, pointers, and records,
+  are left to future language extensions.
+In our experience,
+  translating C, Fortran, and Matlab to \surface is relatively easy.
+\surface syntax builds uses \core for expressions;
+  however, analyzing \surface allows tracking intermediate variables
+  and control flow at a finer scale than that allowed by \core.
+The additional syntactic constructs of \surface are:
+
+\begin{grammar}
+<\surface> ::= ( `function' ( <identifier>* ) <property>* <statement>* <return> )
+
+<return> ::= ( `output' <expression>* )
+
+<statement> ::= [ `=' <identifier> <expression> ]
+\alt ( `if' <ifbranch>* )
+\alt ( `while' <expression> <statement>* )
+
+<ifbranch> ::= [ <expression> <statement>* ]
+\alt [ `else' <statement>* ]
+\end{grammar}
+
+Like in \core, each \surface benchmark
+  includes free parameters and properties;
+  as an imperative language,
+  it includes a list of program statements
+  and multiple return values
+  instead of a single body expression.
+Assignments and while loops behave in the usual way.
+An \C{if} statement defines a many-way branch;
+  any \C{else} branch must be the last branch in its \C{if}.
+The \C{output} statement returns several values and appears
+  at the end of a function.
+Each expression in a \surface program is a \core expression,
+  making it easy to extend an analysis on \core benchmarks
+  to analyzing \surface programs instead,
+  and ensuring that the same set of operations and constants
+  are supported.
+
+The \surface to \core compiler
+  translates \surface functions to \core benchmarks
+  while retaining all properties and keeping the same set of free parameters.
+It inlines assignments, convert the imperative bodies of \surface loops
+  to the simultaneous-assignment loops of \core,
+  replaces many-way \C{if} statements with nested \C{if}s,
+  and rewrites variary mathematical operators like \C{+} and \C{*}
+  to a left-associative application of binary operators.
 
 \end{document}

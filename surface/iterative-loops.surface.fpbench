@@ -308,7 +308,7 @@
    [= v3 (/ vz vw)]
    [= v4 1.0]
    [= e (abs (- 1.0 v1))])
- (output i v1 #|vz|# e))
+ (output i v1 vz e))
 
 (function
  :name "Iterative Gram-Schmidt Method"

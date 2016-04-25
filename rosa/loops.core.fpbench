@@ -1,0 +1,82 @@
+;; -*- mode: scheme -*-
+
+; All test cases come from the EPFL Rosa project, available at
+; https://github.com/malyzajko/rosa
+; which is the subject of the POPL'14 paper
+; E. Darulova, V. Kuncak, "Sound Compilation of Reals", POPL'14
+
+;; https://github.com/malyzajko/rosa/blob/master/testcases/real/techreport/NBody.scala
+(lambda ( x0  y0  z0
+         vx0 vy0 vz0)
+  :name
+  "N Body Simulation"
+  :cite
+  (darulova-kuncak-2014)
+  :pre
+  (and (< (abs x0) 6) (< (abs y0) 6) (< (abs z0 0.2))
+       (< (abs vx0) 3) (< (abs vy0) 3) (< (abs vz0) 0.1))
+  (let ([dt 0.1]
+        [solarMass 39.47841760435743])
+    (while (< i 100)
+      ([x x0 (let* ([distance (sqrt (+ (* x x) (* y y) (* z z)))]
+                    [mag (/ dt (* distance distance distance))]
+                    [vxNew (- vx (* x solarMass mag))])
+               (+ x (* dt vxNew)))]
+       [y y0 (let* ([distance (sqrt (+ (* x x) (* y y) (* z z)))]
+                    [mag (/ dt (* distance distance distance))]
+                    [vyNew (- vy (* y solarMass mag))])
+               (+ y (* dt vyNew)))]
+       [z z0 (let* ([distance (sqrt (+ (* x x) (* y y) (* z z)))]
+                    [mag (/ dt (* distance distance distance))]
+                    [vzNew (- vz (* z solarMass mag))])
+               (+ z (* dt vzNew)))]
+       [vx vx0 (let* ([distance (sqrt (+ (* x x) (* y y) (* z z)))]
+                      [mag (/ dt (* distance distance distance))]
+                      [vxNew (- vx (* x solarMass mag))])
+                 vxNew)]
+       [vy vy0 (let* ([distance (sqrt (+ (* x x) (* y y) (* z z)))]
+                      [mag (/ dt (* distance distance distance))]
+                      [vyNew (- vy (* y solarMass mag))])
+                 vyNew)]
+       [vz vz0 (let* ([distance (sqrt (+ (* x x) (* y y) (* z z)))]
+                      [mag (/ dt (* distance distance distance))]
+                      [vzNew (- vz (* z solarMass mag))])
+                 vzNew)]
+       [i 0 (+ i 1)]) ;; Is a variable number of iterations in the
+                      ;; original. Needs inputs of type int to work
+                      ;; properly.
+      x)))
+
+;; https://github.com/malyzajko/rosa/blob/master/testcases/real/techreport/Pendulum.scala
+(lambda (t0 w0 [N 1000])
+  :name
+  "Pendulum"
+  :cite
+  (darulova-kuncak-2014)
+  :pre
+  (and (< (abs t0) 2) (< (abs w0) 5))
+  (let ([h 0.01]
+        [L 2.0]
+        [m 1.5]
+        [g 9.80665])
+    (while (< n N)
+      ([t t0 (let* ([k1w (* (/ (- g) L) (sin t))]
+                    [k2t (+ w (* (/ h 2) k1w))])
+               (+ t (* h k2t)))]
+       [w w0 (let* ([k2w (* (/ (- g) L) (sin (+ t (* (/ h 2) w))))])
+               (+ w (* h k2w)))]
+       [n 0 (+ n 1)])
+      t)))
+
+;; https://github.com/malyzajko/rosa/blob/master/testcases/real/techreport/SineNewton.scala
+(lambda (x0)
+  :name
+  "Sine Newton"
+  :cite
+  (darulova-kuncak-2014)
+  :pre (< (abs x0) 1.)
+  (while (< i 10)
+    ([x x0 (- x (/ (+ (+ (- x (/ (expt x 3) 6.0)) (/ (expt x 5) 120.0)) (/ (expt x 7) 5040.0))
+                   (+ (+ (- 1.0 (/ (* x x) 2.0)) (/ (expt x 4) 24.0)) (/ (expt x 6) 720.0))))]
+     [i 0 (+ i 1)])
+    x))

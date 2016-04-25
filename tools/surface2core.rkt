@@ -60,7 +60,7 @@
       (merge-values* conds vals)))
 
 (define/match (merge-values* conds vals)
-  [((list 'else) (list x)) x]
+  [((list 'else ...) (list x _ ...)) x]
   [((list c cs ...) (list x xs ...))
    `(if ,c ,x ,(merge-values cs xs))])
 
@@ -77,120 +77,86 @@
      (append (append-map assigned subs) (assigned rest))]
     ))
 
-(define (compile-statements statements [bindings '((E) (PI))] [constants '()])
-  (match statements
-    ['() (values 'UNUSED (reverse bindings) constants)]
-    [(list `(output ,vals ...))
-     (values
-      (canonicalize
-       (cons '+ (map (λ (value) (substitute (canonicalize value) bindings)) vals)))
-      bindings
-      constants)]
-    [(list `[= ,(? symbol? var) ,(? number? value)] rest ...)
-     (compile-statements rest (cons (list var) bindings) (cons (cons var value) constants))]
-    [(list `[= ,(? symbol? var) ,value] rest ...)
-     (define value* (substitute (canonicalize value) bindings))
-     (compile-statements rest (cons (cons var value*) bindings) constants)]
-    [(list `(while ,cond ,substatements ...) rest ...)
-     (define trashed (assigned substatements))
-     (define-values (notc truec)
-       (partition (λ (x) (member (car x) trashed)) constants))
-     (define subb
-       (append (map list trashed) bindings))
+(define (lookup bindings var default)
+  (match (assoc var bindings)
+    [(list (cons _ val) _ ...) val]
+    [_ default]))
 
-     (define-values (outexpr outb outc)
-       (compile-statements substatements subb truec))
+(define (compile-statements statements variables outexprs)
+  (let loop ([statements statements] [bindings '()])
+    (match statements
+      ['()
+       (values (for/list ([out outexprs]) (substitute (canonicalize out) bindings))  bindings)]
+      [(list `[= ,(? symbol? var) ,value] rest ...)
+       (define value* (substitute (canonicalize value) bindings))
+       (loop rest (cons (cons var value*) bindings))]
+      [(list `(while ,cond ,substatements ...) rest ...)
+       (define trashed (assigned substatements))
+       (define sub-bindings (map (λ (x) (if (member (car x) trashed) (list (car x)) x)) bindings))
 
-     (when (not (equal? outexpr 'UNUSED))
-       (error "(while) loop cannot contain (output) expression."))
+       (define-values (_ loop-bindings) (loop substatements sub-bindings))
+       (define cond-expr (substitute (canonicalize cond) sub-bindings))
+       (define-values (out end-bindings) (loop rest sub-bindings))
      
-     (define cond-expr (substitute (canonicalize cond) subb))
+       (define loop-bound (reverse (drop-right loop-bindings (length sub-bindings))))
+       (define loop-vars
+         (for/fold ([vars '()]) ([bind loop-bound] #:when (not (null? (cdr bind))))
+           (define appears-in-rest
+             (or (appears? cond-expr (car bind))
+                 (appears? out (car bind))
+                 (for/or ([other loop-bound] #:when (not (null? (cdr other))))
+                   (appears? (cdr other) (car bind)))))
 
-     (define newb
-       (append (map list trashed) subb))
+           (define init-value (assoc (car bind) bindings))
 
-     (define-values (out endb endc)
-       (compile-statements rest newb outc))
+           (if appears-in-rest
+               (cons `[,(car bind)
+                       ,(match init-value
+                         [#f 0.0]
+                         [(list var) var]
+                         [(cons _ val) val])
+                       ,(cdr bind)]
+                     vars)
+               vars)))
+
+       (values
+        `(while ,cond-expr ,(remove-duplicates loop-vars #:key car) ,out)
+        end-bindings)]
+      [(list `(if [,conds ,stmtss ...] ...) rest ...)
+       (define conds*
+         (for/list ([cond conds])
+           (substitute (canonicalize cond) bindings)))
+
+       (define outbs
+         (for/list ([stmts stmtss])
+           (define-values (_ outb) (loop stmts bindings))
+           (drop-right outb (length bindings))))
      
-     (define binds-extension (drop outb (length subb)))
+       (define assigned-vars (remove-duplicates (append-map (curry map car) outbs)))
 
-     (define binds-extension*
-       (for/list ([bind binds-extension] #:when (not (null? (cdr bind))))
-         (define appears-in-rest
-           (or (appears? cond-expr (car bind))
-               (appears? out (car bind))
-               (for/or ([other binds-extension] #:when (not (null? (cdr other))))
-                 (appears? (cdr other) (car bind)))))
-         (if appears-in-rest
-             bind
-             (list (car bind)))))
+       (define joined
+         (for/list ([var assigned-vars])
+           (define options (append (for/list ([outb outbs]) (lookup outb var var)) (list var)))
+           (cons var (merge-values (append conds* (list 'else)) options))))
 
-     (define loopvars
-       (for/list ([bind binds-extension*] #:when (not (null? (cdr bind))))
-         (define init-rec
-           (or (assoc (car bind) (append notc bindings))
-               (cons (car bind) 0.0))) ; Use 0.0 if initial not found
-         (define init (if (null? (cdr init-rec)) (car bind) (cdr init-rec)))
-         `[,(car bind) ,init ,(cdr bind)]))
-
-     (values `(while ,(canonicalize cond)
-                ,(remove-duplicates loopvars #:key car) ,out) endb endc)]
-    [(list `(if [,conds ,stmtss ...] ...) rest ...)
-     (define conds*
-       (for/list ([cond conds])
-         (substitute (canonicalize cond) bindings)))
-
-     (define-values (outexprs outbs outcs)
-       (for/lists (outexprs outbs outcs) ([stmts stmtss])
-         (define-values (outexpr outb outc)
-           (compile-statements stmts bindings constants))
-         (values outexpr (drop outb (length bindings)) outc)))
-     
-     (when (not (andmap (curryr equal? 'UNUSED) outexprs))
-       (error "(if) statement cannot contain (output) expression."))
-
-     ;; We've now run every branch and have to merge them.
-     (define constants* (apply set-intersect outcs))
-
-     (define vars
-       (remove-duplicates
-        (append
-         (append-map (curry map car) outbs)
-         (apply append
-                (for/list ([outc outcs])
-                  (map car (set-subtract outc constants*)))))))
-
-     (define joined
-       (for/list ([var vars])
-         (cons var
-               (merge-values
-                conds*
-                (for/list ([outb outbs] [outc outcs])
-                  (match* ((assoc var outb) (assoc var outc))
-                    [((list _) (cons _ val)) val]
-                    [((cons _ val) _) val]
-                    [(_ _) var]))))))
-
-     (compile-statements rest (append joined bindings) constants*)]))
+       (loop rest (append joined bindings))])))
 
 (define (compile-program body)
-  (match-define `(function ,lines ...) body)
+  (match-define `(function (,variables ...) ,lines ... (output ,outexprs ...)) body)
 
   (define-values (attributes statements)
     (let loop ([attrs '()] [stats '()] [lines lines])
       (cond
        [(null? lines) (values (reverse attrs) (reverse stats))]
        [(equal? (car lines) ':pre)
-        (loop (cons (cons (car lines) (canonicalize (cadr lines))) attrs) stats (cddr lines))]
+        (loop (cons (list (car lines) (canonicalize (cadr lines))) attrs) stats (cddr lines))]
        [(attribute? (car lines))
-        (loop (cons (cons (car lines) (cadr lines)) attrs) stats (cddr lines))]
+        (loop (cons (list (car lines) (cadr lines)) attrs) stats (cddr lines))]
        [else
         (loop attrs (cons (car lines) stats) (cdr lines))])))
 
-  (define-values (out bs cs) (compile-statements statements))
-  `(lambda (,@(for/list ([c cs]) `[,(car c) ,(cdr c)]))
-     ,@(apply append (for/list ([pair attributes]) (list (car pair) (cdr pair))))
-     ,out))
+  (define-values (out bindings) (compile-statements statements (map car variables) outexprs))
+  `(lambda (,@variables) ,@(apply append attributes) ,out))
 
 (module+ main
   (require racket/cmdline)

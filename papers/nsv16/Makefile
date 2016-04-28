@@ -1,4 +1,4 @@
-main.pdf: main.tex fpbench.bib
+main.pdf: main.tex fpbench.bib examples.tex
 	pdflatex main
 	bibtex main
 	pdflatex main

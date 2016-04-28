@@ -1,3 +1,5 @@
+;; -*- mode: scheme -*-
+
 (lambda ()
   :name
   "Odometry"

@@ -1,5 +1,7 @@
 #lang racket
 
+(require "common.rkt")
+
 (define (attribute? symb)
   (and (symbol? symb) (string-prefix? (symbol->string symb) ":")))
 
@@ -97,6 +99,11 @@
     [_
      (printf "\treturn ~a;\n" (expr->c body #:type type))]))
 
+(define (compile-program prog #:name name)
+  (match-define (list 'lambda (list args ...) props ... body) prog)
+  (define-values (_ properties) (parse-properties props))
+  (function->c args body #:type (dict-ref properties ':type 'double) #:name name))
+
 (module+ main
   (require racket/cmdline)
 
@@ -104,7 +111,4 @@
    #:program "compile.rkt"
    #:args ()
    (for ([expr (in-port read (current-input-port))] [n (in-naturals)])
-     (define-values (args body props) (canonicalize-program expr))
-     (define type (if (assoc ':type props) (cdr (assoc ':type props)) 'double))
-     (printf "~a" (function->c args body #:type type #:name (format "ex~a" n)))
-     (newline))))
+     (printf "~a\n" (compile-program expr #:name (format "ex~a" n))))))

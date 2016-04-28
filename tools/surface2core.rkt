@@ -1,7 +1,5 @@
 #lang racket
-
-(define (attribute? symb)
-  (and (symbol? symb) (string-prefix? (symbol->string symb) ":")))
+(require "common.rkt")
 
 (define (canonicalize body)
   (match body
@@ -25,8 +23,8 @@
 
 (define (substitute body bindings)
   (match body
-    [(or 'E 'PI) body]
-    [(? (λ (x) (assoc x bindings)))
+    [(? constant?) body]
+    [(? (λ (x) (dict-has-key? bindings x)))
      ;; The (if) handles the case when we don't have a value bound for the variable
      (if (null? (cdr (assoc body bindings)))
          body
@@ -43,24 +41,13 @@
     [(? symbol?) #f]
     [(? number?) #f]))
 
-(define (clean-unused bindings)
-  (let loop ([bindings (reverse bindings)] [clean '()])
-    (match bindings
-      [(cons (cons var value) bindings*)
-       (if (and (not (null? value))
-                (or (ormap (curryr appears? var) bindings*)
-                    (appears? (cons 'self value) var)))
-           (cons (cons var value) (loop bindings* clean))
-           (cons (list var) (loop bindings* clean)))]
-      ['() clean])))
-
 (define (merge-values conds vals)
   (if (andmap (curryr equal? (car vals)) vals)
       (car vals)
       (merge-values* conds vals)))
 
 (define/match (merge-values* conds vals)
-  [((list 'else ...) (list x _ ...)) x]
+  [((list 'else) (list x)) x]
   [((list c cs ...) (list x xs ...))
    `(if ,c ,x ,(merge-values cs xs))])
 
@@ -74,8 +61,7 @@
     [(list `(while ,_ ,sub ...) rest ...)
      (append (assigned sub) (assigned rest))]
     [(list `(if [,_ ,subs ...] ...) rest ...)
-     (append (append-map assigned subs) (assigned rest))]
-    ))
+     (append (append-map assigned subs) (assigned rest))]))
 
 (define (compile-statements statements variables outexprs)
   (let loop ([statements statements] [bindings '()])
@@ -146,20 +132,16 @@
 
 (define (compile-program body)
   (match-define `(function (,variables ...) ,lines ... (output ,outexprs ...)) body)
+  (define-values (statements properties) (parse-properties lines))
+  (define attributes*
+    (if (dict-has-key? properties ':pre)
+        (dict-update properties ':pre canonicalize)
+        properties))
 
-  (define-values (attributes statements)
-    (let loop ([attrs '()] [stats '()] [lines lines])
-      (cond
-       [(null? lines) (values (reverse attrs) (reverse stats))]
-       [(equal? (car lines) ':pre)
-        (loop (cons (list (car lines) (canonicalize (cadr lines))) attrs) stats (cddr lines))]
-       [(attribute? (car lines))
-        (loop (cons (list (car lines) (cadr lines)) attrs) stats (cddr lines))]
-       [else
-        (loop attrs (cons (car lines) stats) (cdr lines))])))
+  (define-values (out bindings)
+    (compile-statements statements (map car variables) outexprs))
 
-  (define-values (out bindings) (compile-statements statements (map car variables) outexprs))
-  `(lambda (,@variables) ,@(apply append attributes) ,out))
+  `(lambda (,@variables) ,@(unparse-properties attributes*) ,out))
 
 (module+ main
   (require racket/cmdline)
@@ -168,6 +150,5 @@
    #:program "surface-to-core.rkt"
    #:args ()
    (for ([expr (in-port read (current-input-port))])
-     (pretty-print (compile-program expr) (current-output-port) 1
-)
+     (pretty-print (compile-program expr) (current-output-port) 1)
      (newline))))

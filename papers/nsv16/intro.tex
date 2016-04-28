@@ -4,6 +4,26 @@
 \section{Introduction}
 \label{sec:intro}
 
+
+In a world where trusting software systems is increasingly important, automatic program verification tools are mandatory to provide certified results. In this context floating-point computations are an important issue because of the rounding errors done
+on each operation. 
+Many validating methods concerning floating-point arithmetic have been introduced.  
+Among them, we may cite: 
+Fluctuat~\cite{GMP06,Gou13} measures by static analysis an over-approximation of the error due to the use of floating-point numbers instead of reals while executing a program in \texttt{C} language.  
+It also, helps the user to debug its code by detecting  the responsible operations of the most significant precision loss. 
+This approach is used by many industries.    
+The Salsa tool~\cite{fmics15} improves the numerical accuracy of programs by automatic transformation. 
+It minimizes the value of the errors arising during computations using error bounds obtained by abstract interpretation.
+Based on a search to improve the numerical accuracy of an arithmetic expression, Herbie~\cite{pavel} (Zachary and al.) estimates and localizes the roundoff errors of an expression involving sampled points, applies a set of rules in order to improve the accuracy of the expression, takes series expansions and combines these improvements for the different inputs.  
+Another approach introduced by~\cite{DarulovaK14} and implemented in the Rosa tool intends to combine an exact SMT solver based on reals with an approximate and sound affine and interval arithmetic computation. 
+Its use required to set a desired postcondition and involves the uncertainties as well as the desired target precision. 
+The compiler verifies that the desired precision could be soundly obtained in finite-precision implementation while all the uncertainties and their propagation are included. Finally, the FP-Taylor tool uses Taylor series developments to narrow
+the error computed by the interval arithmetic. This competes with the affine arithmetic domain used by Fluctuat.
+
+
+
+
+
 There is an explosion of floating point tools, including
 FPTaylor~\cite{fptaylor-fm15}.
 

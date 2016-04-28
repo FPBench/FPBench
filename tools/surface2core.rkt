@@ -77,28 +77,23 @@
      (append (append-map assigned subs) (assigned rest))]
     ))
 
-(define (lookup bindings var default)
-  (match (assoc var bindings)
-    [(list (cons _ val) _ ...) val]
-    [_ default]))
-
 (define (compile-statements statements variables outexprs)
   (let loop ([statements statements] [bindings '()])
     (match statements
       ['()
-       (values (for/list ([out outexprs]) (substitute (canonicalize out) bindings))  bindings)]
+       (values (substitute (canonicalize (cons '+ outexprs)) bindings)  bindings)]
       [(list `[= ,(? symbol? var) ,value] rest ...)
        (define value* (substitute (canonicalize value) bindings))
        (loop rest (cons (cons var value*) bindings))]
-      [(list `(while ,cond ,substatements ...) rest ...)
+      [(list `(while ,test ,substatements ...) rest ...)
        (define trashed (assigned substatements))
        (define sub-bindings (map (λ (x) (if (member (car x) trashed) (list (car x)) x)) bindings))
 
        (define-values (_ loop-bindings) (loop substatements sub-bindings))
-       (define cond-expr (substitute (canonicalize cond) sub-bindings))
+       (define cond-expr (substitute (canonicalize test) sub-bindings))
        (define-values (out end-bindings) (loop rest sub-bindings))
-     
-       (define loop-bound (reverse (drop-right loop-bindings (length sub-bindings))))
+
+       (define loop-bound (drop-right loop-bindings (length sub-bindings)))
        (define loop-vars
          (for/fold ([vars '()]) ([bind loop-bound] #:when (not (null? (cdr bind))))
            (define appears-in-rest
@@ -110,12 +105,16 @@
            (define init-value (assoc (car bind) bindings))
 
            (if appears-in-rest
-               (cons `[,(car bind)
-                       ,(match init-value
-                         [#f 0.0]
-                         [(list var) var]
-                         [(cons _ val) val])
-                       ,(cdr bind)]
+               (cons (list
+                      (car bind)
+                      (cond
+                       [(not init-value)
+                        (if (member (car bind) variables)
+                            (car bind)
+                            0.0)]
+                       [(null? (cdr init-value)) (car bind)]
+                       [else (cdr init-value)])
+                      (cdr bind))
                      vars)
                vars)))
 
@@ -123,6 +122,10 @@
         `(while ,cond-expr ,(remove-duplicates loop-vars #:key car) ,out)
         end-bindings)]
       [(list `(if [,conds ,stmtss ...] ...) rest ...)
+       (when (or (null? conds) (not (equal? (last conds) 'else)))
+         (set! conds (append conds (list 'else)))
+         (set! stmtss (append conds (list))))
+
        (define conds*
          (for/list ([cond conds])
            (substitute (canonicalize cond) bindings)))
@@ -131,13 +134,13 @@
          (for/list ([stmts stmtss])
            (define-values (_ outb) (loop stmts bindings))
            (drop-right outb (length bindings))))
-     
-       (define assigned-vars (remove-duplicates (append-map (curry map car) outbs)))
 
+       (define assigned-vars (remove-duplicates (append-map (curry map car) outbs)))
        (define joined
          (for/list ([var assigned-vars])
-           (define options (append (for/list ([outb outbs]) (lookup outb var var)) (list var)))
-           (cons var (merge-values (append conds* (list 'else)) options))))
+           (define options (for/list ([outb outbs])
+                             (dict-ref outb var var)))
+           (cons var (merge-values conds* options))))
 
        (loop rest (append joined bindings))])))
 

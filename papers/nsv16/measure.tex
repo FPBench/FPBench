@@ -1,0 +1,114 @@
+
+
+%Measures
+%  - worst case error
+%  - worst anti-improvement
+%  - average error
+%  - average improvement
+%  - performance (?)
+%  - stability (?)
+
+\section{Accuracy Measurements}
+
+There exists many ways of measuring the accuracy of a computation and it is mandatory to be very precise
+on which methodology is adopted in order to compare techniques or tools. Even if no existing tool 
+implements all the measures enumerated hereafter, our goal is to propose a taxonomy of the main accuracy 
+measurement methods. First of all, we must distinguish between the following alternatives:
+\begin{itemize}
+\item The kind of error considered in  benchmarks, i.e. \textit{which error} is used. The kind of error used in a benchmark may be the absolute or relative error \cite{Gol91}. While tools use in general forward errors, 
+backward errors are usually more relevant but also more difficult to compute \cite{Chat}.
+\item The object of the measure, i.e. \textit{what is measured}. For tools estimating the accuracy of a computation, the object of the measure is typically
+the worst case or the average error possibly arising during a computation for all the considered inputs.
+Other measures may be additionnaly considered for accuracy optimizing tools like the average improvement,
+the worst case improvement or the worst anti-improvement.
+\item The technique used to achieve the measure, i.e. \textit{how it is measured}. The most employed techniques rely
+on over-approximations of the errors obtained, for example, using interval computations or statistical approximations
+obtained by repeating the measurement on sample inputs the appropriate number of times.
+\end{itemize}
+ 
+We explicit hereafter the elements of measures enumerated previously. First of all, concerning the kind of
+error, let $x\in X$  be some input, let $f\ :\ X\rightarrow Y$ be a function assumed to be exact and 
+let $\hat{f}\ :\ X\rightarrow Y$ be another function approximating $f$ (note that
+the domain and co-domain of $\hat{f}$ may be subsets of $X$ and $Y$, for example floating-point numbers are a subset of the real numbers).
+The absolute error $\varepsilon_{abs}$ and relative error $\varepsilon_{rel}$  
+are defined by
+\begin{equation}
+\varepsilon_{abs}(x) = | f(x) - \hat{f}(x)|\quad\text{and}\quad \varepsilon_{rel}(x)= \left| \frac{f(x)-\hat{f}(x)}{f(x)}\right|\enspace .
+\end{equation}
+The error $\varepsilon_{abs}(x)$ corresponds to the forward error. The backward error $\varepsilon_{back}(x)$ is defined as the distance
+to the closest input $x'$ such that $f(x')=\hat{f}(x)$ or, in other word, the distance to the closest input
+for which $\hat{f}(x)$ is the exact result.
+\begin{equation}
+\varepsilon_{back} = \min\ \big\{ x'\in X\ :\ f(x')=\hat{f}(x)\big\}\enspace .
+\end{equation}
+To our knowledge, all the existing tools measuring automatically errors on pieces of codes compute forward errors and,
+in the following, we only consider this kind of error.
+
+The object of the measure refers to what quantity is measured.  Let $\varepsilon(x)$
+stand for either $\varepsilon_{abs}(x)$ or $\varepsilon_{rel}(x)$ depending on the kind of error we use. 
+We may distinguish the following cases.
+\begin{description}
+\item[Worst case error] The worst case error $\varepsilon_{wst}$ is the error measured in the worst case for all the admissible inputs of the program. 
+\begin{equation}
+\varepsilon_{wst} = \max\ \big\{ \varepsilon(x)\ :\ x\in X \big\} \enspace .
+\end{equation}
+\item[Average error] The average error $\varepsilon_{avg}$ is the mean error measured for the considered inputs. Let Card$(X)$ denote
+the cardinal of the set $X$.
+ \begin{equation}
+\varepsilon_{avg} = \frac{1}{\text{Card(X)}} \cdot \sum_{x\in X} \varepsilon(x) \enspace .
+\end{equation}
+\item[Worst anti-improvement] In general, accuracy optimizing tools cannot improve the accuracy of some computation for
+all the acceptable inputs (apart by generating as many specialized versions of the code as needed). Consequently,
+beside the worst case and average errors, other measures are relevant. The worst anti-improvement $\iota_{anti}$
+measures the additional error added by the transformation in the worst case. Let $\hat{f}_{opt}$ be an accuracy optimized
+version of $\hat{f}$. It is admitted that $\varepsilon_{wst}(\hat{f}_{opt})< \varepsilon_{wst}(\hat{f})$
+or $\varepsilon_{avg}(\hat{f}_{opt})< \varepsilon_{avg}(\hat{f})$. Nevertheless, $\hat{f}_{opt}$ may be
+less accurate than $\hat{f}$ on some input.
+\begin{equation}
+\iota_{anti}(\hat{f},\hat{f}_{opt}) = \max \left\{ \big| |f(x)-\hat{f}(x)| - |f(x)-\hat{f}_{opt}(x)|   
+\big|\ :\ x\in X\right\}
+\end{equation}
+\item[Worst case and average improvement] The worst case improvement $\iota_{wst}$ is the improvement of error in the worst case. The average improvement $\iota_{avg}$ is the mean improvement of error measured 
+for the considered inputs.  They are defined by
+ \begin{equation}
+\iota_{wst} = \varepsilon_{wst}(\hat{f}) - \varepsilon_{wst}(\hat{f}_{opt})\enspace,
+\end{equation}
+ \begin{equation}
+\iota_{avg} = \frac{1}{\text{Card(X)}} \cdot \sum_{x\in X}  \big| |f(x)-\hat{f}(x)| - |f(x)-\hat{f}_{opt}(x)|  \big|\enspace .
+\end{equation}
+\end{description}
+
+
+Note that other measures could be considered. For example, measures performing a trade-off between accuracy of the
+results and performances of the code would be of great interest. Other criteria, like the impact of the transformation
+on the numerical stability of the code could be taken into account. These measures could rely on the value
+of the derivatives of the code obtained by automatic differentiation \cite{} or by the computation of Lyapunov exponents \cite{}.
+
+
+\textbf{\large Work in progress below}
+
+Independently of the object measured,
+there exists two families of techniques to compute the errors based on static or dynamic analysis of the codes.
+Dynamic techniques take a subset $X' \subseteq X$ of the inputs, in general by chosing random elements of $X$,
+and compute $\varepsilon_{wst}$,  $\varepsilon_{avg}$, $\iota_{anti}$, $\iota_{avg}$, $\ldots$ using $X'$
+instead of $X$. While dynamic techniques avoid to over-approximate the errors as it may happens when static 
+techniques are used, the errors may also be under-approximated which may be an issue in some applicative
+contexts such as critical embedded systems. Another difficulty of dynamic methods is the execution time of the
+multiple runs, specially for programs with multiple inputs. In this case, the way random inputs are generated
+must be specified. 
+
+Static analysis techniques compute an other-approximation of the errors without executing the programs. They rely
+on non-relational \cite{} or relational abstract domains \cite{}. Static analysis techniques also use 
+acceleration techniques to over-approximate the results of programs with loops without executing all the iterations.
+
+
+
+
+
+
+
+
+
+
+
+

@@ -22,4 +22,35 @@ written as:
   \frac{(- b) \pm \sqrt{b^2 - 4ac}}{2a}
 \end{equation}
 
+In FPBench format, the positive variant of quadratic formula is
+represented as:
+
+\begin{verbatim}
+(lambda (a b c)
+  :name "NMSE p42, positive"
+  :cite (hamming-1987)
+  :pre (and (>= (sqr b) (* 4 (* a c))) (not (= a 0)))
+  (/ (+ (- b) (sqrt (- (sqr b) (* 4 (* a c))))) (* 2 a)))
+\end{verbatim}
+
+The negative variant is represented similarly, so we'll only describe
+the positive variant here.
+
+The benchmark takes three inputs, denoted ``a'', ``b'', and ``c''
+above. It is named ``NMSE p42, positive'' after the book in which it
+appears and its exercise number, as well as which branch it is. It
+cites its source through a shorthand, ``hamming-1987'', which
+corresponds to a .bib file included with the benchmark suite.
+
+The benchmark denotes a range of acceptable inputs, through
+preconditions. For the quadratic formula, since it is ill defined to
+take the square root of a negative number, we restrict the input to
+the square root to be non-negative. Additionally, it is ill defined to
+divide by zero, so we restrict the denominator of the division to be
+non-zero, by restricting the input ``a'' to be non-zero.
+
+Finally, the last field of the benchmark is the program
+expression. This is written in FPCore syntax, a s-expression based
+syntax described above.
+
 \end{document}

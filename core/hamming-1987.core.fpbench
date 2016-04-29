@@ -62,25 +62,25 @@
 
 (lambda (a b c)
   :name "NMSE p42, positive"
-  :pre (> (sqr b) (* 4 (* a c)))
+  :pre (>= (sqr b) (* 4 (* a c)))
   :cite (hamming-1987)
   (/ (+ (- b) (sqrt (- (sqr b) (* 4 (* a c))))) (* 2 a)))
 
 (lambda (a b c)
   :name "NMSE p42, negative"
-  :pre (> (sqr b) (* 4 (* a c)))
+  :pre (>= (sqr b) (* 4 (* a c)))
   :cite (hamming-1987)
   (/ (- (- b) (sqrt (- (sqr b) (* 4 (* a c))))) (* 2 a)))
 
 (lambda (a b2 c)
   :name "NMSE problem 3.2.1, positive"
-  :pre (> (sqr b2) (* a c))
+  :pre (>= (sqr b2) (* a c))
   :cite (hamming-1987)
   (/ (+ (- b2) (sqrt (- (sqr b2) (* a c)))) a))
 
 (lambda (a b2 c)
   :name "NMSE problem 3.2.1, negative"
-  :pre (> (sqr b2) (* a c))
+  :pre (>= (sqr b2) (* a c))
   :cite (hamming-1987)
   (/ (- (- b2) (sqrt (- (sqr b2) (* a c)))) a))
 

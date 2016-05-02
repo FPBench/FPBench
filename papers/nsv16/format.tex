@@ -91,20 +91,31 @@ The semantics of these programs is ordinary function evaluation,
 
 \begin{mathpar}
 \inferrule{
-  H[x_i \mapsto x_i^0]_i: c \evalto \top \\
-  H[x_i \mapsto x_i^0]_i: e_i \evalto x_i' \\
+  H : x_i^0 \evalto v_i \\
+  H[x_i \mapsto v_i]_i: c \evalto \top \\
+  H[x_i \mapsto v_i]_i: e_i \evalto x_i' \\
   H: (\C{while}\:c\:([x_i\:x_i'\:e_i]_i)\:y) \evalto v
 }{
   H: (\C{while}\:c\:([x_i\:x_i^0\:e_i]_i)\:y) \evalto v
 }
 
 \inferrule{
-  H[x_i \mapsto x_i^0]_i : c \evalto \bot \\
-  H[x_i \mapsto x_i^0]_i : y \evalto v
+  H : x_i^0 \evalto v_i \\
+  H[x_i \mapsto v_i]_i : c \evalto \bot \\
+  H[x_i \mapsto v_i]_i : y \evalto v
 }{
   H: (\C{while}\:c\:([x_i\:x_i^0\:e_i]_i)\:y) \evalto v
 }
 \end{mathpar}
+
+The list of properties is used to record additional information
+  about each benchmark.
+Existing benchmarks are annotated with a \C{:name},
+  a \C{:description}, a description of their \C{:inputs},
+  the floating-point \C{:type} (either \C{float} or \C{double}),
+  a precondition \C{:pre}, and a citation \C{:cite}.
+All \name tools ignore unknown attributes,
+  so they represent an easy way to record additional benchmark information.
 
 \subsection{\surface}
 

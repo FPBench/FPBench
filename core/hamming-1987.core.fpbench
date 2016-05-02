@@ -69,50 +69,50 @@
 
 (lambda (a b c)
   :name "NMSE p42, positive"
-  :pre (and (>= (* b b) (* 4 (* a c))) (!= a 0))
   :cite (hamming-1987)
+  :pre (and (>= (sqr b) (* 4 (* a c))) (!= a 0))
   (/ (+ (- b) (sqrt (- (* b b) (* 4 (* a c))))) (* 2 a)))
 
 (lambda (a b c)
   :name "NMSE p42, negative"
-  :pre (and (>= (* b b) (* 4 (* a c))) (!= a 0))
   :cite (hamming-1987)
+  :pre (and (>= (sqr b) (* 4 (* a c))) (!= a 0))
   (/ (- (- b) (sqrt (- (* b b) (* 4 (* a c))))) (* 2 a)))
 
 (lambda (a b2 c)
   :name "NMSE problem 3.2.1, positive"
-  :pre (and (>= (* b2 b2) (* a c)) (!= a 0))
   :cite (hamming-1987)
+  :pre (and (>= (sqr b2) (* a c)) (!= a 0))
   (/ (+ (- b2) (sqrt (- (* b2 b2) (* a c)))) a))
 
 (lambda (a b2 c)
   :name "NMSE problem 3.2.1, negative"
-  :pre (and (>= (* b2 b2) (* a c)) (!= a 0))
   :cite (hamming-1987)
+  :pre (and (>= (sqr b2) (* a c)) (!= a 0))
   (/ (- (- b2) (sqrt (- (* b2 b2) (* a c)))) a))
 
 (lambda (x)
   :name "NMSE example 3.7"
-  :pre (< -0.00017 x)
   :cite (hamming-1987)
+  :pre (< -0.00017 x)
   (- (exp x) 1))
 
 (lambda (N)
   :name "NMSE example 3.8"
-  :pre (> N 6.8e15)
   :cite (hamming-1987)
+  :pre (> N 6.8e15)
   (- (* (+ N 1) (log (+ N 1))) (* N (log N)) 1))
   
 (lambda (x)
   :name "NMSE example 3.9"
-  :pre (and (< -0.026 x) (< x 0.026))
   :cite (hamming-1987)
+  :pre (and (< -0.026 x) (< x 0.026))
   (- (/ 1 x) (cotan x)))
 
 (lambda (x)
   :name "NMSE example 3.10"
-  :pre (< (abs x) 1)
   :cite (hamming-1987)
+  :pre (< (abs x) 1)
   (/ (log (- 1 x)) (log (+ 1 x))))
   
 (lambda (x)
@@ -122,15 +122,15 @@
 
 (lambda (a b eps)
   :name "NMSE problem 3.4.2"
-  :pre (< (abs x) 1)
   :cite (hamming-1987)
+  :pre (< (abs x) 1)
   (/ (* eps (- (exp (* (+ a b) eps)) 1))
      (* (- (exp (* a eps)) 1) (- (exp (* b eps)) 1))))
 
 (lambda (eps)
   :name "NMSE problem 3.4.3"
-  :pre (< (abs eps) 1)
   :cite (hamming-1987)
+  :pre (< (abs eps) 1)
   (log (/ (- 1 eps) (+ 1 eps))))
 
 (lambda (x)

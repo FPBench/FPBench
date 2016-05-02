@@ -15,7 +15,7 @@ It also, helps the user to debug its code by detecting  the responsible operatio
 This approach is used by several industries.    
 Salsa~\cite{fmics15} improves the numerical accuracy of programs by automatic transformation. 
 It minimizes the value of the errors arising during computations using error bounds obtained by abstract interpretation.
-Based on a search to improve the numerical accuracy of an arithmetic expression, Herbie~\cite{pavel} (Zachary and al.) estimates and localizes the roundoff errors of an expression using sampled points, applies a set of rules in order to improve the accuracy of the expression and combines these improvements for the different inputs.  
+Based on a search to improve the numerical accuracy of an arithmetic expression, Herbie~\cite{pavel15} (Zachary and al.) estimates and localizes the roundoff errors of an expression using sampled points, applies a set of rules in order to improve the accuracy of the expression and combines these improvements for the different inputs.  
 Another approach introduced by~\cite{DarulovaK14} and implemented in Rosa intends to combine an exact SMT solver based on reals with an approximate and sound affine and interval arithmetic computation. 
 Its use requires to set a desired post-condition and involves the uncertainties as well as the desired target precision. 
 The compiler verifies that the desired precision can be soundly obtained in finite-precision implementation while all the uncertainties and their propagation are included. 

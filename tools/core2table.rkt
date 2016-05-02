@@ -14,7 +14,8 @@
   '((basic + - * / abs sqrt hypot)
     (exp exp expm1 pow log log1p sinh cosh tanh)
     (trig sin cos tan cotan asin acos atan atan2)
-    (if if < > == <= >= and or)
+    (cmp < > == <= >= and or)
+    (if if)
     (while while)))
 
 (define/match (operators expr)

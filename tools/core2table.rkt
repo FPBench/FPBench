@@ -11,16 +11,18 @@
         (car props&body))))
 
 (define operator-groups
-  '((basic + - * / abs sqr sqrt hypot mod)
+  '((basic + - * / abs sqrt hypot)
     (exp exp expm1 pow log log1p sinh cosh tanh)
     (trig sin cos tan cotan asin acos atan atan2)
     (if if < > == <= >= and or)
     (while while)))
 
 (define/match (operators expr)
-  [(`(while ([,vars ,inits ,updates] ...) ,res))
+  [(`(while ,test ([,vars ,inits ,updates] ...) ,res))
    (cons 'while
-         (append (append-map operators inits) (append-map operators updates)
+         (append (operators test)
+                 (append-map operators inits)
+                 (append-map operators updates)
                  (operators res)))]
   [(`(if ,cond ,ift ,iff))
    (cons 'if (append (operators cond) (operators ift) (operators iff)))]

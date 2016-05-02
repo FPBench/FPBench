@@ -69,27 +69,27 @@
 
 (lambda (a b c)
   :name "NMSE p42, positive"
-  :pre (and (>= (sqr b) (* 4 (* a c))) (!= a 0))
+  :pre (and (>= (* b b) (* 4 (* a c))) (!= a 0))
   :cite (hamming-1987)
-  (/ (+ (- b) (sqrt (- (sqr b) (* 4 (* a c))))) (* 2 a)))
+  (/ (+ (- b) (sqrt (- (* b b) (* 4 (* a c))))) (* 2 a)))
 
 (lambda (a b c)
   :name "NMSE p42, negative"
-  :pre (and (>= (sqr b) (* 4 (* a c))) (!= a 0))
+  :pre (and (>= (* b b) (* 4 (* a c))) (!= a 0))
   :cite (hamming-1987)
-  (/ (- (- b) (sqrt (- (sqr b) (* 4 (* a c))))) (* 2 a)))
+  (/ (- (- b) (sqrt (- (* b b) (* 4 (* a c))))) (* 2 a)))
 
 (lambda (a b2 c)
   :name "NMSE problem 3.2.1, positive"
-  :pre (and (>= (sqr b2) (* a c)) (!= a 0))
+  :pre (and (>= (* b2 b2) (* a c)) (!= a 0))
   :cite (hamming-1987)
-  (/ (+ (- b2) (sqrt (- (sqr b2) (* a c)))) a))
+  (/ (+ (- b2) (sqrt (- (* b2 b2) (* a c)))) a))
 
 (lambda (a b2 c)
   :name "NMSE problem 3.2.1, negative"
-  :pre (and (>= (sqr b2) (* a c)) (!= a 0))
+  :pre (and (>= (* b2 b2) (* a c)) (!= a 0))
   :cite (hamming-1987)
-  (/ (- (- b2) (sqrt (- (sqr b2) (* a c)))) a))
+  (/ (- (- b2) (sqrt (- (* b2 b2) (* a c)))) a))
 
 (lambda (x)
   :name "NMSE example 3.7"
@@ -118,7 +118,7 @@
 (lambda (x)
   :name "NMSE problem 3.4.1"
   :cite (hamming-1987)
-  (/ (- 1 (cos x)) (sqr x)))
+  (/ (- 1 (cos x)) (* b2 x)))
 
 (lambda (a b eps)
   :name "NMSE problem 3.4.2"
@@ -149,7 +149,7 @@
   :name "NMSE problem 3.4.6"
   :cite (hamming-1987)
   :pre (>= x 0)
-  (- (expt (+ x 1) (/ 1 n)) (expt x (/ 1 n))))
+  (- (pow (+ x 1) (/ 1 n)) (pow x (/ 1 n))))
 
 (lambda (a x)
   :name "NMSE section 3.5"

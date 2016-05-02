@@ -1,0 +1,31 @@
+\documentclass[main.tex]{subfiles}
+\begin{document}
+
+\section{Benchmarks}
+\label{sec:benchmarks}
+
+The \name suite includes \nbenches benchmarks
+  sourced from recent papers in floating point verification,
+  optimization, and accuracy improvement.
+Of the benchmarks,
+  28 are drawn from the Herbie test suite~\cite{pavel15},
+  9 from a series of papers by Martel et~al.~\cite{fmics15},
+  7 from the test suite for Rosa~\cite{DarulovaK14},
+  and one from the FPTaylor test suite~\cite{fptaylor-fm15}.
+Together, these programs come from
+  a variety of domains and applications,
+  from control software to mathematical libraries.
+The included benchmarks use the range of functionality
+  available in \name:
+
+\begin{tabular}{lr}
+Name & Benchmarks \\\hline
+Basic Arithmetic & 44 \\
+Exponentials & 13 \\
+Trigonometric & 10 \\
+Comparison & 12 \\
+Conditionals & 3 \\
+Loops & 12
+\end{tabular}
+
+\end{document}

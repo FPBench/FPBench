@@ -2,12 +2,12 @@
 
 (function (sr* sl*)
  :name "Odometry"
- :description "Compute the position of a robot from the speed of the wheels."
- :inputs "Speed `sl`, `sr` of the left and right wheel, in rad/s"
+ :description "Compute the position of a robot from the speed of the wheels.
+Inputs: Speed `sl`, `sr` of the left and right wheel, in rad/s."
  :cite (damouche-martel-chapoutot-fmics15)
  :type float
  :pre (and (< 0.05 sl (* 2 PI)) (< 0.05 sr (* 2 PI)))
- :example ([sr* 0.0785398163397] [sl* 0.0525398163397])
+ :martel-example ([sr* 0.0785398163397] [sl* 0.0525398163397])
  [= cosi 0.0]
  [= sini 0.0]
  [= arg 0.0]
@@ -48,12 +48,12 @@
 
 (function (m kp ki kd)
  :name "PID"
- :description "Keep a measure at its setpoint using a PID controller."
- :inputs "Measure `m`; gains `kp`, `ki`, `kd`; setpoint `c`"
+ :description "Keep a measure at its setpoint using a PID controller.
+Inputs: Measure `m`; gains `kp`, `ki`, `kd`; setpoint `c`"
  :cite (damouche-martel-chapoutot-nsv14)
  :type double
  :pre (and (< -10.0 m 10.0) (< -10.0 c 10.0))
- :example ([m -5.0] [kp 9.4514] [ki 0.69006] [kd 2.8454])
+ :martel-example ([m -5.0] [kp 9.4514] [ki 0.69006] [kd 2.8454])
  [= t 0.0]
  [= dt 0.2]
  [= invdt (/ 1 dt)]
@@ -73,12 +73,12 @@
 
 (function (h y_n* c)
  :name "Runge-Kutta 4"
- :description "Solve the differential equation `y' = (c - y)^2"
- :inputs "Step size `h`; initial condition `y_n*`; paramter `c`"
+ :description "Solve the differential equation `y' = (c - y)^2
+Inputs: Step size `h`; initial condition `y_n*`; paramter `c`"
  :cite (damouch-martel-chapoutot-fmics15)
  :type float
  :pre (and (< 0 y_n 100) (< 10e-6 h 0.1) (< 50 c 200))
- :example ([h 0.1] [y_n* 10.1] [c 100.1])
+ :martel-example ([h 0.1] [y_n* 10.1] [c 100.1])
  [= sixieme (/ 1 6)]
  [= e 1.0]
  [= eps 0.005]
@@ -101,12 +101,12 @@
 
 (function (y yd)
  :name "Lead-lag System"
- :description "Move a mass from an initial position to a desired position."
- :inputs "Initial position `y`; desired position `yd`"
+ :description "Move a mass from an initial position to a desired position.
+Inputs: Initial position `y`; desired position `yd`"
  :cite (feron-ieee10)
  :type float
  :pre (and (< 0 yd 50) (< 0 y 50))
- :example ([y 2.5] [yd 5.0])
+ :martel-example ([y 2.5] [yd 5.0])
  [= i 0.0]
  [= eps 0.01]
  [= e 1.0]
@@ -132,12 +132,13 @@
    [= e (abs (- yc xc1))])
  (output xc1))
 
-(function ([Mf 150000.0] [A 140.0])
+(function (Mf A)
  :name "Rocket Trajectory"
- :description "Compute the trajectory of a rocket around the earth."
- :inputs "Mass `Mf`; acceleration `A`"
+ :description "Compute the trajectory of a rocket around the earth.
+Inputs: Mass `Mf`; acceleration `A`"
  :cite (damouche-martel-chapoutot-cf15)
  :type float
+ :martel-example ([Mf 150000.0] [A 140.0])
  [= R 6400.0e3]
  [= G 6.67428e-11]
  [= Mt 5.9736e24]
@@ -200,12 +201,12 @@
 
 (function (a11 a22 a33 a44 b1 b2 b3 b4)
  :name "Jacobi's Method"
- :description "Solve a linear system `Ax = b`."
- :inputs "Array entries `aij`; vector entries `bi`"
+ :description "Solve a linear system `Ax = b`.
+Inputs: Array entries `aij`; vector entries `bi`"
  :cite (atkinson-1989)
  :type float
- :example ([a11 0.61] [a22 0.62] [a33 0.6006] [a44 0.601]
-           [b1 0.5] [b2 (/ 1.0 3.0)] [b3 0.25] [b4 (/ 1.0 5.0)])
+ :martel-example ([a11 0.61] [a22 0.62] [a33 0.6006] [a44 0.601]
+                  [b1 0.5] [b2 (/ 1.0 3.0)] [b3 0.25] [b4 (/ 1.0 5.0)])
  [= i 0.0]
  [= eps 0.00000000000000001]
  [= x1 0.0]
@@ -233,12 +234,12 @@
 
 (function (x0)
  :name "Newton-Raphson's Method"
- :description "Find the zeros of a function `f = (x - 2)**5`."
- :inputs "Initial guess `x0`"
+ :description "Find the zeros of a function `f = (x - 2)**5`.
+Inputs: Initial guess `x0`"
  :cite (atkinson-1989)
  :type float
  :pre (< 0 x0 3)
- :example ([x0 0.0])
+ :martel-example ([x0 0.0])
  [= eps 0.0005]
  [= i 0.0]
  [= e 1.0]
@@ -255,16 +256,16 @@
 
 (function (a11 a12 a13 a14 a21 a22 a23 a24 a31 a32 a33 a34 a41 a42 a43 a44 v1 v2 v3 v4)
  :name "Eigenvalue Computation"
- :description "Compute the largest eigenvalue of a matrix and return its vector."
- :inputs "Matrix `aij`; initial guess `vi` with one nonzero element"
+ :description "Compute the largest eigenvalue of a matrix and return its vector.
+Inputs: Matrix `aij`; initial guess `vi` with one nonzero element"
  :cite (golub-vanloan-1996)
  :type float
  :pre (< 150 d 200)
- :example ([a11 150.0] [a12  0.01] [a13  0.01] [a14  0.01]
-           [a21  0.01] [a22 150.0] [a23  0.01] [a24  0.01]
-           [a31  0.01] [a32  0.01] [a33 150.0] [a34  0.01]
-           [a41  0.01] [a42  0.01] [a43  0.01] [a44 150.0]
-           [v1 0.0] [v2 0.0] [v3 0.0] [v4 1.0])
+ :martel-example ([a11 150.0] [a12  0.01] [a13  0.01] [a14  0.01]
+                  [a21  0.01] [a22 150.0] [a23  0.01] [a24  0.01]
+                  [a31  0.01] [a32  0.01] [a33 150.0] [a34  0.01]
+                  [a41  0.01] [a42  0.01] [a43  0.01] [a44 150.0]
+                  [v1 0.0] [v2 0.0] [v3 0.0] [v4 1.0])
  [= i 0.0]
  [= eps 0.0005]
  [= e 1.0]
@@ -284,14 +285,14 @@
 
 (function (Q11 Q12 Q13 Q21 Q22 Q23 Q31 Q32 Q33)
  :name "Iterative Gram-Schmidt Method"
- :description "Orthogonalize a set of non-zero vectors in a Euclidian or Hermitian space."
- :inputs "Vectors `Qij`"
+ :description "Orthogonalize a set of non-zero vectors in a Euclidian or Hermitian space.
+Inputs: Vectors `Qij`"
  :cite (abdelmalek-bit71 golub-vanloan-1996 hernandez-roman-tomas-vidal-tr07)
  :type float
  :pre (and (< 1.0 Q11 (/ 1 7)) (< 1 Q22 (/ 1 25)))
- :example ([Q11 (/ 1 63)] [Q12 0] [Q13 0]
-           [Q21 0] [Q22 (/ 1 225)] [Q23 0]
-           [Q31 (/ 1 2592)] [Q32 (/ 1 2601)] [Q33 (/ 1 2583)])
+ :martel-example ([Q11 (/ 1 63)] [Q12 0] [Q13 0]
+                  [Q21 0] [Q22 (/ 1 225)] [Q23 0]
+                  [Q31 (/ 1 2592)] [Q32 (/ 1 2601)] [Q33 (/ 1 2583)])
  ;; qj = xj
  [= qj1 Q31]
  [= qj2 Q32]

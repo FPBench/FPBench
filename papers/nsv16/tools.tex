@@ -28,14 +28,6 @@ Tools that do not want the additional information
   can work only with \core benchmarks
   use this compiler to transform inputs to that format.
 
-\paragraph{\core canonicalization}
-The \core syntax allows multiple representations of the same benchmark
-  thanks to the presence of \C{let} bindings and variadic arithmetic operators.
-For tools that do not want to handle these additional features,
-  the canonicalizer automatically inlines \C{let} bindings
-  and reduces variadic operators to binary ones.
-This makes a minimal \name tool very easy to write.
-
 \paragraph{\core to C}
 Since C is a common implementation language for mathematical computations,
   \name provides a \core to C compiler.

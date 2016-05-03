@@ -6,7 +6,7 @@
 
 \name features
   a collection of compilers and measurement tools
-  that operate on its common format.
+  that operate on its common format, \core.
 These tools can be a community resource,
   increasing interoperability and code reuse.
 They also make it easier to write
@@ -15,18 +15,20 @@ They also make it easier to write
   common but tedious tasks.
 
 \paragraph{\surface to \core}
-The \surface format allows \name benchmarks
-  to be faithfully translated from imperative languages
-  such as C, Fortran, or Matlab.
-However, for many analyses,
-  the imperative nature of \surface
-  makes it less suited for analysis and transformation.
+The \core format faithfully preserves important program constructs,
+  such as variable binding and operation ordering,
+  while abstracting away details not relevant
+  to the floating point semantics.
+However, it is syntactically very different
+  from some of the languages from which benchmarks might originate.
+To make translation to \core from source languages
+  like C, Fortran, and Matlab easier,
+  \name also specifies another format,
+  \surface.
+\surface is syntactically similar to imperative languages,
+  but is automatically translatable to \core.
 \name provides a compiler from \surface to \core
-  to centralize that task.
-Tools that do not want the additional information
-  available in a \surface representation of a benchmark
-  can work only with \core benchmarks
-  use this compiler to transform inputs to that format.
+  to make translation of benchmarks as easy as possible.
 
 \paragraph{\core to C}
 Since C is a common implementation language for mathematical computations,

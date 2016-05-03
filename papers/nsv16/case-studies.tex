@@ -3,11 +3,11 @@
 
 \section{Case Studies}
 
-FPBench supports benchmarks from a variety of domains, with a variety
-of characteristics. Most importantly, FPBench benchmarks can be used
+\name supports benchmarks from a variety of domains, with a variety
+of characteristics. Most importantly, \name benchmarks can be used
 to represent the benchmarks from a variety of floating point
 tools. Here, we'll highlight a few representative examples supported
-by FPBench, taken from various floating point tool benchmark suites.
+by \name, taken from various floating point tool benchmark suites.
 
 \subsection{FPTaylor}
 In the paper ``Rigorous Estimation of Floating-Point Round-off Errors
@@ -34,7 +34,7 @@ might use to calculate the behavior of some control software based on
 sensor data, where the output of the sensor is known to be between
 1.001 and 2.0.
 
-In FPCore format, the program is represented as:
+In \core format, the program is represented as:
 
 \begin{verbatim}
 (lambda (x y)
@@ -61,8 +61,8 @@ denoted with the ``\verb|:pre|'' keyword specifier. In this case these
 correspond to reasonable input ranges from the domain in which this
 benchmark originates.
 
-Finally, the program text is represented in FPCore an s-expression
-based syntax, described in Section~\ref{sec:format}. FPCore faithfully
+Finally, the program text is represented in \core an s-expression
+based syntax, described in Section~\ref{sec:format}. \core faithfully
 preserves important program constructs, such as variable binding and
 operation ordering, while eliding details of the program that are not
 relevant to it's floating point behavior, such as the particulars of
@@ -94,7 +94,7 @@ def newton(x: Real, k: LoopCounter): Real = {
 
 With a \verb|require| clause denoting input preconditions, and an
 \verb|ensures| clause providing error bounds to be verified. In
-FPBench, the same benchmark is represented as:
+\name, the same benchmark is represented as:
 
 \begin{verbatim}
 (lambda (x0)
@@ -117,7 +117,7 @@ the benchmark, ``\verb|Sine Newton|,'' a citation which references the
 benchmark suite .bib file, and a precondition on inputs taken from a
 particular domain. In addition to features showcased by the FPTaylor
 benchmark, this translated Rosa benchmark showcases the while
-construct, a construct in FPCore that represents general loops as
+construct, a construct in \core that represents general loops as
 iterative updates of a set of variables until some condition is
 falsified.
 
@@ -126,9 +126,9 @@ falsified.
 In the paper ``Automatically Improving Accuracy for Floating Point
 Expressions'', by Panchekha et al~\cite{pavel15}, the authors build a
 tool, ``Herbie'', which heuristically improves the accuracy of
-straight-line floating point expressions. FPBench benchmarks need not
+straight-line floating point expressions. \name benchmarks need not
 only represent the input to floating point tools; for tools which
-transform one floating point program to another, FPCore can also be
+transform one floating point program to another, \core can also be
 used to represent the output of the tool.
 
 The quadratic formula is used to illustrate the various steps of
@@ -163,7 +163,7 @@ expression:
 \end{cases}
 \]
 
-In FPCore format, the input of formula is represented as:
+In \core format, the input of formula is represented as:
 
 \begin{verbatim}
 (lambda (a b c)
@@ -242,7 +242,7 @@ int pid(double m0, double kp, double ki, double kd, double c){
 }
 \end{verbatim}
 
-with some inputs given fixed values. In FPCore format, the benchmark
+with some inputs given fixed values. In \core format, the benchmark
 is represented as represented as:
 
 \begin{verbatim}
@@ -268,14 +268,14 @@ is represented as represented as:
    m))
 \end{verbatim}
 
-This benchmark incorporates many of the features of FPCore previously
+This benchmark incorporates many of the features of \core previously
 described: it is named (``\verb|PID|''), it has a citation
 (``\verb|damouche-martel-chapoutot-nsv14|''), it specifies the type of
 floating point number used (``\verb|double|''), and it has
 domain-based restrictions on it's input. This benchmark also showcases
-a few more features of FPCore: since the benchmark source included
+a few more features of \core: since the benchmark source included
 information describing the benchmark and it's inputs, we include this
-information in the FPBench benchmark. The ``\verb|:description|'' tag
+information in the \name benchmark. The ``\verb|:description|'' tag
 marks a description of the benchmark as a whole, while the
 ``\verb|:inputs|'' tag marks descriptions of the inputs to a
 program. These descriptions can contain information about the

@@ -14,18 +14,53 @@ Of the benchmarks,
   and one from the FPTaylor test suite~\cite{fptaylor-fm15}.
 Together, these programs come from
   a variety of domains and applications,
-  from control software to mathematical libraries.
+  from control software to mathematical libraries
+  (see Table~\ref{tbl:domains}).
 The included benchmarks use the range of functionality
-  available in \name:
+  available in \name (see Table~\ref{tbl:features}).
 
-\begin{tabular}{lr}
-Name & Benchmarks \\\hline
-Basic Arithmetic & 44 \\
-Exponentials & 13 \\
-Trigonometric & 10 \\
-Comparison & 12 \\
-Conditionals & 3 \\
-Loops & 12
-\end{tabular}
+\begin{table}[hbtp]
+  \begin{subtable}[t]{.5\linewidth}
+    \begin{tabular}{lr}
+      Name & Benchmarks \\\hline
+      Basic Arithmetic & 44 \\
+      Exponentials & 13 \\
+      Trigonometric & 10 \\
+      Comparison & 12 \\
+      Conditionals & 3 \\
+      Loops & 12
+    \end{tabular}
+    \caption{Functions and language features used in the \name
+      benchmarks. Exponential functions include logarithms, the
+      exponential function, and the power function.}
+    \label{tbl:features}
+  \end{subtable}
+  \hfill
+  \begin{subtable}[t]{.4\linewidth}
+    \begin{tabular}{lr}
+      Domain & Benchmarks \\\hline
+      Math expressions & 29 \\
+      Math algorithms & 4 \\
+      Physics & 3 \\
+      Control & 5 \\
+    \end{tabular}
+    \caption{Domains from which the \name benchmarks are taken. The
+      mathematical expressions are the smallest, and are largely
+      drawn from \textit{Numerical Methods for Scientists and
+        Engineers}~\cite{hamming-1987}.}
+  \end{subtable}
+\end{table}
+
+The \name suite attempts balance on multiple dimensions.
+Beyond drawing from a range of domains with varying features,
+  \name also balances the need for simple benchmarks
+  to prove algorithms on
+  with larger, practical examples.
+To achieve this balance,
+  a large number of basic expressions,
+  coupled with a smaller number of large test cases.
+Among the larger test cases a degree of diversity is also available,
+  with programs ranging
+  from 2 to 13 variables mutated in the loop body.
 
 \end{document}

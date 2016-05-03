@@ -94,9 +94,9 @@ The semantics of these programs is ordinary function evaluation,
   H : x_i^0 \evalto v_i \\
   H[x_i \mapsto v_i]_i: c \evalto \top \\
   H[x_i \mapsto v_i]_i: e_i \evalto x_i' \\
-  H: (\C{while}\:c\:([x_i\:x_i'\:e_i]_i)\:y) \evalto v
+  H: (\C{while}\quad c\quad ([x_i\quad x_i'\quad e_i]_i)\quad y) \evalto v
 }{
-  H: (\C{while}\:c\:([x_i\:x_i^0\:e_i]_i)\:y) \evalto v
+  H: (\C{while}\quad c\quad ([x_i\quad x_i^0\quad e_i]_i)\quad y) \evalto v
 }
 
 \inferrule{
@@ -104,7 +104,7 @@ The semantics of these programs is ordinary function evaluation,
   H[x_i \mapsto v_i]_i : c \evalto \bot \\
   H[x_i \mapsto v_i]_i : y \evalto v
 }{
-  H: (\C{while}\:c\:([x_i\:x_i^0\:e_i]_i)\:y) \evalto v
+  H: (\C{while}\quad c\quad ([x_i\quad x_i^0\quad e_i]_i)\quad y) \evalto v
 }
 \end{mathpar}
 

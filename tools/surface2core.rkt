@@ -33,10 +33,21 @@
     [(? symbol?) body]
     [(? number?) body]))
 
-(define (appears? body variable)
-  (match body
+(define (appears? expr variable)
+  (match expr
     [(or 'E 'PI) #f]
     [(== variable) #t]
+    [`(if ,cond ,ift ,iff)
+     (or (curryr appears? variable) (list cond ift iff))]
+    [`(let ([,vars ,vals] ...) ,body)
+     (or (ormap (curryr appears? variable) vals)
+         (and (not (member variable vars)) (appears? body variable)))]
+    [`(while ,test ([,vars ,inits ,updates] ...) ,return)
+     (or (appears? test variable)
+         (ormap (curryr appears? variable) inits)
+         (and (not (member variable vars))
+              (or (appears? return variable)
+                  (ormap (curryr appears? variable) updates))))]
     [`(,op ,args ...) (ormap (curryr appears? variable) args)]
     [(? symbol?) #f]
     [(? number?) #f]))
@@ -139,7 +150,7 @@
         properties))
 
   (define-values (out bindings)
-    (compile-statements statements (map car variables) outexprs))
+    (compile-statements statements variables outexprs))
 
   `(lambda (,@variables) ,@(unparse-properties attributes*) ,out))
 

@@ -82,9 +82,11 @@
 
 (define (program->c body #:type [type 'double])
   (match body
-    [`(let* ([,vars ,vals] ...) ,retexpr)
+    [`(let ([,vars ,vals] ...) ,retexpr)
      (for ([var vars] [val vals])
-       (printf "\t~a ~a = ~a;\n" (typeof val #:fptype type) var (expr->c val #:type type)))
+       (printf "\t~a next_~a = ~a;\n" (typeof val #:fptype type) var (expr->c val #:type type)))
+     (for ([var vars])
+       (printf "\t~a ~a = next_~a;\n" (typeof val #:fptype type) var var))
      (program->c retexpr #:type type)]
     [`(while ,cond ([,vars ,inits ,updates] ...) ,retexpr)
      (for ([var vars] [init inits])

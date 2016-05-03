@@ -1,59 +1,70 @@
 ;; -*- mode: scheme -*-
 
-(lambda ()
+(lambda (sr* sl*)
   :name
   "Odometry"
   :description
   "Compute the position of a robot from the speed of the wheels."
   :inputs
   "Speed `sl`, `sr` of the left and right wheel, in rad/s"
-  :type
-  float
   :cite
   (damouche-martel-chapoutot-fmics15)
+  :type
+  float
   :pre
   (and (and (< 0.05 sl) (< sl (* 2 PI))) (and (< 0.05 sr) (< sr (* 2 PI))))
+  :example
+  ((sr* 0.0785398163397) (sl* 0.0525398163397))
   (while
    (< t 1000)
-   ([x
+   ((delta_dl 0.0 (* 12.34 sl))
+    (delta_dr 0.0 (* 12.34 sr))
+    (delta_d 0.0 (* (+ (* 12.34 sl) (* 12.34 sr)) 0.5))
+    (delta_theta 0.0 (* (- (* 12.34 sr) (* 12.34 sl)) 0.1))
+    (arg 0.0 (+ theta (* (* (- (* 12.34 sr) (* 12.34 sl)) 0.1) 0.5)))
+    (cosi 0.0 (cos (+ theta (* (* (- (* 12.34 sr) (* 12.34 sl)) 0.1) 0.5))))
+    (x
      0.0
      (+
       x
       (*
        (* (+ (* 12.34 sl) (* 12.34 sr)) 0.5)
-       (cos (+ theta (* (* (- (* 12.34 sr) (* 12.34 sl)) 0.1) 0.5)))))]
-    [y
+       (cos (+ theta (* (* (- (* 12.34 sr) (* 12.34 sl)) 0.1) 0.5))))))
+    (sini 0.0 (sin (+ theta (* (* (- (* 12.34 sr) (* 12.34 sl)) 0.1) 0.5))))
+    (y
      0.0
      (+
       y
       (*
        (* (+ (* 12.34 sl) (* 12.34 sr)) 0.5)
-       (sin (+ theta (* (* (- (* 12.34 sr) (* 12.34 sl)) 0.1) 0.5)))))]
-    [theta -0.985 (+ theta (* (- (* 12.34 sr) (* 12.34 sl)) 0.1))]
-    [t 0 (+ t 1)]
-    [j 0 (if (== j 50) 0 (+ j 1))]
-    [tmp 0.0 (if (== j 50) sl tmp)]
-    [sl 0.0525398163397 (if (== j 50) sr sl)]
-    [sr 0.0785398163397 (if (== j 50) sl sr)])
+       (sin (+ theta (* (* (- (* 12.34 sr) (* 12.34 sl)) 0.1) 0.5))))))
+    (theta -0.985 (+ theta (* (- (* 12.34 sr) (* 12.34 sl)) 0.1)))
+    (t 0 (+ t 1))
+    (j 0 (if (== j 50) 0 (+ j 1)))
+    (tmp 0.0 (if (== j 50) sl tmp))
+    (sl sl* (if (== j 50) sr sl))
+    (sr sr* (if (== j 50) sl sr)))
    (+ x y)))
 
-(lambda ((m -5.0) (kp 9.4514) (ki 0.69006) (kd 2.8454))
+(lambda (m kp ki kd)
   :name
   "PID"
   :description
   "Keep a measure at its setpoint using a PID controller."
   :inputs
   "Measure `m`; gains `kp`, `ki`, `kd`; setpoint `c`"
-  :type
-  double
   :cite
   (damouche-martel-chapoutot-nsv14)
+  :type
+  double
   :pre
   (and (and (< -10.0 m) (< m 10.0)) (and (< -10.0 c) (< c 10.0)))
+  :example
+  ((m -5.0) (kp 9.4514) (ki 0.69006) (kd 2.8454))
   (while
    (< t 100.0)
-   ([i 0.0 (+ i (* (* ki 0.2) (- 0.0 m)))]
-    [m
+   ((i 0.0 (+ i (* (* ki 0.2) (- 0.0 m))))
+    (m
      m
      (+
       m
@@ -61,31 +72,33 @@
        0.01
        (+
         (+ (* kp (- 0.0 m)) (+ i (* (* ki 0.2) (- 0.0 m))))
-        (* (* kd (/ 1 0.2)) (- (- 0.0 m) eold)))))]
-    [eold 0.0 (- 0.0 m)]
-    [t 0.0 (+ t 0.2)])
+        (* (* kd (/ 1 0.2)) (- (- 0.0 m) eold))))))
+    (eold 0.0 (- 0.0 m))
+    (t 0.0 (+ t 0.2)))
    m))
 
-(lambda ((h 0.1) (y_n* 10.1) (c 100.1))
+(lambda (h y_n* c)
   :name
   "Runge-Kutta 4"
   :description
   "Solve the differential equation `y' = (c - y)^2"
   :inputs
   "Step size `h`; initial condition `y_n*`; paramter `c`"
-  :type
-  float
   :cite
   (damouch-martel-chapoutot-fmics15)
+  :type
+  float
   :pre
   (and (and (< 0 y_n) (< y_n 100))
        (and (< 1e-05 h) (< h 0.1))
        (and (< 50 c) (< c 200)))
+  :example
+  ((h 0.1) (y_n* 10.1) (c 100.1))
   (while
    (> e 0.005)
-   ([t 0.0 (+ t 0.1)]
-    [i 0.0 (+ i 1.0)]
-    [y_n
+   ((t 0.0 (+ t 0.1))
+    (i 0.0 (+ i 1.0))
+    (y_n
      y_n*
      (+
       y_n
@@ -209,26 +222,40 @@
                   c
                   (+
                    y_n
-                   (* (* 0.5 h) (* (* 1.2 (- c y_n)) (- c y_n)))))))))))))))))]
-    [e 1.0 (- e 0.005)])
+                   (* (* 0.5 h) (* (* 1.2 (- c y_n)) (- c y_n))))))))))))))))))
+    (e 1.0 (- e 0.005)))
    (+ i (abs e))))
 
-(lambda ((y 2.5) (yd 5.0))
+(lambda (y yd)
   :name
   "Lead-lag System"
   :description
   "Move a mass from an initial position to a desired position."
   :inputs
   "Initial position `y`; desired position `yd`"
-  :type
-  float
   :cite
   (feron-ieee10)
+  :type
+  float
   :pre
   (and (and (< 0 yd) (< yd 50)) (and (< 0 y) (< y 50)))
+  :example
+  ((y 2.5) (yd 5.0))
   (while
    (> e 0.01)
-   ([xc0
+   ((yc 0.0 (- y yd))
+    (u
+     0.0
+     (+
+      (* 564.48 xc0)
+      (+
+       (* 0.0 xc1)
+       (*
+        -1280.0
+        (if (< 1.0 (if (< (- y yd) -1.0) -1.0 (- y yd)))
+          1.0
+          (if (< (- y yd) -1.0) -1.0 (- y yd)))))))
+    (xc0
      0.0
      (+
       (* 0.499 xc0)
@@ -238,8 +265,8 @@
         1.0
         (if (< 1.0 (if (< (- y yd) -1.0) -1.0 (- y yd)))
           1.0
-          (if (< (- y yd) -1.0) -1.0 (- y yd))))))]
-    [xc1
+          (if (< (- y yd) -1.0) -1.0 (- y yd)))))))
+    (xc1
      0.0
      (+
       (*
@@ -259,9 +286,9 @@
         0.0
         (if (< 1.0 (if (< (- y yd) -1.0) -1.0 (- y yd)))
           1.0
-          (if (< (- y yd) -1.0) -1.0 (- y yd))))))]
-    [i 0.0 (+ i 1.0)]
-    [e
+          (if (< (- y yd) -1.0) -1.0 (- y yd)))))))
+    (i 0.0 (+ i 1.0))
+    (e
      1.0
      (abs
       (-
@@ -286,7 +313,7 @@
           0.0
           (if (< 1.0 (if (< (- y yd) -1.0) -1.0 (- y yd)))
             1.0
-            (if (< (- y yd) -1.0) -1.0 (- y yd))))))))])
+            (if (< (- y yd) -1.0) -1.0 (- y yd))))))))))
    xc1))
 
 (lambda ((Mf 150000.0) (A 140.0))
@@ -296,39 +323,69 @@
   "Compute the trajectory of a rocket around the earth."
   :inputs
   "Mass `Mf`; acceleration `A`"
-  :type
-  float
   :cite
   (damouche-martel-chapoutot-cf15)
+  :type
+  float
   (while
    (< i 2000000.0)
-   ([x 0.0 (* (+ (* u2_im1 0.1) u1_im1) (cos (+ (* u4_im1 0.1) u3_im1)))]
-    [y 0.0 (* (+ (* u2_im1 0.1) u1_im1) (sin (+ (* u4_im1 0.1) u3_im1)))]
-    [i 1.0 (+ i 1.0)]
-    [u1_im1 (+ (* 400.0 10000.0) 6400000.0) (+ (* u2_im1 0.1) u1_im1)]
-    [u2_im1
+   ((t_i 0.0 (+ t_im1 0.1))
+    (mf_i 0.0 (- mf_im1 (* A t_im1)))
+    (u1_i 0.0 (+ (* u2_im1 0.1) u1_im1))
+    (u3_i 0.0 (+ (* u4_im1 0.1) u3_im1))
+    (w1_i 0.0 (+ (* w2_im1 0.1) w1_im1))
+    (w3_i 0.0 (+ (* w4_im1 0.1) w3_im1))
+    (u2_i
      0.0
      (+
       (* (* 6.67428e-11 (/ 5.9736e+24 (sqr u1_im1))) 0.1)
-      (* (* (* u1_im1 u4_im1) u4_im1) 0.1))]
-    [u3_im1 0.0 (+ (* u4_im1 0.1) u3_im1)]
-    [u4_im1
-     (/
-      (sqrt (/ (* 6.67428e-11 5.9736e+24) (+ (* 400.0 10000.0) 6400000.0)))
-      (+ (* 400.0 10000.0) 6400000.0))
-     (+ (* (* -2.0 (* u2_im1 (/ u4_im1 u1_im1))) 0.1) u4_im1)]
-    [w1_im1 6400000.0 (+ (* w2_im1 0.1) w1_im1)]
-    [w2_im1
+      (* (* (* u1_im1 u4_im1) u4_im1) 0.1)))
+    (u4_i 0.0 (+ (* (* -2.0 (* u2_im1 (/ u4_im1 u1_im1))) 0.1) u4_im1))
+    (w2_i
      0.0
      (+
       (+
        (+
-        (* (* 6.67428e-11 (/ 5.9736e+24 (* w1_im1 w1_im1))) 0.1)
+        (* (* 6.67428e-11 (/ 5.9736e+24 (sqr w1_im1))) 0.1)
         (* (* (* w1_im1 w4_im1) w4_im1) 0.1))
        (if (> mf_im1 0.0) (* (/ (* A w2_im1) (- Mf (* A t_im1))) 0.1) 0.0))
-      w2_im1)]
-    [w3_im1 0.0 (+ (* w4_im1 0.1) w3_im1)]
-    [w4_im1
+      w2_im1))
+    (w4_i
+     0.0
+     (+
+      (* (* -2.0 (* w2_im1 (/ w4_im1 w1_im1))) 0.1)
+      (+
+       (if (> mf_im1 0.0) (* A (* (/ w4_im1 (- Mf (* A t_im1))) 0.1)) 0.0)
+       w4_im1)))
+    (c 0.0 (cos (+ (* u4_im1 0.1) u3_im1)))
+    (s 0.0 (sin (+ (* u4_im1 0.1) u3_im1)))
+    (x 0.0 (* (+ (* u2_im1 0.1) u1_im1) (cos (+ (* u4_im1 0.1) u3_im1))))
+    (y 0.0 (* (+ (* u2_im1 0.1) u1_im1) (sin (+ (* u4_im1 0.1) u3_im1))))
+    (i 1.0 (+ i 1.0))
+    (u1_im1 (+ (* 400.0 10000.0) 6400000.0) (+ (* u2_im1 0.1) u1_im1))
+    (u2_im1
+     0.0
+     (+
+      (* (* 6.67428e-11 (/ 5.9736e+24 (sqr u1_im1))) 0.1)
+      (* (* (* u1_im1 u4_im1) u4_im1) 0.1)))
+    (u3_im1 0.0 (+ (* u4_im1 0.1) u3_im1))
+    (u4_im1
+     (/
+      (sqrt (/ (* 6.67428e-11 5.9736e+24) (+ (* 400.0 10000.0) 6400000.0)))
+      (+ (* 400.0 10000.0) 6400000.0))
+     (+ (* (* -2.0 (* u2_im1 (/ u4_im1 u1_im1))) 0.1) u4_im1))
+    (w1_im1 6400000.0 (+ (* w2_im1 0.1) w1_im1))
+    (w2_im1
+     0.0
+     (+
+      (+
+       (+
+        (* (* 6.67428e-11 (/ 5.9736e+24 (sqr w1_im1))) 0.1)
+        (* (* (* w1_im1 w4_im1) w4_im1) 0.1))
+       (if (> mf_im1 0.0) (* (/ (* A w2_im1) (- Mf (* A t_im1))) 0.1) 0.0))
+      w2_im1))
+    (w3_im1 0.0 (+ (* w4_im1 0.1) w3_im1))
+    (w4_im1
      (*
       1.1
       (/
@@ -338,82 +395,86 @@
       (* (* -2.0 (* w2_im1 (/ w4_im1 w1_im1))) 0.1)
       (+
        (if (> mf_im1 0.0) (* A (* (/ w4_im1 (- Mf (* A t_im1))) 0.1)) 0.0)
-       w4_im1))]
-    [t_im1 0.0 (+ t_im1 0.1)]
-    [mf_im1 Mf (- mf_im1 (* A t_im1))])
+       w4_im1)))
+    (t_im1 0.0 (+ t_im1 0.1))
+    (mf_im1 Mf (- mf_im1 (* A t_im1))))
    (+ x y)))
 
-(lambda ((a11 0.61)
-         (a22 0.62)
-         (a33 0.6006)
-         (a44 0.601)
-         (b1 0.5)
-         (b2 (/ 1.0 3.0))
-         (b3 0.25)
-         (b4 (/ 1.0 5.0)))
+(lambda (a11 a22 a33 a44 b1 b2 b3 b4)
   :name
   "Jacobi's Method"
   :description
   "Solve a linear system `Ax = b`."
   :inputs
   "Array entries `aij`; vector entries `bi`"
-  :type
-  float
   :cite
   (atkinson-1989)
+  :type
+  float
+  :example
+  ((a11 0.61)
+   (a22 0.62)
+   (a33 0.6006)
+   (a44 0.601)
+   (b1 0.5)
+   (b2 (/ 1.0 3.0))
+   (b3 0.25)
+   (b4 (/ 1.0 5.0)))
   (while
    (> e 1e-17)
-   ([x_n2
+   ((x_n2
      0.0
      (-
       (+ (- (/ b2 a22) (* (/ 0.3 a22) x1)) (* (/ 0.1 a22) x3))
-      (* (/ 0.2 a22) x4))]
-    [i 0.0 (+ i 1.0)]
-    [e
+      (* (/ 0.2 a22) x4)))
+    (i 0.0 (+ i 1.0))
+    (e
      1.0
      (-
       (-
        (- (+ (/ b4 a44) (* (/ 0.1 a44) x1)) (* (/ 0.2 a44) x2))
        (* (/ 0.3 a44) x3))
-      x4)]
-    [x1
+      x4))
+    (x1
      0.0
      (+
       (- (- (/ b1 a11) (* (/ 0.1 a11) x2)) (* (/ 0.2 a11) x3))
-      (* (/ 0.3 a11) x4))]
-    [x2
+      (* (/ 0.3 a11) x4)))
+    (x2
      0.0
      (-
       (+ (- (/ b2 a22) (* (/ 0.3 a22) x1)) (* (/ 0.1 a22) x3))
-      (* (/ 0.2 a22) x4))]
-    [x3
+      (* (/ 0.2 a22) x4)))
+    (x3
      0.0
      (-
       (+ (- (/ b3 a33) (* (/ 0.2 a33) x1)) (* (/ 0.3 a33) x2))
-      (* (/ 0.1 a33) x4))]
-    [x4
+      (* (/ 0.1 a33) x4)))
+    (x4
      0.0
      (-
       (- (+ (/ b4 a44) (* (/ 0.1 a44) x1)) (* (/ 0.2 a44) x2))
-      (* (/ 0.3 a44) x3))])
+      (* (/ 0.3 a44) x3))))
    (+ (+ (+ i x_n2) x2) e)))
 
-(lambda ((x0 0.0))
+(lambda (x0)
   :name
   "Newton-Raphson's Method"
   :description
   "Find the zeros of a function `f = (x - 2)**5`."
   :inputs
   "Initial guess `x0`"
+  :cite
+  (atkinson-1989)
   :type
   float
   :pre
   (and (< 0 x0) (< x0 3))
-  :cite
-  (atkinson-1989)
+  :example
+  ((x0 0.0))
   (while
    (and (> e 0.0005) (< i 100000))
-   ([x_n
+   ((x_n
      0.0
      (-
       x
@@ -433,8 +494,8 @@
           (- (* (* (* (* 5.0 x) x) x) x) (* (* (* 40.0 x) x) x))
           (* (* 120.0 x) x))
          (* 160.0 x))
-        80.0)))]
-    [e
+        80.0))))
+    (e
      1.0
      (abs
       (-
@@ -457,8 +518,8 @@
             (- (* (* (* (* 5.0 x) x) x) x) (* (* (* 40.0 x) x) x))
             (* (* 120.0 x) x))
            (* 160.0 x))
-          80.0)))))]
-    [x
+          80.0))))))
+    (x
      0.0
      (-
       x
@@ -478,93 +539,116 @@
           (- (* (* (* (* 5.0 x) x) x) x) (* (* (* 40.0 x) x) x))
           (* (* 120.0 x) x))
          (* 160.0 x))
-        80.0)))]
-    [i 0.0 (+ i 1.0)])
+        80.0))))
+    (i 0.0 (+ i 1.0)))
    (+ (+ (+ i x) x_n) e)))
 
-(lambda ((a11 150.0)
-         (a12 0.01)
-         (a13 0.01)
-         (a14 0.01)
-         (a21 0.01)
-         (a22 150.0)
-         (a23 0.01)
-         (a24 0.01)
-         (a31 0.01)
-         (a32 0.01)
-         (a33 150.0)
-         (a34 0.01)
-         (a41 0.01)
-         (a42 0.01)
-         (a43 0.01)
-         (a44 150.0)
-         (v1 0.0)
-         (v2 0.0)
-         (v3 0.0)
-         (v4 1.0))
+(lambda (a11
+         a12
+         a13
+         a14
+         a21
+         a22
+         a23
+         a24
+         a31
+         a32
+         a33
+         a34
+         a41
+         a42
+         a43
+         a44
+         v1
+         v2
+         v3
+         v4)
   :name
   "Eigenvalue Computation"
   :description
   "Compute the largest eigenvalue of a matrix and return its vector."
   :inputs
   "Matrix `aij`; initial guess `vi` with one nonzero element"
-  :pre
-  (and (< 150 d) (< d 200))
-  :type
-  float
   :cite
   (golub-vanloan-1996)
+  :type
+  float
+  :pre
+  (and (< 150 d) (< d 200))
+  :example
+  ((a11 150.0)
+   (a12 0.01)
+   (a13 0.01)
+   (a14 0.01)
+   (a21 0.01)
+   (a22 150.0)
+   (a23 0.01)
+   (a24 0.01)
+   (a31 0.01)
+   (a32 0.01)
+   (a33 150.0)
+   (a34 0.01)
+   (a41 0.01)
+   (a42 0.01)
+   (a43 0.01)
+   (a44 150.0)
+   (v1 0.0)
+   (v2 0.0)
+   (v3 0.0)
+   (v4 1.0))
   (while
    (> e 0.0005)
-   ([vz 0.0 (+ (+ (+ (* a31 v1) (* a32 v2)) (* a33 v3)) (* a34 v4))]
-    [i 0.0 (+ i 1.0)]
-    [v1
+   ((vz 0.0 (+ (+ (+ (* a31 v1) (* a32 v2)) (* a33 v3)) (* a34 v4)))
+    (i 0.0 (+ i 1.0))
+    (v1
      v1
      (/
       (+ (+ (+ (* a11 v1) (* a12 v2)) (* a13 v3)) (* a14 v4))
-      (+ (+ (+ (* a41 v1) (* a42 v2)) (* a43 v3)) (* a44 v4)))]
-    [v2
+      (+ (+ (+ (* a41 v1) (* a42 v2)) (* a43 v3)) (* a44 v4))))
+    (v2
      v2
      (/
       (+ (+ (+ (* a21 v1) (* a22 v2)) (* a23 v3)) (* a24 v4))
-      (+ (+ (+ (* a41 v1) (* a42 v2)) (* a43 v3)) (* a44 v4)))]
-    [v3
+      (+ (+ (+ (* a41 v1) (* a42 v2)) (* a43 v3)) (* a44 v4))))
+    (v3
      v3
      (/
       (+ (+ (+ (* a31 v1) (* a32 v2)) (* a33 v3)) (* a34 v4))
-      (+ (+ (+ (* a41 v1) (* a42 v2)) (* a43 v3)) (* a44 v4)))]
-    [v4 v4 1.0]
-    [e
+      (+ (+ (+ (* a41 v1) (* a42 v2)) (* a43 v3)) (* a44 v4))))
+    (v4 v4 1.0)
+    (e
      1.0
      (abs
       (-
        1.0
        (/
         (+ (+ (+ (* a11 v1) (* a12 v2)) (* a13 v3)) (* a14 v4))
-        (+ (+ (+ (* a41 v1) (* a42 v2)) (* a43 v3)) (* a44 v4)))))])
+        (+ (+ (+ (* a41 v1) (* a42 v2)) (* a43 v3)) (* a44 v4)))))))
    (+ (+ (+ i v1) vz) e)))
 
-(lambda ((Q11 (/ 1 63))
-         (Q12 0)
-         (Q13 0)
-         (Q21 0)
-         (Q22 (/ 1 225))
-         (Q23 0)
-         (Q31 (/ 1 2592))
-         (Q32 (/ 1 2601))
-         (Q33 (/ 1 2583)))
+(lambda (Q11 Q12 Q13 Q21 Q22 Q23 Q31 Q32 Q33)
   :name
   "Iterative Gram-Schmidt Method"
   :description
   "Orthogonalize a set of non-zero vectors in a Euclidian or Hermitian space."
   :inputs
   "Vectors `Qij`"
-  :pre
-  (and (and (< 1.0 Q11) (< Q11 (/ 1 7))) (and (< 1 Q22) (< Q22 (/ 1 25))))
-  :type
-  float
   :cite
   (abdelmalek-bit71 golub-vanloan-1996 hernandez-roman-tomas-vidal-tr07)
+  :type
+  float
+  :pre
+  (and (and (< 1.0 Q11) (< Q11 (/ 1 7))) (and (< 1 Q22) (< Q22 (/ 1 25))))
+  :example
+  ((Q11 (/ 1 63))
+   (Q12 0)
+   (Q13 0)
+   (Q21 0)
+   (Q22 (/ 1 225))
+   (Q23 0)
+   (Q31 (/ 1 2592))
+   (Q32 (/ 1 2601))
+   (Q33 (/ 1 2583)))
   (while
    (> e 5e-06)
    ((qj1
@@ -606,66 +690,60 @@
         (sqrt
          (+
           (+
-           (pow
+           (sqr
             (-
              qj1
              (+
               (+
                (* Q11 (+ (+ (* Q11 qj1) (* Q21 qj2)) (* Q31 qj3)))
                (* Q12 (+ (+ (* Q12 qj1) (* Q22 qj2)) (* Q32 qj3))))
-              (* Q13 (+ (+ (* Q13 qj1) (* Q23 qj2)) (* Q33 qj3)))))
-            2)
-           (pow
+              (* Q13 (+ (+ (* Q13 qj1) (* Q23 qj2)) (* Q33 qj3))))))
+           (sqr
             (-
              qj2
              (+
               (+
                (* Q21 (+ (+ (* Q11 qj1) (* Q21 qj2)) (* Q31 qj3)))
                (* Q22 (+ (+ (* Q12 qj1) (* Q22 qj2)) (* Q32 qj3))))
-              (* Q23 (+ (+ (* Q13 qj1) (* Q23 qj2)) (* Q33 qj3)))))
-            2))
-          (pow
+              (* Q23 (+ (+ (* Q13 qj1) (* Q23 qj2)) (* Q33 qj3)))))))
+          (sqr
            (-
             qj3
             (+
              (+
               (* Q31 (+ (+ (* Q11 qj1) (* Q21 qj2)) (* Q31 qj3)))
               (* Q32 (+ (+ (* Q12 qj1) (* Q22 qj2)) (* Q32 qj3))))
-             (* Q33 (+ (+ (* Q13 qj1) (* Q23 qj2)) (* Q33 qj3)))))
-           2)))
+             (* Q33 (+ (+ (* Q13 qj1) (* Q23 qj2)) (* Q33 qj3))))))))
         rold))))
     (i 1.0 (+ i 1.0))
     (rold
-     (sqrt (+ (+ (* Q31 Q31) (* Q32 Q32)) (* Q33 Q33)))
+     (sqrt (+ (+ (sqr Q31) (sqr Q32)) (sqr Q33)))
      (sqrt
       (+
        (+
-        (pow
+        (sqr
          (-
           qj1
           (+
            (+
             (* Q11 (+ (+ (* Q11 qj1) (* Q21 qj2)) (* Q31 qj3)))
             (* Q12 (+ (+ (* Q12 qj1) (* Q22 qj2)) (* Q32 qj3))))
-           (* Q13 (+ (+ (* Q13 qj1) (* Q23 qj2)) (* Q33 qj3)))))
-         2)
-        (pow
+           (* Q13 (+ (+ (* Q13 qj1) (* Q23 qj2)) (* Q33 qj3))))))
+        (sqr
          (-
           qj2
           (+
            (+
             (* Q21 (+ (+ (* Q11 qj1) (* Q21 qj2)) (* Q31 qj3)))
             (* Q22 (+ (+ (* Q12 qj1) (* Q22 qj2)) (* Q32 qj3))))
-           (* Q23 (+ (+ (* Q13 qj1) (* Q23 qj2)) (* Q33 qj3)))))
-         2))
-       (pow
+           (* Q23 (+ (+ (* Q13 qj1) (* Q23 qj2)) (* Q33 qj3)))))))
+       (sqr
         (-
          qj3
          (+
           (+
            (* Q31 (+ (+ (* Q11 qj1) (* Q21 qj2)) (* Q31 qj3)))
            (* Q32 (+ (+ (* Q12 qj1) (* Q22 qj2)) (* Q32 qj3))))
-          (* Q33 (+ (+ (* Q13 qj1) (* Q23 qj2)) (* Q33 qj3)))))
-        2)))))
+          (* Q33 (+ (+ (* Q13 qj1) (* Q23 qj2)) (* Q33 qj3))))))))))
    (+ (+ (+ (+ i qj1) qj2) qj3) e)))
 

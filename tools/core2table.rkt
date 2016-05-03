@@ -11,12 +11,13 @@
         (car props&body))))
 
 (define operator-groups
-  '((basic + - * / abs sqrt hypot)
+  '((basic + - * / abs sqr sqrt hypot)
     (exp exp expm1 pow log log1p sinh cosh tanh)
     (trig sin cos tan cotan asin acos atan atan2)
     (cmp < > == <= >= and or)
     (if if)
-    (while while)))
+    (while while)
+    (let let)))
 
 (define/match (operators expr)
   [(`(while ,test ([,vars ,inits ,updates] ...) ,res))
@@ -25,6 +26,8 @@
                  (append-map operators inits)
                  (append-map operators updates)
                  (operators res)))]
+  [(`(let ([,vars ,vals] ...) ,body))
+   (cons 'let (append (append-map operators vals) (operators body)))]
   [(`(if ,cond ,ift ,iff))
    (cons 'if (append (operators cond) (operators ift) (operators iff)))]
   [((list op args ...)) (cons op (append-map operators args))]
@@ -32,9 +35,11 @@
   [((? number?)) '()])
 
 (define (operator->group op)
-  (for/first ([name (map car operator-groups)] [ops (map cdr operator-groups)]
-              #:when (member op ops))
-    name))
+  (or
+   (for/first ([name (map car operator-groups)] [ops (map cdr operator-groups)]
+               #:when (member op ops))
+     name)
+   (eprintf "WARNING: Unknown operator ~a\n" op)))
 
 (define (expr-groups expr)
   (remove-duplicates (map operator->group (operators expr))))

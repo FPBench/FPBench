@@ -15,30 +15,27 @@
   (let ([dt 0.1]
         [solarMass 39.47841760435743])
     (while (< i 100)
-      ([x x0 (let* ([distance (sqrt (+ (* x x) (* y y) (* z z)))]
-                    [mag (/ dt (* distance distance distance))]
-                    [vxNew (- vx (* x solarMass mag))])
-               (+ x (* dt vxNew)))]
-       [y y0 (let* ([distance (sqrt (+ (* x x) (* y y) (* z z)))]
-                    [mag (/ dt (* distance distance distance))]
-                    [vyNew (- vy (* y solarMass mag))])
-               (+ y (* dt vyNew)))]
-       [z z0 (let* ([distance (sqrt (+ (* x x) (* y y) (* z z)))]
-                    [mag (/ dt (* distance distance distance))]
-                    [vzNew (- vz (* z solarMass mag))])
-               (+ z (* dt vzNew)))]
-       [vx vx0 (let* ([distance (sqrt (+ (* x x) (* y y) (* z z)))]
-                      [mag (/ dt (* distance distance distance))]
-                      [vxNew (- vx (* x solarMass mag))])
-                 vxNew)]
-       [vy vy0 (let* ([distance (sqrt (+ (* x x) (* y y) (* z z)))]
-                      [mag (/ dt (* distance distance distance))]
-                      [vyNew (- vy (* y solarMass mag))])
-                 vyNew)]
-       [vz vz0 (let* ([distance (sqrt (+ (* x x) (* y y) (* z z)))]
-                      [mag (/ dt (* distance distance distance))]
-                      [vzNew (- vz (* z solarMass mag))])
-                 vzNew)]
+      ([x x0 (let ([distance (sqrt (+ (* x x) (* y y) (* z z)))])
+               (let ([mag (/ dt (* distance distance distance))])
+                 (let ([vxNew (- vx (* x solarMass mag))])
+                   (+ x (* dt vxNew)))))]
+       [y y0 (let ([distance (sqrt (+ (* x x) (* y y) (* z z)))])
+               (let ([mag (/ dt (* distance distance distance))])
+                 (let ([vyNew (- vy (* y solarMass mag))])
+                   (+ y (* dt vyNew)))))]
+       [z z0 (let ([distance (sqrt (+ (* x x) (* y y) (* z z)))])
+               (let ([mag (/ dt (* distance distance distance))])
+                 (let ([vzNew (- vz (* z solarMass mag))])
+                   (+ z (* dt vzNew)))))]
+       [vx vx0 (let ([distance (sqrt (+ (* x x) (* y y) (* z z)))])
+                 (let ([mag (/ dt (* distance distance distance))])
+                   (- vx (* x solarMass mag))))]
+       [vy vy0 (let ([distance (sqrt (+ (* x x) (* y y) (* z z)))])
+                 (let ([mag (/ dt (* distance distance distance))])
+                   (- vy (* y solarMass mag))))]
+       [vz vz0 (let ([distance (sqrt (+ (* x x) (* y y) (* z z)))])
+                 (let ([mag (/ dt (* distance distance distance))])
+                   (- vz (* z solarMass mag))))]
        [i 0 (+ i 1)]) ;; Is a variable number of iterations in the
                       ;; original. Needs inputs of type int to work
                       ;; properly.
@@ -55,10 +52,10 @@
         [m 1.5]
         [g 9.80665])
     (while (< n N)
-      ([t t0 (let* ([k1w (* (/ (- g) L) (sin t))]
-                    [k2t (+ w (* (/ h 2) k1w))])
-               (+ t (* h k2t)))]
-       [w w0 (let* ([k2w (* (/ (- g) L) (sin (+ t (* (/ h 2) w))))])
+      ([t t0 (let ([k1w (* (/ (- g) L) (sin t))])
+               (let ([k2t (+ w (* (/ h 2) k1w))])
+                 (+ t (* h k2t))))]
+       [w w0 (let ([k2w (* (/ (- g) L) (sin (+ t (* (/ h 2) w))))])
                (+ w (* h k2w)))]
        [n 0 (+ n 1)])
       t)))

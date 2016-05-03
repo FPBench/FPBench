@@ -1,5 +1,5 @@
 I'm going to here propose some conventions for writing FPBench
-benchmarksm, beyond what the grammer specifies and what is strictly
+benchmarks, beyond what the grammer specifies and what is strictly
 necessary for correctness.
 
 1. Specify the name of a test, if present, first.

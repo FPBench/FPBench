@@ -164,7 +164,7 @@
        [(? bigfloat?) (real-> (bigfloat->real out))]
        [(? boolean?) out]))))
 
-(define (average-error expr #:measure [measure 'bits] #:points [N 8000])
+(define (average-error expr #:measure [measurefn bits-error] #:points [N 8000])
   (match-define (list 'lambda (list args ...) props ... body) expr)
   (define-values (_ properties) (parse-properties props))
   (define type (dict-ref properties ':type 'double))
@@ -172,9 +172,6 @@
 
   (define-values (points exacts approxs)
     (eval-on-points args body #:pre pre #:num N #:type type))
-
-  (define measurefn
-    (match measure ['bits bits-error] ['ulp ulp-error] ['abs abs-error] ['rel rel-error]))
 
   (/
    (flsum ; Avoid rounding error when summing errors
@@ -184,9 +181,14 @@
 
 (module+ main
   (require racket/cmdline)
+  
+  (define measure bits-error)
 
   (command-line
    #:program "core2avgerr.rkt"
+   #:once-each
+   [("--measure") measurename "Which error measure to use (abs|rel|ulp|bit)"
+    (set! measure (match measurename ["bit" bits-error] ["ulp" ulp-error] ["abs" abs-error] ["rel" rel-error]))]
    #:args ()
    (for ([expr (in-port read (current-input-port))])
-     (displayln (average-error expr)))))
+     (displayln (average-error expr #:measure measure)))))

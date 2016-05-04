@@ -1,33 +1,99 @@
-
-
+\documentclass[main.tex]{subfiles}
+\begin{document}
 
 \section{Accuracy Measurements}
+\label{sec:measure}
 
-There exists many ways of measuring the accuracy of a computation and it is mandatory to be very precise
-on which methodology is adopted in order to compare techniques or tools. Even if no existing tool 
-implements all the measures enumerated hereafter, our goal is to propose a taxonomy of the main accuracy 
-measurement methods. First of all, we must distinguish between the following alternatives:
+Floating point accuracy tools can measure their performance and the
+performance of the programs they operate on in a number of ways. In
+order to fully support such tools, FPBench supports many different
+ways of measuring program error and its improvement. Here, we'll
+describe several axis on which choices about measuring floating point
+error can be made, and the various options on each.
+
+To even begin to write a tool which measures and manipulates floating
+point error, one must start by asking several questions:
+
 \begin{itemize}
-\item The kind of error considered in  benchmarks, i.e. \textit{which error} is used. The kind of error used in a benchmark may be the absolute or relative error \cite{Gol91}. While tools use in general forward errors, 
-backward errors are usually more relevant but also more difficult to compute \cite{Chat}.
-\item The object of the measure, i.e. \textit{what is measured}. For tools estimating the accuracy of a computation, the object of the measure is typically
-the worst case or the average error possibly arising during a computation for all the considered inputs.
-Other measures may be additionnaly considered for accuracy optimizing tools like the average improvement,
-the worst case improvement or the worst anti-improvement.
-\item The technique used to achieve the measure, i.e. \textit{how it is measured}. The most employed techniques rely
-on over-approximations of the errors obtained, for example, using interval computations or statistical approximations
-obtained by repeating the measurement on sample inputs the appropriate number of times.
+\item How do you measure how ``far apart''  two floating point
+  numbers are?
+\item Do you care about the difference in output for a correct input
+  (forward error), or the difference in input for a correct output
+  (backward error)?
+\item Do you measure error statically (through program analysis), or
+  dynamically (through sampling)?
+\item How do you aggregate error across an entire input space?
+\item For tools that manipulate floating point programs: how do you
+  measure error improvement?
 \end{itemize}
+
+Each of these questions have multiple valid answers, and we'll address
+the common ones here.
+
+\begin{description}
+\item[How do you measure the how ``far apart'' two floating point numbers are?]
+
+  There are several ways to measure the difference between two
+  floating point numbers, $x$ and $x'$. The simplest method is
+  absolute error:
+  \begin{equation}
+    \varepsilon_{abs}(x, x') = \left|x - x'\right|
+  \end{equation}
+  This method is simple to compute and understand. But many
+  mathematicians prefer to measure how big the error is relative to
+  the quantity being measured. From this notion, we get relative
+  error:
+  \begin{equation}
+    \varepsilon_{rel}(x, x') = \left|\frac{x - x'}{x}\right|
+  \end{equation}
+  Relative error scales with the magnitude of the quantity being
+  measured, and thus makes sense for measuring both large and small
+  numbers, much like the floating point format itself. To tie our
+  notion of error even more closely to the floating point format, we
+  can count the floating point values between $x$ and $x'$.
+  \[
+  \varepsilon_{ulps}(x, x') = |\{ y \in \mathbb{F} : \min(x, x') \le y \le \max(x, x')
+  \}|~\footnote{We are using $|S|$ to denote the number of elements in
+    a set $S$}
+  \]
+  The floating point numbers are distributed roughly exponentially, so
+  this measure of error scales in a similar manner to relative
+  error. Since it's more faithful to the underlying representation,
+  this measure, commonly referred to as ULPs or Units in the Last
+  Place, is often a smoother measure of error as it appears in
+  floating point error. Some tools even take the $log$ of this measure to
+  get roughly the number of low-order bits which are incorrect in the
+  answer.
+\end{description}
+
+%% There exists many ways of measuring the accuracy of a computation and
+%% it is mandatory to be very precise on which methodology is adopted in
+%% order to compare techniques or tools. Even if no existing tool
+%% implements all the measures enumerated hereafter, our goal is to
+%% propose a taxonomy of the main accuracy measurement methods. First of
+%% all, we must distinguish between the following alternatives:
+
+%% \begin{itemize}
+%% \item The kind of error considered in  benchmarks, i.e. \textit{which error} is used. The kind of error used in a benchmark may be the absolute or relative error \cite{Gol91}. While tools use in general forward errors, 
+%% backward errors are usually more relevant but also more difficult to compute \cite{Chat}.
+%% \item The object of the measure, i.e. \textit{what is measured}. For tools estimating the accuracy of a computation, the object of the measure is typically
+%% the worst case or the average error possibly arising during a computation for all the considered inputs.
+%% Other measures may be additionnaly considered for accuracy optimizing tools like the average improvement,
+%% the worst case improvement or the worst anti-improvement.
+%% \item The technique used to achieve the measure, i.e. \textit{how it is measured}. The most employed techniques rely
+%% on over-approximations of the errors obtained, for example, using interval computations or statistical approximations
+%% obtained by repeating the measurement on sample inputs the appropriate number of times.
+%% \end{itemize}
  
-We explicit hereafter the elements of measures enumerated previously. First of all, concerning the kind of
-error, let $x\in X$  be some input, let $f\ :\ X\rightarrow Y$ be a function assumed to be exact and 
-let $\hat{f}\ :\ X\rightarrow Y$ be another function approximating $f$ (note that
-the domain and co-domain of $\hat{f}$ may be subsets of $X$ and $Y$, for example floating-point numbers are a subset of the real numbers).
-The absolute error $\varepsilon_{abs}$ and relative error $\varepsilon_{rel}$  
-are defined by
-\begin{equation}
-\varepsilon_{abs}(x) = | f(x) - \hat{f}(x)|\quad\text{and}\quad \varepsilon_{rel}(x)= \left| \frac{f(x)-\hat{f}(x)}{f(x)}\right|\enspace .
-\end{equation}
+%% We explicit hereafter the elements of measures enumerated previously. First of all, concerning the kind of
+%% error, let $x\in X$  be some input, let $f\ :\ X\rightarrow Y$ be a function assumed to be exact and 
+%% let $\hat{f}\ :\ X\rightarrow Y$ be another function approximating $f$ (note that
+%% the domain and co-domain of $\hat{f}$ may be subsets of $X$ and $Y$, for example floating-point numbers are a subset of the real numbers).
+%% The absolute error $\varepsilon_{abs}$ and relative error $\varepsilon_{rel}$  
+%% are defined by
+%% \begin{equation}
+%% \varepsilon_{abs}(x) = | f(x) - \hat{f}(x)|\quad\text{and}\quad \varepsilon_{rel}(x)= \left| \frac{f(x)-\hat{f}(x)}{f(x)}\right|\enspace .
+%% \end{equation}
 The error $\varepsilon_{abs}(x)$ corresponds to the forward error. The backward error $\varepsilon_{back}(x)$ is defined as the distance
 to the closest input $x'$ such that $f(x')=\hat{f}(x)$ or, in other word, the distance to the closest input
 for which $\hat{f}(x)$ is the exact result.
@@ -116,11 +182,4 @@ Salsa    & Worst-Case        & Static Analysis      & Commands         & Command
 \hline
 \end{tabular}
 }
-
-
-
-
-
-
-
-
+\end{document}

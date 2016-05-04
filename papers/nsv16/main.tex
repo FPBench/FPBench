@@ -2,7 +2,7 @@
 \usepackage{amsmath,amssymb}
 \usepackage{subfiles,graphicx}
 \usepackage{xspace}
-\usepackage{syntax,mathpartir}
+\usepackage{syntax,mathpartir,listings}
 
 \newcommand{\name}{FPBench\xspace}
 \newcommand{\core}{FPCore\xspace}
@@ -11,6 +11,7 @@
 \newcommand{\smtlib}{\textsc{smt-lib}\xspace}
 \newcommand{\C}[1]{\texttt{#1}\xspace}
 \newcommand{\evalto}{\Downarrow}
+\lstnewenvironment{code}{\lstset{basicstyle=\small}}{}
 \begin{document}
 
 \title{Toward a Standard Benchmark Format and Suite for Floating Point Analysis}

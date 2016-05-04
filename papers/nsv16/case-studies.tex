@@ -80,31 +80,26 @@ Among the larger test cases a degree of diversity is also available,
 \subsection{FPTaylor}
 In the paper ``Rigorous Estimation of Floating-Point Round-off Errors
 with Symbolic Taylor Expansions'', by Solovyev et al
-\cite{fptaylor-fm15}, the authors build a tool which uses Taylor
+\cite{fptaylor-fm15}, the authors describe FPTaylor, a tool which uses Taylor
 series expansions and interval arithmetic to obtain sound error bounds
 on programs. The simple program below is used as an example of an input
 to the tool:
 
-\begin{verbatim}
+\begin{code}
 1: Variables
 2:   float64 x in [1.001, 2.0],
 3:   float64 y in [1.001, 2.0];
 4: Definitions
 5:   t rnd64= x * y;
-6: // Constraints
-7: //  x + y <= 2;
-8: Expressions
-9:   r rnd64= (t-1)/(t*t-1);
-\end{verbatim}
+6: Expressions
+7:   r rnd64= (t-1)/(t*t-1);
+\end{code}
 
-This program is roughly representative of a small piece of code one
-might use to calculate the behavior of some control software based on
-sensor data, where the output of the sensor is known to be between
-1.001 and 2.0.
+This program is representative of the code necessary to correct sensor data
+in control software, where the output of the sensor is known to be between
+1.001 and 2.0. In \core, the same program can be represented by:
 
-In \core format, the program is represented as:
-
-\begin{verbatim}
+\begin{code}
 (lambda (x y)
   :name "FPTaylor example"
   :cite (solovyev-et-al-2015)
@@ -112,29 +107,23 @@ In \core format, the program is represented as:
   :pre (and (< 1.001 x) (< x 2.0) (< 1.001 y) (< y 2.0))
   (let ([t (* x y)])
     (/ (- t 1.0)  (- (* t t) 1.0))))
-\end{verbatim}
+\end{code}
 
-The benchmark takes two inputs, ``\verb|x|'' and ``\verb|y|'', and is
-given a name within the benchmark suite, ``\verb|FPTaylor example.|''
-It cites the paper in which it appears, ``Rigorous Estimation of
-Floating-Point Round-off Errors with Symbolic Taylor Expansion,''
-through a standard .bib file included in the benchmark suite, which
-the benchmark references via the handle
-``\verb|solovyev-et-al-2015|.''
-
-Since the original program specifies that the floating point numbers
-used are 64-bit floats, the type is annotated as ``\verb|double|.''
-Preconditions on the input are translated into a single predicate
-denoted with the ``\verb|:pre|'' keyword specifier. In this case these
-correspond to reasonable input ranges from the domain in which this
-benchmark originates.
-
-Finally, the program text is represented in \core an s-expression
-based syntax, described in Section~\ref{sec:format}. \core faithfully
-preserves important program constructs, such as variable binding and
-operation ordering, while eliding details of the program that are not
-relevant to it's floating point behavior, such as the particulars of
-syntax.
+The benchmark takes inputs \C{x} and \C{y}
+  and uses a \C{let} statement to represent the intermediate variables
+  from the FPTaylor example.
+\core faithfully preserves important program constructs,
+  such as variable binding and operation ordering,
+  making the translation a simple matter.
+The benchmark additionally specifies
+  its name name within the benchmark suite
+  and cites its source using a key to a standard \BibTeX file.
+Since the original program uses 64-bit floating point numbers,
+  the type \C{double} is specified in the benchmark.
+The constraints on input variable are translated to
+  a single predicate under the \C{:pre} property.
+In this case, the preconditions come from
+  the domain the benchmark is drawn from.
 
 \subsection{Rosa}
 The paper ``Sound Compilation of the Reals,'' by Darulova et
@@ -146,25 +135,23 @@ showcase this ability. One of these is a function which computes the
 sine function using Newton's method. In Scala, the original input
 language, the benchmark is represented as:
 
-\begin{verbatim}
+\begin{code}
 def newton(x: Real, k: LoopCounter): Real = {
   require(-1.0 < x && x < 1.0)
-
   if (k < 10) {
-    newton(x - (x - (x°°3)/6.0 + (x°°5)/120.0 + (x°°7)/5040.0) / 
-      (1.0 - (x*x)/2.0 + (x°°4)/24.0 + (x°°6)/720.0), k++)
+    newton(x - (x - (x**3)/6.0 + (x**5)/120.0 + (x**7)/5040.0) / 
+      (1.0 - (x*x)/2.0 + (x**4)/24.0 + (x**6)/720.0), k++)
   } else {
     x
   }
-  
 } ensuring(res => -1.0 < res && res < 1.0)
-\end{verbatim}
+\end{code}
 
 With a \verb|require| clause denoting input preconditions, and an
 \verb|ensures| clause providing error bounds to be verified. In
 \name, the same benchmark is represented as:
 
-\begin{verbatim}
+\begin{code}
 (lambda (x0)
   :name "Sine Newton"
   :cite (darulova-kuncak-2014)
@@ -178,7 +165,7 @@ With a \verb|require| clause denoting input preconditions, and an
                       (/ (expt x 6) 720.0))))]
      [i 0 (+ i 1)])
     x))
-\end{verbatim}
+\end{code}
 
 Like the FPTaylor benchmark above, this benchmark includes the name of
 the benchmark, ``\verb|Sine Newton|,'' a citation which references the
@@ -233,17 +220,17 @@ expression:
 
 In \core format, the input of formula is represented as:
 
-\begin{verbatim}
+\begin{code}
 (lambda (a b c)
   :name "NMSE p42, positive"
   :cite (hamming-1987)
   :pre (and (>= (sqr b) (* 4 (* a c))) (not (= a 0)))
   (/ (+ (- b) (sqrt (- (sqr b) (* 4 (* a c))))) (* 2 a)))
-\end{verbatim}
+\end{code}
 
 and Herbie's output can be represented:
 
-\begin{verbatim}
+\begin{code}
 (lambda (a b c)
   :name "NMSE p42, positive"
   :cite (hamming-1987)
@@ -255,7 +242,7 @@ and Herbie's output can be represented:
       (if (< b 10e127)
           (* (- (- b) (- (sqr b) (* 4 (* a c)))) (/ 1 (* 2 a)))
           (+ (- (/ b a)) (/ c b)))))
-\end{verbatim}
+\end{code}
 
 The benchmark in both it's forms takes three inputs, denoted
 ``\verb|a|'', ``\verb|b|'', and ``\verb|c|'' above. It is named
@@ -284,7 +271,7 @@ widely used PID controller algorithm. This algorithm is used in
 aeronautic and avionic systems for which correctness is critical. In
 C, the benchmark is written as:
 
-\begin{verbatim}
+\begin{code}
 volatile double p, i, t, d, dt, invdt, m, e, eold, r; 
 
 int pid(double m0, double kp, double ki, double kd, double c){
@@ -308,12 +295,12 @@ int pid(double m0, double kp, double ki, double kd, double c){
   }
   return m;
 }
-\end{verbatim}
+\end{code}
 
 with some inputs given fixed values. In \core format, the benchmark
 is represented as represented as:
 
-\begin{verbatim}
+\begin{code}
 (lambda (m0 kp ki kd c)
   :name "PID"
   :description 
@@ -334,7 +321,7 @@ is represented as represented as:
     [eold 0.0 (- c m)]
     [t 0.0 (+ t 0.2)])
    m))
-\end{verbatim}
+\end{code}
 
 This benchmark incorporates many of the features of \core previously
 described: it is named (``\verb|PID|''), it has a citation

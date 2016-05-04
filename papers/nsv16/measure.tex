@@ -35,13 +35,13 @@ the common ones here.
 There are several ways to measure the difference between two floating
 point numbers, $x$ and $x'$. The simplest method is absolute error:
 \begin{equation}
-  \varepsilon_{abs}(x, x') = \left|x - x'\right|
+  \varepsilon_{abs}(x, x') = \left|x - x'\right| .
 \end{equation}
 This method is simple to compute and understand. But many
 mathematicians prefer to measure how big the error is relative to the
 quantity being measured. From this notion, we get relative error:
 \begin{equation}
-  \varepsilon_{rel}(x, x') = \left|\frac{x - x'}{x}\right|
+  \varepsilon_{rel}(x, x') = \left|\frac{x - x'}{x}\right| .
 \end{equation}
 Relative error scales with the magnitude of the quantity being
 measured, and thus makes sense for measuring both large and small
@@ -68,10 +68,27 @@ the number of low-order bits which are incorrect in the answer.
 Depending on the application domain, different tools might want to
 focus on the error in the output of the program, or that same error
 translated backwards through the program to get the change required in
-the input to get a correct output. Backward error can be especially
-important for evaluating the stability of an algorithm, and in
-scientific applications where one might want to know if sensor error
-or algorithmic error contributes most greatly to overall error.
+the input to get a correct output.
+
+For some function $f$ which computes an ideal output, and some other
+function $\hat{f}$ which approximates $f$, forward error can be
+defined as:
+
+\begin{equation}
+  \epsilon_{forward}(x) = \varepsilon(f(x),
+    \hat{f}(x)) .
+\end{equation}
+
+While backward error is defined as:
+
+\begin{equation}
+  \epsilon_{backward}(x) = min \left\{\varepsilon(x', x) : x' \in \mathbb{F} \land \hat{f}(x') = f(x)\right\} .
+\end{equation}
+
+Backward error can be especially important for
+evaluating the stability of an algorithm, and in scientific
+applications where one might want to know if sensor error or
+algorithmic error contributes most greatly to overall error.
 
 However, backward error can be tricky to compute, and since floating
 point numbers are discrete, there isn't always an input which will
@@ -110,6 +127,71 @@ evaluation uses static techniques. Dynamic error evaluation techniques
 can be slower than static techniques, since they involve running a
 program multiple times, sometimes with varying semantics.
 
+\paragraph{How do you aggregate error across an entire input space?}
+
+All the techniques mentioned above allow you to evaluate the error on
+distinct input points within an input space. To present the results to
+the user, tools need to aggregate the error on all of these input
+points into some overall measure. The most commonly used measures by
+existing tools are maximum, or ``worst case'', error on any point, and
+average error across all points.
+
+We define worst case error as:
+
+\begin{equation}
+  \epsilon_{worst} = max \left\{\epsilon(x) : x \in X\right\} .
+\end{equation}
+
+and average error on $N$ sample points:
+
+\begin{equation}
+  \epsilon_{average} = \frac{1}{N} \cdot \sum_{x\in X} \varepsilon(x) \enspace .
+\end{equation}
+
+\paragraph{For tools that manipulate floating point programs: how do you
+  measure error improvement?}
+
+Some floating point tools take in a floating point program, and
+transform it into another floating point program which is improved in
+some way. For these tools, there are a variety of ways in which
+improvement of the program can be measured.
+
+Tools that are measuring the worst case error of a program might want
+to report the improvement in the worst case error of the program,
+ignoring the change in points which do not exhibit the maximum
+error. Tools that measure the average error of a program might report
+the improvement of the average error of the program. These are defined
+as:
+
+\begin{equation}
+\iota_{wst} = \varepsilon_{wst}(\hat{f}) - \varepsilon_{wst}(\hat{f}_{opt})\enspace,
+\end{equation}
+ \begin{equation}
+\iota_{avg} = \frac{1}{\text{Card(X)}} \cdot \sum_{x\in X}  \big| |f(x)-\hat{f}(x)| - |f(x)-\hat{f}_{opt}(x)|  \big|\enspace .
+\end{equation}
+
+But improvement tools also have the opportunity for other improvement
+metrics, like the most improved point and the most unimproved
+point. Since accuracy optimizing tools cannot in general improve the
+accuracy of some computation for all acceptable inputs (apart from by
+generating as many specialized versions of the code as needed), it is
+often necessary to make some points worse to make the program better
+overall. In this case, reporting worst unimproved point would be
+reasonable. This measure can be expressed as:
+
+\begin{equation}
+\iota_{anti}(\hat{f},\hat{f}_{opt}) = \max \left\{ \big| |f(x)-\hat{f}(x)| - |f(x)-\hat{f}_{opt}(x)|   
+\big|\ :\ x\in X\right\}  
+\end{equation}
+
+Note that other measures could be considered. For example, measures
+performing a trade-off between accuracy of the results and
+performances of the code would be of great interest. Other criteria,
+like the impact of the transformation on the numerical stability of
+the code could be taken into account. These measures could rely on the
+value of the derivatives of the code obtained by automatic
+differentiation \cite{} or by the computation of Lyapunov exponents
+\cite{}.
 
 %% There exists many ways of measuring the accuracy of a computation and
 %% it is mandatory to be very precise on which methodology is adopted in
@@ -150,43 +232,43 @@ program multiple times, sometimes with varying semantics.
 
 %% The object of the measure refers to what quantity is measured.  Let $\varepsilon(x)$
 %% stand for either $\varepsilon_{abs}(x)$ or $\varepsilon_{rel}(x)$ depending on the kind of error we use. 
-We may distinguish the following cases.
-\begin{description}
-\item[Worst case error] The worst case error $\varepsilon_{wst}$ is the error measured in the worst case for all the admissible inputs of the program. 
-\begin{equation}
-\varepsilon_{wst} = \max\ \big\{ \varepsilon(x)\ :\ x\in X \big\} \enspace .
-\end{equation}
-\item[Average error] The average error $\varepsilon_{avg}$ is the mean error measured for the considered inputs. Let Card$(X)$ denote
-the cardinal of the set $X$.
- \begin{equation}
-\varepsilon_{avg} = \frac{1}{\text{Card(X)}} \cdot \sum_{x\in X} \varepsilon(x) \enspace .
-\end{equation}
-\item[Worst anti-improvement] In general, accuracy optimizing tools cannot improve the accuracy of some computation for
-all the acceptable inputs (apart by generating as many specialized versions of the code as needed). Consequently,
-beside the worst case and average errors, other measures are relevant. The worst anti-improvement $\iota_{anti}$
-measures the additional error added by the transformation in the worst case. Let $\hat{f}_{opt}$ be an accuracy optimized
-version of $\hat{f}$. It is admitted that $\varepsilon_{wst}(\hat{f}_{opt})< \varepsilon_{wst}(\hat{f})$
-or $\varepsilon_{avg}(\hat{f}_{opt})< \varepsilon_{avg}(\hat{f})$. Nevertheless, $\hat{f}_{opt}$ may be
-less accurate than $\hat{f}$ on some input.
-\begin{equation}
-\iota_{anti}(\hat{f},\hat{f}_{opt}) = \max \left\{ \big| |f(x)-\hat{f}(x)| - |f(x)-\hat{f}_{opt}(x)|   
-\big|\ :\ x\in X\right\}
-\end{equation}
-\item[Worst case and average improvement] The worst case improvement $\iota_{wst}$ is the improvement of error in the worst case. The average improvement $\iota_{avg}$ is the mean improvement of error measured 
-for the considered inputs.  They are defined by
- \begin{equation}
-\iota_{wst} = \varepsilon_{wst}(\hat{f}) - \varepsilon_{wst}(\hat{f}_{opt})\enspace,
-\end{equation}
- \begin{equation}
-\iota_{avg} = \frac{1}{\text{Card(X)}} \cdot \sum_{x\in X}  \big| |f(x)-\hat{f}(x)| - |f(x)-\hat{f}_{opt}(x)|  \big|\enspace .
-\end{equation}
-\end{description}
+%% We may distinguish the following cases.
+%% \begin{description}
+%% \item[Worst case error] The worst case error $\varepsilon_{wst}$ is the error measured in the worst case for all the admissible inputs of the program. 
+%% \begin{equation}
+%% \varepsilon_{wst} = \max\ \big\{ \varepsilon(x)\ :\ x\in X \big\} \enspace .
+%% \end{equation}
+%% \item[Average error] The average error $\varepsilon_{avg}$ is the mean error measured for the considered inputs. Let Card$(X)$ denote
+%% the cardinal of the set $X$.
+%%  \begin{equation}
+%% \varepsilon_{avg} = \frac{1}{\text{Card(X)}} \cdot \sum_{x\in X} \varepsilon(x) \enspace .
+%% \end{equation}
+%% \item[Worst anti-improvement] In general, accuracy optimizing tools cannot improve the accuracy of some computation for
+%% all the acceptable inputs (apart by generating as many specialized versions of the code as needed). Consequently,
+%% beside the worst case and average errors, other measures are relevant. The worst anti-improvement $\iota_{anti}$
+%% measures the additional error added by the transformation in the worst case. Let $\hat{f}_{opt}$ be an accuracy optimized
+%% version of $\hat{f}$. It is admitted that $\varepsilon_{wst}(\hat{f}_{opt})< \varepsilon_{wst}(\hat{f})$
+%% or $\varepsilon_{avg}(\hat{f}_{opt})< \varepsilon_{avg}(\hat{f})$. Nevertheless, $\hat{f}_{opt}$ may be
+%% less accurate than $\hat{f}$ on some input.
+%% \begin{equation}
+%% \iota_{anti}(\hat{f},\hat{f}_{opt}) = \max \left\{ \big| |f(x)-\hat{f}(x)| - |f(x)-\hat{f}_{opt}(x)|   
+%% \big|\ :\ x\in X\right\}
+%% \end{equation}
+%% \item[Worst case and average improvement] The worst case improvement $\iota_{wst}$ is the improvement of error in the worst case. The average improvement $\iota_{avg}$ is the mean improvement of error measured 
+%% for the considered inputs.  They are defined by
+%%  \begin{equation}
+%% \iota_{wst} = \varepsilon_{wst}(\hat{f}) - \varepsilon_{wst}(\hat{f}_{opt})\enspace,
+%% \end{equation}
+%%  \begin{equation}
+%% \iota_{avg} = \frac{1}{\text{Card(X)}} \cdot \sum_{x\in X}  \big| |f(x)-\hat{f}(x)| - |f(x)-\hat{f}_{opt}(x)|  \big|\enspace .
+%% \end{equation}
+%% \end{description}
 
 
-Note that other measures could be considered. For example, measures performing a trade-off between accuracy of the
-results and performances of the code would be of great interest. Other criteria, like the impact of the transformation
-on the numerical stability of the code could be taken into account. These measures could rely on the value
-of the derivatives of the code obtained by automatic differentiation \cite{} or by the computation of Lyapunov exponents \cite{}.
+%% Note that other measures could be considered. For example, measures performing a trade-off between accuracy of the
+%% results and performances of the code would be of great interest. Other criteria, like the impact of the transformation
+%% on the numerical stability of the code could be taken into account. These measures could rely on the value
+%% of the derivatives of the code obtained by automatic differentiation \cite{} or by the computation of Lyapunov exponents \cite{}.
 
 
 %% \textbf{\large Work in progress below}

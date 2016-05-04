@@ -79,8 +79,9 @@ Among the larger test cases a degree of diversity is also available,
 
 \subsection{FPTaylor}
 In the paper ``Rigorous Estimation of Floating-Point Round-off Errors
-with Symbolic Taylor Expansions'', by Solovyev et al
-\cite{fptaylor-fm15}, the authors describe FPTaylor, a tool which uses Taylor
+with Symbolic Taylor Expansions'',
+by Solovyev et~al.~\cite{fptaylor-fm15},
+the authors describe FPTaylor, a tool which uses Taylor
 series expansions and interval arithmetic to obtain sound error bounds
 on programs. The simple program below is used as an example of an input
 to the tool:
@@ -117,7 +118,7 @@ The benchmark takes inputs \C{x} and \C{y}
   making the translation a simple matter.
 The benchmark additionally specifies
   its name name within the benchmark suite
-  and cites its source using a key to a standard \BibTeX file.
+  and cites its source using a key to a standard \BibTeX{} file.
 Since the original program uses 64-bit floating point numbers,
   the type \C{double} is specified in the benchmark.
 The constraints on input variable are translated to
@@ -126,14 +127,15 @@ In this case, the preconditions come from
   the domain the benchmark is drawn from.
 
 \subsection{Rosa}
-The paper ``Sound Compilation of the Reals,'' by Darulova et
-al~\cite{DarulovaK14}, describes a tool Rosa which verifies sound
-error bounds of numerical programs. While not represented in the
+The paper ``Sound Compilation of the Reals,''
+by Darulova et~al.~\cite{DarulovaK14},
+describes Rosa, a tool that soundly verifies
+error bounds of floating point programs. While not described in the
 paper, the tool supports looping control flow through recursive
-function calls, and has several benchmarks in it's repository which
-showcase this ability. One of these is a function which computes the
-sine function using Newton's method. In Scala, the original input
-language, the benchmark is represented as:
+function calls, and several benchmarks in its repository 
+demonstrate this capability. One of these uses Newton's method
+on a series representation of the sine function. In Rosa's input
+language the original benchmark is represented as:
 
 \begin{code}
 def newton(x: Real, k: LoopCounter): Real = {
@@ -147,98 +149,82 @@ def newton(x: Real, k: LoopCounter): Real = {
 } ensuring(res => -1.0 < res && res < 1.0)
 \end{code}
 
-With a \verb|require| clause denoting input preconditions, and an
-\verb|ensures| clause providing error bounds to be verified. In
-\name, the same benchmark is represented as:
+The \C{require} clause denotes input preconditions, and the
+\C{ensures} clause provides the error bound to be verified. In
+\name, the same benchmark is:
 
 \begin{code}
 (lambda (x0)
-  :name "Sine Newton"
+  :name "Rosa Example"
   :cite (darulova-kuncak-2014)
   :pre (< (abs x0) 1.)
   (while (< i 10)
-    ([x x0 (- x (/ (+ (+ (- x (/ (expt x 3) 6.0)) 
-                         (/ (expt x 5) 120.0))
-                      (/ (expt x 7) 5040.0))
-                   (+ (+ (- 1.0 (/ (* x x) 2.0)) 
-                         (/ (expt x 4) 24.0)) 
-                      (/ (expt x 6) 720.0))))]
-     [i 0 (+ i 1)])
+    ([i 0 (+ i 1)]
+     [x x0
+      (let ([f (+ (+ (- x (/ (pow x 3) 6))
+                     (/ (pow x 5) 120)) (/ (pow x 7) 5040))]
+            [df (+ (+ (- 1.0 (/ (* x x) 2)) 
+                      (/ (pow x 4) 24)) (/ (pow x 6) 720))])
+        (- x (/ f df)))])
     x))
 \end{code}
 
-Like the FPTaylor benchmark above, this benchmark includes the name of
-the benchmark, ``\verb|Sine Newton|,'' a citation which references the
-benchmark suite .bib file, and a precondition on inputs taken from a
-particular domain. In addition to features showcased by the FPTaylor
-benchmark, this translated Rosa benchmark showcases the while
-construct, a construct in \core that represents general loops as
-iterative updates of a set of variables until some condition is
-falsified.
+Like the FPTaylor benchmark above, this benchmark includes a name,
+  a citation for its source, and a precondition on its inputs.
+This translated Rosa benchmark uses the \C{while} construct from \core
+  to represent the tail-recursive loop in the original benchmark.
 
 \subsection{Herbie}
 
 In the paper ``Automatically Improving Accuracy for Floating Point
-Expressions'', by Panchekha et al~\cite{pavel15}, the authors build a
-tool, ``Herbie'', which heuristically improves the accuracy of
-straight-line floating point expressions. \name benchmarks need not
-only represent the input to floating point tools; for tools which
-transform one floating point program to another, \core can also be
-used to represent the output of the tool.
+Expressions'', by Panchekha et~al.~\cite{pavel15}, the authors
+describe Herbie, a tool which heuristically improves the accuracy of
+straight-line floating point expressions.
 
-The quadratic formula is used to illustrate the various steps of
-accuracy improvement with Herbie. The quadratic formula is a common
-formula used to compute the roots of a degree two polynomial. It
-appears in \textit{Numerical Methods for Scientists and Engineers}, by
-Richard Hamming, in a section on rearranging computations for
-numerical accuracy. It has uses in a variety of applications, from
-calculating trajectories, to solving matrix equations. In mathematical
-notation, the quadratic formula is written as:
-
-\begin{equation}
-  \frac{(- b) \pm \sqrt{b^2 - 4ac}}{2a}
-\end{equation}
-
-with a negative variant:
-
-\begin{equation}
+The Herbie paper demonstrates the improvements it can produce
+  using the quadratic formula, used to compute the roots
+  of a degree two polynomial.
+It has uses from calculating trajectories, to solving matrix equations.
+In mathematical notation, the quadratic formula is given by:%
+\footnote{We use the negative variant here, as in the Herbie paper;
+  the positive variant is analogous.}
+\begin{equation*}
   \frac{(- b) - \sqrt{b^2 - 4ac}}{2a}
-\end{equation}
+\end{equation*}
 
-After running on this program, Herbie produces the improved
-expression:
+Herbie produces the following improved variant:
 
-\newcommand{\K}[1]{\ensuremath{\mathbf{#1}}\relax\ifmmode\:\else\fi}
+\newcommand{\K}[1]{\mathbf{#1}\:}
 
-\[
+\begin{equation*}
 \begin{cases}
   \frac{4ac}{-b + \sqrt{b^2 - 4ac}}/2a & \K{if} b < 0 \\[9pt]
   \left(-b - \sqrt{b^2 - 4ac}\right)\frac1{2a} & \K{if} 0 \le b \le 10^{127} \\[5pt]
   -\frac{b}{a} + \frac{c}{b} & \K{if} 10^{127} < b
 \end{cases}
-\]
+\end{equation*}
 
-In \core format, the input of formula is represented as:
+In \core format, the original formula is represented as:
 
 \begin{code}
 (lambda (a b c)
-  :name "NMSE p42, positive"
+  :name "Herbie example"
   :cite (hamming-1987)
   :pre (and (>= (sqr b) (* 4 (* a c))) (not (= a 0)))
   (/ (+ (- b) (sqrt (- (sqr b) (* 4 (* a c))))) (* 2 a)))
 \end{code}
 
-and Herbie's output can be represented:
+Furthermore, \core can be used not represent the input program,
+  but also Herbie's output:
 
 \begin{code}
 (lambda (a b c)
-  :name "NMSE p42, positive"
+  :name "Herbie example"
   :cite (hamming-1987)
   :pre (and (>= (sqr b) (* 4 (* a c))) (not (= a 0)))
   (if (< b 0)
       (/ (* 4 (* a c))
-         (/ (+ (- b) (sqrt (- (sqr b) (* 4 (* a c)))))
-            (* 2 a)))
+         (/ (+ (- b) (sqrt (- (sqr b) (* 4 (* a c))))) (* 2 a)))
       (if (< b 10e127)
           (* (- (- b) (- (sqr b) (* 4 (* a c)))) (/ 1 (* 2 a)))
           (+ (- (/ b a)) (/ c b)))))
@@ -252,37 +238,43 @@ benchmark, it cites its source through a shorthand, in this case
 ``\verb|hamming-1987|'', which corresponds to a .bib file included
 with the benchmark suite.
 
-The benchmark also denotes a range of acceptable inputs, through
-preconditions. For the quadratic formula, since it is ill defined to
-take the square root of a negative number, we restrict the input to
-the square root to be non-negative. Additionally, it is ill defined to
-divide by zero, so we restrict the denominator of the division to be
-non-zero, by restricting the input ``\verb|a|'' to be non-zero. In
-contrast to the FPTaylor example above, here the preconditions arise
-not from a limited input range in the problem domain, but from a
-limitation on the defined-ness of the formula.
+Like the Rosa and FPTaylor examples,
+  this benchmark gives a name, citation, and precondition.
+In this case the precondition is more complex,
+  restricting the input to the square root to be non-negative
+  and requiring the denominator be non-zero;
+  unlike the FPTaylor and Rosa examples,
+  this precondition arises from mathematical considerations,
+  not domain knowledge.
+\core allows arbitrary boolean expressions in preconditions,
+  allowing the expression of such complex preconditions.
+The \core version of Herbie's output
+  furthermore uses \C{if} constructs to evaluate
+  different expressions for different inputs,
+  which improves accuracy.
+Additionally, Herbie could add additional metadata to the output,
+  such as its internal estimate of accuracy
+  or the number of expressions considered during search,
+  by using prefixed keys such as \C{:herbie-accuracy-estimate}.
 
 \subsection{Martel}
 In the paper ``Intra-procedural Optimization of the Numerical Accuracy
-of Programs,'' by Damouche et al~\cite{fmics15}, the authors build a
-tool to optimize the numerical accuracy of programs. The evaluate the
-tool on a suite of control and numerical algorithms, including a
-widely used PID controller algorithm. This algorithm is used in
+of Programs,'' by Damouche et~al.~\cite{fmics15}, the authors describe
+Salsa, a tool for improving the worst-case accuracy of programs.
+They evaluate the tool on a suite of control and numerical algorithms,
+  including the widely used PID controller algorithm. This algorithm is used in
 aeronautic and avionic systems for which correctness is critical. In
 C, the benchmark is written as:
 
 \begin{code}
 volatile double p, i, t, d, dt, invdt, m, e, eold, r; 
-
 int pid(double m0, double kp, double ki, double kd, double c){
-
   t     = 0.0;
   invdt = 5.0;
   dt    = 0.2;
   m     = m0 ;
   eold  = 0.0;
   i     = 0.0;
-  
   while (t < 100.0) {
        e = c - m;
        p = kp * e;
@@ -297,43 +289,62 @@ int pid(double m0, double kp, double ki, double kd, double c){
 }
 \end{code}
 
-with some inputs given fixed values. In \core format, the benchmark
-is represented as represented as:
+To ease the conversion of this code from C to \core,
+  this program was first translated to the following \surface program:
+
+\begin{code}
+(function (m kp ki kd)
+ :name "PID"
+ :description "Keep a measure at its setpoint using a PID controller."
+ :cite (damouche-martel-chapoutot-nsv14)
+ :type double
+ :pre (and (< -10.0 m 10.0) (< -10.0 c 10.0))
+ [= t 0.0]
+ [= dt 0.2]
+ [= invdt (/ 1 dt)]
+ [= c 0.0]
+ [= eold 0.0]
+ [= i 0.0]
+ (while (< t 100.0)
+   [= e (- c m)]
+   [= p (* kp e)]
+   [= i (+ i (* ki dt e))]
+   [= d (* kd invdt (- e eold))]
+   [= r (+ p i d)]
+   [= m (+ m (* 0.01 r))]
+   [= eold e]
+   [= t (+ t dt)])
+ (output m))
+\end{code}
+
+The \surface program was then automatically compiled,
+  using the compiler tool in \name,
+  to the following \core benchmark:
 
 \begin{code}
 (lambda (m0 kp ki kd c)
   :name "PID"
-  :description 
-  "Keep a measure at its setpoint using a PID controller."
-  :inputs 
-  "Initial measure `m0`; gains `kp`, `ki`, `kd`; setpoint `c`"
+  :description "Keep a measure at its setpoint using a PID controller."
   :cite (damouche-martel-chapoutot-nsv14)
   :type double
   :pre (and (< -10.0 m0) (< m0 10.0) (< -10.0 c) (< c 10.0))
-  (while
-   (< t 100.0)
+  (while (< t 100.0)
    ([i 0.0 (+ i (* (* ki 0.2) (- c m)))]
     [m m0
-     (+ m (* 0.01 (+ (+ (* kp (- c m))
-                        (+ i (* (* ki 0.2) (- c m))))
-                     (* (* kd (/ 1 0.2))
-                        (- (- c m) eold)))))]
+     (let ([p (* kp (- c m))]
+           [d (* (* kd (/ 1 0.2)) (- (- c m) eold))])
+     (+ m (* 0.01 (+ (+ p (+ i (* (* ki 0.2) (- c m)))) d))))]
     [eold 0.0 (- c m)]
     [t 0.0 (+ t 0.2)])
    m))
 \end{code}
 
-This benchmark incorporates many of the features of \core previously
-described: it is named (``\verb|PID|''), it has a citation
-(``\verb|damouche-martel-chapoutot-nsv14|''), it specifies the type of
-floating point number used (``\verb|double|''), and it has
-domain-based restrictions on it's input. This benchmark also showcases
-a few more features of \core: since the benchmark source included
-information describing the benchmark and it's inputs, we include this
-information in the \name benchmark. The ``\verb|:description|'' tag
-marks a description of the benchmark as a whole, while the
-``\verb|:inputs|'' tag marks descriptions of the inputs to a
-program. These descriptions can contain information about the
-distribution of inputs, the situation in which the benchmark is used,
-and any other information which might be useful to tool writers.
+Beyond the metadata used in the FPTaylor, Rosa, and Herbie examples,
+  this benchmark includes a \C{:description} tag
+  to describe for readers what the benchmark program computes.
+These descriptions contain information about the distribution of inputs,
+  the situation in which the benchmark is used,
+  or any other information which might be useful to tool writers.
+The \name suite features descriptions for its most complex benchmarks.
+
 \end{document}

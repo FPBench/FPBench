@@ -1,13 +1,81 @@
 \documentclass[main.tex]{subfiles}
 \begin{document}
 
-\section{Case Studies}
+\section{Benchmark Case Studies}
+\label{sec:casestudies}
 
-\name supports benchmarks from a variety of domains, with a variety
-of characteristics. Most importantly, \name benchmarks can be used
-to represent the benchmarks from a variety of floating point
-tools. Here, we'll highlight a few representative examples supported
-by \name, taken from various floating point tool benchmark suites.
+The \name suite includes \nbenches benchmarks
+  sourced from recent papers in floating point verification,
+  optimization, and accuracy improvement.
+Moreover, it can be used to represent the input
+  to a variety of floating point tools
+  which measure error in a variety of ways.
+This section discusses the benchmarks
+  already included in the \name suite,
+  and highlights representative examples
+  from the test suites of various floating point tools.
+
+\subsection{Benchmark Suite}
+
+The \name suite includes \nbenches benchmarks
+  sourced from recent papers in floating point verification,
+  optimization, and accuracy improvement.
+Of the benchmarks,
+  FPBench draws 28 from the Herbie test suite~\cite{pavel15},
+  9 from the Salsa test suite~\cite{fmics15},
+  7 from the Rosa test suite~\cite{DarulovaK14},
+  and one from the FPTaylor test suite~\cite{fptaylor-fm15}.
+Together, these programs come from
+  a variety of domains and applications,
+  from control software to mathematical libraries
+  (see Table~\ref{tbl:domains}).
+The included benchmarks use the range of functionality
+  available in \name (see Table~\ref{tbl:features}).
+
+\begin{table}[hbtp]
+  \begin{minipage}[t]{.45\textwidth}
+    \begin{tabular}{lr}
+      Name & Benchmarks \\\hline
+      Basic Arithmetic & 44 \\
+      Exponentials & 13 \\
+      Trigonometric & 10 \\
+      Comparison & 12 \\
+      Conditionals & 3 \\
+      Loops & 12
+    \end{tabular}
+    \caption{Domains from which the \name benchmarks are taken. The
+      mathematical expressions are the smallest, and are largely
+      drawn from \textit{Numerical Methods for Scientists and
+        Engineers}~\cite{hamming-1987}.}
+    \label{tbl:domains}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[t]{.45\textwidth}
+    \begin{tabular}{lr}
+      Domain & Benchmarks \\\hline
+      Math expressions & 29 \\
+      Math algorithms & 4 \\
+      Physics & 3 \\
+      Control & 5
+    \end{tabular}
+    \caption{Functions and language features used in the \name
+      benchmarks. Exponential functions include logarithms, the
+      exponential function, and the power function.}
+    \label{tbl:features}
+  \end{minipage}
+\end{table}
+
+The \name suite attempts balance on multiple dimensions.
+Beyond drawing from a range of domains with varying features,
+  \name also balances the need for simple benchmarks
+  to prove algorithms on
+  with larger, practical examples.
+To achieve this balance,
+  a large number of basic expressions,
+  coupled with a smaller number of large test cases.
+Among the larger test cases a degree of diversity is also available,
+  with programs ranging
+  from 2 to 13 variables mutated in the loop body.
 
 \subsection{FPTaylor}
 In the paper ``Rigorous Estimation of Floating-Point Round-off Errors

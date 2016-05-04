@@ -1,12 +1,5 @@
 
 
-%Measures
-%  - worst case error
-%  - worst anti-improvement
-%  - average error
-%  - average improvement
-%  - performance (?)
-%  - stability (?)
 
 \section{Accuracy Measurements}
 
@@ -95,19 +88,18 @@ instead of $X$. While dynamic techniques avoid to over-approximate the errors as
 techniques are used, the errors may also be under-approximated which may be an issue in some applicative
 contexts such as critical embedded systems. Another difficulty of dynamic methods is the execution time of the
 multiple runs, specially for programs with multiple inputs. In this case, the way random inputs are generated
-must be specified. 
+must be specified. For example, for a program taking two inputs $x$ and $y$, one may take $n$ sample values for $x$ and
+$n$ other values for $y$ and execute the $n\times n$ tests of the cartesian product or, alternatively, one may generate
+a suite of $n$ pairs of data $(x,y)$ and execute the $n$ tests. Obviously, this impacts the execution time and the scalability of the tool
+as well as how we may trust the results. Let us also remark that probabilities may be used in another ways, for example
+as in the CESTAC method, implemented in the Cadna tool \cite{} in which each operation is run several times with random rounding modes
+(towards plus or minus infinity with a probability of $0.5$).
 
 Static analysis techniques compute an other-approximation of the errors without executing the programs. They rely
 on non-relational \cite{} or relational abstract domains \cite{}. Static analysis techniques also use 
-acceleration techniques to over-approximate the results of programs with loops without executing all the iterations.
-
-
-
-
-
-
-
-
+acceleration techniques (widenings) to over-approximate the results of programs with loops without executing all the iterations.
+While this is another source of other-approximation, it makes it possible to obtain in a short time general results which hold for 
+programs independently of the number of iterations.
 
 
 

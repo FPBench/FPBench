@@ -1,15 +1,16 @@
 \documentclass[main.tex]{subfiles}
 \begin{document}
 
+
 \section{Benchmark Format}
 \label{sec:format}
 
 The \name format must be easy to parse
   and have simple, easily-modeled semantics
-  that allow the details of floating point arithmetic
+  that allow the details of floating-point arithmetic
   to come to the fore.
 These goals are fulfilled by the \core format,
-  a simplified expression-based language for floating point operations
+  a simplified expression-based language for floating-point operations
   inspired by the \smtlib format used in the SMT competition.
 \name is also intended to grow
   by incorporating code extracted
@@ -18,7 +19,7 @@ These goals are fulfilled by the \core format,
   into \name's format,
   while glossing over language differences.
 These goals are fulfilled by the \surface format,
-  a simplified imperative language for floating point operations
+  a simplified imperative language for floating-point operations
   which can be automatically compiled to \core.
 Users of \name can analyze benchmarks either in \core,
   if they want to avoid the complexities of imperative programs,
@@ -48,15 +49,16 @@ We expect that most libraries implement these functions
   the GNU \C{libm} gives accurate answers across most of the input range.
 
 A \core benchmark specifies a \core expression,
-  a collection of free parameters,
+  a set of free parameters,
   and properties containing meta-data about that benchmark.
-Metadata flags included in \name include a name for each benchmark,
+Meta-data flags included in \name include a name for each benchmark,
   a list of citations, preconditions for the free parameters,
-  and the floating point type (\C{float} or \C{double})
+  and the floating-point type (\C{float} or \C{double})
   used to evaluate that benchmark.
 The full \core syntax is as follows:
 
 \begin{grammar}
+\small
 <\core> ::= ( `lambda' ( <identifier>* ) <property>* <expression> )
 
 <expression> ::= <number> | <constant> | <identifier>
@@ -90,6 +92,7 @@ The semantics of these programs is ordinary function evaluation,
   and then evaluating the return value:
 
 \begin{mathpar}
+\small
 \inferrule{
   H : x_i^0 \evalto v_i \\
   H[x_i \mapsto v_i]_i: c \evalto \top \\
@@ -123,7 +126,7 @@ We recommend that properties specific to a single tool
 
 While \core is a functional language
   with a minimal set of features
-  for representing floating point formats,
+  for representing floating-point formats,
   \surface includes common imperative features
   like variable assignments,
   multiple return values,

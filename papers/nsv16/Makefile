@@ -1,4 +1,4 @@
-main.pdf: main.tex fpbench.bib case-studies.tex
+main.pdf: $(wildcard *.tex) fpbench.bib
 	pdflatex main
 	bibtex main
 	pdflatex main

@@ -30,41 +30,86 @@ point error, one must start by asking several questions:
 Each of these questions have multiple valid answers, and we'll address
 the common ones here.
 
-\begin{description}
-\item[How do you measure the how ``far apart'' two floating point numbers are?]
+\paragraph{How do you measure the how ``far apart'' two floating point numbers are?}
 
-  There are several ways to measure the difference between two
-  floating point numbers, $x$ and $x'$. The simplest method is
-  absolute error:
-  \begin{equation}
-    \varepsilon_{abs}(x, x') = \left|x - x'\right|
-  \end{equation}
-  This method is simple to compute and understand. But many
-  mathematicians prefer to measure how big the error is relative to
-  the quantity being measured. From this notion, we get relative
-  error:
-  \begin{equation}
-    \varepsilon_{rel}(x, x') = \left|\frac{x - x'}{x}\right|
-  \end{equation}
-  Relative error scales with the magnitude of the quantity being
-  measured, and thus makes sense for measuring both large and small
-  numbers, much like the floating point format itself. To tie our
-  notion of error even more closely to the floating point format, we
-  can count the floating point values between $x$ and $x'$.
-  \[
-  \varepsilon_{ulps}(x, x') = |\{ y \in \mathbb{F} : \min(x, x') \le y \le \max(x, x')
-  \}|~\footnote{We are using $|S|$ to denote the number of elements in
-    a set $S$}
-  \]
-  The floating point numbers are distributed roughly exponentially, so
-  this measure of error scales in a similar manner to relative
-  error. Since it's more faithful to the underlying representation,
-  this measure, commonly referred to as ULPs or Units in the Last
-  Place, is often a smoother measure of error as it appears in
-  floating point error. Some tools even take the $log$ of this measure to
-  get roughly the number of low-order bits which are incorrect in the
-  answer.
-\end{description}
+There are several ways to measure the difference between two floating
+point numbers, $x$ and $x'$. The simplest method is absolute error:
+\begin{equation}
+  \varepsilon_{abs}(x, x') = \left|x - x'\right|
+\end{equation}
+This method is simple to compute and understand. But many
+mathematicians prefer to measure how big the error is relative to the
+quantity being measured. From this notion, we get relative error:
+\begin{equation}
+  \varepsilon_{rel}(x, x') = \left|\frac{x - x'}{x}\right|
+\end{equation}
+Relative error scales with the magnitude of the quantity being
+measured, and thus makes sense for measuring both large and small
+numbers, much like the floating point format itself. To tie our notion
+of error even more closely to the floating point format, we can count
+the floating point values between $x$ and $x'$.
+\[
+\varepsilon_{ulps}(x, x') = |\{ y \in \mathbb{F} : \min(x, x') \le y \le \max(x, x')
+\}|~\footnote{We are using $|S|$ to denote the number of elements in
+  a set $S$}
+\]
+The floating point numbers are distributed roughly exponentially, so
+this measure of error scales in a similar manner to relative
+error. Since it's more faithful to the underlying representation, this
+measure, commonly referred to as ULPs or Units in the Last Place, is
+often a smoother measure of error as it appears in floating point
+error. Some tools even take the $log$ of this measure to get roughly
+the number of low-order bits which are incorrect in the answer.
+
+\paragraph{Do you care about the difference in output for a correct input
+  (forward error), or the difference in input for a correct output
+  (backward error)?}
+
+Depending on the application domain, different tools might want to
+focus on the error in the output of the program, or that same error
+translated backwards through the program to get the change required in
+the input to get a correct output. Backward error can be especially
+important for evaluating the stability of an algorithm, and in
+scientific applications where one might want to know if sensor error
+or algorithmic error contributes most greatly to overall error.
+
+However, backward error can be tricky to compute, and since floating
+point numbers are discrete, there isn't always an input which will
+produce the correct output. Possibly for these reasons, to our
+knowledge all the existing tools that automatically measure the
+floating point error of programs use forward error. For now, we'll
+just support forward error in FPBench, but we're leaving the format
+open to extensions including backward error in the future, should it
+become important.
+
+\paragraph{Do you measure error statically (through program analysis), or
+  dynamically (through sampling)?}
+
+There are many floating point inputs which a given program could take
+($\left(2^{64}\right)^N$ for a floating point program with $N$ double inputs), so
+it is often intractable to evaluate the error of the program on all
+possible inputs. Instead, tools either use static analysis to obtain a
+loose but sound bound on the error of the program, or use sampling to
+obtain a (usually) tight approximation of the error which can either
+under or over approximate it.
+
+Static techniques tend to rely on non-relational \cite{} or relational
+abstract domains \cite{}, and use acceleration techniques (widenings)
+to over-approximate the error of program loops without unrolling
+them. While such techniques tend to provide loose over-approximations
+of the floating point error of programs, they are a fast way to
+provide sound error bounds. In certain embedded applications where
+correctness is critical, soundness is paramount, and non-static
+techniques will not do.
+
+However, in domains where correctness is not absolutely critical,
+dynamic sampling techniques can provide tighter approximations of
+error as it appears in practice. For some tools, sampling can provide
+a smoother error metric for use during search, even if final error
+evaluation uses static techniques. Dynamic error evaluation techniques
+can be slower than static techniques, since they involve running a
+program multiple times, sometimes with varying semantics.
+
 
 %% There exists many ways of measuring the accuracy of a computation and
 %% it is mandatory to be very precise on which methodology is adopted in
@@ -94,17 +139,17 @@ the common ones here.
 %% \begin{equation}
 %% \varepsilon_{abs}(x) = | f(x) - \hat{f}(x)|\quad\text{and}\quad \varepsilon_{rel}(x)= \left| \frac{f(x)-\hat{f}(x)}{f(x)}\right|\enspace .
 %% \end{equation}
-The error $\varepsilon_{abs}(x)$ corresponds to the forward error. The backward error $\varepsilon_{back}(x)$ is defined as the distance
-to the closest input $x'$ such that $f(x')=\hat{f}(x)$ or, in other word, the distance to the closest input
-for which $\hat{f}(x)$ is the exact result.
-\begin{equation}
-\varepsilon_{back} = \min\ \big\{ x'\in X\ :\ f(x')=\hat{f}(x)\big\}\enspace .
-\end{equation}
-To our knowledge, all the existing tools measuring automatically errors on pieces of codes compute forward errors and,
-in the following, we only consider this kind of error.
+%% The error $\varepsilon_{abs}(x)$ corresponds to the forward error. The backward error $\varepsilon_{back}(x)$ is defined as the distance
+%% to the closest input $x'$ such that $f(x')=\hat{f}(x)$ or, in other word, the distance to the closest input
+%% for which $\hat{f}(x)$ is the exact result.
+%% \begin{equation}
+%% \varepsilon_{back} = \min\ \big\{ x'\in X\ :\ f(x')=\hat{f}(x)\big\}\enspace .
+%% \end{equation}
+%% To our knowledge, all the existing tools measuring automatically errors on pieces of codes compute forward errors and,
+%% in the following, we only consider this kind of error.
 
-The object of the measure refers to what quantity is measured.  Let $\varepsilon(x)$
-stand for either $\varepsilon_{abs}(x)$ or $\varepsilon_{rel}(x)$ depending on the kind of error we use. 
+%% The object of the measure refers to what quantity is measured.  Let $\varepsilon(x)$
+%% stand for either $\varepsilon_{abs}(x)$ or $\varepsilon_{rel}(x)$ depending on the kind of error we use. 
 We may distinguish the following cases.
 \begin{description}
 \item[Worst case error] The worst case error $\varepsilon_{wst}$ is the error measured in the worst case for all the admissible inputs of the program. 
@@ -144,29 +189,28 @@ on the numerical stability of the code could be taken into account. These measur
 of the derivatives of the code obtained by automatic differentiation \cite{} or by the computation of Lyapunov exponents \cite{}.
 
 
-\textbf{\large Work in progress below}
+%% \textbf{\large Work in progress below}
 
-Independently of the object measured,
-there exists two families of techniques to compute the errors based on static or dynamic analysis of the codes.
-Dynamic techniques take a subset $X' \subseteq X$ of the inputs, in general by chosing random elements of $X$,
-and compute $\varepsilon_{wst}$,  $\varepsilon_{avg}$, $\iota_{anti}$, $\iota_{avg}$, $\ldots$ using $X'$
-instead of $X$. While dynamic techniques avoid to over-approximate the errors as it may happens when static 
-techniques are used, the errors may also be under-approximated which may be an issue in some applicative
-contexts such as critical embedded systems. Another difficulty of dynamic methods is the execution time of the
-multiple runs, specially for programs with multiple inputs. In this case, the way random inputs are generated
-must be specified. For example, for a program taking two inputs $x$ and $y$, one may take $n$ sample values for $x$ and
-$n$ other values for $y$ and execute the $n\times n$ tests of the cartesian product or, alternatively, one may generate
-a suite of $n$ pairs of data $(x,y)$ and execute the $n$ tests. Obviously, this impacts the execution time and the scalability of the tool
-as well as how we may trust the results. Let us also remark that probabilities may be used in another ways, for example
-as in the CESTAC method, implemented in the Cadna tool \cite{} in which each operation is run several times with random rounding modes
-(towards plus or minus infinity with a probability of $0.5$).
+%% Independently of the object measured,
+%% there exists two families of techniques to compute the errors based on static or dynamic analysis of the codes.
+%% Dynamic techniques take a subset $X' \subseteq X$ of the inputs, in general by chosing random elements of $X$,
+%% and compute $\varepsilon_{wst}$,  $\varepsilon_{avg}$, $\iota_{anti}$, $\iota_{avg}$, $\ldots$ using $X'$
+%% instead of $X$. While dynamic techniques avoid to over-approximate the errors as it may happens when static 
+%% techniques are used, the errors may also be under-approximated which may be an issue in some applicative
+%% contexts such as critical embedded systems. Another difficulty of dynamic methods is the execution time of the
+%% multiple runs, specially for programs with multiple inputs. In this case, the way random inputs are generated
+%% must be specified. For example, for a program taking two inputs $x$ and $y$, one may take $n$ sample values for $x$ and
+%% $n$ other values for $y$ and execute the $n\times n$ tests of the cartesian product or, alternatively, one may generate
+%% a suite of $n$ pairs of data $(x,y)$ and execute the $n$ tests. Obviously, this impacts the execution time and the scalability of the tool
+%% as well as how we may trust the results. Let us also remark that probabilities may be used in another ways, for example
+%% as in the CESTAC method, implemented in the Cadna tool \cite{} in which each operation is run several times with random rounding modes
+%% (towards plus or minus infinity with a probability of $0.5$).
 
-Static analysis techniques compute an other-approximation of the errors without executing the programs. They rely
-on non-relational \cite{} or relational abstract domains \cite{}. Static analysis techniques also use 
-acceleration techniques (widenings) to over-approximate the results of programs with loops without executing all the iterations.
-While this is another source of other-approximation, it makes it possible to obtain in a short time general results which hold for 
-programs independently of the number of iterations.
-
+%% Static analysis techniques compute an other-approximation of the errors without executing the programs. They rely
+%% on non-relational \cite{} or relational abstract domains \cite{}. Static analysis techniques also use 
+%% acceleration techniques (widenings) to over-approximate the results of programs with loops without executing all the iterations.
+%% While this is another source of other-approximation, it makes it possible to obtain in a short time general results which hold for 
+%% programs independently of the number of iterations.
 
 \scriptsize
 \centerline{\begin{tabular}{ccccc}

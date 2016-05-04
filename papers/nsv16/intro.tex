@@ -4,28 +4,51 @@
 \section{Introduction}
 \label{sec:intro}
 
+In a world where trusting digital systems is increasingly important,
+automatic program verification tools are mandatory to provide
+certified results.  In this context floating-point computations are an
+important issue because of the rounding errors done on each operation.
+Indeed, floating-point arithmetic is not intuitive and very sensitive
+to the roundoff errors.  To ensure the validity of the results
+obtained with this arithmetic, several validating methods have been
+introduced.  Among them, we may cite: Fluctuat~\cite{Goubault13,GMP06}
+measures by static analysis an over-approximation of the error due to
+the use of floating-point numbers instead of reals while executing a
+program written in the \texttt{C} language.  It also, helps the user
+to debug its code by detecting the responsible operations of the most
+significant precision loss.  This approach is used by several
+industries.  Salsa~\cite{fmics15} improves the numerical accuracy of
+programs by automatic transformation.  It minimizes the value of the
+errors arising during computations using error bounds obtained by
+abstract interpretation.  Based on a search to improve the numerical
+accuracy of an arithmetic expression, Herbie~\cite{pavel15} (Zachary
+and al.) estimates and localizes the roundoff errors of an expression
+using sampled points, applies a set of rules in order to improve the
+accuracy of the expression and combines these improvements for the
+different inputs.  Another approach introduced by~\cite{DarulovaK14}
+and implemented in Rosa intends to combine an exact SMT solver based
+on reals with an approximate and sound affine and interval arithmetic
+computation.  Its use requires to set a desired post-condition and
+involves the uncertainties as well as the desired target precision.
+The compiler verifies that the desired precision can be soundly
+obtained in finite-precision implementation while all the
+uncertainties and their propagation are included.  Finally,
+FP-Taylor~\cite{fptaylor-fm15} uses Taylor series developments to
+narrow the error computed by the interval arithmetic.  This competes
+with the affine arithmetic domain used by Fluctuat.
 
-In a world where trusting digital systems is increasingly important, automatic program verification tools are mandatory to provide certified results. 
-In this context floating-point computations are an important issue because of the rounding errors done on each operation. 
-Indeed, floating-point arithmetic is not intuitive and very sensitive to the roundoff errors. 
-To ensure the validity of the results obtained with this arithmetic, several validating methods have been introduced.  
-Among them, we may cite: 
-Fluctuat~\cite{Goubault13,GMP06} measures by static analysis an over-approximation of the error due to the use of floating-point numbers instead of reals while executing a program written in the \texttt{C} language.  
-It also, helps the user to debug its code by detecting  the responsible operations of the most significant precision loss. 
-This approach is used by several industries.    
-Salsa~\cite{fmics15} improves the numerical accuracy of programs by automatic transformation. 
-It minimizes the value of the errors arising during computations using error bounds obtained by abstract interpretation.
-Based on a search to improve the numerical accuracy of an arithmetic expression, Herbie~\cite{pavel15} (Zachary and al.) estimates and localizes the roundoff errors of an expression using sampled points, applies a set of rules in order to improve the accuracy of the expression and combines these improvements for the different inputs.  
-Another approach introduced by~\cite{DarulovaK14} and implemented in Rosa intends to combine an exact SMT solver based on reals with an approximate and sound affine and interval arithmetic computation. 
-Its use requires to set a desired post-condition and involves the uncertainties as well as the desired target precision. 
-The compiler verifies that the desired precision can be soundly obtained in finite-precision implementation while all the uncertainties and their propagation are included. 
-Finally, FP-Taylor~\cite{fptaylor-fm15} uses Taylor series developments to narrow the error computed by the interval arithmetic. 
-This competes with the affine arithmetic domain used by Fluctuat.
 
+While there is a larger and larger number of tools dedicated to
+improve the numerical accuracy of codes and to bound the errors
+arising in floating-point computations, it becomes more and more
+difficult to compare them on the same programs because of the absence
+of a standard format and relevant suite for benchmarks and the fact
+tools do not use the same measures of the accuracy.  Hence, the
+present work is motivated by the absence of a global approach that
+provides us the opportunity to compare the different tools previously
+mentioned.  In addition, having a common scientific methodology is
+very important to show the improvements of each tool.
 
-While there is a larger and larger number of tools dedicated to improve the numerical accuracy of codes and to bound  the errors arising in floating-point computations, it becomes more and more difficult to compare them on the same programs because of the absence of a standard format and relevant suite for benchmarks and the fact tools do not use the same measures of the accuracy.     
-Hence, the present work is motivated by the absence of a global approach that provides us the opportunity to compare the different tools previously mentioned.  
-In addition, having a common scientific methodology is very important to show the improvements of each tool.
 
 The main contributions of this article are the following:
 \begin{enumerate}[label=(\roman*)]

@@ -4,6 +4,7 @@
 \usepackage{xspace}
 \usepackage{syntax,mathpartir,listings}
 \usepackage{enumitem}
+\usepackage[usenames,dvipsnames]{color}
 
 \newcommand{\name}{FPBench\xspace}
 \newcommand{\core}{FPCore\xspace}
@@ -14,6 +15,8 @@
 \newcommand{\evalto}{\Downarrow}
 \newcommand{\err}[1]{\varepsilon_{\text{#1}}}
 \lstnewenvironment{code}{\lstset{basicstyle=\scriptsize}}{}
+\newcommand{\todo}[1]{{\color{blue}\textit{[TODO: #1]}}}
+
 \begin{document}
 
 \title{Toward a Standard Benchmark Format and Suite for Floating Point Analysis}

@@ -23,11 +23,9 @@ However, it is syntactically very different
   from some of the languages from which benchmarks might originate.
 To make translation to \core from source languages
   like C, Fortran, and Matlab easier,
-  \name also specifies another format,
-  \surface.
+  \name provides the \surface format
+  and a compiler from \surface to \core.
 \surface is syntactically similar to imperative languages,
-  but is automatically translatable to \core.
-\name provides a compiler from \surface to \core
   to make translation of benchmarks as easy as possible.
 
 \paragraph{\core to C}
@@ -37,8 +35,7 @@ We expect this to be especially useful for tools
   that improve the accuracy of floating-point expressions
   and want to return the most accurate expressions to users.
 The \core to C compiler can also be used
-  to run \name benchmarks
-  using the many available C analysis tools.
+  to run \name benchmarks through the many available C analysis tools.
 
 \paragraph{Worst-case error estimation}
 \name provides a tool to give bounds on
@@ -64,5 +61,8 @@ The statistical approach is necessary to produce accurate estimates
 The average error estimate combines with worst-case error bounds
   to provide detailed information about the error behavior
   of a floating-point program.
+
+We plan to continue developing community tools
+  around the \name formats.
 
 \end{document}

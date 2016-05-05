@@ -4,22 +4,22 @@
 \section{Introduction}
 \label{sec:intro}
 
-Developing reliable software is increasingly crucial, and many recent
-advances in automatic program analysis and verification can now provide
-strong guarantees for real industrial code~\todo{cites}.  However these
-techniques are typically focused on integer programs, and do not apply to
-the floating-point computations we depend on for safety-critical control in
-embedded systems or avionics nor the analyses carried out by scientific and
-computer-aided design applications.  In these contexts, floating-point
-computations are a critical issue due to rounding errors that arise on
-every operation.  Indeed, floating-point arithmetic is notoriously
-unintuitive and its sensitivity to roundoff errors makes such computation
-fiendishly difficult to debug.  Traditionally, such errors have been
-addressed by numerical methods experts who manually analyze and rewrite
-floating-point code to ensure accuracy and stability.  However, these
-manual techniques are difficult to apply and typically do not lead to a
-independently checkable certificate assuring the correctness of the
-results.
+The increasingly urgent demand for reliable software has led to tremendous
+advances in automatic program analysis and verification~\todo{cite}.
+However these techniques have typically focused on integer programs, and do
+not apply to the floating-point computations we depend on for
+safety-critical control in avionics or medical devices, nor the analyses
+carried out by scientific and computer-aided design applications.  In these
+contexts, floating-point accuracy critical since subtle rounding errors
+often lead to significant discrepancies between floating-point results and
+the real results developers intuitively expect.  Indeed, floating-point
+arithmetic is notoriously unintuitive and its sensitivity to roundoff
+errors makes such computations fiendishly difficult to debug.
+Traditionally, such errors have been addressed by numerical methods experts
+who manually analyze and rewrite floating-point code to ensure accuracy and
+stability.  However, these manual techniques are difficult to apply and
+typically do not lead to independently checkable certificates guaranteeing
+the accuracy.
 
 The research community has responded to these challenges by introducing
 several diverse automated techniques that provide guaranteed bounds on the
@@ -32,21 +32,21 @@ debug their code by detecting the operations responsible for the most
 significant precision loss.  Salsa~\cite{fmics15} automatically improves
 the numerical accuracy of programs by using an abstract interpretation to
 guide transformations that minimize the value of the errors arising during
-computations.  Based on a search to improve the numerical accuracy of an
-arithmetic expression, Herbie~\cite{pavel15} estimates and localizes the
-roundoff errors of an expression using sampled points, applies a set of
-rules in order to improve the accuracy of the expression and combines these
-improvements for the different inputs.  Another approach introduced
-by~\cite{DarulovaK14} and implemented in Rosa intends to combine an exact
-SMT solver based on reals with an approximate and sound affine and interval
-arithmetic computation.  Its use requires to set a desired post-condition
-and involves the uncertainties as well as the desired target precision.
-The compiler verifies that the desired precision can be soundly obtained in
-finite-precision implementation while all the uncertainties and their
-propagation are included.  Finally, FP-Taylor~\cite{fptaylor-fm15} uses
-Taylor series developments to narrow the error computed by the interval
-arithmetic.  This competes with the affine arithmetic domain used by
-Fluctuat.
+computations.  Based on a heuristic search to improve the numerical
+accuracy of an arithmetic expression, Herbie~\cite{pavel15} estimates and
+localizes the roundoff errors of an expression using sampled points,
+applies a set of rules in order to improve the accuracy of the expression
+and combines these improvements for different input domains.  Another
+approach introduced by~\cite{DarulovaK14} and implemented in Rosa combines
+an exact SMT solver based on reals with an approximate and sound affine and
+interval arithmetic computation.  Rosa allows the user to provide desired
+post-conditions and uncertainties on the accuracy of input as well as the
+desired target accuracy.  The compiler verifies that the desired precision
+can be soundly obtained in finite-precision implementation while all the
+uncertainties and their propagation are included.  Finally,
+FP-Taylor~\cite{fptaylor-fm15} uses Taylor series developments to narrow
+the error computed by the interval arithmetic.  This competes with the
+affine arithmetic domain used by Fluctuat.
 
 As the number of tools dedicated to analyzing and improving numerical
 accuracy continues growing, it becomes increasingly difficult to make fair
@@ -57,36 +57,50 @@ different measures.  Furthermore, without any standard set of floating
 point benchmarks, it is difficult to identify opportunities for composing
 complementary tools.
 
+To address these challenges, the floating-point research community needs a
+standard benchmark format and common set of measures that enables
+comparisons and cooperation between tools.  This goal is motivated by the
+success of standard benchmark suites like SPEC and \todo{another suite} in
+the compiler community, the DIMACS~\todo{cite} format in the SAT-solving
+community, and the SMT-LIB~\todo{cite} format in the SMT-solving community.
+The formats have enabled fair comparisons between tools, crisp
+characterizations of the tradeoffs between different approaches, and useful
+cooperation between tools with complementary strengths.
+
 In this article, we propose FPBench, a common floating-point benchmark
 format. FPBench enables users to compose tools that perform heuristic
 improvements with complementary tools that provide sound error bounds.
 Hence, FPBench provides a common language that can be used to develop a
 global approach for comparing the various tools previously mentioned, and
 use them in tandem. In addition, having a common scientific methodology is
-crucial to show the improvements of each tool on the state of the art.
-
+crucial for demonstrating the improvements of each tool on the state of the
+art.
 
 The main contributions of this article are the following:
 \begin{enumerate}[label=(\roman*)]
+%
 \item A uniform format for expressing floating point benchmarks, \core.
-\item A set of tools for converting to and from \core programs, and
+%
+\item A set of utilities for converting to and from \core programs, and
   working with \core programs.
-\item A set of measures on which to evaluate various tools on \name
-  benchmarks.
-\item An initial suite of benchmarks drawing from existing floating
-  point literature.
+%
+\item A set of measures on which to evaluate various floating-point tools
+  on \name benchmarks.
+%
+\item An initial suite of benchmarks drawing from existing floating point
+  literature.
+%
 \end{enumerate}
 
-The remainder of the article is organized as follows.  In
-Section~\ref{sec:format}, we recall some basic notions on term representing
-as well as the benchmark format. In Section~\ref{sec:measure} we introduce
-the different kinds of measures of the error. Section~\ref{sec:tools}
-describes a set of tools released with FPBench to make creating and working
-with benchmarks easier. We discuss in Section~\ref{sec:case-studies} our
-existing benchmark suite, highlighting a few representative case studies.
-Finally, in Section~\ref{sec:conclusion}, conclusions are drawn and further
-work is suggested.
-
+The remainder of this article is organized as follows.
+Section~\ref{sec:format}, describes the FPBench formats.
+Section~\ref{sec:measure} introduces various measures of floating-point
+error.  Section~\ref{sec:tools} describes the utilities FPBench provides to
+support creating and working with benchmarks.
+Section~\ref{sec:case-studies} surveys our existing benchmark suite,
+highlighting few representative case studies from recent tools in the
+literature.  Finally, Section~\ref{sec:conclusion} discusses future work
+and concludes.
 
 
 %% In a world where trusting digital systems is increasingly important,

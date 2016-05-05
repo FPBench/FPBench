@@ -4,29 +4,32 @@
 \section{Conlusion}
 \label{sec:conclusion}
 
-The initial work on \name presented in this article provides a basic
+The initial work on \name provides a
 foundation for evaluating and comparing floating-point analysis and
 optimization tools.  Already the \name format can serve as a
-\textit{lingua franca} between such tools and enable them to
+common language, allowing these tools to
 cooperatively analyze and improve floating-point code.
 
-Of course, there is still much work to do in order to make \name
-sufficiently expressive for the broad range of applications
-represented in the floating-point community.  In the near term, we
-will add additional metrics for accuracy and performance to the set of
-evaluators provided by the \name tooling and begin developing a
-standard set of benchmarks around the various measures.  We will also
-expand the set of languages with direct support for compilation to and
-from the \name format, by expanding the \surface format and
-potentially adding new surface syntaxes for \name. Longer term, we
-intend to investigate support for mixed-precision benchmark, including
-supporting fixed-point computations.
+Though \name supports the composition
+  of the floating-point tools that exist today,
+  there is still much work to do to support
+  the floating-point research community as it grows.
+\name must be sufficiently expressive for the broad range of applications
+  that represent the future of the floating-point community.
+In the near term, we will add additional
+metrics for accuracy and performance to the set of evaluators provided by
+the \name tooling and begin developing a standard set of benchmarks
+around the various measures. We will also expand the set of languages with
+direct support for compilation to and from the \name format. Longer
+term, we intend to investigate support for mixed-precision benchmarks,
+fixed-point computations, and additional data structures such as
+vectors, records, and matrices.
 
-We hope that \name can help foster the already strong sense of
-community and collaboration around floating-point research.  Toward
-that end, we encourage any interested readers (and tool writers) to
-get involved with development of \name by signing up for the mailing
-list and checking out the project website at
-\url{http://fpbench.org/}.
+We hope that \name encourages the already strong sense of community
+and collaboration around floating-point research.  Toward that end, we
+encourage any interested readers (and tool writers)
+to get involved with development of \name
+by signing up for the mailing list and checking out the project
+website at \url{http://fpbench.org/}.
 
 \end{document}

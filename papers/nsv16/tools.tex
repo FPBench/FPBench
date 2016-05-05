@@ -10,7 +10,7 @@
 These tools can be a community resource,
   increasing interoperability and code reuse.
 They also make it easier to write
-  new floating point analysis and transformation tools
+  new floating-point analysis and transformation tools
   by automating what are currently
   common but tedious tasks.
 
@@ -18,7 +18,7 @@ They also make it easier to write
 The \core format faithfully preserves important program constructs,
   such as variable binding and operation ordering,
   while abstracting away details not relevant
-  to the floating point semantics.
+  to the floating-point semantics.
 However, it is syntactically very different
   from some of the languages from which benchmarks might originate.
 To make translation to \core from source languages
@@ -34,8 +34,8 @@ To make translation to \core from source languages
 Since C is a common implementation language for mathematical computations,
   \name provides a \core to C compiler.
 We expect this to be especially useful for tools
-  that improve the accuracy of floating point expressions
-  and want to return the improved expressions to users.
+  that improve the accuracy of floating-point expressions
+  and want to return the most accurate expressions to users.
 The \core to C compiler can also be used
   to run \name benchmarks
   using the many available C analysis tools.
@@ -50,19 +50,19 @@ The error analysis is fast
   though specialized tools such as Rosa~\cite{DarulovaK14}
   and FPTaylor~\cite{fptaylor-fm15}
   provide tighter error bounds.
-For tools that improve the accuracy of floating point computations,
+For tools that improve the accuracy of floating-point computations,
   the static error analysis is a way to compare
   the original and improved computation,
   while tools that optimize programs given accuracy bounds
   can use the static analysis to derive the accuracy bounds demanded.
 
 \paragraph{Average error estimation}
-Average error is a second important metric for floating point programs,
+Average error is a second important metric for floating-point programs,
   and \name provides a tool to statistically approximate it.
 The statistical approach is necessary to produce accurate estimates
   of average error given the current state of the art.
 The average error estimate combines with worst-case error bounds
   to provide detailed information about the error behavior
-  of a floating point program.
+  of a floating-point program.
 
 \end{document}

@@ -5,7 +5,7 @@
 \label{sec:measure}
 
 Besides an interoperable format
-  for floating point analysis and optimization tools,
+  for floating-point analysis and optimization tools,
   \name also provides a suite of benchmarks
   to make it possible to compare different tools.
 This comparison requires not only a common benchmark suite
@@ -16,7 +16,7 @@ This section standardizes the language
 
 \subsection{Measurement Types}
 
-Floating point error is best analyzed along the several axes
+Floating-point error is best analyzed along the several axes
   of the pointwise measurement, direction,
   multipoint summarization, soundness.
 
@@ -74,7 +74,7 @@ To our knowledge all the existing tools that measure only forward error.
 
 \paragraph{Multipoint summarization}
 
-To describe the error of a floating point computation
+To describe the error of a floating-point computation
   means summarizing its behavior across multiple inputs.
 Existing tools use either maximum or average error for this task.
 Formally,\footnote{Where $n$ is the number of arguments and $N$ is the number of valid inputs.}
@@ -96,7 +96,7 @@ Existing tools use
   or statistical sampling to tightly approximate the error.
 
 Most static techniques are based on interval or affine arithmetic
-  to over-approximate floating point arithmetic,
+  to over-approximate floating-point arithmetic,
   often abstracted into abstract domain for abstract interpretation.
 Abstract interpretation may rely on either non-relational \cite{}
   or relational abstract domains \cite{},
@@ -165,17 +165,17 @@ Table~\ref{tbl:tools} compares Fluctuat~\cite{Goubault13},
          & Pointwise & Direction & Summary & Soundness \\\hline 
 Fluctuat & Absolute        & Forward & Max      & Sound \\
 FPTaylor & Absolute        & Forward & Max      & Sound \\
-Herbie   & ULPs           & Forward & Average     & Statistical \\
+Herbie   & ULPs            & Forward & Average     & Statistical \\
 Rosa     & Absolute        & Forward & Max      & Sound \\
-Salsa    & Absolute        & Forward & Max      & Sound
+Salsa    & ULPs            & Forward & Max      & Sound
 \end{tabular}
-\caption{A comparison of how five floating point measure error
+\caption{A comparison of how five floating-point measure error
   across the axes identified in this section.}
 \label{tbl:tools}
 \end{table}
 
 Fluctuat, FPTaylor, and Rosa all verify error bounds
-  on the accuracy of floating point computations.
+  on the accuracy of floating-point computations.
 Given their need for soundness, it is natural
   that they use sound error analyses and estimate maximum error.
 Their use of absolute forward error derives from the difficulty

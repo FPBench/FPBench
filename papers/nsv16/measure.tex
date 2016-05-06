@@ -20,15 +20,15 @@ Floating-point error is best analyzed along the several axes
   of the pointwise measurement, direction,
   multipoint summarization, soundness.
 
-\paragraph{Pointwise measurement}
+\paragraph{Pointwise measurement ($\varepsilon$)}
 
 There are several ways to measure the error incurred
   by producing the inaccurate value $\hat x$ instead of the correct value $x$.
 Two common mathematical notions are the absolute and relative error:
 \begin{equation*}
-  \err{abs}(x, x') = \left|x - \hat x\right|
+  \varepsilon_{abs}(x, x') = \left|x - \hat x\right|
   \quad \text{and} \quad
-  \err{rel}(x, x') = \left|\frac{x - \hat x}{x}\right|
+  \varepsilon_{rel}(x, x') = \left|\frac{x - \hat x}{x}\right|
 \end{equation*}
 Relative error scales with the quantity being measured,
   and thus makes sense for measuring both large and small numbers,
@@ -37,7 +37,7 @@ A notion of error more closely tied to the floating point format
   is the Units in the Last Place (UPLs) of error.%
 \footnote{We are using $|S|$ to denote the number of elements in a set $S$}
 \[
-\err{ulps}(x, x') = |\{ y \in \mathbb{F} : \min(x, \hat x) \le y \le \max(x, \hat x)
+\varepsilon_{ulps}(x, x') = |\{ y \in \mathbb{F} : \min(x, \hat x) \le y \le \max(x, \hat x)
 \}|
 \]
 The floating point numbers are distributed roughly exponentially, so
@@ -47,7 +47,7 @@ numbers and infinities.
 Some tools use the logarithm of the ULPs to roughly approximate
 the number of incorrect low-order bits in $\hat x$.
 
-\paragraph{Error direction}
+\paragraph{Error direction ($\epsilon$)}
 
 Forward error and backward error are two common measures
   for the error of a mathematical computation.
@@ -72,7 +72,7 @@ However, backward error can be tricky to compute,
   where there may not be an input that produces the correct output.
 To our knowledge all the existing tools that measure only forward error.
 
-\paragraph{Multipoint summarization}
+\paragraph{Multipoint summarization ($E$)}
 
 To describe the error of a floating-point computation
   means summarizing its behavior across multiple inputs.
@@ -80,9 +80,9 @@ Existing tools use either maximum or average error for this task.
 Formally,\footnote{Where $n$ is the number of arguments and $N$ is the number of valid inputs.}
 
 \begin{equation*}
-  \epsilon_{\text{max}} = \max \left\{\epsilon(x) : x \in \mathbb{F}^n\right\}
+  E_{\text{max}} = \max \left\{\epsilon(x) : x \in \mathbb{F}^n\right\}
   \quad \text{and} \quad
-  \epsilon_{\text{avg}} = \frac{1}{N} \sum_{x\in \mathbb{F}^n} \varepsilon(x) \enspace .
+  E_{\text{avg}} = \frac{1}{N} \sum_{x\in \mathbb{F}^n} \epsilon(x) \enspace .
 \end{equation*}
 
 Worst-case error tends to be easier to measure soundly,
@@ -113,7 +113,7 @@ error as it appears in practice. Dynamic error evaluation techniques
 tend to be slower than static techniques, since they involve running a
 program multiple times, sometimes with varying semantics.
 
-\paragraph{Measuring improvement}
+\paragraph{Measuring improvement ($\iota$)}
 
 Some tools,
   such as those that attempt to improve the accuracy of programs,
@@ -123,8 +123,9 @@ Such comparison uses the improvement in worst-case or average error
   between the original $\hat f$ and improved $\hat f'$ implementation
   of the mathematical function $f$:
 \begin{align*}
-\iota_{\text{wst}} &= \epsilon_{\text{max}}(\hat{f}) - \epsilon_{\text{max}}(\hat{f}') \\
-\iota_{\text{avg}} &= \frac{1}{N} \cdot \sum_{x\in \mathbb{F}^n}  \big| |f(x)-\hat{f}(x)| - |f(x)-\hat{f}'(x)|  \big|\enspace .
+  \iota_{\text{wst}} = E_{\text{max}}(\hat{f}) - E_{\text{max}}(\hat{f}')
+  \quad \text{and} \quad
+  \iota_{\text{avg}} = E_{\text{avg}}(\hat{f}) - E_{\text{avg}}(\hat{f}')
 \end{align*}
 
 Accuracy improvement cannot, in general,
@@ -137,8 +138,8 @@ In this case, the largest unimprovement
   measures the cost of improving accuracy:
 
 \begin{equation*}
-\iota_{\text{anti}}(\hat{f},\hat{f}') = \max \left\{ \big| |f(x)-\hat{f}(x)| - |f(x)-\hat{f}'(x)|   
-\big|\ :\ x\in \mathbb{F}^n\right\}  
+  \iota_{\text{anti}}(\hat{f},\hat{f}') = \max \left\{ \epsilon(f(x),\hat{f}'(x)) - \epsilon(f(x),\hat{f}(x))   
+\ :\ x\in \mathbb{F}^n\right\}  
 \end{equation*}
 
 Other measures,

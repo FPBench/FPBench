@@ -134,7 +134,7 @@ The benchmark additionally specifies a name
   and cites its source using a key to a standard \BibTeX{} file.
 Since the original program uses 64-bit floating point numbers,
   the type \C{double} is specified in the benchmark.
-The constraints on input variable are translated to
+The constraints on input variables are translated to
   a single predicate under the \C{:pre} property.
 
 %% In this case, the preconditions come from
@@ -233,7 +233,8 @@ is given by:
   :cite (hamming-1987)
   :pre (and (>= (sqr b) (* 4 (* a c))) (not (= a 0)))
   (if (< b 0)
-      (/ (/ (* 4 (* a c)) (+ (- b) (sqrt (- (sqr b) (* 4 (* a c)))))) (* 2 a))
+      (/ (/ (* 4 (* a c)) (+ (- b) (sqrt (- (sqr b) (* 4 (* a c)))))) 
+         (* 2 a))
       (if (< b 10e127)
           (* (- (- b) (- (sqr b) (* 4 (* a c)))) (/ 1 (* 2 a)))
           (+ (- (/ b a)) (/ c b)))))

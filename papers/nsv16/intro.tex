@@ -5,13 +5,13 @@
 \label{sec:intro}
 
 The increasingly urgent demand for reliable software has led to tremendous
-advances in automatic program analysis and verification~\todo{cite}.
+advances in automatic program analysis and verification~\cite{cmbc,astre,klee,coverity,mars-code}.
 However, these techniques have typically focused on integer programs, and do
 not apply to the floating-point computations we depend on for
 safety-critical control in avionics or medical devices, nor the analyses
 carried out by scientific and computer-aided design applications.  In these
 contexts, floating-point accuracy is critical since subtle rounding errors
-often lead to significant discrepancies between floating-point results and
+can lead to significant discrepancies between floating-point results and
 the real results developers expect.  Indeed, floating-point
 arithmetic is notoriously unintuitive and its sensitivity to roundoff
 errors makes such computations fiendishly difficult to debug.
@@ -22,34 +22,33 @@ typically do not lead to independently checkable certificates guaranteeing
 the accuracy.
 
 The research community has responded to these challenges by introducing
-several diverse automated techniques that provide guaranteed bounds on the
+a rich universe of automated techniques that provide guaranteed bounds on the
 accuracy of floating-point computations or attempt to automatically improve
-accuracy.  For example, Fluctuat~\cite{Goubault13,GMP06}, which is used in
-many companies, performs static analysis of \texttt{C} program to provide
-an over-approximation of the rounding errors introduced by computing with
-floating-point numbers instead of reals.  Fluctuat also helps the user
-debug their code by detecting the operations responsible for the most
+accuracy.  For example, Fluctuat~\cite{Goubault13,GMP06}, used in
+many companies, performs static analysis of \texttt{C} programs to prove
+a bound on the rounding errors introduced by the use of
+floating-point numbers instead of reals.  Fluctuat also helps users
+debug floating-point errors by detecting the operations responsible for
 significant precision loss.  Salsa~\cite{fmics15} automatically improves
 the numerical accuracy of programs by using an abstract interpretation to
 guide transformations that minimize the errors arising during
-computations.  Based on a heuristic search to improve the numerical
-accuracy of an arithmetic expression, Herbie~\cite{pavel15} estimates and
-localizes the roundoff errors of an expression using sampled points,
-applies a set of rules in order to improve the accuracy of the expression
-and combines these improvements for different input domains.  Another
-approach introduced by~\cite{DarulovaK14} and implemented in Rosa combines
-an exact SMT solver based on reals with an approximate and sound affine and
-interval arithmetic computation.  Rosa allows the user to provide desired
-post-conditions and uncertainties on the accuracy of input as well as the
-desired target accuracy.  The compiler verifies that the desired precision
-can be soundly obtained in finite-precision implementation while all the
+computations.  Herbie~\cite{pavel15} uses a heuristic search to improve the numerical
+accuracy of an arithmetic expression by estimating and
+localizing the roundoff errors of an expression using sampled points,
+applying a set of rules in order to improve the accuracy of the expression
+and combining these improvements for different input domains.
+Rosa~\cite{DaruloveK14} combines
+an exact SMT solver on reals with sound affine arithmetic to verify
+post-conditions on the accuracy of a computation
+given uncertainties on the accuracy of input.  The compiler verifies that the desired precision
+can be soundly obtained in a finite-precision implementation when all the
 uncertainties and their propagation are included.  Finally,
-FP-Taylor~\cite{fptaylor-fm15} uses Taylor series developments to narrow
+FPTaylor~\cite{fptaylor-fm15} uses Taylor series to narrow
 the error computed by the interval arithmetic.  This competes with the
 affine arithmetic domain used by Fluctuat.
 
 As the number of tools dedicated to analyzing and improving numerical
-accuracy continues growing, it becomes increasingly difficult to make fair
+accuracy grows, it becomes increasingly difficult to make fair
 comparisons between the techniques.  This is because each tool is targeted
 to slightly different domains, uses slightly different formats for
 expressing benchmarks, and reports results using related but slightly
@@ -60,17 +59,18 @@ complementary tools.
 To address these challenges, the floating-point research community needs a
 standard benchmark format and common set of measures that enables
 comparisons and cooperation between tools.  This goal is motivated by the
-success of standard benchmark suites like SPEC and \todo{another suite} in
-the compiler community, the DIMACS~\todo{cite} format in the SAT-solving
-community, and the SMT-LIB~\todo{cite} format in the SMT-solving community.
+success of standard benchmark suites like SPEC~\cite{spec} and
+SPLASH-2~\cite{splash} in
+the compiler community, the DIMACS~\cite{dimacs} format in the SAT-solving
+community, and the SMT-LIB~\cite{smtlib} format in the SMT-solving community.
 The formats have enabled fair comparisons between tools, crisp
 characterizations of the tradeoffs between different approaches, and useful
 cooperation between tools with complementary strengths.
 
-In this article, we propose FPBench, a general floating-point benchmark
-format. FPBench enables users to combine tools that perform heuristic
+In this article, we propose \name, a general floating-point benchmark
+format. \name enables users to combine tools that perform heuristic
 improvements with complementary tools that provide sound error bounds.
-Hence, FPBench provides a common language that can be used to develop
+Hence, \name provides a common language that can be used to develop
 a global approach for comparing the various tools previously mentioned,
 and use them in tandem. In addition, having a common scientific methodology
 is crucial for demonstrating the improvements of each tool on the state
@@ -93,9 +93,9 @@ The main contributions of this article are the following:
 \end{enumerate}
 
 The remainder of this article is organized as follows.
-Section~\ref{sec:format}, describes the FPBench formats.
+Section~\ref{sec:format}, describes the \name formats.
 Section~\ref{sec:measure} introduces various measures of floating-point
-error.  Section~\ref{sec:tools} describes the utilities FPBench provides to
+error.  Section~\ref{sec:tools} describes the utilities \name provides to
 support creating and working with benchmarks.
 Section~\ref{sec:case-studies} surveys our existing benchmark suite,
 highlighting few representative case studies from recent tools in the

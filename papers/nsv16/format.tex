@@ -1,9 +1,24 @@
 \documentclass[main.tex]{subfiles}
 \begin{document}
 
-
 \section{Benchmark Format}
 \label{sec:format}
+
+\todo{comments begin with ``;''}
+
+To support broad usage,
+  a common benchmark framework must provide formats which
+  (C1) are easy to parse,
+  (C2) have simple and clear semantics,
+  (C3) provide sufficient expressiveness for diverse application domains, and
+  (C4) are easy to translate to and from popular industrial languages.
+\name satisfies C1 -- C3
+  with a simple format called \core
+  and C4 in a richer format \surface
+  which \name automatically translates
+  down to \core.
+
+\todo{HERE}
 
 The \name format must be easy to parse
   and have simple, easily-modeled semantics
@@ -30,7 +45,7 @@ Since \surface can be compiled to \core,
   the combination of the two languages
   allows achieving both simplicity of analysis
   and simplicity of translation.
-  
+
 \subsection{\core}
 
 \core is an S-expression format featuring

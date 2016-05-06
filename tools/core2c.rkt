@@ -102,7 +102,7 @@
      (printf "\treturn ~a;\n" (expr->c body #:type type))]))
 
 (define (compile-program prog #:name name)
-  (match-define (list 'lambda (list args ...) props ... body) prog)
+  (match-define (list 'fpcore (list args ...) props ... body) prog)
   (define-values (_ properties) (parse-properties props))
   (function->c args body #:type (dict-ref properties ':type 'double) #:name name))
 

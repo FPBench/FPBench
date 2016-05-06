@@ -142,7 +142,7 @@
        (loop rest (append joined bindings))])))
 
 (define (compile-program body)
-  (match-define `(function (,variables ...) ,lines ... (output ,outexprs ...)) body)
+  (match-define `(fpimp (,variables ...) ,lines ... (output ,outexprs ...)) body)
   (define-values (statements properties) (parse-properties lines))
   (define attributes*
     (if (dict-has-key? properties ':pre)
@@ -152,7 +152,7 @@
   (define-values (out bindings)
     (compile-statements statements variables outexprs))
 
-  `(lambda (,@variables) ,@(unparse-properties attributes*) ,out))
+  `(fpcore (,@variables) ,@(unparse-properties attributes*) ,out))
 
 (module+ main
   (require racket/cmdline)

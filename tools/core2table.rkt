@@ -4,7 +4,7 @@
   (and (symbol? symb) (string-prefix? (symbol->string symb) ":")))
 
 (define (program-body prog)
-  (match-define (list 'lambda (list args ...) props&body ...) prog)
+  (match-define (list 'fpcore (list args ...) props&body ...) prog)
   (let loop ([props&body props&body])
     (if (attribute? (car props&body))
         (loop (cddr props&body))

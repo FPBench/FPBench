@@ -6,7 +6,7 @@
 ; E. Darulova, V. Kuncak, "Sound Compilation of Reals", POPL'14
 
 ;; https://github.com/malyzajko/rosa/blob/master/testcases/real/techreport/NBody.scala
-(lambda ( x0  y0  z0
+(fpcore ( x0  y0  z0
          vx0 vy0 vz0)
   :name "N Body Simulation"
   :cite (darulova-kuncak-2014)
@@ -42,7 +42,7 @@
       x)))
 
 ;; https://github.com/malyzajko/rosa/blob/master/testcases/real/techreport/Pendulum.scala
-(lambda (t0 w0 N)
+(fpcore (t0 w0 N)
   :name "Pendulum"
   :cite (darulova-kuncak-2014)
   :pre (and (< (abs t0) 2) (< (abs w0) 5))
@@ -61,7 +61,7 @@
       t)))
 
 ;; https://github.com/malyzajko/rosa/blob/master/testcases/real/techreport/SineNewton.scala
-(lambda (x0)
+(fpcore (x0)
   :name "Sine Newton"
   :cite (darulova-kuncak-2014)
   :pre (< (abs x0) 1.)
@@ -71,17 +71,17 @@
      [i 0 (+ i 1)])
     x))
 
-(lambda (u v t1)
+(fpcore (u v t1)
   :name "Rosa's DopplerBench"
   :cite (darulova-kuncak-2014)
   (/ (* (- t1) v) (* (+ t1 u) (+ t1 u))))
 
-(lambda (x)
+(fpcore (x)
   :name "Rosa's Benchmark"
   :cite (darulova-kuncak-2014)
   (- (* 0.954929658551372 x) (* 0.12900613773279798 (* (* x x) x))))
 
-(lambda (x1 x2)
+(fpcore (x1 x2)
   :name "Rosa's FloatVsDoubleBenchmark"
   :cite (darulova-kuncak-2014)
   (let ([t (- (+ (* 3 x1 x1) (* 2 x2)) x1)]
@@ -96,7 +96,7 @@
           x1
           (* 3 s*))))))
 
-(lambda (v w r)
+(fpcore (v w r)
   :name "Rosa's TurbineBenchmark"
   :cite (darulova-kuncak-2014)
   (- (+ 3 (/ 2 (* r r))) (/ (* 0.125 (- 3 (* 2 v)) (* w w r r)) (- 1 v)) 4.5))

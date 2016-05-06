@@ -165,7 +165,7 @@
        [(? boolean?) out]))))
 
 (define (average-error expr #:measure [measurefn bits-error] #:points [N 8000])
-  (match-define (list 'lambda (list args ...) props ... body) expr)
+  (match-define (list 'fpcore (list args ...) props ... body) expr)
   (define-values (_ properties) (parse-properties props))
   (define type (dict-ref properties ':type 'double))
   (define pre (dict-ref properties ':pre 'TRUE))

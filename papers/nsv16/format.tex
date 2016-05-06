@@ -4,57 +4,25 @@
 \section{Benchmark Format}
 \label{sec:format}
 
-To support broad usage,
-  a common floating point benchmark format must be
+A common floating-point benchmark format must be
   easy to parse,
   have simple and clear semantics,
   support floating-point details, and
   provide sufficient expressiveness for diverse application domains.
-\name satisfies these requirements
-  with the \core format,
-  a simplified expression-based language
-  for floating-point operations
-  with features for specifying input ranges,
+To satisfy these requirements,
+  \name provides the \core format,
+  a minimal expression-based language
+  for floating-point computations
+  with features for iteration, input ranges,
   error measures, target accuracy, floating-point
-  precision to use, etc.
-A common benchmark format
+  precision, etc.
+A common floating-point benchmark format
   must also be easy to translate to and from
   popular industrial languages like C, C++, Matlab, and Fortran.
-\name satisfied this requirement with
-  the extended \surface format,
-  a simplified imperative language for floating-point operations
+To satisfy these requirements,
+  \name also provides the extended \surface format,
+  a basic imperative language for floating-point computations
   which can be automatically compiled to \core.
-Since \surface can be compiled to \core,
-  the combination of the two languages
-  allows achieving both simplicity of analysis
-  and simplicity of translation.
-
-
-%% The \name format must be easy to parse
-%%   and have simple, easily-modeled semantics
-%%   that allow the details of floating-point arithmetic
-%%   to come to the fore.
-%% These goals are fulfilled by the \core format,
-%%   a simplified expression-based language for floating-point operations
-%%   inspired by the \smtlib format used in the SMT competition.
-%% \name is also intended to grow
-%%   by incorporating code extracted
-%%   from numerical systems used in science, industry, and government;
-%%   so, it must be easy to translate C, C++, Matlab, and Fortran
-%%   into \name's format,
-%%   while glossing over language differences.
-%% These goals are fulfilled by the \surface format,
-%%   a simplified imperative language for floating-point operations
-%%   which can be automatically compiled to \core.
-%% Users of \name can analyze benchmarks either in \core,
-%%   if they want to avoid the complexities of imperative programs,
-%%   or in \surface,
-%%   if the additional information latent in imperative control flow
-%%   is valuable to the analysis.
-%% Since \surface can be compiled to \core,
-%%   the combination of the two languages
-%%   allows achieving both simplicity of analysis
-%%   and simplicity of translation.
 
 \subsection{\core}
 
@@ -65,12 +33,12 @@ All floating-point functions
   are supported operators,
   as well as standard arithmetic operators like addition and comparison;
   likewise, all constants defined in C11's \C{math.h} are available as constants.
-Since neither IEEE754 nor common C or Fortran implementations specify
-  an accuracy for their mathematical functions,
-  \core does not prescribe a accuracy for these values.
+Following IEEE754 and common C and Fortran runtimes,
+  \core does not prescribe the accuracy of built-in
+  mathematical functions.
 However, individual benchmarks can declare the accuracy
-  they assume for these built-in operations which
-  tools and analyzers can take into account.
+  they assume for built-in operations which
+  analyzers can take into account.
 
 %%   neither does \core specify the values of these functions.
 %% We expect that most libraries implement these functions
@@ -80,17 +48,19 @@ However, individual benchmarks can declare the accuracy
 
 A \core benchmark specifies a set of inputs,
   a floating-point expression,
-  and meta-data flags.
-Meta-data flags include a name,
-  citations, preconditions on the inputs,
+  and meta-data flags including
+  a name, citations, preconditions on inputs,
   and the floating-point precision
   (\C{binary32}, \C{binary64}, etc.)
   used to evaluate that benchmark.
-The full \core syntax is as follows:
+The full \core syntax is as follows:~\footnote{
+Not shown in the grammar:
+  \name uses ``\C{;}'' the indicate that
+  the remainder of a line is a comment.}
 
 \begin{grammar}
 \small
-<\core> ::= ( `lambda' ( <identifier>* ) <property>* <expression> )
+<\core> ::= ( `\core' ( <identifier>* ) <property>* <expression> )
 
 <expression> ::= <number> | <constant> | <identifier>
 \alt ( <operation> <expression>* )
@@ -113,11 +83,8 @@ The full \core syntax is as follows:
 <binding> ::= [ <identifier> <expression> ]
 \end{grammar}
 
-In this grammar, parentheses and braces are literals
-  (since the language is S-expression based).
-Note that by convention,
-  we use ``\C{;}'' to indicate
-  that the remainder of a line is a comment.
+Since the language is S-expression based,
+  parentheses and braces are literals.
 The semantics of these programs is ordinary function evaluation,
   with \C{let} bindings evaluated simultaneously
   and \C{while} loops evaluated
@@ -149,7 +116,7 @@ The list of properties is used to record additional information
   about each benchmark.
 Existing benchmarks are annotated with a \C{:name},
   a \C{:description} of the benchmark and its inputs,
-  the floating-point \C{:type} (either \C{float} or \C{double}),
+  the floating-point \C{:type} (either \C{binary32} or \C{binary64}),
   a precondition \C{:pre}, and a citation \C{:cite}.
 All \name tools ignore unknown attributes,
   so they represent an easy way to record additional benchmark information.
@@ -176,7 +143,7 @@ In our experience,
 The additional syntactic constructs of \surface are:
 
 \begin{grammar}
-<\surface> ::= ( `function' ( <identifier>* ) <property>* <statement>* <return> )
+<\surface> ::= ( `\surface' ( <identifier>* ) <property>* <statement>* <return> )
 
 <return> ::= ( `output' <expression>* )
 
@@ -188,7 +155,7 @@ The additional syntactic constructs of \surface are:
 \alt [ `else' <statement>* ]
 \end{grammar}
 
-Like in \core, each \surface benchmark
+As in \core, each \surface benchmark
   includes free parameters and properties;
   as an imperative language,
   it includes a list of program statements
@@ -197,11 +164,11 @@ Like in \core, each \surface benchmark
 Assignments and while loops behave in the usual way.
 An \C{if} statement defines a many-way branch;
   any \C{else} branch must be the last branch in its \C{if}.
-The \C{output} statement returns several values and appears
+The \C{output} statement can return several values and appears
   at the end of a function.
 Each expression in a \surface program is a \core expression,
   making it easy to extend an analysis on \core benchmarks
-  to analyzing \surface programs instead,
+  to analyzing \surface programs as well,
   and ensuring that the same set of operations and constants
   are supported.
 

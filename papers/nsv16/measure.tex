@@ -32,15 +32,15 @@ Two common mathematical notions are the absolute and relative error:
 \end{equation*}
 Relative error scales with the quantity being measured,
   and thus makes sense for measuring both large and small numbers,
-  much like the floating point format itself.
-A notion of error more closely tied to the floating point format
+  much like the floating-point format itself.
+A notion of error more closely tied to the floating-point format
   is the Units in the Last Place (UPLs) of error.%
 \footnote{We are using $|S|$ to denote the number of elements in a set $S$}
 \[
 \varepsilon_{ulps}(x, x') = |\{ y \in \mathbb{F} : \min(x, \hat x) \le y \le \max(x, \hat x)
 \}|
 \]
-The floating point numbers are distributed roughly exponentially, so
+The floating-point numbers are distributed roughly exponentially, so
 this measure of error scales in a similar manner to relative
 error; however, it is better-behaved in the presence of denormal
 numbers and infinities.
@@ -103,7 +103,7 @@ Abstract interpretation may rely on either non-relational \cite{}
   and use acceleration techniques (widenings)
   to over-approximate loops without unrolling them.
 While such techniques tend to provide loose over-approximations
-of the floating point error of programs, they are fast and
+of the floating-point error of programs, they are fast and
 provide sound error bounds. In some embedded applications,
 correctness is critical and unsound techniques will not do.
 

@@ -45,38 +45,36 @@ As shown in Table~\ref{tbl:domains} and Table~\ref{tbl:features},
 \begin{table}[hbtp]
   \begin{minipage}[t]{.45\textwidth}
     \begin{tabular}{lr}
-      Name & Benchmarks \\\hline
+      Feature & Benchmarks \\\hline
       Basic Arithmetic & 44 \\
       Exponentials & 13 \\
       Trigonometric & 10 \\
       Comparison & 12 \\
-      Conditionals & 3 \\
-      Loops & 12
+      Loops & 12 \\
+      Conditionals & 3
     \end{tabular}
     \vspace{0.1in}
-    \caption{Domains from which the \name benchmarks are taken.
-      Exponential functions include logarithms, the
-      exponential function, and the power function. The
-      mathematical expressions are the smallest, and are largely
-      drawn from \textit{Numerical Methods for Scientists and
-        Engineers}~\cite{hamming-1987}.}
+    \caption{Functions and language features used in the \name
+      benchmarks. Benchmarks contain a variety of features, and many
+      benchmarks incorporate several. Exponential functions include
+      logarithms, the exponential function, and the power function.}
     \label{tbl:domains}
   \end{minipage}
   \hfill
   \begin{minipage}[t]{.45\textwidth}
     \begin{tabular}{lr}
       Domain & Benchmarks \\\hline
-      Math expressions & 29 \\
-      Math algorithms & 4 \\
-      Physics & 3 \\
-      Control & 5
+      General expressions & 31 \\
+      Math algorithms & 6 \\
+      Embedded systems & 4 \\
+      Scientific computing & 3
     \end{tabular}
     \vspace{0.25in}
-    \caption{Functions and language features used in the \name
-      benchmarks.\todo{Unclear what
-      ``domains'' means here.  I think reader will expect things like
-      ``embedded'', ``medical'', ``avionics'', ``scientific computing'',
-      etc.}}
+    \caption{Domains which the \name benchmarks are drawn from. Most
+      are general mathematical operations, useful in a variety of
+      domains. The general expressions are the smallest, and are drawn
+      from \textit{Numerical Methods for Scientists and
+        Engineers}~\cite{hamming-1987} and Rosa~\cite{DarulovaK14}.}
     \label{tbl:features}
   \end{minipage}
 \end{table}

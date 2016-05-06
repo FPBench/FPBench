@@ -1,36 +1,46 @@
 \documentclass[main.tex]{subfiles}
 \begin{document}
 
-\section{Benchmarks}
+\section{Benchmark Suite and Examples}
 \label{sec:case-studies}
 
-The \name suite includes \nbenches benchmarks
-  sourced from recent papers in floating point verification,
-  optimization, and accuracy improvement.
-Moreover, it can be used to represent the input
-  to a variety of floating point tools
-  which measure error in a variety of ways.
-This section discusses the benchmarks
-  already included in the \name suite,
-  and highlights representative examples
-  from the test suites of various floating point tools.
+The \name suite currently includes \nbenches benchmarks
+  sourced from recent papers on automatic floating point
+  verification and accuracy improvement.
+This section first summarizes these benchmarks
+  and then details how representative examples
+  were translated to \name from the input formats
+  of various tools in the literature.
 
-\subsection{Benchmark Suite}
+%% Moreover, it can be used to represent the input
+%%   to a variety of floating point tools
+%%   which measure error in a variety of ways.
 
-The \name suite includes \nbenches benchmarks
-  sourced from recent papers in floating point verification,
-  optimization, and accuracy improvement.
-Of the benchmarks,
-  FPBench draws 28 from the Herbie test suite~\cite{pavel15},
+%% \subsection{Benchmark Suite}
+%%
+%% The \name suite includes \nbenches benchmarks
+%%   sourced from recent papers in floating point verification,
+%%   optimization, and accuracy improvement.
+%% Of the benchmarks,
+
+The current \name suite contains
+  examples from a variety of domains, including
+  28 from the Herbie test suite~\cite{pavel15},
   9 from the Salsa test suite~\cite{fmics15},
   7 from the Rosa test suite~\cite{DarulovaK14},
-  and one from the FPTaylor test suite~\cite{fptaylor-fm15}.
-Together, these programs come from
-  a variety of domains and applications,
-  from control software to mathematical libraries
-  (see Table~\ref{tbl:domains}).
-The included benchmarks use the range of functionality
-  available in \name (see Table~\ref{tbl:features}).
+  and one example from the FPTaylor test suite~\cite{fptaylor-fm15}.
+These examples range from simple test programs for
+  early tool development up to
+  large examples from industrial control applications for
+  evaluating more mature tools.
+The larger examples include challenging
+  programs over 2 input variables up to
+  programs over 13 variables mutated in a loop body.
+As shown in Table~\ref{tbl:domains} and Table~\ref{tbl:features},
+  these programs span a variety application areas,
+  from control software to mathematical libraries,
+  and exercise the full range of functionality
+  available in \name.
 
 \begin{table}[hbtp]
   \begin{minipage}[t]{.45\textwidth}
@@ -43,7 +53,10 @@ The included benchmarks use the range of functionality
       Conditionals & 3 \\
       Loops & 12
     \end{tabular}
-    \caption{Domains from which the \name benchmarks are taken. The
+    \vspace{0.1in}
+    \caption{Domains from which the \name benchmarks are taken.
+      Exponential functions include logarithms, the
+      exponential function, and the power function. The
       mathematical expressions are the smallest, and are largely
       drawn from \textit{Numerical Methods for Scientists and
         Engineers}~\cite{hamming-1987}.}
@@ -58,33 +71,34 @@ The included benchmarks use the range of functionality
       Physics & 3 \\
       Control & 5
     \end{tabular}
+    \vspace{0.25in}
     \caption{Functions and language features used in the \name
-      benchmarks. Exponential functions include logarithms, the
-      exponential function, and the power function.}
+      benchmarks.\todo{Unclear what
+      ``domains'' means here.  I think reader will expect things like
+      ``embedded'', ``medical'', ``avionics'', ``scientific computing'',
+      etc.}}
     \label{tbl:features}
   \end{minipage}
 \end{table}
 
-The \name suite attempts balance on multiple dimensions.
-Beyond drawing from a range of domains with varying features,
-  \name also balances the need for simple benchmarks
-  to prove algorithms on
-  with larger, practical examples.
-To achieve this balance,
-  a large number of basic expressions,
-  coupled with a smaller number of large test cases.
-Among the larger test cases a degree of diversity is also available,
-  with programs ranging
-  from 2 to 13 variables mutated in the loop body.
+%% The \name suite attempts balance on multiple dimensions.
+%% Beyond drawing from a range of domains with varying features,
+%%   \name also balances the need for simple benchmarks
+%%   to prove algorithms on
+%%   with larger, practical examples.
+%% To achieve this balance,
+%%   a large number of basic expressions,
+%%   coupled with a smaller number of large test cases.
+%% Among the larger test cases a degree of diversity is also available,
+%%   with programs ranging
+%%   from 2 to 13 variables mutated in the loop body.
 
 \subsection{FPTaylor}
-In the paper ``Rigorous Estimation of Floating-Point Round-off Errors
-with Symbolic Taylor Expansions'',
-by Solovyev et~al.~\cite{fptaylor-fm15},
-the authors describe FPTaylor, a tool which uses Taylor
-series expansions and interval arithmetic to obtain sound error bounds
-on programs. The simple program below is used as an example of an input
-to the tool:
+
+
+FPTaylor~\cite{fptaylor-fm15} uses series expansions and interval
+arithmetic to compute sound error bounds. The authors gave the following
+simple program as an example input for their tool:
 
 \begin{code}
 1: Variables
@@ -98,7 +112,7 @@ to the tool:
 
 This program is representative of the code necessary to correct sensor data
 in control software, where the output of the sensor is known to be between
-1.001 and 2.0. In \core, the same program can be represented by:
+1.001 and 2.0. We manually translated this program to \core, yielding:
 
 \begin{code}
 (lambda (x y)
@@ -116,26 +130,24 @@ The benchmark takes inputs \C{x} and \C{y}
 \core faithfully preserves important program constructs,
   such as variable binding and operation ordering,
   making the translation a simple matter.
-The benchmark additionally specifies
-  its name name within the benchmark suite
+The benchmark additionally specifies a name
   and cites its source using a key to a standard \BibTeX{} file.
 Since the original program uses 64-bit floating point numbers,
   the type \C{double} is specified in the benchmark.
 The constraints on input variable are translated to
   a single predicate under the \C{:pre} property.
-In this case, the preconditions come from
-  the domain the benchmark is drawn from.
+
+%% In this case, the preconditions come from
+%%   the domain the benchmark is drawn from.
 
 \subsection{Rosa}
-The paper ``Sound Compilation of the Reals,''
-by Darulova et~al.~\cite{DarulovaK14},
-describes Rosa, a tool that soundly verifies
-error bounds of floating point programs. While not described in the
-paper, the tool supports looping control flow through recursive
-function calls, and several benchmarks in its repository 
-demonstrate this capability. One of these uses Newton's method
-on a series representation of the sine function. In Rosa's input
-language the original benchmark is represented as:
+
+Rosa~\cite{DarulovaK14}, soundly verifies error bounds of floating point
+programs, including looping control flow through recursive function calls.
+Several benchmarks in its repository demonstrate this capability, including
+one that uses Newton's method on a series representation of the sine
+function.  In Rosa's input language the original benchmark is represented
+as:
 
 \begin{code}
 def newton(x: Real, k: LoopCounter): Real = {
@@ -150,8 +162,8 @@ def newton(x: Real, k: LoopCounter): Real = {
 \end{code}
 
 The \C{require} clause denotes input preconditions, and the
-\C{ensures} clause provides the error bound to be verified. In
-\name, the same benchmark is:
+\C{ensures} clause provides the error bound to be verified. We manually
+translated this program to \core, yielding:
 
 \begin{code}
 (lambda (x0)
@@ -170,29 +182,28 @@ The \C{require} clause denotes input preconditions, and the
 \end{code}
 
 Like the FPTaylor benchmark above, this benchmark includes a name,
-  a citation for its source, and a precondition on its inputs.
-This translated Rosa benchmark uses the \C{while} construct from \core
-  to represent the tail-recursive loop in the original benchmark.
+  citation for its source, and precondition on inputs.
+Note how the \C{while} construct from \core
+  can be used to represent the tail-recursive loop
+  from the Rosa original benchmark.
 
 \subsection{Herbie}
 
-In the paper ``Automatically Improving Accuracy for Floating Point
-Expressions'', by Panchekha et~al.~\cite{pavel15}, the authors
-describe Herbie, a tool which heuristically improves the accuracy of
-straight-line floating point expressions.
-
-The Herbie paper demonstrates the improvements it can produce
-  using the quadratic formula, used to compute the roots
-  of a degree two polynomial.
-It has uses from calculating trajectories, to solving matrix equations.
-In mathematical notation, the quadratic formula is given by:%
+Herbie~\cite{pavel15} heuristically improves the accuracy of straight-line
+floating point expressions.  The authors demonstrate the improvements
+Herbie can produce using the quadratic formula for computing the roots of a
+second degree polynomial.  It has uses from calculating trajectories, to
+solving matrix equations.  In mathematical notation, the quadratic formula
+is given by:
+%
 \footnote{We use the negative variant here, as in the Herbie paper;
   the positive variant is analogous.}
+%
 \begin{equation*}
   \frac{(- b) - \sqrt{b^2 - 4ac}}{2a}
 \end{equation*}
 
-Herbie produces the following improved variant:
+\noindent Herbie produces the following variant with improved accuracy:
 
 \newcommand{\K}[1]{\mathbf{#1}\:}
 
@@ -204,22 +215,21 @@ Herbie produces the following improved variant:
 \end{cases}
 \end{equation*}
 
-In \core format, the original formula is represented as:
+\noindent In \core format, the original formula is represented as:
 
 \begin{code}
 (lambda (a b c)
-  :name "Herbie example"
+  :name "NMSE p42, positive"
   :cite (hamming-1987)
   :pre (and (>= (sqr b) (* 4 (* a c))) (not (= a 0)))
   (/ (+ (- b) (sqrt (- (sqr b) (* 4 (* a c))))) (* 2 a)))
 \end{code}
 
-Furthermore, \core can be used not only to represent the input program,
-  but also Herbie's output:
+\noindent and the improve version is represented as:
 
 \begin{code}
 (lambda (a b c)
-  :name "Herbie example"
+  :name "NMSE p42, positive"
   :cite (hamming-1987)
   :pre (and (>= (sqr b) (* 4 (* a c))) (not (= a 0)))
   (if (< b 0)
@@ -229,7 +239,7 @@ Furthermore, \core can be used not only to represent the input program,
           (+ (- (/ b a)) (/ c b)))))
 \end{code}
 
-The benchmark in both it's forms takes three inputs, denoted
+In both forms, the benchmark takes three inputs, denoted
 ``\verb|a|'', ``\verb|b|'', and ``\verb|c|'' above. It is named
 ``\verb|NMSE p42, positive|'' after the book in which it appears and
 its exercise number, as well as which branch it is. Like the FPTaylor
@@ -246,7 +256,7 @@ In this case the precondition is more complex,
   this precondition arises from mathematical considerations,
   not domain knowledge.
 \core allows arbitrary boolean expressions in preconditions,
-  allowing the expression of such complex preconditions.
+  enabling the expression of such complex preconditions.
 The \core version of Herbie's output
   furthermore uses \C{if} constructs to evaluate
   different expressions for different inputs,
@@ -257,13 +267,12 @@ Additionally, Herbie could add additional metadata to the output,
   by using prefixed keys such as \C{:herbie-accuracy-estimate}.
 
 \subsection{Salsa}
-In the paper ``Intra-procedural Optimization of the Numerical Accuracy
-of Programs,'' by Damouche et~al.~\cite{fmics15}, the authors describe
-Salsa, a tool for improving the worst-case accuracy of programs.
-They evaluate the tool on a suite of control and numerical algorithms,
-  including the widely used PID controller algorithm. This algorithm is used in
-aeronautic and avionic systems for which correctness is critical. In
-C, the benchmark is written as:
+
+Salsa~\cite{fmics15} is a tool for soundly improving the worst-case
+accuracy of programs.  The authors evaluate Salsa on a suite of control and
+numerical algorithms, including the widely used PID controller algorithm.
+This algorithm is used in aeronautic and avionic systems for which
+correctness is critical. In C, the benchmark is written as:
 
 \begin{code}
 volatile double p, i, t, d, dt, invdt, m, e, eold, r; 
@@ -289,7 +298,8 @@ int pid(double m0, double kp, double ki, double kd, double c){
 \end{code}
 
 To ease the conversion of this code from C to \core,
-  this program was first translated to the following \surface program:
+  this program was first manually translated
+  to the following \surface program:
 
 \begin{code}
 (function (m kp ki kd)

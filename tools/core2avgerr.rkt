@@ -43,7 +43,7 @@
 (define (bfmod x mod)
   (bf- x (bf* mod (bffloor (bf/ x mod)))))
 
-(define/table (constants float double mpfr)
+(define/table (constants binary32 binary64 mpfr)
   ;; TODO: Missing a lot of constants
   [E (exp 1.0f0) (flexp 1.0) (λ () (bfexp 1.bf))]
   [PI pi.f pi (λ () pi.bf)]
@@ -78,7 +78,7 @@
   (- (single-flonum->ordinal y) (single-flonum->ordinal x)))
 
 (define (ulp-difference x y #:type type)
-  ((if (equal? type 'double) flonums-between single-flonums-between) x y))
+  ((if (equal? type 'binary64) flonums-between single-flonums-between) x y))
 
 (define (abs-error x y #:type type)
   (abs (- x y)))
@@ -131,7 +131,7 @@
       (loop (* n* 2) prec*)])))
 
 (define (eval-on-points args body #:pre pre #:num num #:type type)
-  (define (sample _) (if (equal? type 'float) (sample-float) (sample-double)))
+  (define (sample _) (if (equal? type 'binary32) (sample-float) (sample-double)))
   (define nargs (length args))
 
   (define samples
@@ -147,7 +147,7 @@
 
 (define (eval-fl args expr points #:type type)
   (define real->
-    (if (equal? type 'float) real->single-flonum real->double-flonum))
+    (if (equal? type 'binary32) real->single-flonum real->double-flonum))
   (define (op-> op) (operators op 'ieee))
   (define (constant-> constant) (constants constant type))
   (for/list ([point points])
@@ -155,7 +155,7 @@
 
 (define (eval-bf args expr points #:type type #:precision prec)
   (define real->
-    (if (equal? type 'float) real->single-flonum real->double-flonum))
+    (if (equal? type 'binary32) real->single-flonum real->double-flonum))
   (parameterize ([bf-precision prec])
     (for/list ([point points])
       (define out
@@ -167,7 +167,7 @@
 (define (average-error expr #:measure [measurefn bits-error] #:points [N 8000])
   (match-define (list 'fpcore (list args ...) props ... body) expr)
   (define-values (_ properties) (parse-properties props))
-  (define type (dict-ref properties ':type 'double))
+  (define type (dict-ref properties ':type 'binary64))
   (define pre (dict-ref properties ':pre 'TRUE))
 
   (define-values (points exacts approxs)

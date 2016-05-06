@@ -5,7 +5,7 @@
  :description "Compute the position of a robot from the speed of the wheels.
 Inputs: Speed `sl`, `sr` of the left and right wheel, in rad/s."
  :cite (damouche-martel-chapoutot-fmics15)
- :type float
+ :type binary32
  :pre (and (< 0.05 sl (* 2 PI)) (< 0.05 sr (* 2 PI)))
  :martel-example ([sr* 0.0785398163397] [sl* 0.0525398163397])
  [= cosi 0.0]
@@ -51,7 +51,7 @@ Inputs: Speed `sl`, `sr` of the left and right wheel, in rad/s."
  :description "Keep a measure at its setpoint using a PID controller.
 Inputs: Measure `m`; gains `kp`, `ki`, `kd`; setpoint `c`"
  :cite (damouche-martel-chapoutot-nsv14)
- :type double
+ :type binary64
  :pre (and (< -10.0 m 10.0) (< -10.0 c 10.0))
  :martel-example ([m -5.0] [kp 9.4514] [ki 0.69006] [kd 2.8454])
  [= t 0.0]
@@ -76,7 +76,7 @@ Inputs: Measure `m`; gains `kp`, `ki`, `kd`; setpoint `c`"
  :description "Solve the differential equation `y' = (c - y)^2
 Inputs: Step size `h`; initial condition `y_n*`; paramter `c`"
  :cite (damouch-martel-chapoutot-fmics15)
- :type float
+ :type binary32
  :pre (and (< 0 y_n 100) (< 10e-6 h 0.1) (< 50 c 200))
  :martel-example ([h 0.1] [y_n* 10.1] [c 100.1])
  [= sixieme (/ 1 6)]
@@ -104,7 +104,7 @@ Inputs: Step size `h`; initial condition `y_n*`; paramter `c`"
  :description "Move a mass from an initial position to a desired position.
 Inputs: Initial position `y`; desired position `yd`"
  :cite (feron-ieee10)
- :type float
+ :type binary32
  :pre (and (< 0 yd 50) (< 0 y 50))
  :martel-example ([y 2.5] [yd 5.0])
  [= i 0.0]
@@ -137,7 +137,7 @@ Inputs: Initial position `y`; desired position `yd`"
  :description "Compute the trajectory of a rocket around the earth.
 Inputs: Mass `Mf`; acceleration `A`"
  :cite (damouche-martel-chapoutot-cf15)
- :type float
+ :type binary32
  :martel-example ([Mf 150000.0] [A 140.0])
  [= R 6400.0e3]
  [= G 6.67428e-11]
@@ -204,7 +204,7 @@ Inputs: Mass `Mf`; acceleration `A`"
  :description "Solve a linear system `Ax = b`.
 Inputs: Array entries `aij`; vector entries `bi`"
  :cite (atkinson-1989)
- :type float
+ :type binary32
  :martel-example ([a11 0.61] [a22 0.62] [a33 0.6006] [a44 0.601]
                   [b1 0.5] [b2 (/ 1.0 3.0)] [b3 0.25] [b4 (/ 1.0 5.0)])
  [= i 0.0]
@@ -237,7 +237,7 @@ Inputs: Array entries `aij`; vector entries `bi`"
  :description "Find the zeros of a function `f = (x - 2)**5`.
 Inputs: Initial guess `x0`"
  :cite (atkinson-1989)
- :type float
+ :type binary32
  :pre (< 0 x0 3)
  :martel-example ([x0 0.0])
  [= eps 0.0005]
@@ -259,7 +259,7 @@ Inputs: Initial guess `x0`"
  :description "Compute the largest eigenvalue of a matrix and return its vector.
 Inputs: Matrix `aij`; initial guess `vi` with one nonzero element"
  :cite (golub-vanloan-1996)
- :type float
+ :type binary32
  :pre (< 150 d 200)
  :martel-example ([a11 150.0] [a12  0.01] [a13  0.01] [a14  0.01]
                   [a21  0.01] [a22 150.0] [a23  0.01] [a24  0.01]
@@ -288,7 +288,7 @@ Inputs: Matrix `aij`; initial guess `vi` with one nonzero element"
  :description "Orthogonalize a set of non-zero vectors in a Euclidian or Hermitian space.
 Inputs: Vectors `Qij`"
  :cite (abdelmalek-bit71 golub-vanloan-1996 hernandez-roman-tomas-vidal-tr07)
- :type float
+ :type binary32
  :pre (and (< 1.0 Q11 (/ 1 7)) (< 1 Q22 (/ 1 25)))
  :martel-example ([Q11 (/ 1 63)] [Q12 0] [Q13 0]
                   [Q21 0] [Q22 (/ 1 225)] [Q23 0]

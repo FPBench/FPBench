@@ -52,27 +52,27 @@
   [((list 'or a b))    (format "(~a || ~a)" a b)]
   [((list 'mod a b))   (format "fmod2(~a, ~a)" a b)])
 
-(define/match (typeof expr #:fptype [fptype 'double])
+(define/match (typeof expr #:fptype [fptype 'binary64])
   [((list (or '> '< '>= '<= 'and 'or) _ ...) ftype) 'bool]
   [(_ ftype) fptype])
 
-(define/match (value->c expr #:type [type 'double])
+(define/match (value->c expr #:type [type 'binary64])
   [('E _) "exp(1.0)"]
   [('PI _) "atan2(1.0, 0.0)"]
   [((? symbol?) _) (fix-name expr)]
-  [((? number?) 'float) (format "~af" (real->double-flonum expr))]
-  [((? number?) 'double) (format "~a" (real->double-flonum expr))])
+  [((? number?) 'binary32) (format "~af" (real->double-flonum expr))]
+  [((? number?) 'binary64) (format "~a" (real->double-flonum expr))])
 
-(define/match (if->c expr #:type [type 'double])
+(define/match (if->c expr #:type [type 'binary64])
   [(`(if ,cond ,ift ,iff) _)
    (format "(~a ? ~a : ~a)" (expr->c cond #:type type) (expr->c ift #:type type) (expr->c iff #:type type))])
 
-(define/match (expr->c expr #:type [type 'double])
+(define/match (expr->c expr #:type [type 'binary64])
   [(`(if ,cond ,ift ,iff) _) (if->c expr #:type type)]
   [((? list?) _) (apply application->c (car expr) (map (λ (x) (expr->c x #:type type)) (cdr expr)))]
   [(_ _) (value->c expr #:type type)])
 
-(define (function->c args body #:type [type 'double] #:name [name 'f])
+(define (function->c args body #:type [type 'binary64] #:name [name 'f])
   (define arg-strings
     (for/list ([var args])
       (format "~a ~a" type (fix-name (if (list? var) (car var) var)))))
@@ -80,7 +80,7 @@
           type name (string-join arg-strings ", ")
           (with-output-to-string (λ () (program->c body #:type type)))))
 
-(define (program->c body #:type [type 'double])
+(define (program->c body #:type [type 'binary64])
   (match body
     [`(let ([,vars ,vals] ...) ,retexpr)
      (for ([var vars] [val vals])
@@ -104,7 +104,7 @@
 (define (compile-program prog #:name name)
   (match-define (list 'fpcore (list args ...) props ... body) prog)
   (define-values (_ properties) (parse-properties props))
-  (function->c args body #:type (dict-ref properties ':type 'double) #:name name))
+  (function->c args body #:type (dict-ref properties ':type 'binary64) #:name name))
 
 (module+ main
   (require racket/cmdline)

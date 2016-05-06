@@ -6,13 +6,13 @@
 
 The increasingly urgent demand for reliable software has led to tremendous
 advances in automatic program analysis and verification~\todo{cite}.
-However these techniques have typically focused on integer programs, and do
+However, these techniques have typically focused on integer programs, and do
 not apply to the floating-point computations we depend on for
 safety-critical control in avionics or medical devices, nor the analyses
 carried out by scientific and computer-aided design applications.  In these
-contexts, floating-point accuracy critical since subtle rounding errors
+contexts, floating-point accuracy is critical since subtle rounding errors
 often lead to significant discrepancies between floating-point results and
-the real results developers intuitively expect.  Indeed, floating-point
+the real results developers expect.  Indeed, floating-point
 arithmetic is notoriously unintuitive and its sensitivity to roundoff
 errors makes such computations fiendishly difficult to debug.
 Traditionally, such errors have been addressed by numerical methods experts
@@ -26,12 +26,12 @@ several diverse automated techniques that provide guaranteed bounds on the
 accuracy of floating-point computations or attempt to automatically improve
 accuracy.  For example, Fluctuat~\cite{Goubault13,GMP06}, which is used in
 many companies, performs static analysis of \texttt{C} program to provide
-an over-approximation of the rounding error introduced by computing with
+an over-approximation of the rounding errors introduced by computing with
 floating-point numbers instead of reals.  Fluctuat also helps the user
 debug their code by detecting the operations responsible for the most
 significant precision loss.  Salsa~\cite{fmics15} automatically improves
 the numerical accuracy of programs by using an abstract interpretation to
-guide transformations that minimize the value of the errors arising during
+guide transformations that minimize the errors arising during
 computations.  Based on a heuristic search to improve the numerical
 accuracy of an arithmetic expression, Herbie~\cite{pavel15} estimates and
 localizes the roundoff errors of an expression using sampled points,
@@ -53,8 +53,8 @@ accuracy continues growing, it becomes increasingly difficult to make fair
 comparisons between the techniques.  This is because each tool is targeted
 to slightly different domains, uses slightly different formats for
 expressing benchmarks, and reports results using related but slightly
-different measures.  Furthermore, without any standard set of floating
-point benchmarks, it is difficult to identify opportunities for composing
+different measures.  Furthermore, without any standard set of floating-point
+benchmarks, it is difficult to identify opportunities for composing
 complementary tools.
 
 To address these challenges, the floating-point research community needs a
@@ -67,14 +67,14 @@ The formats have enabled fair comparisons between tools, crisp
 characterizations of the tradeoffs between different approaches, and useful
 cooperation between tools with complementary strengths.
 
-In this article, we propose FPBench, a common floating-point benchmark
-format. FPBench enables users to compose tools that perform heuristic
+In this article, we propose FPBench, a general floating-point benchmark
+format. FPBench enables users to combine tools that perform heuristic
 improvements with complementary tools that provide sound error bounds.
-Hence, FPBench provides a common language that can be used to develop a
-global approach for comparing the various tools previously mentioned, and
-use them in tandem. In addition, having a common scientific methodology is
-crucial for demonstrating the improvements of each tool on the state of the
-art.
+Hence, FPBench provides a common language that can be used to develop
+a global approach for comparing the various tools previously mentioned,
+and use them in tandem. In addition, having a common scientific methodology
+is crucial for demonstrating the improvements of each tool on the state
+of the art.
 
 The main contributions of this article are the following:
 \begin{enumerate}[label=(\roman*)]

@@ -21,7 +21,7 @@ stability.  However, these manual techniques are difficult to apply and
 typically do not lead to independently checkable certificates guaranteeing
 the accuracy.
 
-The research community has responded to these challenges by introducing
+The research community has responded to these challenges by developing
 a rich universe of automated techniques that provide guaranteed bounds on the
 accuracy of floating-point computations or attempt to automatically improve
 accuracy.  For example, Fluctuat~\cite{Goubault13,GMP06}, used in
@@ -39,13 +39,12 @@ applying a set of rules in order to improve the accuracy of the expression
 and combining these improvements for different input domains.
 Rosa~\cite{DarulovaK14} combines
 an exact SMT solver on reals with sound affine arithmetic to verify
-post-conditions on the accuracy of a computation
-given uncertainties on the accuracy of input.  The compiler verifies that the desired precision
-can be soundly obtained in a finite-precision implementation when all the
-uncertainties and their propagation are included.  Finally,
-FPTaylor~\cite{fptaylor-fm15} uses Taylor series to narrow
-the error computed by the interval arithmetic.  This competes with the
-affine arithmetic domain used by Fluctuat.
+accuracy post-conditions from assertions about the accuracy of inputs.
+Rosa can guarantee that the desired precision
+can be soundly obtained in a finite-precision implementation when
+propagation error is included.  Finally,
+FPTaylor~\cite{fptaylor-fm15} improves on interval arithmetic by using Taylor series to narrow
+the computed error bounds.
 
 As the number of tools dedicated to analyzing and improving numerical
 accuracy grows, it becomes increasingly difficult to make fair
@@ -58,7 +57,7 @@ complementary tools.
 
 To address these challenges, the floating-point research community needs a
 standard benchmark format and common set of measures that enables
-comparisons and cooperation between tools.  This goal is motivated by the
+comparison and cooperation between tools.  This goal is motivated by the
 success of standard benchmark suites like SPEC~\cite{spec} and
 SPLASH-2~\cite{splash} in
 the compiler community, the DIMACS~\cite{dimacs} format in the SAT-solving
@@ -67,14 +66,13 @@ The formats have enabled fair comparisons between tools, crisp
 characterizations of the tradeoffs between different approaches, and useful
 cooperation between tools with complementary strengths.
 
-In this article, we propose \name, a general floating-point benchmark
-format. \name enables users to combine tools that perform heuristic
-improvements with complementary tools that provide sound error bounds.
-Hence, \name provides a common language that can be used to develop
-a global approach for comparing the various tools previously mentioned,
-and use them in tandem. In addition, having a common scientific methodology
-is crucial for demonstrating the improvements of each tool on the state
-of the art.
+In this article, we propose \name, a general floating-point format and
+benchmark suite. \name provides a common language for floating point tools,
+allowing users to combine tools that complementary tasks,
+or compare competing tools to choose the one best for their task.
+The common scientific methodology \name enables
+is crucial for demonstrating the
+improvements of each tool on the state of the art.
 
 The main contributions of this article are the following:
 \begin{enumerate}[label=(\roman*)]
@@ -98,7 +96,7 @@ Section~\ref{sec:measure} introduces various measures of floating-point
 error.  Section~\ref{sec:tools} describes the utilities \name provides to
 support creating and working with benchmarks.
 Section~\ref{sec:case-studies} surveys our existing benchmark suite,
-highlighting few representative case studies from recent tools in the
+highlighting representative case studies from recent tools in the
 literature.  Finally, Section~\ref{sec:conclusion} discusses future work
 and concludes.
 

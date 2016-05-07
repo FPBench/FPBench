@@ -39,7 +39,7 @@ Relative error scales with the quantity being measured,
   and thus makes sense for measuring both large and small numbers,
   much like the floating-point format itself.
 A notion of error more closely tied to the floating-point format
-  is the Units in the Last Place (UPLs) of error.%
+  is the Units in the Last Place (ULPs) of error.%
 \footnote{We are using $|S|$ to denote the number of elements in a set $S$}
 \[
 \varepsilon_{ulps}(x, x') = |\{ y \in \mathbb{F} : \min(x, \hat x) \le y \le \max(x, \hat x)
@@ -131,7 +131,7 @@ Such comparison uses the improvement in worst-case or average error
   \iota_{\text{imp}} = E(\hat{f}) - E(\hat{f}')
 \end{align*}
 
-Once cannot, in general,
+One cannot, in general,
   improve the accuracy of a computation
   simultaneously on all inputs.
 It is thus often necessary

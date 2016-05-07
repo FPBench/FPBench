@@ -6,9 +6,9 @@
 
 \name features
   a collection of compilers and measurement tools
-  that operate on its common format, \core.
+  that operates in its common format, \core.
 These tools can be a community resource,
-  increasing interoperability and code reuse.
+  increasing interoperability as well as code reuse.
 They also make it easier to write
   new floating-point analysis and transformation tools
   by automating what are currently
@@ -18,7 +18,7 @@ They also make it easier to write
 The \core format faithfully preserves important program constructs,
   such as variable binding and operation ordering,
   while abstracting away details not relevant
-  to the floating-point semantics.
+  to floating-point semantics.
 However, it is syntactically very different
   from some of the languages from which benchmarks might originate.
 To make translation to \core from source languages
@@ -26,20 +26,20 @@ To make translation to \core from source languages
   \name provides the \surface format
   and a compiler from \surface to \core.
 \surface is syntactically similar to imperative languages,
-  to make translation of benchmarks as easy as possible.
+  in order to make translation of benchmarks as easy as possible.
 
 \paragraph{\core to C}
 Since C is a common implementation language for mathematical computations,
   \name provides a \core to C compiler.
 We expect this to be especially useful for tools
   that improve the accuracy of floating-point expressions
-  and want to return the most accurate expressions to users.
-The \core to C compiler can also be used
-  to run \name benchmarks through the many available C analysis tools.
+  and want to return the more accurate expressions to users.
+What's more, the \core to C compiler can also be used to make \core benchmarks
+run in the many available C analysis tools.
 
 \paragraph{Worst-case error estimation}
 \name provides a tool to give bounds on
-  the worst-case absolute error of a \core program
+  the worst-case absolute errors of a \core program
   using an abstract interpretation based on interval analysis
   following the approach pioneered by Martel et~al.~\cite{martel-ai}.
 The error analysis is fast

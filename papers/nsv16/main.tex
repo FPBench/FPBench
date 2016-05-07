@@ -16,6 +16,20 @@
 \lstnewenvironment{code}{\lstset{basicstyle=\scriptsize}}{}
 \newcommand{\todo}[1]{{\color{blue}\textit{[TODO: #1]}}}
 
+% Black magic
+
+\makeatletter
+\def\ps@titlepage{\let\@mkboth\@gobbletwo
+   \let\@oddfoot\@empty\let\@evenfoot\@empty
+   \def\@evenhead{\normalfont\small\rlap{\thepage}\hspace{\headlineindent}%
+                  \hfil}
+   \def\@oddhead{\normalfont\small\hfil\hspace{\headlineindent}%
+                 \hfil}
+   \def\chaptermark##1{}%
+   \def\sectionmark##1{}%
+   \def\subsectionmark##1{}}
+\makeatother
+
 \begin{document}
 
 \title{Toward a Standard Benchmark Format and Suite for Floating-Point Analysis}

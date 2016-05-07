@@ -102,11 +102,10 @@ Existing tools use
 Most static techniques are based on interval or affine arithmetic
   to over-approximate floating-point arithmetic,
   often using abstract interpretation.
-Abstract interpretation may be either non-relational \cite{}
-  or relational abstract domains \cite{},
-  and may use acceleration techniques (widening)
+Abstract interpretation may be either non-relational \cite{Mar05}
+  or relational abstract domains \cite{Cha100,GP11,AGW15},
+  and may use acceleration techniques (widenings \cite{CC92})
   to over-approximate loops without unrolling them.
-  \todo{Fill in these citations}.
 While such techniques tend to provide loose over-approximations
 of the floating-point error of programs, they are fast and
 provide sound error bounds. In some embedded applications,
@@ -151,9 +150,9 @@ Other measures,
   and thus not standardized.
 Similarly,
   improvement tools could also estimate their effect on numerical stability
-  using automatic differentiation~\cite{} or Lyapunov exponents~\cite{},
+  using automatic differentiation~\cite{GW08} or Lyapunov exponents~\cite{Sri13},
   but we do not know of any such tools.
-  \todo{add citations here.}
+%  \todo{add citations here.}
 
 \subsection{Existing Tools}
 

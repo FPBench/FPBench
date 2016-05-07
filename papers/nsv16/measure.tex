@@ -10,15 +10,20 @@ Besides an interoperable format
   to make it possible to compare different tools.
 This comparison requires not only a common benchmark suite
   but also common measure of error to compare.
-This section standardizes the language
+However, given the diversity of tools and error measurements
+  that exist in the literature,
+  standardizing on a single measure of error
+  would not only be difficult but could harm the development
+  of some classes of tools.
+Instead, \name standardizes the language
   for discussing error measurements
   to facilitate using the \name suite to compare floating-point tools.
 
 \subsection{Measurement Types}
 
 Floating-point error is best analyzed along the several axes
-  of the pointwise measurement, direction,
-  multipoint summarization, soundness.
+  of pointwise measurement, forward vs. backward error,
+  maximum vs. average error, and sound vs. statistical techniques.
 
 \paragraph{Pointwise measurement ($\varepsilon$)}
 
@@ -47,7 +52,7 @@ numbers and infinities.
 Some tools use the logarithm of the ULPs to roughly approximate
 the number of incorrect low-order bits in $\hat x$.
 
-\paragraph{Error direction ($\epsilon$)}
+\paragraph{Forward vs. backward error ($\epsilon$)}
 
 Forward error and backward error are two common measures
   for the error of a mathematical computation.
@@ -61,7 +66,7 @@ Formally,
   \epsilon_{fwd}(x) = \varepsilon(f(x), \hat{f}(x))
   \quad \text{and} \quad
   \epsilon_{bwd}(x) =
-  \min \left\{ \varepsilon(x, x') : {\hat f}(x') = f(x) \right\}.
+  \min_{x'} \left\{ \varepsilon(x, x') : {\hat f}(x') = f(x) \right\}.
 \end{equation*}
 
 Backward error is important for evaluating the stability of an algorithm,
@@ -70,9 +75,9 @@ Backward error is important for evaluating the stability of an algorithm,
 However, backward error can be tricky to compute,
   especially for floating-point computations
   where there may not be an input that produces the correct output.
-To our knowledge all the existing tools that measure only forward error.
+To our knowledge, all existing tools measure forward error.
 
-\paragraph{Multipoint summarization ($E$)}
+\paragraph{Average vs. maximum error ($E$)}
 
 To describe the error of a floating-point computation
   means summarizing its behavior across multiple inputs.
@@ -88,7 +93,7 @@ Formally,\footnote{Where $n$ is the number of arguments and $N$ is the number of
 Worst-case error tends to be easier to measure soundly,
   while average error tends to be easier to measure statistically.
 
-\paragraph{Sound vs. statistical tools}
+\paragraph{Sound vs. statistical techniques}
 
 It is intractable to evaluate the error of the program on all valid inputs.
 Existing tools use

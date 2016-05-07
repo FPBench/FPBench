@@ -4,12 +4,9 @@
 \section{Accuracy Measurements}
 \label{sec:measure}
 
-Besides an interoperable format
-  for floating-point analysis and optimization tools,
-  \name also provides a suite of benchmarks
-  to make it possible to compare different tools.
-This comparison requires not only a common benchmark suite
-  but also common measure of error to compare.
+To begin to compare
+  floating-point benchmark results across tools,
+  tools must have a common measure of error.
 However, given the diversity of tools and error measurements
   that exist in the literature,
   standardizing on a single measure of error
@@ -21,11 +18,13 @@ Instead, \name standardizes the language
 
 \subsection{Measurement Types}
 
-Floating-point error is best analyzed along the several axes
-  of pointwise measurement, forward vs. backward error,
-  maximum vs. average error, and sound vs. statistical techniques.
+Floating-point error is best analyzed along several axes:
+  scaling vs non-scaling difference, forward vs. backward error,
+  maximum vs. average error, sound vs. statistical techniques,
+  and, for tools which transform programs,
+  how to measure improvement.
 
-\paragraph{Pointwise measurement ($\varepsilon$)}
+\paragraph{Scaling vs non-scaling difference ($\varepsilon$)}
 
 There are several ways to measure the error incurred
   by producing the inaccurate value $\hat x$ instead of the correct value $x$.
@@ -66,7 +65,7 @@ Formally,\footnote{Where $n$ is the number of arguments.}
   \epsilon_{fwd}(x) = \varepsilon(f(x), \hat{f}(x))
   \quad \text{and} \quad
   \epsilon_{bwd}(x) =
-  \min \left\{ \varepsilon(x, x') : x' \in \mathbb{F}^n {\hat f}(x') = f(x) \right\}.
+  \min \left\{ \varepsilon(x, x') : x' \in \mathbb{F}^n \land {\hat f}(x') = f(x) \right\}.
 \end{equation*}
 
 Backward error is important for evaluating the stability of an algorithm,
@@ -82,7 +81,7 @@ To our knowledge, all existing tools measure forward error.
 Describing the error of a floating-point computation
   means summarizing its behavior across multiple inputs.
 Existing tools use either maximum or average error for this task.
-Formally,\footnote{Where $N$ is the number of valid inputs.}
+Formally,\footnote{Where $N$ is the number of valid inputs, and $n$ is the number of arguments.}
 
 \begin{equation*}
   E_{\text{max}} = \max \left\{\epsilon(x) : x \in \mathbb{F}^n\right\}
@@ -107,6 +106,7 @@ Abstract interpretation may be either non-relational \cite{}
   or relational abstract domains \cite{},
   and may use acceleration techniques (widening)
   to over-approximate loops without unrolling them.
+  \todo{Fill in these citations}.
 While such techniques tend to provide loose over-approximations
 of the floating-point error of programs, they are fast and
 provide sound error bounds. In some embedded applications,
@@ -120,9 +120,9 @@ program multiple times, sometimes with varying semantics.
 
 \paragraph{Measuring improvement ($\iota$)}
 
-Some tools,
+Tools that transform floating point programs,
   such as those that attempt to improve the accuracy of programs,
-  compare the accuracy of two floating-point programs
+  often compare the accuracy of two floating-point programs
   instead of measuring the accuracy of a single program.
 Such comparison uses the improvement in worst-case or average error
   between the original $\hat f$ and improved $\hat f'$ implementation
@@ -137,8 +137,8 @@ One cannot, in general,
 It is thus often necessary
   to make a computation less accurate on some points
   to make it more accurate overall.
-In this case, the largest unimprovement
-  measures the cost of improving accuracy:
+In this case, it may be useful to report the largest unimprovement,
+  which measures the cost of improving accuracy:
 
 \begin{equation*}
   \iota_{\text{wrs}}(\hat{f},\hat{f}') = \max \left\{ \epsilon(f(x),\hat{f}'(x)) - \epsilon(f(x),\hat{f}(x))   
@@ -153,6 +153,7 @@ Similarly,
   improvement tools could also estimate their effect on numerical stability
   using automatic differentiation~\cite{} or Lyapunov exponents~\cite{},
   but we do not know of any such tools.
+  \todo{add citations here.}
 
 \subsection{Existing Tools}
 
@@ -189,8 +190,9 @@ Herbie, on the other hand, uses random sampling to achieve
   a tight statistical approximation of ULP error.
 The tight estimates enabled by statistical techniques
   provide additional opportunities for Herbie
-  to improve the accuracy of an expression.
-Herbie's unsound improvement method can be supplemented
+  to improve the accuracy of an expression,
+  but prevent it from providing sound error bounds.
+Unsound tools such as Herbie can be supplemented
   by using a sound verification tool on its output,
   a composition enabled by the common \core format.
 Meanwhile, since Fluctuat, FPTaylor, Rosa, and Salsa

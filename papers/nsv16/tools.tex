@@ -56,15 +56,15 @@ For tools that improve the accuracy of floating-point computations,
 \end{comment}
 
 \paragraph{Average error estimation}
-Average error is a second important metric for floating-point programs,
+Average error is an important metric for floating-point programs,
   and \name provides a tool to statistically approximate it.
 The statistical approach is necessary to produce accurate estimates
   of average error given the current state of the art.
-The average error estimate combines with worst-case error bounds
-  to provide detailed information about the error behavior
-  of a floating-point program.
+The tool allows choosing between absolute, relative, and ULP error,
+  including bits of error (computed as the logarithm of ULPs error).
 
-We plan to continue developing community tools
-  around the \name formats.
+We plan to continue developing community tools around the \name formats,
+  especially tools for estimating the other measures of error
+  described in Section~\ref{sec:measure}.
 
 \end{document}

@@ -44,7 +44,7 @@ As shown in Table~\ref{tbl:domains} and Table~\ref{tbl:features},
 
 \begin{table}[hbtp]
   \begin{minipage}[t]{.45\textwidth}
-    \begin{tabular}{lr}
+    \begin{tabular*}{\columnwidth}{l@{\extracolsep{\stretch{1}}}r}
       Feature & Benchmarks \\\hline
       Basic Arithmetic & 44 \\
       Exponentials & 13 \\
@@ -52,7 +52,7 @@ As shown in Table~\ref{tbl:domains} and Table~\ref{tbl:features},
       Comparison & 12 \\
       Loops & 12 \\
       Conditionals & 3
-    \end{tabular}
+    \end{tabular*}
     \vspace{0.1in}
     \caption{Functions and language features used in the \name
       benchmarks. Benchmarks contain a variety of features, and many
@@ -62,13 +62,13 @@ As shown in Table~\ref{tbl:domains} and Table~\ref{tbl:features},
   \end{minipage}
   \hfill
   \begin{minipage}[t]{.45\textwidth}
-    \begin{tabular}{lr}
+    \begin{tabular*}{\columnwidth}{l@{\extracolsep{\stretch{1}}}r}
       Domain & Benchmarks \\\hline
       General expressions & 31 \\
       Math algorithms & 6 \\
       Embedded systems & 4 \\
       Scientific computing & 3
-    \end{tabular}
+    \end{tabular*}
     \vspace{0.25in}
     \caption{Domains which the \name benchmarks are drawn from. Most
       are general mathematical operations, useful in a variety of

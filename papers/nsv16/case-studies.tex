@@ -37,10 +37,10 @@ The larger examples are more challenging,
   including loops that mutate anywhere
   from 2 to 13 variables in the loop body.
 As shown in Table~\ref{tbl:domains} and Table~\ref{tbl:features},
-  these programs span a variety application areas,
-  from control software to mathematical libraries,
-  and exercise the full range of functionality
-  available in \name.
+  these programs exercise the full range of functionality
+  available in \name,
+  and span a variety application areas,
+  from control software to mathematical libraries.
 
 \begin{table}[hbtp]
   \begin{minipage}[t]{.49\textwidth}
@@ -167,7 +167,8 @@ translated this program to \core, yielding:
 (FPCore (x0)
   :name "Rosa Example"
   :cite (darulova-kuncak-2014)
-  :pre (< (abs x0) 1.)
+  :pre (< (abs x0) 1)
+  :rosa-post (< (abs res) 1)
   (while (< i 10)
     ([i 0 (+ i 1)]
      [x x0
@@ -181,6 +182,10 @@ translated this program to \core, yielding:
 
 Like the FPTaylor benchmark, this benchmark includes a name,
   citation for its source, and precondition on inputs.
+For completeness, we've also included the \C{requires} annotation,
+  denoted \C{:rosa-post},
+  demonstrating the ability to add tool specific annotations
+  by prefixing with the tool name.
 Note how the \C{while} construct from \core
   can be used to represent the tail-recursive loop
   from the Rosa original benchmark.

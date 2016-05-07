@@ -129,25 +129,27 @@ Where \core is the format consumed by tools,
   from imperative languages to \core.
 While \core is a functional language
   with a minimal set of features
-  for representing floating-point formats,
+  for representing floating-point computations,
   \surface includes common imperative features
   like variable assignments,
   multiple return values,
   and multi-way \C{if} statements.
 More complex features,
-  such as arrays, pointers, and records,
+  such as arrays, pointers, records, and recursive function calls,
   are left to future language extensions.
 In our experience,
   translating C, Fortran, and Matlab to \surface is relatively easy.
-\surface syntax uses \core for expressions;
-  however, analyzing \surface allows tracking intermediate variables
-  and control flow at a finer scale than that allowed by \core.
-The additional syntactic constructs of \surface are:
+\surface has expressions similar to those in \core,
+  but without \C{if}, \C{while}, and \C{let} expressions;
+  these are instead replaced with statements.
+The \surface syntax is as follows:
 
 \begin{grammar}
-<\surface> ::= ( `\surface' ( <identifier>* ) <property>* <statement>* <return> )
+<\surface> ::= ( `\surface' ( <identifier>* ) <property>* <statement>* <output> )
 
-<return> ::= ( `output' <expression>* )
+<output> ::= ( `output' <expression>* )
+
+<expression> ::= <constant> | <identifier> | ( <operation> <expression>* )
 
 <statement> ::= [ `=' <identifier> <expression> ]
 \alt ( `if' <ifbranch>* )
@@ -164,8 +166,7 @@ As in \core, each \surface benchmark
   and multiple return values
   instead of a single body expression.
 Assignments and while loops behave in the usual way.
-Expressions in \surface are simply \core expressions,
-  evaluated in the same way.
+Expressions in \surface are evaluated similarly to \core expressions.
 An \C{if} statement defines a many-way branch;
   any \C{else} branch must be the last branch in its \C{if}.
 The \C{output} statement can return several values and appears

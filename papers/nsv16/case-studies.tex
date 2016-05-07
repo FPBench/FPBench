@@ -33,9 +33,9 @@ These examples range from simple test programs for
   early tool development up to
   large examples from industrial control applications for
   evaluating more mature tools.
-The larger examples include challenging
-  programs over 2 input variables up to
-  programs over 13 variables mutated in a loop body.
+The larger examples are more challenging,
+  including loops that mutate anywhere
+  from 2 to 13 variables in the loop body.
 As shown in Table~\ref{tbl:domains} and Table~\ref{tbl:features},
   these programs span a variety application areas,
   from control software to mathematical libraries,
@@ -43,7 +43,7 @@ As shown in Table~\ref{tbl:domains} and Table~\ref{tbl:features},
   available in \name.
 
 \begin{table}[hbtp]
-  \begin{minipage}[t]{.45\textwidth}
+  \begin{minipage}[t]{.49\textwidth}
     \begin{tabular*}{\columnwidth}{l@{\extracolsep{\stretch{1}}}r}
       Feature & Benchmarks \\\hline
       Basic Arithmetic & 44 \\
@@ -61,7 +61,7 @@ As shown in Table~\ref{tbl:domains} and Table~\ref{tbl:features},
     \label{tbl:domains}
   \end{minipage}
   \hfill
-  \begin{minipage}[t]{.45\textwidth}
+  \begin{minipage}[t]{.49\textwidth}
     \begin{tabular*}{\columnwidth}{l@{\extracolsep{\stretch{1}}}r}
       Domain & Benchmarks \\\hline
       General expressions & 31 \\
@@ -113,11 +113,11 @@ in control software, where the output of the sensor is known to be between
 1.001 and 2.0. We manually translated this program to \core, yielding:
 
 \begin{code}
-(lambda (x y)
+(FPCore (x y)
   :name "FPTaylor example"
   :cite (solovyev-et-al-2015)
-  :type double
-  :pre (and (< 1.001 x) (< x 2.0) (< 1.001 y) (< y 2.0))
+  :type binary64
+  :pre (and (and (< 1.001 x) (< x 2.0)) (and (< 1.001 y) (< y 2.0)))
   (let ([t (* x y)])
     (/ (- t 1.0)  (- (* t t) 1.0))))
 \end{code}
@@ -131,7 +131,7 @@ The benchmark takes inputs \C{x} and \C{y}
 The benchmark additionally specifies a name
   and cites its source using a key to a standard \BibTeX{} file.
 Since the original program uses 64-bit floating-point numbers,
-  the type \C{double} is specified in the benchmark.
+  the type \C{binary64} is specified in the benchmark.
 The constraints on input variables are translated to
   a single predicate under the \C{:pre} property.
 
@@ -140,7 +140,7 @@ The constraints on input variables are translated to
 
 \subsection{Rosa}
 
-Rosa~\cite{DarulovaK14}, soundly verifies error bounds of floating-point
+Rosa~\cite{DarulovaK14} soundly verifies error bounds of floating-point
 programs, including looping control flow through recursive function calls.
 Several benchmarks in its repository demonstrate this capability, including
 one that uses Newton's method on a series representation of the sine
@@ -164,7 +164,7 @@ The \C{require} clause denotes input preconditions, and the
 translated this program to \core, yielding:
 
 \begin{code}
-(lambda (x0)
+(FPCore (x0)
   :name "Rosa Example"
   :cite (darulova-kuncak-2014)
   :pre (< (abs x0) 1.)
@@ -179,7 +179,7 @@ translated this program to \core, yielding:
     x))
 \end{code}
 
-Like the FPTaylor benchmark above, this benchmark includes a name,
+Like the FPTaylor benchmark, this benchmark includes a name,
   citation for its source, and precondition on inputs.
 Note how the \C{while} construct from \core
   can be used to represent the tail-recursive loop
@@ -190,18 +190,17 @@ Note how the \C{while} construct from \core
 Herbie~\cite{pavel15} heuristically improves the accuracy of straight-line
 floating-point expressions.  The authors demonstrate the improvements
 Herbie can produce using the quadratic formula for computing the roots of a
-second degree polynomial.  It has used from calculating trajectories, to
+second degree polynomial.  It has uses from calculating trajectories to
 solving matrix equations.  In mathematical notation, the quadratic formula
-is given by:
-%
+is given by:%
 \footnote{We use the negative variant here, as in the Herbie paper;
   the positive variant is analogous.}
-%
+
 \begin{equation*}
   \frac{(- b) - \sqrt{b^2 - 4ac}}{2a}
 \end{equation*}
 
-\noindent Herbie produces the following variant with improved accuracy:
+\noindent Herbie produces the following more-accurate variant:
 
 \newcommand{\K}[1]{\mathbf{#1}\:}
 
@@ -216,20 +215,20 @@ is given by:
 \noindent In \core format, the original formula is represented as:
 
 \begin{code}
-(lambda (a b c)
+(FPCore (a b c)
   :name "NMSE p42, positive"
   :cite (hamming-1987)
-  :pre (and (>= (sqr b) (* 4 (* a c))) (not (= a 0)))
+  :pre (and (>= (sqr b) (* 4 (* a c))) (!= a 0))
   (/ (+ (- b) (sqrt (- (sqr b) (* 4 (* a c))))) (* 2 a)))
 \end{code}
 
-\noindent and the improve version is represented as:
+\noindent and the improved version is represented as:
 
 \begin{code}
-(lambda (a b c)
+(FPCore (a b c)
   :name "NMSE p42, positive"
   :cite (hamming-1987)
-  :pre (and (>= (sqr b) (* 4 (* a c))) (not (= a 0)))
+  :pre (and (>= (sqr b) (* 4 (* a c))) (!= a 0))
   (if (< b 0)
       (/ (/ (* 4 (* a c)) (+ (- b) (sqrt (- (sqr b) (* 4 (* a c)))))) 
          (* 2 a))
@@ -238,32 +237,23 @@ is given by:
           (+ (- (/ b a)) (/ c b)))))
 \end{code}
 
-In both forms, the benchmark takes three inputs, denoted
-``\verb|a|'', ``\verb|b|'', and ``\verb|c|'' above. It is named
-``\verb|NMSE p42, positive|'' after the book in which it appears and
-its exercise number, as well as which branch it is. Like the FPTaylor
-benchmark, it cites its source through a shorthand, in this case
-``\verb|hamming-1987|'', which corresponds to a .bib file included
-with the benchmark suite.
-
 Like the Rosa and FPTaylor examples,
   this benchmark gives a name, citation, and precondition.
-In this case the precondition is more complex,
-  restricting the input to the square root to be non-negative
-  and requiring the denominator be non-zero;
-  unlike the FPTaylor and Rosa examples,
+This benchmark uses \core's ability
+  to write arbitrary boolean expressions as preconditions,
+  restricting the value under the square root to be non-negative
+  and requiring the denominator be non-zero.
+Unlike the FPTaylor and Rosa examples,
   this precondition arises from mathematical considerations,
   not domain knowledge.
-\core allows arbitrary boolean expressions in preconditions,
-  enabling the expression of such complex preconditions.
 The \core version of Herbie's output
   furthermore uses \C{if} constructs to evaluate
   different expressions for different inputs,
   which improves accuracy.
-Additionally, Herbie could add additional metadata to the output,
+Herbie could add additional metadata to the output,
   such as its internal estimate of accuracy
   or the number of expressions considered during search,
-  by using prefixed keys such as \C{:herbie-accuracy-estimate}.
+  by using prefixed keys like \C{:herbie-accuracy-estimate}.
 
 \subsection{Salsa}
 
@@ -301,12 +291,12 @@ To ease the conversion of this code from C to \core,
   to the following \surface program:
 
 \begin{code}
-(function (m kp ki kd)
+(FPImp (m kp ki kd)
  :name "PID"
  :description "Keep a measure at its setpoint using a PID controller."
  :cite (damouche-martel-chapoutot-nsv14)
- :type double
- :pre (and (< -10.0 m 10.0) (< -10.0 c 10.0))
+ :type binary64
+ :pre (and (and (< -10.0 m) (< m 10.0)) (and (< -10.0 c) (< c 10.0)))
  [= t 0.0]
  [= dt 0.2]
  [= invdt (/ 1 dt)]
@@ -316,9 +306,9 @@ To ease the conversion of this code from C to \core,
  (while (< t 100.0)
    [= e (- c m)]
    [= p (* kp e)]
-   [= i (+ i (* ki dt e))]
-   [= d (* kd invdt (- e eold))]
-   [= r (+ p i d)]
+   [= i (+ i (* (* ki dt) e))]
+   [= d (* (* kd invdt) (- e eold))]
+   [= r (+ (+ p i) d)]
    [= m (+ m (* 0.01 r))]
    [= eold e]
    [= t (+ t dt)])
@@ -330,12 +320,12 @@ The \surface program was then automatically compiled,
   to the following \core benchmark:
 
 \begin{code}
-(lambda (m0 kp ki kd c)
+(FPCore (m0 kp ki kd c)
   :name "PID"
   :description "Keep a measure at its setpoint using a PID controller."
   :cite (damouche-martel-chapoutot-nsv14)
-  :type double
-  :pre (and (< -10.0 m0) (< m0 10.0) (< -10.0 c) (< c 10.0))
+  :type binary64
+  :pre (and (and (< -10.0 m0) (< m0 10.0)) (and (< -10.0 c) (< c 10.0)))
   (while (< t 100.0)
    ([i 0.0 (+ i (* (* ki 0.2) (- c m)))]
     [m m0

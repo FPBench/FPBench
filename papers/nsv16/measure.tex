@@ -55,18 +55,18 @@ the number of incorrect low-order bits in $\hat x$.
 \paragraph{Forward vs. backward error ($\epsilon$)}
 
 Forward error and backward error are two common measures
-  for the error of a mathematical computation.
+  for the error of a mathematical \emph{computation}.
 For a correct function $f$ and its approximation $\hat f$,
   forward error measures the difference between outputs for a fixed input,
   while backward error measures the difference between inputs
   for a fixed output.
-Formally,
+Formally,\footnote{Where $n$ is the number of arguments.}
 
 \begin{equation*}
   \epsilon_{fwd}(x) = \varepsilon(f(x), \hat{f}(x))
   \quad \text{and} \quad
   \epsilon_{bwd}(x) =
-  \min_{x'} \left\{ \varepsilon(x, x') : {\hat f}(x') = f(x) \right\}.
+  \min \left\{ \varepsilon(x, x') : x' \in \mathbb{F}^n {\hat f}(x') = f(x) \right\}.
 \end{equation*}
 
 Backward error is important for evaluating the stability of an algorithm,
@@ -79,10 +79,10 @@ To our knowledge, all existing tools measure forward error.
 
 \paragraph{Average vs. maximum error ($E$)}
 
-To describe the error of a floating-point computation
+Describing the error of a floating-point computation
   means summarizing its behavior across multiple inputs.
 Existing tools use either maximum or average error for this task.
-Formally,\footnote{Where $n$ is the number of arguments and $N$ is the number of valid inputs.}
+Formally,\footnote{Where $N$ is the number of valid inputs.}
 
 \begin{equation*}
   E_{\text{max}} = \max \left\{\epsilon(x) : x \in \mathbb{F}^n\right\}
@@ -102,10 +102,10 @@ Existing tools use
 
 Most static techniques are based on interval or affine arithmetic
   to over-approximate floating-point arithmetic,
-  often abstracted into abstract domain for abstract interpretation.
-Abstract interpretation may rely on either non-relational \cite{}
+  often using abstract interpretation.
+Abstract interpretation may be either non-relational \cite{}
   or relational abstract domains \cite{},
-  and use acceleration techniques (widenings)
+  and may use acceleration techniques (widening)
   to over-approximate loops without unrolling them.
 While such techniques tend to provide loose over-approximations
 of the floating-point error of programs, they are fast and
@@ -128,14 +128,12 @@ Such comparison uses the improvement in worst-case or average error
   between the original $\hat f$ and improved $\hat f'$ implementation
   of the mathematical function $f$:
 \begin{align*}
-  \iota_{\text{wst}} = E_{\text{max}}(\hat{f}) - E_{\text{max}}(\hat{f}')
-  \quad \text{and} \quad
-  \iota_{\text{avg}} = E_{\text{avg}}(\hat{f}) - E_{\text{avg}}(\hat{f}')
+  \iota_{\text{imp}} = E(\hat{f}) - E(\hat{f}')
 \end{align*}
 
-Accuracy improvement cannot, in general,
+Once cannot, in general,
   improve the accuracy of a computation
-  simultaneously on all valid inputs.
+  simultaneously on all inputs.
 It is thus often necessary
   to make a computation less accurate on some points
   to make it more accurate overall.
@@ -143,38 +141,35 @@ In this case, the largest unimprovement
   measures the cost of improving accuracy:
 
 \begin{equation*}
-  \iota_{\text{anti}}(\hat{f},\hat{f}') = \max \left\{ \epsilon(f(x),\hat{f}'(x)) - \epsilon(f(x),\hat{f}(x))   
+  \iota_{\text{wrs}}(\hat{f},\hat{f}') = \max \left\{ \epsilon(f(x),\hat{f}'(x)) - \epsilon(f(x),\hat{f}(x))   
 \ :\ x\in \mathbb{F}^n\right\}  
 \end{equation*}
 
 Other measures,
   such as those describing the trade-off between accuracy and speed,
   are also interesting, but are less commonly used in the literature
-  and thus less standardized.
+  and thus not standardized.
 Similarly,
-  improvement tools could estimate their effect on numerical stability
+  improvement tools could also estimate their effect on numerical stability
   using automatic differentiation~\cite{} or Lyapunov exponents~\cite{},
-  but we do not know that any such tools exist.
+  but we do not know of any such tools.
 
 \subsection{Existing Tools}
 
-The language of error measurement types described above
-  can be applied to categorize the error measurements
-  used by existing tools.
+The error measures described can be applied
+  to categorize the error measurements used by existing tools.
 Table~\ref{tbl:tools} compares Fluctuat~\cite{Goubault13},
   FPTaylor~\cite{fptaylor-fm15}, Herbie~\cite{pavel15},
   Rosa~\cite{DarulovaK14}, and Salsa~\cite{fmics15}.
 
 \begin{table}[htb]
-  \centering
-\begin{tabular}{ccccc}
-         & Pointwise & Direction & Summary & Soundness \\\hline 
+\begin{tabular*}{\columnwidth}{@{\extracolsep{\stretch{1}}}*{6}{l}}
 Fluctuat & Absolute        & Forward & Max      & Sound \\
 FPTaylor & Absolute        & Forward & Max      & Sound \\
-Herbie   & ULPs            & Forward & Average     & Statistical \\
+Herbie   & ULPs            & Forward & Average     & Statistical & Improvement \\
 Rosa     & Absolute        & Forward & Max      & Sound \\
-Salsa    & Absolute        & Forward & Max      & Sound
-\end{tabular}
+Salsa    & Absolute        & Forward & Max      & Sound & Improvement
+\end{tabular*}
 \caption{A comparison of how five floating-point measure error
   across the axes identified in this section.}
 \label{tbl:tools}
@@ -192,7 +187,9 @@ Salsa uses abstract interpretation to bound maximum absolute error,
   producing a sound overapproximation of the maximum error.
 Herbie, on the other hand, uses random sampling to achieve
   a tight statistical approximation of ULP error.
-This difference in measurements provides additional opportunities.
+The tight estimates enabled by statistical techniques
+  provide additional opportunities for Herbie
+  to improve the accuracy of an expression.
 Herbie's unsound improvement method can be supplemented
   by using a sound verification tool on its output,
   a composition enabled by the common \core format.

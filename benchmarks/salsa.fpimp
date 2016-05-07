@@ -1,6 +1,6 @@
 ;; -*- mode: scheme -*-
 
-(fpimp (sr* sl*)
+(FPImp (sr* sl*)
  :name "Odometry"
  :description "Compute the position of a robot from the speed of the wheels.
 Inputs: Speed `sl`, `sr` of the left and right wheel, in rad/s."
@@ -46,7 +46,7 @@ Inputs: Speed `sl`, `sr` of the left and right wheel, in rad/s."
      [= j (+ j 1)]]))
  (output x y))
 
-(fpimp (m kp ki kd)
+(FPImp (m kp ki kd)
  :name "PID"
  :description "Keep a measure at its setpoint using a PID controller.
 Inputs: Measure `m`; gains `kp`, `ki`, `kd`; setpoint `c`"
@@ -71,7 +71,7 @@ Inputs: Measure `m`; gains `kp`, `ki`, `kd`; setpoint `c`"
    [= t (+ t dt)])
  (output m))
 
-(fpimp (h y_n* c)
+(FPImp (h y_n* c)
  :name "Runge-Kutta 4"
  :description "Solve the differential equation `y' = (c - y)^2
 Inputs: Step size `h`; initial condition `y_n*`; paramter `c`"
@@ -99,7 +99,7 @@ Inputs: Step size `h`; initial condition `y_n*`; paramter `c`"
  [= e (abs e)]
  (output i e))
 
-(fpimp (y yd)
+(FPImp (y yd)
  :name "Lead-lag System"
  :description "Move a mass from an initial position to a desired position.
 Inputs: Initial position `y`; desired position `yd`"
@@ -132,7 +132,7 @@ Inputs: Initial position `y`; desired position `yd`"
    [= e (abs (- yc xc1))])
  (output xc1))
 
-(fpimp (Mf A)
+(FPImp (Mf A)
  :name "Rocket Trajectory"
  :description "Compute the trajectory of a rocket around the earth.
 Inputs: Mass `Mf`; acceleration `A`"
@@ -199,7 +199,7 @@ Inputs: Mass `Mf`; acceleration `A`"
    [= mf_im1 mf_i])
  (output x y))
 
-(fpimp (a11 a22 a33 a44 b1 b2 b3 b4)
+(FPImp (a11 a22 a33 a44 b1 b2 b3 b4)
  :name "Jacobi's Method"
  :description "Solve a linear system `Ax = b`.
 Inputs: Array entries `aij`; vector entries `bi`"
@@ -232,7 +232,7 @@ Inputs: Array entries `aij`; vector entries `bi`"
    [= x4 x_n4])
  (output i x_n2 x2 e))
 
-(fpimp (x0)
+(FPImp (x0)
  :name "Newton-Raphson's Method"
  :description "Find the zeros of a function `f = (x - 2)**5`.
 Inputs: Initial guess `x0`"
@@ -254,7 +254,7 @@ Inputs: Initial guess `x0`"
    [= i (+ i 1.0)])
  (output i x x_n e))
 
-(fpimp (a11 a12 a13 a14 a21 a22 a23 a24 a31 a32 a33 a34 a41 a42 a43 a44 v1 v2 v3 v4)
+(FPImp (a11 a12 a13 a14 a21 a22 a23 a24 a31 a32 a33 a34 a41 a42 a43 a44 v1 v2 v3 v4)
  :name "Eigenvalue Computation"
  :description "Compute the largest eigenvalue of a matrix and return its vector.
 Inputs: Matrix `aij`; initial guess `vi` with one nonzero element"
@@ -283,7 +283,7 @@ Inputs: Matrix `aij`; initial guess `vi` with one nonzero element"
    [= e (abs (- 1.0 v1))])
  (output i v1 vz e))
 
-(fpimp (Q11 Q12 Q13 Q21 Q22 Q23 Q31 Q32 Q33)
+(FPImp (Q11 Q12 Q13 Q21 Q22 Q23 Q31 Q32 Q33)
  :name "Iterative Gram-Schmidt Method"
  :description "Orthogonalize a set of non-zero vectors in a Euclidian or Hermitian space.
 Inputs: Vectors `Qij`"

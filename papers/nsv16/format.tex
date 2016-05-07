@@ -14,8 +14,8 @@ To satisfy these requirements,
   a minimal expression-based language
   for floating-point computations
   with features for iteration, input ranges,
-  error measures, target accuracy, floating-point
-  precision, etc.
+  error measures, target accuracy, and floating-point
+  precision.
 A common floating-point benchmark format
   must also be easy to translate to and from
   popular industrial languages like C, C++, Matlab, and Fortran.
@@ -51,7 +51,7 @@ A \core benchmark specifies a set of inputs,
   and meta-data flags including
   a name, citations, preconditions on inputs,
   and the floating-point precision
-  (\C{binary32}, \C{binary64}, etc.)
+  (\C{binary32}, \C{binary64}, \ldots)
   used to evaluate that benchmark.
 The full \core syntax is as follows:~\footnote{
 Not shown in the grammar:
@@ -62,15 +62,14 @@ Not shown in the grammar:
 \small
 <\core> ::= ( `\core' ( <identifier>* ) <property>* <expression> )
 
-<expression> ::= <number> | <constant> | <identifier>
-\alt ( <operation> <expression>* )
+<expression> ::= <constant> | <identifier> | ( <operation> <expression>* )
 \alt ( `if' <expression> <expression> <expression> )
 \alt ( `while' <expression> ( <loopvar>* ) <expression> )
 \alt ( `let' ( <binding>* ) <expression> )
 
 <loopvar> ::= [ <identifier> <expression> <expression> ]
 
-<constant> ::= `E' | `LOG2E' | `LOG10E' | `LN2' | `LN10' | `PI' | $\dotsb$
+<constant> ::= <number> | `E' | `LOG2E' | `LOG10E' | `LN2' | `LN10' | `PI' | $\dotsb$
 
 <operation> ::= `+' | `*' | `<' | $\dotsb$ | `abs' | `acos' | `and' | `asin' | $\dotsb$
 
@@ -125,6 +124,9 @@ We recommend that properties specific to a single tool
 
 \subsection{\surface}
 
+Where \core is the format consumed by tools,
+  \surface is a format for simplifying the translation
+  from imperative languages to \core.
 While \core is a functional language
   with a minimal set of features
   for representing floating-point formats,
@@ -162,23 +164,20 @@ As in \core, each \surface benchmark
   and multiple return values
   instead of a single body expression.
 Assignments and while loops behave in the usual way.
+Expressions in \surface are simply \core expressions,
+  evaluated in the same way.
 An \C{if} statement defines a many-way branch;
   any \C{else} branch must be the last branch in its \C{if}.
 The \C{output} statement can return several values and appears
   at the end of a function.
-Each expression in a \surface program is a \core expression,
-  making it easy to extend an analysis on \core benchmarks
-  to analyzing \surface programs as well,
-  and ensuring that the same set of operations and constants
-  are supported.
 
 The \surface to \core compiler
   translates \surface functions to \core benchmarks
   while retaining all properties and keeping the same set of free parameters.
-It inlines assignments, convert the imperative bodies of \surface loops
+It inlines assignments, converts the imperative bodies of \surface loops
   to the simultaneous-assignment loops of \core,
   replaces many-way \C{if} statements with nested \C{if}s,
-  and rewrites variary mathematical operators like \C{+} and \C{*}
-  to a left-associative application of binary operators.
+  and outputs multiple \core benchmarks for \surface programs with
+  multiple outputs.
 
 \end{document}

@@ -1,6 +1,6 @@
 ;; -*- mode: scheme -*-
 
-(fpcore
+(FPCore
  (sr* sl*)
  :name
  "Odometry"
@@ -45,7 +45,7 @@
    (sr sr* (if (== j 50) sl sr)))
   (+ x y)))
 
-(fpcore
+(FPCore
  (m kp ki kd)
  :name
  "PID"
@@ -75,7 +75,7 @@
    (t 0.0 (+ t 0.2)))
   m))
 
-(fpcore
+(FPCore
  (h y_n* c)
  :name
  "Runge-Kutta 4"
@@ -219,7 +219,7 @@
    (e 1.0 (- e 0.005)))
   (+ i (abs e))))
 
-(fpcore
+(FPCore
  (y yd)
  :name
  "Lead-lag System"
@@ -308,7 +308,7 @@
            (if (< (- y yd) -1.0) -1.0 (- y yd))))))))))
   xc1))
 
-(fpcore
+(FPCore
  (Mf A)
  :name
  "Rocket Trajectory"
@@ -393,7 +393,7 @@
    (mf_im1 Mf (- mf_im1 (* A t_im1))))
   (+ x y)))
 
-(fpcore
+(FPCore
  (a11 a22 a33 a44 b1 b2 b3 b4)
  :name
  "Jacobi's Method"
@@ -449,7 +449,7 @@
      (* (/ 0.3 a44) x3))))
   (+ (+ (+ i x_n2) x2) e)))
 
-(fpcore
+(FPCore
  (x0)
  :name
  "Newton-Raphson's Method"
@@ -534,7 +534,7 @@
    (i 0.0 (+ i 1.0)))
   (+ (+ (+ i x) x_n) e)))
 
-(fpcore
+(FPCore
  (a11 a12 a13 a14 a21 a22 a23 a24 a31 a32 a33 a34 a41 a42 a43 a44 v1 v2 v3 v4)
  :name
  "Eigenvalue Computation"
@@ -597,7 +597,7 @@
        (+ (+ (+ (* a41 v1) (* a42 v2)) (* a43 v3)) (* a44 v4)))))))
   (+ (+ (+ i v1) vz) e)))
 
-(fpcore
+(FPCore
  (Q11 Q12 Q13 Q21 Q22 Q23 Q31 Q32 Q33)
  :name
  "Iterative Gram-Schmidt Method"

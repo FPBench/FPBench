@@ -1,3 +1,4 @@
+;; -*- mode: scheme -*-
 
 ;; From the FPTaylor project <https://github.com/soarlab/FPTaylor>,
 ;; all `*.txt` files in the directory `benchmarks/tests/`.

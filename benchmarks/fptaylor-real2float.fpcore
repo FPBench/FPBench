@@ -1,0 +1,64 @@
+;; -*- mode: scheme -*-
+
+;; From the FPTaylor project <https://github.com/soarlab/FPTaylor>,
+;; all `*.txt` files in the directory `benchmarks/real2float/`.
+
+;; The _fp variants use mixed real/float operations, so are skipped
+
+(FPCore (v)
+ :name "carbonGas"
+ :type binary64
+ :pre (and (<= 0.1 v) (<= v 0.5))
+ (let ([p 3.5e7] [a 0.401] [b 42.7e-6] [t 300] [n 1000])
+   (- (* (+ p (* a (sqr (/ n v)))) (- v (* n b))) (* (* 1.3806503e-23 n) t))))
+
+(FPCore (u v T)
+ :name "doppler1"
+ :type binary64
+ :pre (and (<= -100 u) (<= u 100) (<= 20 v) (<= v 20000) (<= -30 T) (<= T 50))
+ (let ([t1 (+ 331.4 (* 0.6 T))])
+   (/ (* (- t1) v) (sqr (+ t1 u)))))
+
+(FPCore (u v T)
+ :name "doppler2"
+ :type binary64
+ :pre (and (<= -125 u) (<= u 125) (<= 15 v) (<= v 25000) (<= -40 T) (<= T 60))
+ (let ([t1 (+ 331.4 (* 0.6 T))])
+   (/ (* (- t1) v) (sqr (+ t1 u)))))
+
+(FPCore (u v T)
+ :name "doppler3"
+ :type binary64
+ :pre (and (<= -30 u) (<= u 120) (<= 320 v) (<= v 20300) (<= -50 T) (<= T 30))
+ (let ([t1 (+ 331.4 (* 0.6 T))])
+   (/ (* (- t1) v) (sqr (+ t1 u)))))
+
+(FPCore (x1 x2 x3 x4 x5 x6)
+ :name "floudas1"
+ :type binary64
+ :pre (and (<= 0 x1) (<= x1 6) (<= 0 x2) (<= x2 6) (<= 1 x3) (<= x3 5)
+           (<= 0 x4) (<= x4 6) (<= 0 x5) (<= x5 6) (<= 0 x6) (<= x6 10)
+           (>= (- (+ (sqr (- x3 3)) x4) 4) 0)
+           (>= (- (+ (sqr (- x5 3)) x6) 4) 0)
+           (>= (+ (- 2 x1) (* 3 x2)) 0)
+           (>= (- (+ 2 x1) x2) 0)
+           (>= (- (- 6 x1) x2) 0)
+           (>= (- (+ x1 x2) 2) 0))
+ (- (- (- (- (- (* -25 (sqr (- x1 2))) (sqr (- x2 2))) (sqr (- x3 1))) (sqr (- x4 4))) (sqr (- x5 1))) (sqr (- x6 4))))
+
+(FPCore (x1 x2)
+ :name "floudas2"
+ :type binary64
+ :pre (and (<= 0 x1) (<= x1 3) (<= 0 x2) (<= x2 4)
+           (>= (- (+ (- (* 2 (sqr (sqr x1))) (* (* 8 (sqr x1)) x1)) (* (* 8 x1) x1)) x2) 0)
+           (>= (- (+ (- (+ (- (* 4 (sqr (sqr x1))) (* (* 32 (sqr x1)) x1)) (* (* 88 x1) x1)) (* 96 x1)) 36) x2) 0))
+ (- (- x1) x2))
+
+(FPCore (x1 x2)
+ :name "floudas3"
+ :type binary64
+ :pre (and (<= 0 x1) (<= x1 2) (<= 0 x2) (<= x2 3)
+           (>= (- (+ (* -2 (sqr (sqr x1))) 2) x2)))
+ (+ (- (* -12 x1) (* 7 x2)) (sqr x2)))
+
+;; TODO: hartman{3,6},kepler{0,1,2}, logexp, predPrey, rigidbody{1,2}, sineOrder3, sineTaylor, sphere, sqroot, verhulst

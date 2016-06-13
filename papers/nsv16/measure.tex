@@ -62,9 +62,9 @@ For a correct function $f$ and its approximation $\hat f$,
 Formally,\footnote{Where $n$ is the number of arguments.}
 
 \begin{equation*}
-  \epsilon_{fwd}(x) = \varepsilon(f(x), \hat{f}(x))
+  \epsilon_{fwd}(f, \hat{f}, x) = \varepsilon(f(x), \hat{f}(x))
   \quad \text{and} \quad
-  \epsilon_{bwd}(x) =
+  \epsilon_{bwd}(f, \hat{f}, x) =
   \min \left\{ \varepsilon(x, x') : x' \in \mathbb{F}^n \land {\hat f}(x') = f(x) \right\}.
 \end{equation*}
 
@@ -84,9 +84,9 @@ Existing tools use either maximum or average error for this task.
 Formally,\footnote{Where $N$ is the number of valid inputs, and $n$ is the number of arguments.}
 
 \begin{equation*}
-  E_{\text{max}} = \max \left\{\epsilon(x) : x \in \mathbb{F}^n\right\}
+  E_{\text{max}}(f, \hat{f}) = \max \left\{\epsilon(f, \hat{f}, x) : x \in \mathbb{F}^n\right\}
   \quad \text{and} \quad
-  E_{\text{avg}} = \frac{1}{N} \sum_{x\in \mathbb{F}^n} \epsilon(x) \enspace .
+  E_{\text{avg}}(f, \hat{f}) = \frac{1}{N} \sum_{x\in \mathbb{F}^n} \epsilon(f, \hat{f}, x) \enspace .
 \end{equation*}
 
 Worst-case error tends to be easier to measure soundly,
@@ -125,9 +125,9 @@ Tools that transform floating point programs,
   instead of measuring the accuracy of a single program.
 Such comparison uses the improvement in worst-case or average error
   between the original $\hat f$ and improved $\hat f'$ implementation
-  of the mathematical function $f$:
+  of the same mathematical function $f$:
 \begin{align*}
-  \iota_{\text{imp}} = E(\hat{f}) - E(\hat{f}')
+  \iota_{\text{imp}} = E(f, \hat{f}) - E(f, \hat{f}')
 \end{align*}
 
 One cannot, in general,
@@ -140,8 +140,8 @@ In this case, it may be useful to report the largest unimprovement,
   which measures the cost of improving accuracy:
 
 \begin{equation*}
-  \iota_{\text{wrs}}(\hat{f},\hat{f}') = \max \left\{ \epsilon(f(x),\hat{f}'(x)) - \epsilon(f(x),\hat{f}(x))   
-\ :\ x\in \mathbb{F}^n\right\}  
+  \iota_{\text{wrs}}(\hat{f},\hat{f}') = \max \left\{ \epsilon(f, \hat{f}', x) - \epsilon(f, \hat{f}', x)   
+\ :\ x\in \mathbb{F}^n\right\}
 \end{equation*}
 
 Other measures,

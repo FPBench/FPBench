@@ -167,8 +167,8 @@ translated this program to \core, yielding:
 (FPCore (x0)
   :name "Rosa Example"
   :cite (darulova-kuncak-2014)
-  :pre (< (abs x0) 1)
-  :rosa-post (< (abs res) 1)
+  :pre (and (< -1.0 x0) (< x0 1.0))
+  :rosa-post (and (< -1.0 res) (< res 1.0))
   (while (< i 10)
     ([i 0 (+ i 1)]
      [x x0
@@ -182,7 +182,7 @@ translated this program to \core, yielding:
 
 Like the FPTaylor benchmark, this benchmark includes a name,
   citation for its source, and precondition on inputs.
-For completeness, we've also included the \C{requires} annotation,
+For completeness, we've also included the \C{ensuring} annotation,
   denoted \C{:rosa-post},
   demonstrating the ability to add tool specific annotations
   by prefixing with the tool name.

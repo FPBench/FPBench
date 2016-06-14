@@ -38,7 +38,8 @@ Relative error scales with the quantity being measured,
   and thus makes sense for measuring both large and small numbers,
   much like the floating-point format itself.
 A notion of error more closely tied to the floating-point format
-  is the Units in the Last Place (ULPs) of error.%
+  is the Units in the Last Place (ULPs) difference of error,
+  as used by STOKE-FP~\cite{stoke-fp}.%
 \footnote{We are using $|S|$ to denote the number of elements in a set $S$}
 \[
 \varepsilon_{ulps}(x, x') = |\{ y \in \mathbb{F} : \min(x, \hat x) \le y \le \max(x, \hat x)

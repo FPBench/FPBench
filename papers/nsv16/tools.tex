@@ -25,17 +25,14 @@ To make translation to \core from source languages
   like C, Fortran, and Matlab easier,
   \name provides the \surface format
   and a compiler from \surface to \core.
-\surface is syntactically similar to imperative languages,
-  in order to make translation of benchmarks as easy as possible.
+\surface is syntactically similar to imperative languages
+  to make it easy to translate benchmarks.
 
 \paragraph{\core to C}
 Since C is a common implementation language for mathematical computations,
   \name provides a \core to C compiler.
-We expect this to be especially useful for tools
-  that improve the accuracy of floating-point expressions
-  and want to return the more accurate expressions to users.
-What's more, the \core to C compiler can also be used to make \core benchmarks
-run in the many available C analysis tools.
+The \core to C compiler can be used to run \core benchmarks
+  through the many available C analysis tools.
 
 \begin{comment}
 \paragraph{Worst-case error estimation}
@@ -56,12 +53,11 @@ For tools that improve the accuracy of floating-point computations,
 \end{comment}
 
 \paragraph{Average error estimation}
-Average error is an important metric for floating-point programs,
-  and \name provides a tool to statistically approximate it.
+\name provides a tool to statistically approximate average error
+  using naive sampling.
 The statistical approach is necessary to produce accurate estimates
   of average error given the current state of the art.
-The tool allows choosing between absolute, relative, ULP error,
-  and bits of error (computed as the logarithm of ULPs error, before averaging).
+The tool can use absolute, relative, ULPs, and bits error.
 
 We plan to continue developing community tools around the \name formats,
   especially tools for estimating the other measures of error

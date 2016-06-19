@@ -19,47 +19,55 @@ Instead, \name standardizes
   should state which of the \name accuracy measures they use
   to users to compare tools.
 
-\subsection{Measurement Types}
+\subsection{Measurement Axes}
 
-Floating-point error is best analyzed along several axes:
-  scaling vs non-scaling difference, forward vs. backward error,
-  maximum vs. average error, sound vs. statistical techniques,
-  and, for tools which transform programs,
-  how to measure improvement.
+Floating-point accuracy is best analyzed along several axes:
+  scaling vs non-scaling error, forward vs. backward error,
+  maximum vs. average error.
+Tools that measure error may use sound vs. statistical techniques,
+  and tools that transform programs
+  have several options for how to measure accuracy improvement.
 
-\paragraph{Scaling vs non-scaling difference ($\varepsilon$)}
+\paragraph{Scaling vs non-scaling error ($\varepsilon$)}
 
-There are several ways to measure the error incurred
-  by producing the inaccurate value $\hat x$ instead of the correct value $x$.
+There are several ways to measure the error
+  of producing the inaccurate value $\hat x$ instead of the true value $x$.
 Two common mathematical notions are the absolute and relative error:
 \begin{equation*}
-  \varepsilon_{abs}(x, x') = \left|x - \hat x\right|
+  \varepsilon_{\text{abs}}(x, x') = \left|x - \hat x\right|
   \quad \text{and} \quad
-  \varepsilon_{rel}(x, x') = \left|\frac{x - \hat x}{x}\right|
+  \varepsilon_{\text{rel}}(x, x') = \left|\frac{x - \hat x}{x}\right|
 \end{equation*}
 Relative error scales with the quantity being measured,
   and thus makes sense for measuring both large and small numbers,
   much like the floating-point format itself.
 A notion of error more closely tied to the floating-point format
-  is the Units in the Last Place (ULPs) difference of error,
-  as used by STOKE-FP~\cite{stoke-fp}.%
+  is the Units in the Last Place (ULPs)%
+\footnote{Unfortunately, this term means different things
+  in the mathematical and programming communities.
+  We use the definition common for programming tools~%
+\cite{pavel15,stoke-fp,stoke-verify}}
+ difference.
+Some tools instead use the logarithm of the ULPs,
+  which to approximately describes
+  the number of incorrect low-order bits in $\hat x$.
+These two measures are defined as:%
 \footnote{We are using $|S|$ to denote the number of elements in a set $S$}
-\[
-\varepsilon_{ulps}(x, x') = |\{ y \in \mathbb{F} : \min(x, \hat x) \le y \le \max(x, \hat x)
-\}|
-\]
+\begin{equation*}
+\varepsilon_{\text{ulps}}(x, x') = |\mathbb{F} \cap [\min(x, \hat x), \max(x, \hat x)]|
+\quad \text{and} \quad
+\varepsilon_{\text{bits}}(x, x') = \log_2 \varepsilon_{\text{ulps}}(x, x')
+\end{equation*}
 The floating-point numbers are distributed roughly exponentially, so
 this measure of error scales in a similar manner to relative
 error; however, it is better-behaved in the presence of denormal
 numbers and infinities.
-Some tools use the logarithm of the ULPs to roughly approximate
-the number of incorrect low-order bits in $\hat x$.
 
 \paragraph{Forward vs. backward error ($\epsilon$)}
 
 Forward error and backward error are two common measures
   for the error of a mathematical \emph{computation}.
-For a correct function $f$ and its approximation $\hat f$,
+For a true function $f$ and its approximation $\hat f$,
   forward error measures the difference between outputs for a fixed input,
   while backward error measures the difference between inputs
   for a fixed output.
@@ -75,10 +83,11 @@ Formally,\footnote{Where $n$ is the number of arguments.}
 Backward error is important for evaluating the stability of an algorithm,
   and in scientific applications where multiple sources of error
   (algorithmic error vs. sensor error) must be compared.
-However, backward error can be tricky to compute,
-  especially for floating-point computations
-  where there may not be an input that produces the correct output.
-To our knowledge, all existing tools measure forward error.
+To our knowledge, all existing tools measure forward error
+  because backward error can be tricky to compute
+  for floating-point computations,
+  where there may not be an input that produces the true output.
+\name standardizes backward error due to its mathematical importance.
 
 \paragraph{Average vs. maximum error ($E$)}
 
@@ -98,15 +107,15 @@ Worst-case error tends to be easier to measure soundly,
 
 \paragraph{Sound vs. statistical techniques}
 
-It is intractable to evaluate the error of the program on all valid inputs.
-Existing tools use
-  either static analyses to soundly overapproximate the error
-  or statistical sampling to tightly approximate the error.
+Running a floating-point program on all valid inputs is intractable.
+Existing tools
+  either soundly overapproximate the error using static analysis
+  or approximate the error using statistical sampling.
 
 Most static techniques are based on interval or affine arithmetic
   to over-approximate floating-point arithmetic,
   often using abstract interpretation.
-Abstract interpretation may be either non-relational \cite{Mar05}
+Abstract interpretation may use either non-relational \cite{Mar05}
   or relational abstract domains \cite{Cha10,GP11,AGW15},
   and may use acceleration techniques (widenings \cite{CC92})
   to over-approximate loops without unrolling them.
@@ -116,25 +125,26 @@ provide sound error bounds. In some embedded applications,
 correctness is critical and unsound techniques will not do.
 
 In domains where correctness is not absolutely critical,
-dynamic sampling techniques can provide tighter approximations of
-error as it appears in practice. Dynamic error evaluation techniques
-tend to be slower than static techniques, since they involve running a
-program multiple times, sometimes with varying semantics.
+  sampling can provide tight approximations of error.
+Many sampling techniques are used,
+  including naive random samples~\cite{pavel15}
+  and Markov-chain Monte Carlo~\cite{stoke-fp}.
+These techniques involve running a program multiple times,
+  so tend to be slower than static analysis.
 
 \paragraph{Measuring improvement ($\iota$)}
 
-Tools that transform floating point programs,
-  such as those that attempt to improve the accuracy of programs,
-  often compare the accuracy of two floating-point programs
-  instead of measuring the accuracy of a single program.
-Such comparison uses the improvement in worst-case or average error
+Tools that \emph{transform} floating-point programs
+  need to compare the accuracy of two floating-point programs:
+  the original and the transformed.
+Several comparison measures are possible.
+Comparisons can use the improvement in worst-case or average error
   between the original $\hat f$ and improved $\hat f'$ implementation
   of the same mathematical function $f$:
 \begin{align*}
   \iota_{\text{imp}} = E(f, \hat{f}) - E(f, \hat{f}')
 \end{align*}
-
-One cannot, in general,
+However, one cannot usually
   improve the accuracy of a computation
   simultaneously on all inputs.
 It is thus often necessary
@@ -142,7 +152,6 @@ It is thus often necessary
   to make it more accurate overall.
 In this case, it may be useful to report the largest unimprovement,
   which measures the cost of improving accuracy:
-
 \begin{equation*}
   \iota_{\text{wrs}}(\hat{f},\hat{f}') = \max \left\{ \epsilon(f, \hat{f}', x) - \epsilon(f, \hat{f}', x)   
 \ :\ x\in \mathbb{F}^n\right\}
@@ -151,9 +160,8 @@ In this case, it may be useful to report the largest unimprovement,
 Other measures,
   such as those describing the trade-off between accuracy and speed,
   are also interesting, but are less commonly used in the literature
-  and thus not standardized.
-Similarly,
-  improvement tools could also estimate their effect on numerical stability
+  and thus not standardized in \name.
+Improvement tools could also estimate their effect on numerical stability
   using automatic differentiation~\cite{GW08} or Lyapunov exponents~\cite{Sri13},
   but we do not know of any such tools.
 
@@ -169,12 +177,15 @@ Table~\ref{tbl:tools} compares Fluctuat~\cite{Goubault13},
 \begin{tabular*}{\columnwidth}{@{\extracolsep{\stretch{1}}}*{6}{l}}
 Fluctuat & Absolute        & Forward & Max      & Sound \\
 FPTaylor & Absolute        & Forward & Max      & Sound \\
-Herbie   & ULPs            & Forward & Average     & Statistical & Improvement \\
+Herbie   & Bits            & Forward & Average     & Statistical & Improvement \\
 Rosa     & Absolute        & Forward & Max      & Sound \\
-Salsa    & Absolute        & Forward & Max      & Sound & Improvement
+Salsa    & Absolute        & Forward & Max      & Sound & Improvement \\
+STOKE & ULPs & Forward & Max & Statistical & Improvement \\
+\todo{STOKE-VERIFY} & ULPs & Forward & Sound \\
 \end{tabular*}
 \caption{A comparison of how five floating-point measure error
   across the axes identified in this section.}
+\todo{Add PolyPaver, Gappa?}
 \label{tbl:tools}
 \end{table}
 
@@ -184,22 +195,34 @@ Given their need for soundness, it is natural
   that they use sound error analyses and estimate maximum error.
 Their use of absolute forward error derives from the difficulty
   of approximating the other forms of error statically.
+\todo{STOKE-VERIFY} instead measures ULPs error,
+  especially important given its focus on low-level library code.
 Herbie and Salsa are tools for improving the accuracy of programs,
   but differ dramatically in their approach.
 Salsa uses abstract interpretation to bound maximum absolute error,
   producing a sound overapproximation of the maximum error.
 Herbie, on the other hand, uses random sampling to achieve
-  a tight statistical approximation of ULP error.
+  a tight statistical approximation of bits error.
 The tight estimates enabled by statistical techniques
   provide additional opportunities for Herbie
   to improve the accuracy of an expression,
   but prevent it from providing sound error bounds.
-Unsound tools such as Herbie can be supplemented
-  by using a sound verification tool on its output,
-  a composition enabled by the common \core format.
-Meanwhile, since Fluctuat, FPTaylor, Rosa, and Salsa
+Finally, STOKE uses stochastic search to optimize floating-point programs,
+  and must compare the accuracy of floating-point programs
+  to avoid significantly compromising their accuracy.
+STOKE uses a Markov-chain Monte Carlo sampling
+  to statistically evaluate maximum ULPs error.
+
+By exactly describing the way each tool measures accuracy,
+  \name makes it possible to compare and relate tools.
+Unsound tools such as Herbie or STOKE
+  can be composed with a sound verification tool
+  to produce an accuracy guarantee,
+  and this guarantee can be compared
+  to the approximate error measurements those tools made statistically.
+Since Fluctuat, FPTaylor, Rosa, and Salsa
   all soundly measure maximum forward absolute error,
-  their measurements can be compared to determine which technique is best.
+  they can be compared to determine which technique is best.
 
 %% There exists many ways of measuring the accuracy of a computation and
 %% it is mandatory to be very precise on which methodology is adopted in

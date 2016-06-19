@@ -13,14 +13,11 @@ So, a common floating-point benchmark format must be
   easy to parse,
   have simple and clear semantics,
   support floating-point details, and
-  provide sufficient expressiveness for diverse application domains.
+  be expressive enough for many domains.
 To satisfy these requirements,
   \name provides the \core format,
   a minimal expression-based language
-  for floating-point computations
-  with features for iteration, input ranges,
-  error measures, target accuracy, and floating-point
-  precision.
+  for floating-point computations.
 A common floating-point benchmark format
   must also be easy to translate to and from
   popular industrial languages like C, C++, Matlab, and Fortran.
@@ -53,7 +50,7 @@ However, individual benchmarks can declare the accuracy
 
 A \core benchmark specifies a set of inputs,
   a floating-point expression,
-  and meta-data flags including
+  and optional meta-data flags such as
   a name, citations, preconditions on inputs,
   and the floating-point precision
   (\C{binary32}, \C{binary64}, \ldots)
@@ -116,9 +113,9 @@ The semantics of these programs is ordinary function evaluation,
 }
 \end{mathpar}
 
-The list of properties is used to record additional information
+The optional properties are used to record additional information
   about each benchmark.
-Existing benchmarks are annotated with a \C{:name},
+Benchmarks are currently annotated with a \C{:name},
   a \C{:description} of the benchmark and its inputs,
   the floating-point \C{:type} (either \C{binary32} or \C{binary64}),
   a precondition \C{:pre}, and a citation \C{:cite}.
@@ -140,7 +137,7 @@ While \core is a functional language
   multiple return values,
   and multi-way \C{if} statements.
 More complex features,
-  such as arrays, pointers, records, and recursive function calls,
+  such as arrays, pointers, records, and recursive function calls
   are left to future language extensions.
 In our experience,
   translating C, Fortran, and Matlab to \surface is relatively easy.
@@ -183,7 +180,7 @@ The \surface to \core compiler
 It inlines assignments, converts the imperative bodies of \surface loops
   to the simultaneous-assignment loops of \core,
   replaces many-way \C{if} statements with nested \C{if}s,
-  and outputs multiple \core benchmarks for \surface programs with
+  and generates multiple \core benchmarks for \surface programs with
   multiple outputs.
 
 \end{document}

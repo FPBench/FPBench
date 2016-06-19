@@ -28,19 +28,18 @@ The current \name suite contains
   28 from the Herbie test suite~\cite{pavel15},
   9 from the Salsa test suite~\cite{fmics15},
   7 from the Rosa test suite~\cite{DarulovaK14},
-  and one example from the FPTaylor test suite~\cite{fptaylor-fm15}.
+  and \todo{one} example from the FPTaylor test suite~\cite{fptaylor-fm15}.
 These examples range from simple test programs for
   early tool development up to
-  large examples from industrial control applications for
-  evaluating more mature tools.
+  large examples for evaluating more mature tools.
 The larger examples are more challenging,
-  including loops that mutate anywhere
-  from 2 to 13 variables in the loop body.
+  including loops that with up to 13 variables mutated in the loop body.
 As shown in Table~\ref{tbl:domains} and Table~\ref{tbl:features},
   these programs exercise the full range of functionality
   available in \name,
   and span a variety application areas,
   from control software to mathematical libraries.
+We intend to continue adding benchmarks to the \name suite.
 
 \begin{table}[hbtp]
   \begin{minipage}[t]{.49\textwidth}
@@ -168,7 +167,7 @@ translated this program to \core, yielding:
   :name "Rosa Example"
   :cite (darulova-kuncak-2014)
   :pre (and (< -1.0 x0) (< x0 1.0))
-  :rosa-post (and (< -1.0 res) (< res 1.0))
+  :rosa-post (and (< -1.0 RES) (< RES 1.0))
   (while (< i 10)
     ([i 0 (+ i 1)]
      [x x0

@@ -4,17 +4,20 @@
 \section{Accuracy Measurements}
 \label{sec:measure}
 
-To begin to compare
-  floating-point benchmark results across tools,
-  tools must have a common measure of error.
-However, given the diversity of tools and error measurements
-  that exist in the literature,
-  standardizing on a single measure of error
-  would not only be difficult but could harm the development
+To compare floating-point tools,
+  a common input format is not enough:
+  a common measure of accuracy is also necessary.
+\name thus defines a collection of accuracy measures
+  to allow tools to rigorously describe the accuracy measure they use.
+Given the diversity of accuracy measures in the literature,
+  standardizing on a single accuracy measure
+  would be difficult, and could harm the development
   of some classes of tools.
-Instead, \name standardizes the language
-  for discussing error measurements
-  to facilitate using the \name suite to compare floating-point tools.
+Instead, \name standardizes
+  several measures of accuracy;
+  tools that measure accuracy
+  should state which of the \name accuracy measures they use
+  to users to compare tools.
 
 \subsection{Measurement Types}
 

@@ -66,18 +66,17 @@ The formats have enabled fair comparisons between tools, crisp
 characterizations of the tradeoffs between different approaches, and useful
 cooperation between tools with complementary strengths.
 
-In this article, we propose \name, a general floating-point format and
-benchmark suite. \name provides a common language for floating-point tools,
-allowing users to combine tools that perform complementary tasks,
-or compare competing tools to choose the one best for their task.
+In this article, we propose \name,
+  a general floating-point format and benchmark suite.
+\name describes a common format
+  and a suite of accuracy measurements;
+  we envision floating-point tools taking in \name formatted programs
+  and using the \name accuracy measures to describe accuracy.
+This allows users to combine tools that perform complementary tasks
+  and compare competing tools to choose the one best for their task.
 The common scientific methodology \name enables
-is crucial for demonstrating the
-improvements of each tool on the state of the art.
-In particular, \name enables tools which take in
-FPBench formatted programs,
-and produce measures or verifications of their accuracy,
-as well as tools which take in such programs
-and produce new, improved programs.
+  is crucial for demonstrating the
+  improvements of each tool on the state of the art.
 
 The main contributions of this article are the following:
 \begin{enumerate}[label=(\roman*)]
@@ -97,8 +96,8 @@ The main contributions of this article are the following:
 
 The remainder of this article is organized as follows.
 Section~\ref{sec:format}, describes the \name formats.
-Section~\ref{sec:measure} introduces various measures of floating-point
-error.  Section~\ref{sec:tools} describes the utilities \name provides to
+Section~\ref{sec:measure} describes the accuracy measures.
+Section~\ref{sec:tools} describes the utilities \name provides to
 support creating and working with benchmarks.
 Section~\ref{sec:case-studies} surveys our existing benchmark suite,
 highlighting representative case studies from recent tools in the

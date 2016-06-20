@@ -49,7 +49,7 @@ A notion of error more closely tied to the floating-point format
 \cite{pavel15,stoke-fp,stoke-verify}}
  difference.
 Some tools instead use the logarithm of the ULPs,
-  which to approximately describes
+  which approximately describes
   the number of incorrect low-order bits in $\hat x$.
 These two measures are defined as:%
 \footnote{We are using $|S|$ to denote the number of elements in a set $S$}
@@ -75,7 +75,9 @@ Formally,\footnote{Where $n$ is the number of arguments.}
 
 \begin{equation*}
   \epsilon_{fwd}(f, \hat{f}, x) = \varepsilon(f(x), \hat{f}(x))
-  \quad \text{and} \quad
+\end{equation*}
+  % \quad \text{and} \quad
+\begin{equation*}
   \epsilon_{bwd}(f, \hat{f}, x) =
   \min \left\{ \varepsilon(x, x') : x' \in \mathbb{F}^n \land {\hat f}(x') = f(x) \right\}.
 \end{equation*}
@@ -83,11 +85,11 @@ Formally,\footnote{Where $n$ is the number of arguments.}
 Backward error is important for evaluating the stability of an algorithm,
   and in scientific applications where multiple sources of error
   (algorithmic error vs. sensor error) must be compared.
-To our knowledge, all existing tools measure forward error
+Existing tools typically measure forward error
   because backward error can be tricky to compute
   for floating-point computations,
   where there may not be an input that produces the true output.
-\name standardizes backward error due to its mathematical importance.
+% \name standardizes backward error due to its mathematical importance.
 
 \paragraph{Average vs. maximum error ($E$)}
 
@@ -181,11 +183,11 @@ Herbie   & Bits            & Forward & Average     & Statistical & Improvement \
 Rosa     & Absolute        & Forward & Max      & Sound \\
 Salsa    & Absolute        & Forward & Max      & Sound & Improvement \\
 STOKE & ULPs & Forward & Max & Statistical & Improvement \\
-\todo{STOKE-VERIFY} & ULPs & Forward & Sound \\
+%\todo{STOKE-VERIFY} & ULPs & Forward & Sound \\
 \end{tabular*}
 \caption{A comparison of how five floating-point measure error
   across the axes identified in this section.}
-\todo{Add PolyPaver, Gappa?}
+%\todo{Add PolyPaver, Gappa?}
 \label{tbl:tools}
 \end{table}
 
@@ -195,7 +197,7 @@ Given their need for soundness, it is natural
   that they use sound error analyses and estimate maximum error.
 Their use of absolute forward error derives from the difficulty
   of approximating the other forms of error statically.
-\todo{STOKE-VERIFY} instead measures ULPs error,
+STOKE instead measures ULPs error,
   especially important given its focus on low-level library code.
 Herbie and Salsa are tools for improving the accuracy of programs,
   but differ dramatically in their approach.

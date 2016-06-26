@@ -61,4 +61,149 @@
            (>= (- (+ (* -2 (sqr (sqr x1))) 2) x2)))
  (+ (- (* -12 x1) (* 7 x2)) (sqr x2)))
 
-;; TODO: hartman{3,6},kepler{0,1,2}, logexp, predPrey, rigidbody{1,2}, sineOrder3, sineTaylor, sphere, sqroot, verhulst
+(FPCore (x1 x2 x3)
+ :name "hartman3"
+ :type binary64
+ :pre (and (<= 0 x1 1) (<= 0 x2 1) (<= 0 x3 1))
+ (let ([e1 (+ (+ (* 3.0 (sqr (- x1 0.3689)))
+                 (* 10.0 (sqr (- x2 0.117))))
+              (* 30.0 (sqr (- x3 0.2673))))]
+       [e2 (+ (+ (* 0.1 (sqr (- x1 0.4699)))
+                 (* 10.0 (sqr (- x2 0.4387))))
+              (* 35.0 (sqr (- x3 0.747))))]
+       [e3 (+ (+ (* 3.0 (sqr (- x1 0.1091)))
+                 (* 10.0 (sqr (- x2 0.8732))))
+              (* 30.0 (sqr (- x3 0.5547))))]
+       [e4 (+ (+ (* 0.1 (sqr (- x1 0.03815)))
+                 (* 10.0 (sqr (- x2 0.5743))))
+              (* 35.0 (sqr (- x3 0.8828))))])
+   (let ([exp1 (exp (- e1))] [exp2 (exp (- e2))]
+         [exp3 (exp (- e3))] [exp4 (exp (- e4))])
+     (- (+ (+ (+ (* 1.0 exp1) (* 1.2 exp2))
+              (* 3.0 exp3)) (* 3.2 exp4))))))
+
+(FPCore (x1 x2 x3 x4 x5 x6)
+ :name "hartman6"
+ :type binary64
+ :pre (and (<= 0 x1 1) (<= 0 x2 1) (<= 0 x3 1) (<= 0 x4 1) (<= 0 x5 1) (<= 0 x6 1))
+ (let ([e1
+        (+ (+ (+ (+ (+ (* 10.0 (sqr (- x1 0.1312))) (* 3.0 (sqr (- x2 0.1696))))
+                    (* 17.0 (sqr (- x3 0.5569)))) (* 3.5 (sqr (- x4 0.0124))))
+              (* 1.7 (sqr (- x5 0.8283)))) (* 8.0 (sqr (- x6 0.5886))))]
+       [e2
+        (+ (+ (+ (+ (+ (* 0.05 (sqr (- x1 0.2329))) (* 10.0 (sqr (- x2 0.4135))))
+                    (* 17.0 (sqr (- x3 0.8307)))) (* 0.1 (sqr (- x4 0.3736))))
+              (* 8.0 (sqr (- x5 0.1004)))) (* 14.0 (sqr (- x6 0.9991))))]
+       [e3
+        (+ (+ (+ (+ (+ (* 3.0 (sqr (- x1 0.2348))) (* 3.5 (sqr (- x2 0.1451))))
+                    (* 1.7 (sqr (- x3 0.3522)))) (* 10.0 (sqr (- x4 0.2883))))
+              (* 17.0 (sqr (- x5 0.3047)))) (* 8.0 (sqr (- x6 0.665))))]
+       [e4
+        (+ (+ (+ (+ (+ (* 17.0 (sqr (- x1 0.4047))) (* 8.0 (sqr (- x2 0.8828))))
+                    (* 0.05 (sqr (- x3 0.8732)))) (* 10.0 (sqr (- x4 0.5743))))
+              (* 0.1 (sqr (- x5 0.1091)))) (* 14.0 (sqr (- x6 0.0381))))])
+   (let ([exp1 (exp (- e1))] [exp2 (exp (- e2))]
+         [exp3 (exp (- e3))] [exp4 (exp (- e4))])
+     (- (+ (+ (+ (* 1.0 exp1) (* 1.2 exp2))
+              (* 3.0 exp3)) (* 3.2 exp4))))))
+
+(FPCore (x1 x2 x3 x4 x5 x6)
+ :name "kepler0"
+ :type binary64
+ :pre (and (<= 4 x1 6.36) (<= 4 x2 6.36) (<= 4 x3 6.36)
+           (<= 4 x4 6.36) (<= 4 x5 6.36) (<= 4 x6 6.36))
+ (+ (- (- (+ (* x2 x5) (* x3 x6)) (* x2 x3)) (* x5 x6))
+    (* x1 (+ (+ (- (+ (+ (- x1) x2) x3) x4) x5) x6))))
+
+(FPCore (x1 x2 x3 x4 x5)
+ :name "kepler1"
+ :type binary64
+ :pre (and (<= 4 x1 6.36) (<= 4 x2 6.36) (<= 4 x3 6.36) (<= 4 x4 6.36))
+ (- (- (- (- (+ (+ (* (* x1 x4) (- (+ (+ (- x1) x2) x3) x4))
+                   (* x2 (+ (+ (- x1 x2) x3) x4)))
+                (* x3 (+ (- (+ x1 x2) x3) x4)))
+             (* (* x2 x3) x4))
+          (* x1 x3))
+       (* x1 x2))
+    x4))
+
+(FPCore (x1 x2 x3 x4 x5 x6)
+ :name "kepler2"
+ :type binary64
+ :pre (and (<= 4 x1 6.36) (<= 4 x2 6.36) (<= 4 x3 6.36)
+           (<= 4 x4 6.36) (<= 4 x5 6.36) (<= 4 x6 6.36))
+ (- (- (- (- (+ (+ (* (* x1 x4) (+ (+ (- (+ (+ (- x1) x2) x3) x4) x5) x6))
+                   (* (* x2 x5) (+ (- (+ (+ (- x1 x2) x3) x4) x5) x6)))
+                (* (* x3 x6) (- (+ (+ (- (+ x1 x2) x3) x4) x5) x6)))
+             (* (* x2 x3) x4))
+          (* (* x1 x3) x5))
+       (* (* x1 x2) x6))
+    (* (* x4 x5) x6)))
+
+(FPCore (x)
+ :name "logexp"
+ :type binary64
+ :pre (<= -8 x 8)
+ (let ([e (exp x)])
+   (log (+ 1 e))))
+
+(FPCore (x)
+ :name "predPrey"
+ :type binary64
+ :pre (<= 0.1 x 0.3)
+ (let ([k 1.11])
+   (/ (* (* 4 x) x) (+ 1 (sqr (/ x k))))))
+
+(FPCore (x1 x2 x3)
+ :name "rigidbody1"
+ :type binary64
+ :pre (and (<= -15 x1 15) (<= -15 x2 15) (<= -15 x3 15))
+ (- (- (- (- (* x1 x2)) (* (* 2 x2) x3)) x1) x3))
+
+(FPCore (x1 x2 x3)
+ :name "rigidbody2"
+ :type binary64
+ :pre (and (<= -15 x1 15) (<= -15 x2 15) (<= -15 x3 15))
+ (- (+ (- (+ (* (* (* 2 x1) x2) x3)
+             (* (* 3 x3) x3))
+          (* (* (* x2 x1) x2) x3))
+       (* (* 3 x3) x3))
+    x2))
+
+(FPCore (z)
+ :name "sineOrder3"
+ :type binary64
+ :pre (<= -2 z 2)
+ (let ([c1 0.954929658551372]
+       [c2 0.12900613773279798])
+   (- (* c1 z) (* c2 (* (* z z) z)))))
+
+(FPCore (x)
+ :name "sineOrder3"
+ :type binary64
+ :pre (<= -1.57079632679 x 1.57079632679)
+ (- (+ (- x (/ (* (* x x) x) 6.0))
+       (/ (* (* (* (* x x) x) x) x) 120.0))
+    (/ (* (* (* (* (* (* x x) x) x) x) x) x)
+       5040.0)))
+
+(FPCore (x r lat lon)
+ :name "sphere"
+ :type binary64
+ :pre (and (<= -10 x 10) (<= 0 r 10)
+           (<= -1.570796 lat 1.570796) (<= -3.14159265 lon 3.14159265))
+ (let ([sinLat (sin lat)] [cosLon (cos lon)])
+   (+ x (* (* r sinLat) cosLon))))
+
+(FPCore (y)
+ :name "sqrt"
+ :type binary64
+ :pre (<= 0 y 1)
+ (- (+ (- (+ 1.0 (* 0.5 y)) (* (* 0.125 y) y))
+       (* (* (* 0.0625 y) y) y)) (* (* (* (* 0.0390625 y) y) y) y)))
+
+(FPCore (x)
+ :name "verhulst"
+ :type binary64
+ :pre (<= 0.1 x 0.3)
+ (/ (* 4 x) (+ 1 (/ x 1.11))))

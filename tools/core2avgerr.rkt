@@ -71,7 +71,7 @@
   [ ==     =        bf=     ] [ !=     (compose not =) (compose not bf=)]
   [ <=     <=       bf<=    ] [ >=     >=       bf>=    ]
   [ and    and-fn   and-fn  ] [ or     or-fn    or-fn   ]
-  [ not    not      not     ])
+  [ not    not      not     ] [ sqr    sqr      bfsqr   ])
 
 (define (single-flonum->bit-field x)
   (integer-bytes->integer (real->floating-point-bytes x 4) #f))

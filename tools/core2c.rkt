@@ -85,7 +85,7 @@
     [`(let ([,vars ,vals] ...) ,retexpr)
      (for ([var vars] [val vals])
        (printf "\t~a next_~a = ~a;\n" (typeof val #:fptype type) var (expr->c val #:type type)))
-     (for ([var vars])
+     (for ([var vars] [val vals])
        (printf "\t~a ~a = next_~a;\n" (typeof val #:fptype type) var var))
      (program->c retexpr #:type type)]
     [`(while ,cond ([,vars ,inits ,updates] ...) ,retexpr)
@@ -102,7 +102,7 @@
      (printf "\treturn ~a;\n" (expr->c body #:type type))]))
 
 (define (compile-program prog #:name name)
-  (match-define (list 'fpcore (list args ...) props ... body) prog)
+  (match-define (list 'FPCore (list args ...) props ... body) prog)
   (define-values (_ properties) (parse-properties props))
   (function->c args body #:type (dict-ref properties ':type 'binary64) #:name name))
 

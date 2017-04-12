@@ -9,7 +9,7 @@
  :cite
  (damouche-martel-chapoutot-fmics15)
  :type
- float
+ binary32
  :pre
  (and (and (< 0.05 sl) (< sl (* 2 PI))) (and (< 0.05 sr) (< sr (* 2 PI))))
  :martel-example
@@ -54,7 +54,7 @@
  :cite
  (damouche-martel-chapoutot-nsv14)
  :type
- double
+ binary64
  :pre
  (and (and (< -10.0 m) (< m 10.0)) (and (< -10.0 c) (< c 10.0)))
  :martel-example
@@ -84,7 +84,7 @@
  :cite
  (damouch-martel-chapoutot-fmics15)
  :type
- float
+ binary32
  :pre
  (and (and (< 0 y_n) (< y_n 100))
       (and (< 1e-05 h) (< h 0.1))
@@ -228,7 +228,7 @@
  :cite
  (feron-ieee10)
  :type
- float
+ binary32
  :pre
  (and (and (< 0 yd) (< yd 50)) (and (< 0 y) (< y 50)))
  :martel-example
@@ -317,7 +317,7 @@
  :cite
  (damouche-martel-chapoutot-cf15)
  :type
- float
+ binary32
  :martel-example
  ((Mf 150000.0) (A 140.0))
  (while
@@ -402,7 +402,7 @@
  :cite
  (atkinson-1989)
  :type
- float
+ binary32
  :martel-example
  ((a11 0.61)
   (a22 0.62)
@@ -458,7 +458,7 @@
  :cite
  (atkinson-1989)
  :type
- float
+ binary32
  :pre
  (and (< 0 x0) (< x0 3))
  :martel-example
@@ -543,7 +543,7 @@
  :cite
  (golub-vanloan-1996)
  :type
- float
+ binary32
  :pre
  (and (< 150 d) (< d 200))
  :martel-example
@@ -606,7 +606,7 @@
  :cite
  (abdelmalek-bit71 golub-vanloan-1996 hernandez-roman-tomas-vidal-tr07)
  :type
- float
+ binary32
  :pre
  (and (and (< 1.0 Q11) (< Q11 (/ 1 7))) (and (< 1 Q22) (< Q22 (/ 1 25))))
  :martel-example

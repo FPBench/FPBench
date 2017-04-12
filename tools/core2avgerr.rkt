@@ -1,6 +1,7 @@
 #lang racket
 
 (require "common.rkt" math/flonum math/bigfloat)
+(provide eval-on-points)
 
 (define (eval-expr expr ctx real->number op->function constant->number)
   (let eval ([expr expr] [ctx ctx])
@@ -181,7 +182,7 @@
 
 (module+ main
   (require racket/cmdline)
-  
+
   (define measure bits-error)
 
   (command-line

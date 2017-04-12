@@ -66,7 +66,9 @@
   [ atan   flatan   bfatan  ] [ atan2  atan     bfatan2 ]
   [ <      <        bf<     ] [ >      >        bf>     ]
   [ ==     =        bf=     ] [ !=     (compose not =) (compose not bf=)]
-  [ <=     <=       bf<=    ] [ >=     >=       bf>=    ])
+  [ <=     <=       bf<=    ] [ >=     >=       bf>=    ]
+  [ and    and      and     ] [ or     or       or      ]
+  [ not    not      not     ])
 
 (define (single-flonum->bit-field x)
   (integer-bytes->integer (real->floating-point-bytes x 4) #f))

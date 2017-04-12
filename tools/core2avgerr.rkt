@@ -51,6 +51,9 @@
   [TRUE #t #t (λ () #t)]
   [FALSE #f #f (λ () #f)])
 
+(define (if-fn test if-true if-false) (if test if-true if-false))
+(define (and-fn . as) (andmap identity as))
+(define (or-fn  . as) (ormap identity as))
 
 (define/table (operators ieee mpfr)
   [ +      fl+      bf+     ] [ -      fl-      bf-     ]
@@ -67,7 +70,7 @@
   [ <      <        bf<     ] [ >      >        bf>     ]
   [ ==     =        bf=     ] [ !=     (compose not =) (compose not bf=)]
   [ <=     <=       bf<=    ] [ >=     >=       bf>=    ]
-  [ and    and      and     ] [ or     or       or      ]
+  [ and    and-fn   and-fn  ] [ or     or-fn    or-fn   ]
   [ not    not      not     ])
 
 (define (single-flonum->bit-field x)

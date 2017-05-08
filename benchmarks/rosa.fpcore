@@ -6,7 +6,7 @@
 ; E. Darulova, V. Kuncak, "Sound Compilation of Reals", POPL'14
 
 ;; https://github.com/malyzajko/rosa/blob/master/testcases/real/techreport/NBody.scala
-(fpcore ( x0  y0  z0
+(FPCore ( x0  y0  z0
          vx0 vy0 vz0)
   :name "N Body Simulation"
   :cite (darulova-kuncak-2014)

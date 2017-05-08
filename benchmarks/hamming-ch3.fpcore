@@ -107,7 +107,7 @@
  :name "NMSE example 3.9"
  :cite (hamming-1987)
  :pre (and (< -0.026 x) (< x 0.026))
- (- (/ 1 x) (cotan x)))
+ (- (/ 1 x) (/ 1 (tan x))))
 
 (FPCore (x)
  :name "NMSE example 3.10"

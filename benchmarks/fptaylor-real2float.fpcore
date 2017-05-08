@@ -10,7 +10,7 @@
  :type binary64
  :pre (and (<= 0.1 v) (<= v 0.5))
  (let ([p 3.5e7] [a 0.401] [b 42.7e-6] [t 300] [n 1000])
-   (- (* (+ p (* a (sqr (/ n v)))) (- v (* n b))) (* (* 1.3806503e-23 n) t))))
+   (- (* (+ p (* a (* (/ n v) (/ n v)))) (- v (* n b))) (* (* 1.3806503e-23 n) t))))
 
 (FPCore (u v T)
  :name "doppler1"

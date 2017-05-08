@@ -174,9 +174,9 @@ Inputs: Mass `Mf`; acceleration `A`"
    [= u3_i (+ (* u4_im1 dt) u3_im1)]
    [= w1_i (+ (* w2_im1 dt) w1_im1)]
    [= w3_i (+ (* w4_im1 dt) w3_im1)]
-   [= u2_i (+ (* (- G) (/ Mt (sqr u1_im1)) dt) (* u1_im1 u4_im1 u4_im1 dt))]
+   [= u2_i (+ (* (- G) (/ Mt (* u1_im1 u1_im1)) dt) (* u1_im1 u4_im1 u4_im1 dt))]
    [= u4_i (+ (+ (* -2.0 (* u2_im1 (/ u4_im1 u1_im1)) dt) u4_im1))]
-   [= w2_i (+ (* (- G) (/ Mt (sqr w1_im1)) dt) (* w1_im1 w4_im1 w4_im1 dt)
+   [= w2_i (+ (* (- G) (/ Mt (* w1_im1 w1_im1)) dt) (* w1_im1 w4_im1 w4_im1 dt)
               (if (> mf_im1 0.0) (* (/ (* A w2_im1) (- Mf (* A t_im1))) dt) 0.0)
               w2_im1)]
    [= w4_i (+ (* -2.0 (* w2_im1 (/ w4_im1 w1_im1)) dt)
@@ -303,7 +303,7 @@ Inputs: Vectors `Qij`"
  [= r3 0.0]
  [= eps .000005]
  [= e 10.0]
- [= r (+ (sqr qj1) (sqr qj2) (sqr qj3))]
+ [= r (+ (* qj1 qj1) (* qj2 qj2) (* qj3 qj3))]
  [= rold (sqrt r)]
  [= i 1.0]
  (while (> e eps)
@@ -320,7 +320,7 @@ Inputs: Vectors `Qij`"
    [= r2 (+ r2 h2)]
    [= r3 (+ r3 h3)]
    ;; rjj = ||qj||2
-   [= r (+ (sqr qj1) (sqr qj2) (sqr qj3))]
+   [= r (+ (* qj1 qj1) (* qj2 qj2) (* qj3 qj3))]
    [= rjj (sqrt r)]
    [= e (abs (- 1.0 (/ rjj rold)))]
    [= i (+ i 1.0)]

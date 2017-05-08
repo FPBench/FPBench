@@ -70,25 +70,25 @@
 (FPCore (a b c)
  :name "NMSE p42, positive"
  :cite (hamming-1987)
- :pre (and (>= (sqr b) (* 4 (* a c))) (!= a 0))
+ :pre (and (>= (* b b) (* 4 (* a c))) (!= a 0))
  (/ (+ (- b) (sqrt (- (* b b) (* 4 (* a c))))) (* 2 a)))
 
 (FPCore (a b c)
  :name "NMSE p42, negative"
  :cite (hamming-1987)
- :pre (and (>= (sqr b) (* 4 (* a c))) (!= a 0))
+ :pre (and (>= (* b b) (* 4 (* a c))) (!= a 0))
  (/ (- (- b) (sqrt (- (* b b) (* 4 (* a c))))) (* 2 a)))
 
 (FPCore (a b2 c)
  :name "NMSE problem 3.2.1, positive"
  :cite (hamming-1987)
- :pre (and (>= (sqr b2) (* a c)) (!= a 0))
+ :pre (and (>= (* b2 b2) (* a c)) (!= a 0))
  (/ (+ (- b2) (sqrt (- (* b2 b2) (* a c)))) a))
 
 (FPCore (a b2 c)
  :name "NMSE problem 3.2.1, negative"
  :cite (hamming-1987)
- :pre (and (>= (sqr b2) (* a c)) (!= a 0))
+ :pre (and (>= (* b2 b2) (* a c)) (!= a 0))
  (/ (- (- b2) (sqrt (- (* b2 b2) (* a c)))) a))
 
 (FPCore (x)
@@ -106,31 +106,31 @@
 (FPCore (x)
  :name "NMSE example 3.9"
  :cite (hamming-1987)
- :pre (and (< -0.026 x) (< x 0.026))
+ :pre (< -0.026 x 0.026)
  (- (/ 1 x) (/ 1 (tan x))))
 
 (FPCore (x)
  :name "NMSE example 3.10"
  :cite (hamming-1987)
- :pre (< (abs x) 1)
+ :pre (< -1 x 1)
  (/ (log (- 1 x)) (log (+ 1 x))))
   
 (FPCore (x)
  :name "NMSE problem 3.4.1"
  :cite (hamming-1987)
- (/ (- 1 (cos x)) (* b2 x)))
+ (/ (- 1 (cos x)) (* x x)))
  
 (FPCore (a b eps)
  :name "NMSE problem 3.4.2"
  :cite (hamming-1987)
- :pre (< (abs x) 1)
+ :pre (< -1 eps 1)
  (/ (* eps (- (exp (* (+ a b) eps)) 1))
     (* (- (exp (* a eps)) 1) (- (exp (* b eps)) 1))))
 
 (FPCore (eps)
  :name "NMSE problem 3.4.3"
  :cite (hamming-1987)
- :pre (< (abs eps) 1)
+ :pre (< -1 eps 1)
  (log (/ (- 1 eps) (+ 1 eps))))
 
 (FPCore (x)

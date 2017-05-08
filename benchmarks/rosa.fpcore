@@ -10,8 +10,8 @@
          vx0 vy0 vz0)
   :name "N Body Simulation"
   :cite (darulova-kuncak-2014)
-  :pre (and (< (abs x0) 6) (< (abs y0) 6) (< (abs z0 0.2))
-            (< (abs vx0) 3) (< (abs vy0) 3) (< (abs vz0) 0.1))
+  :pre (and (< -6 x0 6) (< -6 y0 6) (< -0.2 z0 0.2)
+            (< -3 vx0 3) (< -3 vy0 3) (< -0.1 vz0 0.1))
   (let ([dt 0.1]
         [solarMass 39.47841760435743])
     (while (< i 100)
@@ -45,7 +45,7 @@
 (FPCore (t0 w0 N)
   :name "Pendulum"
   :cite (darulova-kuncak-2014)
-  :pre (and (< (abs t0) 2) (< (abs w0) 5))
+  :pre (and (< -2 t0 2) (< -5 w0 5))
   :example ([N 1000])
   (let ([h 0.01]
         [L 2.0]
@@ -64,7 +64,7 @@
 (FPCore (x0)
   :name "Sine Newton"
   :cite (darulova-kuncak-2014)
-  :pre (< (abs x0) 1.)
+  :pre (< -1 x0 1)
   (while (< i 10)
     ([x x0 (- x (/ (+ (+ (- x (/ (pow x 3) 6.0)) (/ (pow x 5) 120.0)) (/ (pow x 7) 5040.0))
                    (+ (+ (- 1.0 (/ (* x x) 2.0)) (/ (pow x 4) 24.0)) (/ (pow x 6) 720.0))))]

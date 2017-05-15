@@ -17,44 +17,40 @@
 (define (fix-name name)
   (string-replace (~a name) #rx"[^a-zA-Z0-9]" "_"))
 
-(define/match (application->c . args)
-  [((list '+ a b))     (format "(~a + ~a)" a b)]
-  [((list '- a))       (format "-(~a)" a)]
-  [((list '- a b))     (format "(~a - ~a)" a b)]
-  [((list '* a b))     (format "(~a * ~a)" a b)]
-  [((list '/ a b))     (format "(~a / ~a)" a b)]
-  [((list 'abs a))     (format "fabs(~a)" a)]
-  [((list 'sqr a))     (format "(~a * ~a)" a a)]
-  [((list 'sqrt a))    (format "sqrt(~a)" a)]
-  [((list 'hypot a b)) (format "hypot(~a, ~a)" a b)]
-  [((list 'exp a))     (format "exp(~a)" a)]
-  [((list 'expm1 a))   (format "expm1(~a)" a)]
-  [((list 'pow a b))   (format "pow(~a, ~a)" a b)]
-  [((list 'log a))     (format "log(~a)" a)]
-  [((list 'log1p a))   (format "log1p(~a)" a)]
-  [((list 'sin a))     (format "sin(~a)" a)]
-  [((list 'cos a))     (format "cos(~a)" a)]
-  [((list 'tan a))     (format "tan(~a)" a)]
-  [((list 'cotan a))   (format "(1.0 / tan(~a))" a)]
-  [((list 'asin a))    (format "asin(~a)" a)]
-  [((list 'acos a))    (format "acos(~a)" a)]
-  [((list 'atan a))    (format "atan(~a)" a)]
-  [((list 'sinh a))    (format "sinh(~a)" a)]
-  [((list 'cosh a))    (format "cosh(~a)" a)]
-  [((list 'tanh a))    (format "tanh(~a)" a)]
-  [((list 'atan2 a b)) (format "atan2(~a, ~a)" a b)]
-  [((list '> a b))     (format "(~a > ~a)" a b)]
-  [((list '< a b))     (format "(~a < ~a)" a b)]
-  [((list '== a b))    (format "(~a == ~a)" a b)]
-  [((list '<= a b))    (format "(~a <= ~a)" a b)]
-  [((list '>= a b))    (format "(~a >= ~a)" a b)]
-  [((list 'and a b))   (format "(~a && ~a)" a b)]
-  [((list 'or a b))    (format "(~a || ~a)" a b)]
-  [((list 'mod a b))   (format "fmod2(~a, ~a)" a b)])
+(define/match (application->c type . args)
+  [(type (list '+ a b))     (format "(~a + ~a)" a b)]
+  [(type (list '- a))       (format "-(~a)" a)]
+  [(type (list '- a b))     (format "(~a - ~a)" a b)]
+  [(type (list '* a b))     (format "(~a * ~a)" a b)]
+  [(type (list '/ a b))     (format "(~a / ~a)" a b)]
+  [(type (list 'sqr a))     (format "(~a * ~a)" a a)]
+  [(type (list 'abs a))     (format "fabs~a(~a)" (type->suffix type) a)]
+
+  [(type (list '> a b))     (format "(~a > ~a)" a b)]
+  [(type (list '< a b))     (format "(~a < ~a)" a b)]
+  [(type (list '== a b))    (format "(~a == ~a)" a b)]
+  [(type (list '<= a b))    (format "(~a <= ~a)" a b)]
+  [(type (list '>= a b))    (format "(~a >= ~a)" a b)]
+  [(type (list 'and a b))   (format "(~a && ~a)" a b)]
+  [(type (list 'or a b))    (format "(~a || ~a)" a b)]
+  [(type (list 'mod a b))   (format "fmod2~a(~a, ~a)" (type->suffix type) a b)]
+
+  [(type (list (and (or 'sqrt 'hypot 'exp 'expm1 'pow 'log 'log1p 'sin 'cos 'tan 'asin 'acos 'atan 'sinh 'cosh 'tanh 'atan2) f) args ...))
+   (format "~a~a(~a)" f (type->suffix type) (string-join args ", "))])
 
 (define/match (typeof expr #:fptype [fptype 'binary64])
   [((list (or '> '< '>= '<= 'and 'or) _ ...) ftype) 'bool]
-  [(_ ftype) fptype])
+  [(_ fptype) (type->c fptype)])
+
+(define/match (type->c type)
+  [('binary64) 'double]
+  [('binary32) 'float]
+  [('binary80) '|long double|])
+
+(define/match (type->suffix type)
+  [('binary64) ""]
+  [('binary32) "f"]
+  [('binary80) "l"])
 
 (define/match (value->c expr #:type [type 'binary64])
   [('E _) "exp(1.0)"]
@@ -69,15 +65,15 @@
 
 (define/match (expr->c expr #:type [type 'binary64])
   [(`(if ,cond ,ift ,iff) _) (if->c expr #:type type)]
-  [((? list?) _) (apply application->c (car expr) (map (λ (x) (expr->c x #:type type)) (cdr expr)))]
+  [((? list?) _) (apply application->c type (car expr) (map (λ (x) (expr->c x #:type type)) (cdr expr)))]
   [(_ _) (value->c expr #:type type)])
 
 (define (function->c args body #:type [type 'binary64] #:name [name 'f])
   (define arg-strings
     (for/list ([var args])
-      (format "~a ~a" type (fix-name (if (list? var) (car var) var)))))
+      (format "~a ~a" (type->c type) (fix-name (if (list? var) (car var) var)))))
   (format "~a ~a(~a) {\n~a}\n"
-          type name (string-join arg-strings ", ")
+          (type->c type) name (string-join arg-strings ", ")
           (with-output-to-string (λ () (program->c body #:type type)))))
 
 (define (program->c body #:type [type 'binary64])
@@ -112,5 +108,6 @@
   (command-line
    #:program "compile.rkt"
    #:args ()
+   (printf "#include <math.h>\n\n")
    (for ([expr (in-port read (current-input-port))] [n (in-naturals)])
      (printf "~a\n" (compile-program expr #:name (format "ex~a" n))))))

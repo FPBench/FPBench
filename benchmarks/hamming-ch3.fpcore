@@ -101,7 +101,7 @@
  :name "NMSE example 3.8"
  :cite (hamming-1987)
  :pre (> N 6.8e15)
- (- (* (+ N 1) (log (+ N 1))) (* N (log N)) 1))
+ (- (- (* (+ N 1) (log (+ N 1))) (* N (log N))) 1))
   
 (FPCore (x)
  :name "NMSE example 3.9"

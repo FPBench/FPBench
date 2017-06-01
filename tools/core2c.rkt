@@ -1,6 +1,7 @@
 #lang racket
 
 (require "common.rkt")
+(provide compile-program)
 
 (define (fix-name name)
   (string-join

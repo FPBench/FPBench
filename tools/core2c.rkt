@@ -17,8 +17,7 @@
   [(type (list '- a b))     (format "(~a - ~a)" a b)]
   [(type (list '* a b))     (format "(~a * ~a)" a b)]
   [(type (list '/ a b))     (format "(~a / ~a)" a b)]
-  [(type (list 'sqr a))     (format "(~a * ~a)" a a)]
-  [(type (list 'abs a))     (format "fabs~a(~a)" (type->suffix type) a)]
+  [(type (list 'fabs a))     (format "fabs~a(~a)" (type->suffix type) a)]
 
   [(type (list '> a b))     (format "(~a > ~a)" a b)]
   [(type (list '< a b))     (format "(~a < ~a)" a b)]
@@ -97,10 +96,15 @@
    (expr->c cond #:names names* #:to test-var #:type type #:indent (format "~a\t" indent))
    (printf "~a}\n" indent)
    (expr->c retexpr #:names names* #:to destination #:type type #:indent indent)]
-  [((list operator args ...) _ _ _ _)
+  [((list (? operator? operator) args ...) _ _ _ _)
    (define args_c
      (map (λ (arg) (expr->c arg #:names names #:to #f #:type type #:indent indent)) args))
    (define out (apply application->c type operator args_c))
+   (when destination
+     (printf "~a~a = ~a;\n" indent (fix-name destination) out))
+   out]
+  [((? constant?) _ _ _ _)
+   (define out (format "((~a) ~a)" (type->c type) expr))
    (when destination
      (printf "~a~a = ~a;\n" indent (fix-name destination) out))
    out]

@@ -1,6 +1,6 @@
 #lang racket
 
-(provide parse-properties unparse-properties constant?)
+(provide parse-properties unparse-properties constant? operator?)
 
 (define (property? symb)
   (and (symbol? symb) (string-prefix? (symbol->string symb) ":")))
@@ -19,6 +19,17 @@
 (define (unparse-properties properties)
   (append-map cons->list properties))
 
+(define operators
+  (append
+   '(+ - * / fabs fma exp exp2 expm1 log log10 log2 log1p pow sqrt
+       cbrt hypot sin cos tan asin acos atan atan2 sinh cosh tanh
+       asinh acosh atanh erf erfc tgamma lgamma ceil floor fmod
+       remainder fmax fmin fdim copysign trunc round nearbyint)
+   '(< > <= >= == != and or not isfinite isinf isnan isnormal signbit)))
+
+(define (operator? x)
+  (set-member? operators x))
+
 (define constants
   '(E LOG2E LOG10E LN2 LN10
       PI PI_2 PI_4 1_PI 2_PI 2_SQRTPI
@@ -26,5 +37,5 @@
       TRUE FALSE))
 
 (define (constant? x)
-  (member x constants))
+  (set-member? constants x))
 

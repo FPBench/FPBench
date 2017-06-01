@@ -96,7 +96,7 @@ Inputs: Step size `h`; initial condition `y_n*`; paramter `c`"
    [= i (+ i 1.0)]
    [= y_n y_n1]
    [= e (- e eps)])
- [= e (abs e)]
+ [= e (fabs e)]
  (output i e))
 
 (FPImp (y yd)
@@ -129,7 +129,7 @@ Inputs: Initial position `y`; desired position `yd`"
    [= xc0 (+ (* Ac00 xc0) (+ (* Ac01 xc1) (* Bc0 yc)))]
    [= xc1 (+ (* Ac10 xc0) (+ (* Ac11 xc1) (* Bc1 yc)))]
    [= i (+ i 1.0)]
-   [= e (abs (- yc xc1))])
+   [= e (fabs (- yc xc1))])
  (output xc1))
 
 (FPImp (Mf A)
@@ -225,7 +225,7 @@ Inputs: Array entries `aij`; vector entries `bi`"
    [= x_n4 (- (- (+ (/ b4 a44) (* (/ 0.1 a44) x1)) (* (/ 0.2 a44) x2)) (* (/ 0.3 a44) x3))]
    [= i (+ i 1.0)]
    [= e (- x_n4 x4)]
-   [= e (abs e)]
+   [= e (fabs e)]
    [= x1 x_n1]
    [= x2 x_n2]
    [= x3 x_n3]
@@ -249,7 +249,7 @@ Inputs: Initial guess `x0`"
                  (* 80.0 x x)) (* 80.0 x)) 32.0)]
    [= ff (+ (- (+ (- (* 5.0 x x x x) (* 40.0 x x x)) (* 120.0 x x)) (* 160.0 x)) 80.0)]
    [= x_n (- x (/ f ff))]
-   [= e (abs (- x x_n))]
+   [= e (fabs (- x x_n))]
    [= x x_n]
    [= i (+ i 1.0)])
  (output i x x_n e))
@@ -280,7 +280,7 @@ Inputs: Matrix `aij`; initial guess `vi` with one nonzero element"
    [= v2 (/ vy vw)]
    [= v3 (/ vz vw)]
    [= v4 1.0]
-   [= e (abs (- 1.0 v1))])
+   [= e (fabs (- 1.0 v1))])
  (output i v1 vz e))
 
 (FPImp (Q11 Q12 Q13 Q21 Q22 Q23 Q31 Q32 Q33)
@@ -322,7 +322,7 @@ Inputs: Vectors `Qij`"
    ;; rjj = ||qj||2
    [= r (+ (* qj1 qj1) (* qj2 qj2) (* qj3 qj3))]
    [= rjj (sqrt r)]
-   [= e (abs (- 1.0 (/ rjj rold)))]
+   [= e (fabs (- 1.0 (/ rjj rold)))]
    [= i (+ i 1.0)]
    [= rold rjj])
  (output i qj1 qj2 qj3 e))

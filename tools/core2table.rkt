@@ -11,7 +11,7 @@
         (car props&body))))
 
 (define operator-groups
-  '((basic + - * / abs sqr sqrt hypot)
+  '((basic + - * / fabs sqrt hypot)
     (exp exp expm1 pow log log1p sinh cosh tanh)
     (trig sin cos tan cotan asin acos atan atan2)
     (cmp < > == <= >= and or)

@@ -109,7 +109,7 @@
                (expr->c update #:names names* #:type type #:indent (format "~a\t" indent))))
      (for ([var* vars*] [temp-var temp-vars])
        (printf "~a\t~a = ~a;\n" indent (fix-name var*) (fix-name temp-var)))
-     (printf "~a\t~a = ~a;" (fix-name test-var)
+     (printf "~a\t~a = ~a;" indent (fix-name test-var)
              (expr->c cond #:names names* #:type type #:indent (format "~a\t" indent)))
      (printf "~a}\n" indent)
      (expr->c retexpr #:names names* #:type type #:indent indent)]

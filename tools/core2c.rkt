@@ -84,10 +84,10 @@
      (define outvar (gensym 'temp))
      (printf "~a~a ~a;\n" indent (type->c type) (fix-name outvar))
      (printf "~aif (~a) {\n" indent test)
-     (printf "~a\t~a = ~a;\n" (fix-name outvar)
+     (printf "~a\t~a = ~a;\n" indent (fix-name outvar)
              (expr->c ift #:names names #:type type #:indent (format "~a\t" indent)))
      (printf "~a} else {\n" indent)
-     (printf "~a\t~a = ~a;\n" (fix-name outvar)
+     (printf "~a\t~a = ~a;\n" indent (fix-name outvar)
              (expr->c iff #:names names #:type type #:indent (format "~a\t" indent)))
      (printf "~a}\n" indent)
      (fix-name outvar)]

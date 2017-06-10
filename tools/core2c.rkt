@@ -135,7 +135,7 @@
   (define c-body
     (with-output-to-string
       (λ ()
-        (parameterize ([*names* (mutable-set args)])
+        (parameterize ([*names* (apply mutable-set args)])
           (printf "\treturn ~a;\n" (expr->c body #:type type))))))
   (format "~a ~a(~a) {\n~a}\n" (type->c type) (fix-name name) (string-join arg-strings ", ") c-body))
 

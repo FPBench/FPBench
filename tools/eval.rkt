@@ -1,7 +1,7 @@
 #lang racket
 
-(require "common.rkt" math/flonum math/bigfloat math/special-functions)
-(provide (struct-out evaluator) eval-expr* eval-expr racket-double-evaluator eval-on-points)
+(require "common.rkt" math/flonum math/bigfloat math/special-functions math/base)
+(provide (struct-out evaluator) eval-expr* eval-expr racket-double-evaluator racket-single-evaluator)
 
 (struct evaluator (real constant function))
 
@@ -60,27 +60,32 @@
     [INFINITY	+inf.0]
     [TRUE #t] [FALSE #f])
    (table-fn
-    [+ fl+] [- fl-] [* fl*] [/ fl/] [fabs flabs]
-    [fma (λ (x y z) (fl+ (fl* x y) z))] ; TODO: Incorrect rounding
-    [exp flexp] [exp2 (λ (x) (flexpt 2.0 x))]
-    [expm1 (λ (x) (fl- (flexp x) 1.0))] ; TODO: Incorrect rounding
-    [log fllog] [log10 (λ (x) (fl/ (fllog x) (fllog 10.0)))]
-    [log2 (λ (x) (fl/ (fllog x) (fllog 2.0)))]
-    [log1p (λ (x) (fllog (fl+ 1.0 x)))] ; TODO: Incorrect rounding
-    [pow flexpt] [sqrt flsqrt]
-    [hypot flhypot] [sin flsin] [cos flcos] [tan fltan] [asin flasin]
-    [acos flacos] [atan flatan] [atan2 atan] [sinh flsinh] [cosh flcosh]
-    [tanh fltanh] [asinh flasinh] [acosh flacosh] [atanh flatanh]
-    [erf flerf] [erfc flerfc] [tgamma flgamma] [lgamma fllog-gamma]
-    [ceil flceiling] [floor flfloor]
-    [fmax flmax] [fmin flmin]
-    [fdim (λ (x y) (flabs (fl- x y)))]
+    [+ +] [- -] [* *] [/ /] [fabs abs]
+    [fma (λ (x y z) (+ (* x y) z))] ; TODO: Incorrect rounding
+    [exp exp] [exp2 (λ (x) (expt 2.0 x))]
+    [expm1 (λ (x) (- (exp x) 1.0))] ; TODO: Incorrect rounding
+    [log log] [log10 (λ (x) (/ (log x) (log 10.0)))]
+    [log2 (λ (x) (/ (log x) (log 2.0)))]
+    [log1p (λ (x) (log (+ 1.0 x)))] ; TODO: Incorrect rounding
+    [pow expt] [sqrt sqrt]
+    [hypot flhypot] [sin sin] [cos cos] [tan tan] [asin asin]
+    [acos acos] [atan atan] [atan2 atan] [sinh sinh] [cosh cosh]
+    [tanh tanh] [asinh asinh] [acosh acosh] [atanh atanh]
+    [erf erf] [erfc erfc] [tgamma gamma] [lgamma log-gamma]
+    [ceil ceiling] [floor floor]
+    [fmax max] [fmin min]
+    [fdim (λ (x y) (abs (- x y)))]
     [< <] [> >] [<= <=] [>= >=] [== =] [!= (compose not =)]
     [and (λ (x y) (and x y))] [or (λ (x y) (or x y))] [not not]
     ; TODO: Currently unsupported
     [isfinite '?] [isinf '?] [isnan '?] [isnormal '?] [signbit '?]
     [fmod '?] [remainder '?]
     [copysign '?] [trunc '?] [round '?] [nearbyint '?])))
+
+(define racket-single-evaluator
+  (struct-copy evaluator racket-double-evaluator
+               [real real->single-flonum]
+               [constant (λ (x) (real->single-flonum ((evaluator-constant racket-double-evaluator) x)))]))
 
 (module+ main
   (command-line

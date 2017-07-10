@@ -11,7 +11,7 @@
  :type
  binary32
  :pre (and (< 0.05 sl (* 2 PI)) (< 0.05 (* 2 PI)))
- :martel-example
+ :example
  ((sr* 0.0785398163397) (sl* 0.0525398163397))
  (while
   (< t 1000)
@@ -55,7 +55,7 @@
  :type
  binary64
  :pre (and (< -10.0 m 10.0) (< -10.0 c 10.0))
- :martel-example
+ :example
  ((m -5.0) (kp 9.4514) (ki 0.69006) (kd 2.8454))
  (while
   (< t 100.0)
@@ -84,7 +84,7 @@
  :type
  binary32
  :pre (and (< 0 y_n 100) (< 1e-05 h 0.1) (< 50 c 200))
- :martel-example
+ :example
  ((h 0.1) (y_n* 10.1) (c 100.1))
  (while
   (> e 0.005)
@@ -225,7 +225,7 @@
  :type
  binary32
  :pre (and (< 0 yd 50) (< 0 y 50))
- :martel-example
+ :example
  ((y 2.5) (yd 5.0))
  (while
   (> e 0.01)
@@ -312,7 +312,7 @@
  (damouche-martel-chapoutot-cf15)
  :type
  binary32
- :martel-example
+ :example
  ((Mf 150000.0) (A 140.0))
  (while
   (< i 2000000.0)
@@ -397,7 +397,7 @@
  (atkinson-1989)
  :type
  binary32
- :martel-example
+ :example
  ((a11 0.61)
   (a22 0.62)
   (a33 0.6006)
@@ -454,7 +454,7 @@
  :type
  binary32
  :pre (< 0 x0 3)
- :martel-example
+ :example
  ((x0 0.0))
  (while
   (and (> e 0.0005) (< i 100000))
@@ -538,7 +538,7 @@
  :type
  binary32
  :pre (< 150 d 200)
- :martel-example
+ :example
  ((a11 150.0)
   (a12 0.01)
   (a13 0.01)
@@ -600,7 +600,7 @@
  :type
  binary32
  :pre (and (< 1.0 Q11 (/ 1 7)) (< 1 Q22 (/ 1 25)))
- :martel-example
+ :example
  ((Q11 (/ 1 63))
   (Q12 0)
   (Q13 0)

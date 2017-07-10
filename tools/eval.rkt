@@ -1,7 +1,7 @@
 #lang racket
 
 (require "common.rkt" math/flonum math/bigfloat math/special-functions)
-(provide eval-expr eval-on-points)
+(provide (struct-out evaluator) eval-expr* eval-expr racket-double-evaluator eval-on-points)
 
 (struct evaluator (real constant function))
 
@@ -39,7 +39,7 @@
 (define-syntax-rule (table-fn [var val] ...)
   (match-lambda [`var val] ...))
 
-(define racket-double-evaltor
+(define racket-double-evaluator
   (evaluator
    real->double-flonum
    (table-fn
@@ -81,3 +81,13 @@
     [isfinite '?] [isinf '?] [isnan '?] [isnormal '?] [signbit '?]
     [fmod '?] [remainder '?]
     [copysign '?] [trunc '?] [round '?] [nearbyint '?])))
+
+(module+ main
+  (command-line
+   #:program "eval.rkt"
+   #:args args
+   (let ([vals (map (compose real->double-flonum string->number) args)])
+     (for ([prog (in-port read)])
+       (match-define `(FPCore (,vars ...) ,props ... ,body) prog)
+       (printf "~a\n"
+               ((eval-expr racket-double-evaluator) body (map cons vars vals)))))))

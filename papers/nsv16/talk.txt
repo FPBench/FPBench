@@ -1,0 +1,101 @@
+#+TITLE: Toward a Standard Benchmark Format and Suite for Floating-Point Analysis
+#+AUTHOR:  Nasrine Damouche, Matthieu Martel, Pavel Panchekha, Chen Qiu, Alexander Sanchez-Stern and Zachary Tatlock.
+
+* The floating point community has made incredible progress in the last few years
+** Lots of new verification tools
+** Lots of new compilation techniques for reducing error
+** The community is at a point where we're seeing rapid improvement in what used to be unassailable problems, like automatic and tight error bound computation
+* We want to make sure that this community of incredibly smart people can continue making scientific progress
+** This means making sure that several groups can productively work on the same problems and build on each others' work
+** This also means making sure that groups working on different problems can piece together their work into larger tools
+* To help, we've built FPBench, a benchmark suite for floating-point expressions
+** We can compare different tools using the benchmark suite and the common set of accuracy measures that FPBench contains
+** We can combine different tools using the common format and semantics defined by FPBench
+** This approach has been successful for the SMT-solving, SAT-solving, compilers, and parallelization communities, plus many others outside PL
+* Overview
+** How to use FPBench
+** The FPBench format
+** Using FPBench as a common format
+* How to use FPBench
+** How to use the FPBench Benchmarks
+*** Main use: run your tools on the FPBench benchmarks and report your results using the FPBench measures of error
+*** We've included benchmark suites from many existing tools, to make sure the results are immediately meaningful
+*** The measures of error include all of the common ones in the literature; using standard terminology will make it easier to compare results.
+** The FPBench Benchmarks
+*** Drawn from FPTaylor, Herbie, Rosa, and Salsa
+*** Contain varying features: some have transcendental functions, and some do not; some contain loops and conditionals, others do not
+*** Drawn from varying domains: general expressions, mathematical algorithms, embedded systems, scientific computing
+*** Currently 72 benchmarks, adding more constantly
+** Reporting results on the FPBench Benchmarks
+*** Report all FPBench benchmarks run on
+*** Ideally, report selection criteria, like the supported features
+** How to use the FPBench Measures
+*** Sometimes, you are measuring the accuracy of programs in evaluating a tool
+*** There are lots of measures of accuracy, so this can get confusing (ex. multiple definitions of "ULPs of error")
+*** Standard language makes results easier to interpret
+*** FPBench describes the language for described the error measure used
+** The FPBench Measures
+*** Error measures classified on 5 axes
+*** Scaling vs. non-scaling error (relative, absolute, ULPs, bits)
+*** Forward vs. backward error
+*** Maximum vs. average error
+*** Also important to describe what is guaranteed: sound vs. statistical techniques
+*** Also important to describe what is compared: maximum and average improvement, worst unimprovement
+** Report results with the FPBench Measures
+*** [Table of tools and the measures they use]
+*** Make clear what measure is used on each axis (when applicable)
+* The FPBench format, FPCore
+** FPCore goals
+*** FPCore is easy to parse and manipulate
+*** FPCore can describe the floating point benchmarks used in the literature
+*** FPCore can be extended in the future as our community builds ever-more-sophisticated tools
+** Easy to parse and manipulate
+*** We've stuck to an S-expression format similar to SMT-LIB2
+*** Simple syntax for conditionals and loops
+*** [show examples of conditionals and loops]
+*** In particular, we've designed the format so you don't need complex control-flow analyses to evaluate or manipulate the FPCore expressions
+** Describing existing benchmarks in the literature
+*** To our knowledge, no single tool has effective support for every kind of expression in FPCore
+*** This is fine—there's no expectation that tools have to run on the full benchmark suite, since different tools often focus on different things
+**** This is analogous to the different tracks in the yearly SMT competitions
+*** Instead of supporting the intersection of features in the existing benchmarks, FPCore supports their union
+** Extending FPCore in the future
+*** We hope that future research will analyze more and more complex programs
+**** Mixed precision
+**** Interprocedural analyses
+**** Matrix and vector computations
+*** We intend to keep the FPBench suite a complete and community-owned collection of benchmarks
+*** This will mean extending FPBench with additional features
+*** There's a community mailing list (fpbench@cs.washington.edu) were we can discuss changes and improvements
+*** There's an explicit namespacing mechanism to the metadata that can be used to test out new features
+** The FPBench format
+*** The FPBench format, FPCore, is an S-expression-based functional language
+*** [Show example FPCore program, maybe the FPTaylor one]
+*** Supports conditionals, loops, and all common mathematical functions and constants
+*** Each benchmark also contains metadata describing the source of the benchmark
+** Benchmark metadata
+*** Benchmark metadata can describe the benchmark itself (:name, :description), the source (:cite), or information about how the expression is used (:type, :pre)
+*** All benchmarks in the FPBench suite specify all of these fields (except sometimes :pre)
+*** Tools that take FPCore as input can have custom metadata properties, prefixed by tool name
+*** Tools can also produce custom properties on output to describe tool-specific information
+*** The same namespacing mechanism makes it easy to trial extensions to FPCore
+** Comments welcome
+*** We're very interested in feedback on the design of FPCore
+*** Join the mailing list (fpbench@cs.washington.edu) to tell us how to adapt FPCore to new domains
+* Using FPCore as a common format
+** A common format
+*** Lots of existing tools can be profitably combined together
+*** For example, Herbie attempts to improve program accuracy, but cannot provide sound guarantees
+*** It'd be ideal to combine Herbie with a sound error analysis tool
+** FPCore can be this common format between tools
+*** Tools that take FPCore as input and, when relevant, produce FPCore as output, can be plugged one into the other
+*** Tools that analyze FPCore could then be uniformly applied to the output of any FPCore tool
+** Using custom metadata properties for tool-specific information
+*** For example, Herbie accepts a :herbie-samplers property to describe the distribution Herbie uses to sample inputs
+*** Properties can also be added to the output, such as for example when inferring preconditions
+* Conclusion
+** FPBench provides a common benchmark suite to the floating-point community
+** Using the FPBench benchmarks should make it easier to compare and combine different floating-point tools
+** We hope you join us in using, expanding, and extending FPBench
+** fpbench@cs.washington.edu
+** http://fpbench.org

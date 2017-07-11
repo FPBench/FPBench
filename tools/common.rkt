@@ -1,6 +1,6 @@
 #lang racket
 
-(provide parse-properties unparse-properties constant? operator?)
+(provide parse-properties unparse-properties constant? operator? define-by-match)
 
 (define (property? symb)
   (and (symbol? symb) (string-prefix? (symbol->string symb) ":")))
@@ -39,3 +39,12 @@
 (define (constant? x)
   (set-member? constants x))
 
+(define-syntax-rule (define-by-match name patterns ...)
+  (define name
+    (flat-named-contract
+     'name
+     (λ (var)
+       (let name ([var var])
+         (match var
+           [patterns true] ...
+           [_ false]))))))

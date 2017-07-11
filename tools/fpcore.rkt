@@ -1,11 +1,33 @@
 #lang racket
 
 (require "common.rkt" math/flonum math/bigfloat math/special-functions math/base)
-(provide (struct-out evaluator) eval-expr* eval-expr racket-double-evaluator racket-single-evaluator)
+(provide
+ (struct-out evaluator) racket-double-evaluator racket-single-evaluator
+ fpcore? expr? eval-expr* eval-expr)
 
 (struct evaluator (real constant function))
 
-(define ((eval-expr* evaltor rec) expr ctx)
+(define (fpcore? thing)
+  (match thing
+    [`(FPCore (,(? symbol?) ...) ,props ... ,(? expr?))
+     (define-values (rest props) (parse-properties props))
+     (null? rest)]
+    [_ false]))
+
+(define-by-match expr?
+  (? number?)
+  (? constant?)
+  (? symbol?)
+  (list (? operator?) (? expr?) ...)
+  `(if ,(? expr?) ,(? expr?) ,(? expr?))
+  `(let ([,(? symbol?) ,(? expr?)] ...) (? expr?))
+  `(while ,(? expr?) ([,(? symbol?) ,(? expr?) ,(? expr?)] ...) ,(? expr?)))
+
+(define context/c
+  (or/c (hash/c symbol? any/c) (listof (cons/c symbol? any/c))))
+
+(define/contract ((eval-expr* evaltor rec) expr ctx)
+  (-> evaluator? (-> expr? context/c any/c) (-> expr? context/c any/c))
   (match expr
     [(? number?) ((evaluator-real evaltor) expr)]
     [(? constant?) ((evaluator-constant evaltor) expr)]
@@ -32,14 +54,15 @@
      (apply ((evaluator-function evaltor) op)
             (map (curryr rec ctx) args))]))
 
-(define ((eval-expr evaltor) expr ctx)
+(define/contract ((eval-expr evaltor) expr ctx)
+  (-> evaluator? (-> expr? context/c any/c))
   (let eval ([expr expr] [ctx ctx])
     ((eval-expr* evaltor eval) expr ctx)))
 
 (define-syntax-rule (table-fn [var val] ...)
   (match-lambda [`var val] ...))
 
-(define racket-double-evaluator
+(define/contract racket-double-evaluator evaluator?
   (evaluator
    real->double-flonum
    (table-fn
@@ -82,7 +105,7 @@
     [fmod '?] [remainder '?]
     [copysign '?] [trunc '?] [round '?] [nearbyint '?])))
 
-(define racket-single-evaluator
+(define/contract racket-single-evaluator evaluator?
   (struct-copy evaluator racket-double-evaluator
                [real real->single-flonum]
                [constant (λ (x) (real->single-flonum ((evaluator-constant racket-double-evaluator) x)))]))

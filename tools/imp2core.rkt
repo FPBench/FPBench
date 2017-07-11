@@ -1,5 +1,6 @@
 #lang racket
 (require "common.rkt" "fpcore.rkt" "fpimp.rkt")
+(provide compile-program)
 
 (define (canonicalize body)
   (match body
@@ -13,10 +14,6 @@
     [`(- ,args ... ,tail) `(- ,(canonicalize (cons '- args)) ,(canonicalize tail))]
     [`(/ ,head ,arg) `(/ ,(canonicalize head) ,(canonicalize arg))]
     [`(/ ,args ... ,tail) `(/ ,(canonicalize (cons '/ args)) ,(canonicalize tail))]
-    [(list (and (or '< '> '<= '>= '==) op) fst snd)
-     `(,op ,fst ,snd)]
-    [(list (and (or '< '> '<= '>= '==) op) args ...)
-     `(and ,@(for/list ([fst args] [snd (cdr args)]) `(,op ,fst ,snd)))]
     [(? list?) (cons (car body) (map canonicalize (cdr body)))]
     [(? symbol?) body]
     [(? number?) body]))

@@ -1,6 +1,6 @@
 #lang racket
 
-(require "../tools/common.rkt" "../tools/core2c.rkt" "../tools/eval.rkt")
+(require "../tools/common.rkt" "../tools/core2c.rkt" "../tools/fpcore.rkt")
 
 (define tests-to-run (make-parameter 10))
 (define test-file (make-parameter "/tmp/test.c"))

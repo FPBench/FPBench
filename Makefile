@@ -11,3 +11,8 @@ c/%.c: benchmarks/%.fpcore
 
 table.html: $(wildcard benchmarks/*.fpcore)
 	cat $^ | racket tools/core2table.rkt > $@
+
+test:
+	racket test/compiler.rkt benchmarks/*.fpcore
+
+.PHONY: all test

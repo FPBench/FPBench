@@ -2,7 +2,23 @@
 
 (require "common.rkt" "fpcore.rkt")
 
-(define ((eval-stmts* eval-expr rec) stmts ctx)
+(define (fpimp? thing)
+  (match thing
+    [`(FPImp (,(? symbol?) ...) ,props&body ...)
+     (define-values (body props) (parse-properties props&body))
+     (andmap statement? body)]
+    [_ false]))
+
+(define-by-match statement?
+  `(output ,(? expr?) ...)
+  `[= ,(? symbol?) ,(? expr?)]
+  `(if [,(? expr?) ,(? statement?) ...] ...)
+  `(while ,(? expr?) ,(? statement?) ...))
+
+(define/contract ((eval-stmts* eval-expr rec) stmts ctx)
+  (-> (-> expr? context/c any/c)
+      (-> (listof statement?) context/c any/c)
+      (-> (listof statement?) context/c any/c))
   (match-define (cons stmt rest) stmts)
   (match stmt
     [`(output ,exprs ...)
@@ -22,7 +38,8 @@
          (rec (append body stmts) ctx)
          (rec rest ctx))]))
 
-(define ((eval-stmts eval-expr) stmts ctx)
+(define/contract ((eval-stmts eval-expr) stmts ctx)
+  (-> (-> expr? context/c any/c) (-> (listof statement?) context/c any/c))
   (let loop ([stmts stmts] [ctx ctx])
     ((eval-stmts* eval-expr loop) stmts ctx)))
 

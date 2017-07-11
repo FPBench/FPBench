@@ -3,7 +3,7 @@
 (require "common.rkt" math/flonum math/bigfloat math/special-functions math/base)
 (provide
  (struct-out evaluator) racket-double-evaluator racket-single-evaluator
- fpcore? expr? eval-expr* eval-expr)
+ fpcore? expr? context/c eval-expr* eval-expr)
 
 (struct evaluator (real constant function))
 
@@ -20,7 +20,7 @@
   (? symbol?)
   (list (? operator?) (? expr?) ...)
   `(if ,(? expr?) ,(? expr?) ,(? expr?))
-  `(let ([,(? symbol?) ,(? expr?)] ...) (? expr?))
+  `(let ([,(? symbol?) ,(? expr?)] ...) ,(? expr?))
   `(while ,(? expr?) ([,(? symbol?) ,(? expr?) ,(? expr?)] ...) ,(? expr?)))
 
 (define context/c

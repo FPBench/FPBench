@@ -1,5 +1,5 @@
 #lang racket
-(require "common.rkt")
+(require "common.rkt" "fpcore.rkt" "fpimp.rkt")
 
 (define (canonicalize body)
   (match body
@@ -74,7 +74,8 @@
     [(list `(if [,_ ,subs ...] ...) rest ...)
      (append (append-map assigned subs) (assigned rest))]))
 
-(define (compile-statements statements variables outexprs)
+(define/contract (compile-statements statements variables outexprs)
+  (-> (listof statement?) (listof symbol?) (listof expr?) (values expr? (dictof symbol? expr?)))
   (let loop ([statements statements] [bindings '()])
     (match statements
       ['()
@@ -141,7 +142,8 @@
 
        (loop rest (append joined bindings))])))
 
-(define (compile-program body)
+(define/contract (compile-program body)
+  (-> fpimp? fpcore?)
   (match-define `(FPImp (,variables ...) ,lines ... (output ,outexprs ...)) body)
   (define-values (statements properties) (parse-properties lines))
   (define attributes*
@@ -154,11 +156,16 @@
 
   `(FPCore (,@variables) ,@(unparse-properties attributes*) ,out))
 
+(property compilation-valid
+  ;; These properties aren't checked, but can be useful to write down
+  (let ((x fpimp?))
+    (= (apply + (racket-run-fpcore (compile-program x))) (racket-run-fpimp x))))
+
 (module+ main
   (require racket/cmdline)
 
   (command-line
-   #:program "surface-to-core.rkt"
+   #:program "imp2core.rkt"
    #:args ()
    (for ([expr (in-port read (current-input-port))])
      (pretty-print (compile-program expr) (current-output-port) 1)

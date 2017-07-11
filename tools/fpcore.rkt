@@ -3,7 +3,7 @@
 (require "common.rkt" math/flonum math/bigfloat math/special-functions math/base)
 (provide
  (struct-out evaluator) racket-double-evaluator racket-single-evaluator
- fpcore? expr? context/c eval-expr* eval-expr)
+ fpcore? expr? context/c eval-expr* eval-expr racket-run-fpcore)
 
 (struct evaluator (real constant function))
 
@@ -23,8 +23,7 @@
   `(let ([,(? symbol?) ,(? expr?)] ...) ,(? expr?))
   `(while ,(? expr?) ([,(? symbol?) ,(? expr?) ,(? expr?)] ...) ,(? expr?)))
 
-(define context/c
-  (or/c (hash/c symbol? any/c) (listof (cons/c symbol? any/c))))
+(define context/c (dictof symbol? any/c))
 
 (define/contract ((eval-expr* evaltor rec) expr ctx)
   (-> evaluator? (-> expr? context/c any/c) (-> expr? context/c any/c))
@@ -110,16 +109,20 @@
                [real real->single-flonum]
                [constant (λ (x) (real->single-flonum ((evaluator-constant racket-double-evaluator) x)))]))
 
+(define/contract (racket-run-fpcore prog vals)
+  (-> fpcore? (listof real?) real?)
+  (match-define `(FPCore (,vars ...) ,props* ... ,body) prog)
+  (define-values (_ props) (parse-properties props*))
+  (define evaltor
+    (match (dict-ref props ':type 'binary64)
+      ['binary64 racket-double-evaluator]
+      ['binary32 racket-single-evaluator]))
+  ((eval-expr evaltor) body (map cons vars vals)))
+
 (module+ main
   (command-line
    #:program "fpcore.rkt"
    #:args args
    (let ([vals (map (compose real->double-flonum string->number) args)])
      (for ([prog (in-port read)])
-       (match-define `(FPCore (,vars ...) ,props* ... ,body) prog)
-       (define-values (_ props) (parse-properties props*))
-       (define evaltor
-         (match (dict-ref props ':type 'binary64)
-           ['binary64 racket-double-evaluator]
-           ['binary32 racket-single-evaluator]))
-       (printf "~a\n" ((eval-expr evaltor) body (map cons vars vals)))))))
+       (printf "~a\n" (racket-run-fpcore prog vals))))))

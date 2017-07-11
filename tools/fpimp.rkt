@@ -2,6 +2,8 @@
 
 (require "common.rkt" "fpcore.rkt")
 
+(provide fpimp? statement? eval-stmts* eval-stmts racket-run-fpimp)
+
 (define (fpimp? thing)
   (match thing
     [`(FPImp (,(? symbol?) ...) ,props&body ...)
@@ -43,17 +45,21 @@
   (let loop ([stmts stmts] [ctx ctx])
     ((eval-stmts* eval-expr loop) stmts ctx)))
 
+(define/contract (racket-run-fpimp prog vals)
+  (-> fpimp? (listof real?) (listof real?))
+  (match-define `(FPImp (,vars ...) ,props&body ...) prog)
+  (define-values (body props) (parse-properties props&body))
+  (define evaltor
+    (match (dict-ref props ':type 'binary64)
+      ['binary64 racket-double-evaluator]
+      ['binary32 racket-single-evaluator]))
+  ((eval-stmts (eval-expr racket-double-evaluator)) body (map cons vars vals)))
+
 (module+ main
   (command-line
    #:program "fpimp.rkt"
    #:args args
    (let ([vals (map (compose real->double-flonum string->number) args)])
      (for ([prog (in-port read)])
-       (match-define `(FPImp (,vars ...) ,props&body ...) prog)
-       (define-values (body props) (parse-properties props&body))
-       (define evaltor
-         (match (dict-ref props ':type 'binary64)
-           ['binary64 racket-double-evaluator]
-           ['binary32 racket-single-evaluator]))
-       (printf "~a\n" ((eval-stmts (eval-expr racket-double-evaluator)) body (map cons vars vals)))))))
+       (printf "~a\n" (racket-run-fpimp prog vals))))))
 

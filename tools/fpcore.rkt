@@ -89,10 +89,14 @@
 
 (module+ main
   (command-line
-   #:program "eval.rkt"
+   #:program "fpcore.rkt"
    #:args args
    (let ([vals (map (compose real->double-flonum string->number) args)])
      (for ([prog (in-port read)])
-       (match-define `(FPCore (,vars ...) ,props ... ,body) prog)
-       (printf "~a\n"
-               ((eval-expr racket-double-evaluator) body (map cons vars vals)))))))
+       (match-define `(FPCore (,vars ...) ,props* ... ,body) prog)
+       (define-values (_ props) (parse-properties props*))
+       (define evaltor
+         (match (dict-ref props ':type 'binary64)
+           ['binary64 racket-double-evaluator]
+           ['binary32 racket-single-evaluator]))
+       (printf "~a\n" ((eval-expr evaltor) body (map cons vars vals)))))))

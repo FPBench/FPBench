@@ -14,8 +14,13 @@
 (define-by-match statement?
   `(output ,(? expr?) ...)
   `[= ,(? symbol?) ,(? expr?)]
-  `(if [,(? expr?) ,(? statement?) ...] ...)
+  (cons 'if (? if-branches?))
   `(while ,(? expr?) ,(? statement?) ...))
+
+(define-by-match if-branches?
+  (cons `[,(? expr?) ,(? statement?) ...] (? if-branches?))
+  (list `[else ,(? statement?) ...])
+  (list))
 
 (define/contract ((eval-stmts* eval-expr rec) stmts ctx)
   (-> (-> expr? context/c any/c)

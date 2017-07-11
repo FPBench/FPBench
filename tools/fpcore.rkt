@@ -10,7 +10,7 @@
 (define (fpcore? thing)
   (match thing
     [`(FPCore (,(? symbol?) ...) ,props ... ,(? expr?))
-     (define-values (rest props) (parse-properties props))
+     (define-values (rest props*) (parse-properties props))
      (null? rest)]
     [_ false]))
 

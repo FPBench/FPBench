@@ -75,7 +75,7 @@
      (append (append-map assigned subs) (assigned rest))]))
 
 (define/contract (compile-statements statements variables outexprs)
-  (-> (listof statement?) (listof symbol?) (listof expr?) (values expr? (dictof symbol? expr?)))
+  (-> (listof statement?) (listof symbol?) (listof expr?) (values expr? any/c))
   (let loop ([statements statements] [bindings '()])
     (match statements
       ['()

@@ -2,7 +2,16 @@
 
 (require "../tools/common.rkt" "../tools/core2c.rkt" "../tools/eval.rkt")
 
-(define test-file "/tmp/test.c")
+(define tests-to-run (make-parameter 10))
+(define test-file (make-parameter "/tmp/test.c"))
+(define fuel (make-parameter 1000))
+
+(define ((eval-fuel evaltor fuel [default #f]) expr ctx)
+  (let/ec k
+    (let eval ([expr expr] [ctx ctx] [fuel fuel])
+      (if (<= fuel 0)
+          (k default)
+          ((eval-expr* evaltor (λ (expr ctx) (eval expr ctx (- fuel 1)))) expr ctx)))))
 
 (define (random-exp k)
   "Like (random (expt 2 k)), but k is allowed to be arbitrarily large"
@@ -47,14 +56,19 @@
      ['binary32 real->single-flonum])
    (string->number out*)))
 
-(define tests-to-run 100)
-
 (define (=* a b)
-  (or (= a b) (and (nan? a) (nan? b))))
+  (or (equal? a b) (= a b) (and (nan? a) (nan? b))))
 
 (module+ main
   (command-line
    #:program "test/compiler.rkt"
+   #:once-each
+   ["--fuel" fuel_ "Number of computation steps to allow"
+    (fuel (string->number fuel_))]
+   ["--repeat" repeat_ "Number of times to test each program"
+    (tests-to-run (string->number repeat_))]
+   ["-o" name_ "Name for generated C file"
+    (test-file name_)]
    #:args files
    (for ([file files])
      (call-with-input-file file
@@ -63,24 +77,36 @@
            (match-define (list 'FPCore (list vars ...) props* ... body) prog)
            (define-values (_ props) (parse-properties props*))
            (define type (dict-ref props ':type 'binary64))
-           (define exec-file (compile->c prog test-file #:type type))
+           (define exec-file (compile->c prog (test-file) #:type type))
+           (define timeout 0)
            (define results
-             (for/list ([i (in-range tests-to-run)])
+             (for/list ([i (in-range (tests-to-run))])
                (define ctx (for/list ([var vars])
                              (cons var (match type
                                          ['binary64 (sample-double)]
                                          ['binary32 (sample-single)]))))
                (define evaltor (match type ['binary64 racket-double-evaluator] ['binary32 racket-single-evaluator]))
                (define out
-                 (let ([result ((eval-expr evaltor) body ctx)])
-                   ((match type
+                 (match ((eval-fuel evaltor (fuel) 'timeout) body ctx)
+                   [(? real? result)
+                    ((match type
                       ['binary64 real->double-flonum] ['binary32 real->single-flonum])
-                    (if (real? result) result +nan.0))))
-               (define out* (run<-c exec-file ctx #:type type))
+                     result)]
+                   [(? complex? result)
+                    (match type
+                      ['binary64 +nan.0] ['binary32 +nan.f])]
+                   ['timeout 'timeout]
+                   [(? boolean? result) result]))
+               (when (equal? out 'timeout)
+                 (set! timeout (+ timeout 1)))
+               (define out* (if (equal? out 'timeout) 'timeout (run<-c exec-file ctx #:type type)))
                (list ctx out out*)))
            (unless (null? results)
-             (printf "~a/~a: ~a\n" (count (λ (x) (=* (second x) (third x))) results) (length results)
-                     (dict-ref props ':name body))
+             (printf "~a/~a: ~a~a\n" (count (λ (x) (=* (second x) (third x))) results) (length results)
+                     (dict-ref props ':name body) (match timeout
+                                                    [0 ""]
+                                                    [1 " (1 timeout)"]
+                                                    [_ (format " (~a timeouts)" timeout)]))
              (for ([x (in-list results)] #:unless (=* (second x) (third x)))
                (printf "\t~a ≠ ~a @ ~a\n" (second x) (third x)
                        (string-join (map (λ (x) (format "~a = ~a" (car x) (cdr x))) (first x)) ", "))))))))))

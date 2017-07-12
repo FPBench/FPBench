@@ -6,9 +6,9 @@
 (define (fix-name name)
   (string-join
    (for/list ([char (~a name)])
-     (if (regexp-match #rx"[a-zA-Z0-9_]" (string char))
+     (if (regexp-match #rx"[a-zA-Z0-9]" (string char))
          (string char)
-         (format "$~a" (char->integer char))))
+         (format "_~a_" (char->integer char))))
    ""))
 
 (define (application->c type operator args)

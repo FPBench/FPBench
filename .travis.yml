@@ -10,6 +10,3 @@ before_install:
   - export PATH="${RACKET_DIR}/bin:${PATH}"
 script:
   - make test
-notifications:
-  slack:
-    secure: QB8ib/gxZWZ8rY9H54BktIgx8LfjdqabSAkmWip0VHlUhrh2ULG566XgmB5h75eNzCil2cw76ma5wfSC0MNIQ1iDHKCxAgTE0+gcPcZAYGfucQ28sKGBG2wcuJfvBLG6lVDxj+luGUh3XohouTLYI9cg509JBgTgpcrXVexYAaE=

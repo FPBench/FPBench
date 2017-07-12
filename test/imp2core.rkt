@@ -50,6 +50,7 @@
    (for ([file files])
      (call-with-input-file file
        (λ (p)
+         (define error 0)
          (for ([prog (in-port read p)])
            (match-define (list 'FPImp (list vars ...) props&body ...) prog)
            (define-values (body props) (parse-properties props&body))
@@ -73,6 +74,8 @@
                                                     [0 ""]
                                                     [1 " (1 timeout)"]
                                                     [_ (format " (~a timeouts)" timeout)]))
+             (set! error (+ error (count (λ (x) (not (=* (second x) (third x)))) results)))
              (for ([x (in-list results)] #:unless (=* (second x) (third x)))
                (printf "\t~a ≠ ~a @ ~a\n" (second x) (third x)
-                       (string-join (map (λ (x) (format "~a = ~a" (car x) (cdr x))) (first x)) ", "))))))))))
+                       (string-join (map (λ (x) (format "~a = ~a" (car x) (cdr x))) (first x)) ", ")))))
+         (exit error))))))

@@ -36,7 +36,7 @@
       (fprintf p "printf(\"%.20g\", f(~a)); return 0; }\n"
                (string-join (map (curry format "~a(argv[~a], NULL)" strtox) (map add1 (range N))) ", "))))
   (define c-file (string-replace test-file ".c" ".bin"))
-  (system (format "gcc ~a -lm -o ~a" test-file c-file))
+  (system (format "cc ~a -lm -o ~a" test-file c-file))
   c-file)
 
 (define (run<-c exec-name ctx #:type [type 'binary64])
@@ -73,6 +73,7 @@
    (for ([file files])
      (call-with-input-file file
        (λ (p)
+         (define error 0)
          (for ([prog (in-port read p)])
            (match-define (list 'FPCore (list vars ...) props* ... body) prog)
            (define-values (_ props) (parse-properties props*))
@@ -107,6 +108,8 @@
                                                     [0 ""]
                                                     [1 " (1 timeout)"]
                                                     [_ (format " (~a timeouts)" timeout)]))
+             (set! error (+ error (count (λ (x) (not (=* (second x) (third x)))) results)))
              (for ([x (in-list results)] #:unless (=* (second x) (third x)))
                (printf "\t~a ≠ ~a @ ~a\n" (second x) (third x)
-                       (string-join (map (λ (x) (format "~a = ~a" (car x) (cdr x))) (first x)) ", "))))))))))
+                       (string-join (map (λ (x) (format "~a = ~a" (car x) (cdr x))) (first x)) ", ")))))
+         (exit error))))))

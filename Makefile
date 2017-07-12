@@ -13,6 +13,7 @@ table.html: $(wildcard benchmarks/*.fpcore)
 	cat $^ | racket tools/core2table.rkt > $@
 
 test:
-	racket test/compiler.rkt benchmarks/*.fpcore
+	racket test/core2c.rkt benchmarks/*.fpcore
+	racket test/imp2core.rkt benchmarks/*.fpimp
 
 .PHONY: all test

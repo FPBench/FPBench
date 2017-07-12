@@ -1,5 +1,4 @@
 language: c
-sudo: required
 env:
   global:
     - RACKET_DIR=~/racket

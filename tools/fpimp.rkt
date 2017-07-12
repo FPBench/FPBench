@@ -4,7 +4,8 @@
 
 (provide fpimp? statement? eval-stmts* eval-stmts racket-run-fpimp)
 
-(define (fpimp? thing)
+(define/contract (fpimp? thing)
+  contract?
   (match thing
     [`(FPImp (,(? symbol?) ...) ,props&body ...)
      (define-values (body props) (parse-properties props&body))

@@ -41,7 +41,7 @@
 
 (define-syntax-rule (define-by-match name patterns ...)
   (define/contract name
-    predicate/c
+    contract?
     (flat-named-contract
      'name
      (λ (var)

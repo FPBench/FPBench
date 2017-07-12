@@ -7,7 +7,8 @@
 
 (struct evaluator (real constant function))
 
-(define (fpcore? thing)
+(define/contract (fpcore? thing)
+  contract?
   (match thing
     [`(FPCore (,(? symbol?) ...) ,props ... ,(? expr?))
      (define-values (rest props*) (parse-properties props))
@@ -23,7 +24,7 @@
   `(let ([,(? symbol?) ,(? expr?)] ...) ,(? expr?))
   `(while ,(? expr?) ([,(? symbol?) ,(? expr?) ,(? expr?)] ...) ,(? expr?)))
 
-(define context/c (dictof symbol? any/c))
+(define/contract context/c contract? (dictof symbol? any/c))
 
 (define/contract ((eval-expr* evaltor rec) expr ctx)
   (-> evaluator? (-> expr? context/c any/c) (-> expr? context/c any/c))
@@ -83,26 +84,24 @@
     [TRUE #t] [FALSE #f])
    (table-fn
     [+ +] [- -] [* *] [/ /] [fabs abs]
-    [fma (λ (x y z) (+ (* x y) z))] ; TODO: Incorrect rounding
     [exp exp] [exp2 (λ (x) (expt 2.0 x))]
-    [expm1 (λ (x) (- (exp x) 1.0))] ; TODO: Incorrect rounding
     [log log] [log10 (λ (x) (/ (log x) (log 10.0)))]
     [log2 (λ (x) (/ (log x) (log 2.0)))]
-    [log1p (λ (x) (log (+ 1.0 x)))] ; TODO: Incorrect rounding
     [pow expt] [sqrt sqrt]
     [hypot flhypot] [sin sin] [cos cos] [tan tan] [asin asin]
     [acos acos] [atan atan] [atan2 atan] [sinh sinh] [cosh cosh]
     [tanh tanh] [asinh asinh] [acosh acosh] [atanh atanh]
     [erf erf] [erfc erfc] [tgamma gamma] [lgamma log-gamma]
-    [ceil ceiling] [floor floor]
+    [ceil ceiling] [floor floor] [trunc truncate] [round round]
     [fmax max] [fmin min]
     [fdim (λ (x y) (abs (- x y)))]
     [< <] [> >] [<= <=] [>= >=] [== =] [!= (compose not =)]
     [and (λ (x y) (and x y))] [or (λ (x y) (or x y))] [not not]
     ; TODO: Currently unsupported
+    [fma '?] [expm1 '?] [log1p '?]
     [isfinite '?] [isinf '?] [isnan '?] [isnormal '?] [signbit '?]
     [fmod '?] [remainder '?]
-    [copysign '?] [trunc '?] [round '?] [nearbyint '?])))
+    [copysign '?] [nearbyint '?])))
 
 (define/contract racket-single-evaluator evaluator?
   (struct-copy evaluator racket-double-evaluator

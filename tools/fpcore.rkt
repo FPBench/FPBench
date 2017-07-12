@@ -116,7 +116,7 @@
     (match (dict-ref props ':type 'binary64)
       ['binary64 racket-double-evaluator]
       ['binary32 racket-single-evaluator]))
-  ((eval-expr evaltor) body (map cons vars vals)))
+  ((eval-expr evaltor) body (map cons vars (map (evaluator-real evaltor) vals))))
 
 (module+ main
   (command-line

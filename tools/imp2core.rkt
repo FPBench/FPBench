@@ -105,18 +105,6 @@
     [(list _ exprs ...)
      (append-map free-variables exprs)]))
 
-#;(define (read statements)
-  (match statements
-    ['() '()]
-    [(list `[= ,_ ,expr] rest ...)
-     (set-union (free-variables expr) (read rest))]
-    [(list `(while ,test ,sub ...) rest ...)
-     (set-union (free-variables test) (read sub) (read rest))]
-    [(list `(if [,tests ,subs ...] ...) rest ...)
-     (set-union (append-map free-variables (remove 'else tests)) (map read subs) (read rest))]
-    [(list `(output ,exprs ...))
-     (append-map free-variables exprs)]))
-
 (define (null/c x)
   (and (list? x) (null? x)))
 
@@ -125,7 +113,8 @@
   (let loop ([statements statements] [bindings '()])
     (match statements
       ['()
-       (values (substitute (canonicalize (cons '+ outexprs)) bindings)  bindings)]
+       (define expr (match (length outexprs) [0 0] [1 (car outexprs)] [_ (cons '+ outexprs)]))
+       (values (substitute (canonicalize expr) bindings) bindings)]
       [(list `[= ,(? symbol? var) ,value] rest ...)
        (define value* (substitute (canonicalize value) bindings))
        (loop rest (cons (cons var value*) bindings))]
@@ -137,7 +126,8 @@
        (define cond-expr (substitute (canonicalize test) sub-bindings))
        (define-values (out end-bindings) (loop rest sub-bindings))
 
-       (define loop-bound (drop-right loop-bindings (length sub-bindings)))
+       (define loop-bound
+         (remove-duplicates (drop-right loop-bindings (length sub-bindings)) #:key car))
        (define loop-vars
          (for/fold ([vars '()]) ([bind loop-bound] #:when (not (null? (cdr bind))))
            (define appears-in-rest
@@ -163,7 +153,7 @@
                vars)))
 
        (values
-        `(while ,cond-expr ,(remove-duplicates loop-vars #:key car) ,out)
+        `(while ,cond-expr ,loop-vars ,out)
         end-bindings)]
       [(list `(if [,conds ,stmtss ...] ...) rest ...)
        (when (or (null? conds) (not (equal? (last conds) 'else)))

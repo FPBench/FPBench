@@ -1,48 +1,52 @@
 #lang racket
-
-(define (attribute? symb)
-  (and (symbol? symb) (string-prefix? (symbol->string symb) ":")))
-
-(define (program-body prog)
-  (match-define (list 'fpcore (list args ...) props&body ...) prog)
-  (let loop ([props&body props&body])
-    (if (attribute? (car props&body))
-        (loop (cddr props&body))
-        (car props&body))))
+(require "common.rkt")
 
 (define operator-groups
-  '((basic + - * / fabs sqrt hypot)
-    (exp exp expm1 pow log log1p sinh cosh tanh)
+  '((basic + - * / fabs fma sqrt hypot fmin fmax fdim)
+    (cmp < > == <= >= != and or not)
+    (fpinternal isfinite isinf isnan isnormal signbit copysign)
+    (exp exp expm1 exp2 expm1 pow log log10 log2 log1p)
     (trig sin cos tan cotan asin acos atan atan2)
-    (cmp < > == <= >= and or)
+    (special erf erfc tgamma lgamma cbrt)
+    (rounding ceil floor trunc round nearbyint)
+    (modulo fmod remainder)
+    (hyperbolic sinh cosh tanh asinh acosh atanh)
     (if if)
     (while while)
     (let let)))
 
-(define/match (operators expr)
+(module+ test
+  (require rackunit)
+
+  (define all-operators-in-groups (apply append (dict-values operator-groups)))
+
+  (with-check-info (['missing (set-subtract operators all-operators-in-groups)])
+                   (check subset? operators all-operators-in-groups)))
+
+(define/match (operators-in expr)
   [(`(while ,test ([,vars ,inits ,updates] ...) ,res))
    (cons 'while
-         (append (operators test)
-                 (append-map operators inits)
-                 (append-map operators updates)
-                 (operators res)))]
+         (append (operators-in test)
+                 (append-map operators-in inits)
+                 (append-map operators-in updates)
+                 (operators-in res)))]
   [(`(let ([,vars ,vals] ...) ,body))
-   (cons 'let (append (append-map operators vals) (operators body)))]
+   (cons 'let (append (append-map operators-in vals) (operators-in body)))]
   [(`(if ,cond ,ift ,iff))
-   (cons 'if (append (operators cond) (operators ift) (operators iff)))]
-  [((list op args ...)) (cons op (append-map operators args))]
+   (cons 'if (append (operators-in cond) (operators-in ift) (operators-in iff)))]
+  [((list op args ...)) (cons op (append-map operators-in args))]
   [((? symbol?)) '()]
   [((? number?)) '()])
 
 (define (operator->group op)
   (or
-   (for/first ([name (map car operator-groups)] [ops (map cdr operator-groups)]
-               #:when (member op ops))
+   (for/first ([(name ops) (in-dict operator-groups)]
+               #:when (set-member? ops op))
      name)
    (eprintf "WARNING: Unknown operator ~a\n" op)))
 
 (define (expr-groups expr)
-  (remove-duplicates (map operator->group (operators expr))))
+  (remove-duplicates (map operator->group (operators-in expr))))
 
 (define (make-table progs)
   (printf "<!doctype html>\n<html>\n<head>\n")
@@ -54,11 +58,12 @@
   (printf "  <tr><th></th><th>~a</th></tr>\n"
           (string-join (map (compose ~a car) operator-groups) "</th><th>"))
   (for ([prog progs] [n (in-naturals)])
+    (match-define `(FPCore (,vars ...) ,properties ... ,body) prog)
     (printf "  <tr><td>~a</td>"
             (if (member ':name prog)
                 (cadr (member ':name prog))
                 (format "Problem ~a" n)))
-    (define groups (expr-groups (program-body prog)))
+    (define groups (expr-groups body))
     (for ([group (map car operator-groups)])
       (printf "<td>~a</td>" (if (member group groups) "✓" "")))
     (printf "</tr>\n"))

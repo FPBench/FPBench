@@ -2,33 +2,50 @@
 (require "common.rkt" "fpcore.rkt" "fpimp.rkt")
 (provide compile-program)
 
+(define canonicalize? (make-parameter false))
+(define substitute? (make-parameter false))
+
 (define (canonicalize body)
-  (match body
-    [(or 'E 'PI) body]
-    [`(+ ,branch) (canonicalize branch)]
-    [`(+ ,args ... ,arg) `(+ ,(canonicalize (cons '+ args)) ,(canonicalize arg))]
-    [`(* ,branch) (canonicalize branch)]
-    [`(* ,args ... ,arg) `(* ,(canonicalize (cons '* args)) ,(canonicalize arg))]
-    [`(- ,head) (canonicalize head)]
-    [`(- ,head ,arg) `(- ,(canonicalize head) ,(canonicalize arg))]
-    [`(- ,args ... ,tail) `(- ,(canonicalize (cons '- args)) ,(canonicalize tail))]
-    [`(/ ,head ,arg) `(/ ,(canonicalize head) ,(canonicalize arg))]
-    [`(/ ,args ... ,tail) `(/ ,(canonicalize (cons '/ args)) ,(canonicalize tail))]
-    [(? list?) (cons (car body) (map canonicalize (cdr body)))]
-    [(? symbol?) body]
-    [(? number?) body]))
+  (-> expr? expr?)
+  (match (canonicalize?)
+    [#f body]
+    [#t
+     (match body
+       [(or 'E 'PI) body]
+       [`(+ ,branch) (canonicalize branch)]
+       [`(+ ,args ... ,arg) `(+ ,(canonicalize (cons '+ args)) ,(canonicalize arg))]
+       [`(* ,branch) (canonicalize branch)]
+       [`(* ,args ... ,arg) `(* ,(canonicalize (cons '* args)) ,(canonicalize arg))]
+       [`(- ,head) (canonicalize head)]
+       [`(- ,head ,arg) `(- ,(canonicalize head) ,(canonicalize arg))]
+       [`(- ,args ... ,tail) `(- ,(canonicalize (cons '- args)) ,(canonicalize tail))]
+       [`(/ ,head ,arg) `(/ ,(canonicalize head) ,(canonicalize arg))]
+       [`(/ ,args ... ,tail) `(/ ,(canonicalize (cons '/ args)) ,(canonicalize tail))]
+       [(? list?) (cons (car body) (map canonicalize (cdr body)))]
+       [(? symbol?) body]
+       [(? number?) body])]))
 
 (define (substitute body bindings)
-  (match body
-    [(? constant?) body]
-    [(? (λ (x) (dict-has-key? bindings x)))
-     ;; The (if) handles the case when we don't have a value bound for the variable
-     (if (null? (cdr (assoc body bindings)))
-         body
-         (cdr (assoc body bindings)))]
-    [`(,op ,args ...) (cons op (map (curryr substitute bindings) args))]
-    [(? symbol?) body]
-    [(? number?) body]))
+  (match (substitute?)
+   [#f
+    (define used-vars (set-intersect (free-variables body)
+                                     (map car (filter (compose not null? cdr) bindings))))
+    (if (null? used-vars)
+        body
+        `(let (,@(for/list ([var used-vars])
+                   (list var (dict-ref bindings var))))
+           ,body))]
+   [#t
+    (match body
+      [(? constant?) body]
+      [(? (λ (x) (dict-has-key? bindings x)))
+       ;; The (if) handles the case when we don't have a value bound for the variable
+       (if (null? (cdr (assoc body bindings)))
+           body
+           (cdr (assoc body bindings)))]
+      [`(,op ,args ...) (cons op (map (curryr substitute bindings) args))]
+      [(? symbol?) body]
+      [(? number?) body])]))
 
 (define (appears? expr variable)
   (match expr
@@ -71,8 +88,40 @@
     [(list `(if [,_ ,subs ...] ...) rest ...)
      (append (append-map assigned subs) (assigned rest))]))
 
+(define (free-variables expr)
+  (match expr
+    [(? number?) '()]
+    [(? constant?) '()]
+    [(? symbol?) (list expr)]
+    [`(if ,test ,ift ,iff)
+     (set-union (free-variables test) (free-variables ift) (free-variables iff))]
+    [`(let ([,vars ,exprs] ...) ,body)
+     (set-union (append-map free-variables exprs) (set-subtract vars (free-variables body)))]
+    [`(while ,test ([,vars ,inits ,updates] ...) ,body)
+     (set-union (free-variables test)
+                (append-map free-variables inits)
+                (set-subtract (append-map free-variables updates) vars)
+                (set-subtract (free-variables body) vars))]
+    [(list _ exprs ...)
+     (append-map free-variables exprs)]))
+
+#;(define (read statements)
+  (match statements
+    ['() '()]
+    [(list `[= ,_ ,expr] rest ...)
+     (set-union (free-variables expr) (read rest))]
+    [(list `(while ,test ,sub ...) rest ...)
+     (set-union (free-variables test) (read sub) (read rest))]
+    [(list `(if [,tests ,subs ...] ...) rest ...)
+     (set-union (append-map free-variables (remove 'else tests)) (map read subs) (read rest))]
+    [(list `(output ,exprs ...))
+     (append-map free-variables exprs)]))
+
+(define (null/c x)
+  (and (list? x) (null? x)))
+
 (define/contract (compile-statements statements variables outexprs)
-  (-> (listof statement?) (listof symbol?) (listof expr?) (values expr? any/c))
+  (-> (listof statement?) (listof symbol?) (listof expr?) (values expr? (dictof symbol? (or/c expr? null/c))))
   (let loop ([statements statements] [bindings '()])
     (match statements
       ['()
@@ -163,6 +212,11 @@
 
   (command-line
    #:program "imp2core.rkt"
+   #:once-each
+   ["--substitute" "Inline expressions instead of using (let) expressions"
+    (substitute? true)]
+   ["--canonicalize" "Allow variary arithmetic expressions"
+    (canonicalize? true)]
    #:args ()
    (for ([expr (in-port read (current-input-port))])
      (pretty-print (compile-program expr) (current-output-port) 1)

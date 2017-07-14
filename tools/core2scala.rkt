@@ -71,7 +71,7 @@
     [`(let ([,vars ,vals] ...) ,body)
      (define vars* (map gensym vars))
      (for ([var vars] [var* vars*] [val vals])
-       (printf "~aval ~a : ~a = ~a\n" indent (fix-name var*) (type->scala type)
+       (printf "~aval ~a : Real = ~a\n" indent (fix-name var*)
                (expr->scala val #:names names #:type type #:indent indent)))
      (define names*
        (for/fold ([names* names]) ([var vars] [var* vars*])
@@ -80,7 +80,7 @@
     [`(if ,cond ,ift ,iff)
      (define test (expr->scala cond #:names names #:type type #:indent indent))
      (define outvar (gensym 'temp))
-     (printf "~avar ~a : ~a\n" indent (fix-name outvar) (type->scala type))
+     (printf "~avar ~a : Real\n" indent (fix-name outvar))
      (printf "~aif (~a) {\n" indent test)
      (printf "~a\t~a = ~a\n" indent (fix-name outvar)
              (expr->scala ift #:names names #:type type #:indent (format "~a\t" indent)))
@@ -92,7 +92,7 @@
     [`(while ,cond ([,vars ,inits ,updates] ...) ,retexpr)
      (define vars* (map gensym vars))
      (for ([var vars] [var* vars*] [val inits])
-       (printf "~avar ~a : ~a = ~a\n" indent (fix-name var*) (type->scala type)
+       (printf "~avar ~a : Real = ~a\n" indent (fix-name var*)
                (expr->scala val #:names names #:type type #:indent indent)))
      (define names*
        (for/fold ([names* names]) ([var vars] [var* vars*])
@@ -103,7 +103,7 @@
      (printf "~awhile (~a) {\n" indent test-var)
      (define temp-vars (map gensym vars))
      (for ([temp-var temp-vars] [update updates])
-       (printf "~a\tval ~a : ~a = ~a\n" indent (fix-name temp-var) (type->scala type)
+       (printf "~a\tval ~a : Real = ~a\n" indent (fix-name temp-var)
                (expr->scala update #:names names* #:type type #:indent (format "~a\t" indent))))
      (for ([var* vars*] [temp-var temp-vars])
        (printf "~a\t~a = ~a\n" indent (fix-name var*) (fix-name temp-var)))
@@ -116,11 +116,11 @@
        (map (λ (arg) (expr->scala arg #:names names #:type type #:indent indent)) args))
      (application->scala type operator args_c)]
     [(? constant?)
-     (format "(~a).to~a" expr (type->scala type))]
+     (format "~a" expr)]
     [(? symbol?)
      (fix-name (dict-ref names expr expr))]
     [(? number?)
-     (format "~a~a" (real->double-flonum expr) (type->suffix type))]))
+     (format "~a" (real->double-flonum expr))]))
 
 (define (compile-program prog #:name name)
   (match-define (list 'FPCore (list args ...) props ... body) prog)
@@ -129,11 +129,11 @@
 
   (define arg-strings
     (for/list ([var args])
-      (format "~a: ~a" (fix-name (if (list? var) (car var) var)) (type->scala type))))
+      (format "~a: Real" (fix-name (if (list? var) (car var) var)))))
   (with-output-to-string
     (λ ()
       (printf "object ~a {\n" (fix-name name))
-      (printf "\tdef ~a(~a): ~a = {\n" (fix-name name) (string-join arg-strings ", ") (type->scala type))
+      (printf "\tdef ~a(~a): Real = {\n" (fix-name name) (string-join arg-strings ", "))
       (parameterize ([*names* (apply mutable-set args)])
         (printf "\t\t~a;\n" (expr->scala body #:type type #:indent "\t\t")))
       (printf "\t}\n}\n"))))

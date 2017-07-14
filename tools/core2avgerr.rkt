@@ -1,36 +1,39 @@
 #lang racket
 
-(require "common.rkt" math/flonum math/bigfloat)
+(require "common.rkt" "fpcore.rkt" math/flonum math/bigfloat)
 (provide eval-on-points)
 
-(define (eval-expr expr ctx real->number op->function constant->number)
-  (let eval ([expr expr] [ctx ctx])
-    (match expr
-      [(? number?) (real->number expr)]
-      [(? constant?) ((constant->number expr))]
-      [(? symbol?) (dict-ref ctx expr)]
-      [`(if ,test ,ift ,iff)
-       (if (eval test ctx)
-           (eval ift ctx)
-           (eval iff ctx))]
-      [`(let ([,vars ,vals] ...) ,body)
-       (define vals* (for/list ([val vals]) (eval val ctx)))
-       (define ctx* (apply dict-set* ctx (append-map list vars vals*)))
-       (eval body ctx*)]
-      [`(while ,test ([,vars ,inits ,updates] ...) ,res)
-       (define vals* (for/list ([init inits]) (eval init ctx)))
-       (define ctx* (apply dict-set* ctx (append-map list vars vals*)))
-       (if (eval test ctx*)
-           (let ([inits* (for/list ([update updates]) (eval update ctx*))])
-             (eval
-              `(while ,test
-                 (,(for/list ([var vars] [init inits] [update updates])
-                     (list var (eval update ctx*) update)))
-                 ,res)
-              ctx))
-           (eval res ctx*))]
-      [(list op args ...)
-       (apply (op->function op) (map (curryr eval ctx) args))])))
+(define-syntax-rule (table-fn [var val] ...)
+  (match-lambda [`var val] ...))
+
+(define/contract bf-evaluator evaluator?
+  (evaluator
+   bf
+   (table-fn
+    [E (bfexp 1.bf)] [LOG2E (bf/ 1.bf log2.bf)]
+    [LOG10E (bf/ 1.bf (bflog 10.bf))] [LN2 log2.bf] [LN10 (bflog 10.bf)]
+    [PI pi.bf] [PI_2 (bf/ pi.bf 2.bf)] [PI_4 (bf/ pi.bf 4.bf)]
+    [1_PI (bf/ 1.bf pi.bf)] [2_PI (bf/ 2.bf pi.bf)]
+    [2_SQRTPI (bf/ 2.bf (bfsqrt pi.bf))] [SQRT2 (bfsqrt 2.bf)]
+    [SQRT1_2 (bf/ 1.bf (bfsqrt 2.bf))] [NAN +nan.bf] [INFINITY +inf.bf]
+    [TRUE #t] [FALSE #f])
+   (table-fn
+    [+ bf+] [- bf-] [* bf*] [/ bf/] [fabs bfabs] [exp bfexp]
+    [exp2 bfexp2] [log bflog] [log10 bflog10] [log2 bflog2]
+    [pow bfexpt] [sqrt bfsqrt] [hypot bfhypot] [sin bfsin]
+    [cos bfcos] [tan bftan] [asin bfasin] [acos bfacos] [atan bfatan]
+    [sinh bfsinh] [cosh bfcosh] [tanh bftanh] [asinh bfasinh]
+    [acosh bfacosh] [atanh bfatanh] [erf bferf] [erfc bferfc]
+    [tgamma bfgamma] [lgamma bflog-gamma] [ceil bfceiling]
+    [floor bffloor] [trunc bftruncate] [round bfround] [fmax bfmax]
+    [min bfmin] [fdim (λ (x y) (bfabs (bf- x y)))] [expm1 bfexpm1]
+    [log1p bflog1p] [< bf<] [> bf>] [<= bf<=] [>= bf>=] [== bf=]
+    [!= (compose not bf=)] [not not] [and (λ (x y) (and x y))]
+    [or (λ (x y) (or x y))] [isfinite bfrational?]
+    [isinf bfinfinite?] [isnan bfnan?] [isnormal bfrational?]
+    [signbit (λ (x) (= (bigfloat-signbit x) 1))]
+    ; TODO: currently unsupported
+    [fma '?] [fmod '?] [remainder '?])))
 
 (define-syntax-rule (define/table (name cols ...) [rows valss ...] ...)
   (define name
@@ -118,7 +121,11 @@
 
 (define (make-exacts* args prog pts #:type type #:start-prec prec0)
   (let loop ([prec prec0] [prev #f])
-    (let ([curr (eval-bf args prog pts #:precision prec #:type type)])
+    (let ([curr
+           (parameterize ([bf-precision prec])
+             (for/list ([pt pts])
+               ((match type ['binary32 real->single-flonum] ['binary64 real->double-flonum])
+                (bigfloat->real ((eval-expr bf-evaluator) prog (map cons args (map bf pt)))))))])
       (if (and prev (andmap =-or-nan? prev curr))
           (values (- prec precision-step) curr)
           (loop (+ prec precision-step) curr)))))
@@ -128,8 +135,9 @@
   (let loop ([n* 1] [prec 128])
     (cond
      [(>= n* n)
-      (define-values (_ points)
+      (define-values (prec* points)
         (make-exacts* args prog pts #:type type #:start-prec prec))
+      (eprintf "~a | " prec*)
       points]
      [else
       (define-values (prec* _)
@@ -145,33 +153,17 @@
       (if (equal? n num)
           samples
           (let ([pt (build-list nargs sample)])
-            (if (car (eval-bf args pre (list pt) #:precision 256 #:type type))
+            (if ((eval-expr bf-evaluator) pre (map cons args (map bf pt)))
                 (loop (cons pt samples) (+ n 1))
                 (loop samples n))))))
+  (define evaltor (match type ['binary32 racket-single-evaluator] ['binary64 racket-double-evaluator]))
 
-  (values samples (make-exacts args body samples #:type type) (eval-fl args body samples #:type type)))
-
-(define (eval-fl args expr points #:type type)
-  (define real->
-    (if (equal? type 'binary32) real->single-flonum real->double-flonum))
-  (define (op-> op) (operators op 'ieee))
-  (define (constant-> constant) (constants constant type))
-  (for/list ([point points])
-    (eval-expr expr (map (λ (v x) (cons v (real-> x))) args point) real-> op-> constant->)))
-
-(define (eval-bf args expr points #:type type #:precision prec)
-  (define real->
-    (if (equal? type 'binary32) real->single-flonum real->double-flonum))
-  (parameterize ([bf-precision prec])
-    (for/list ([point points])
-      (define out
-       (eval-expr expr (map (λ (v x) (cons v (bf x))) args point) bf (curryr operators 'mpfr) (curryr constants 'mpfr)))
-      (match out
-       [(? bigfloat?) (real-> (bigfloat->real out))]
-       [(? boolean?) out]))))
+  (values samples (make-exacts args body samples #:type type)
+          (for/list ([sample samples])
+            ((eval-expr evaltor) body (map cons args (map (evaluator-real evaltor) sample))))))
 
 (define (average-error expr #:measure [measurefn bits-error] #:points [N 8000])
-  (match-define (list 'fpcore (list args ...) props ... body) expr)
+  (match-define (list 'FPCore (list args ...) props ... body) expr)
   (define-values (_ properties) (parse-properties props))
   (define type (dict-ref properties ':type 'binary64))
   (define pre (dict-ref properties ':pre 'TRUE))

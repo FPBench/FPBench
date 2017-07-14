@@ -119,31 +119,6 @@
 
 (define precision-step 32)
 
-(define (make-exacts* args prog pts #:type type #:start-prec prec0)
-  (let loop ([prec prec0] [prev #f])
-    (let ([curr
-           (parameterize ([bf-precision prec])
-             (for/list ([pt pts])
-               ((match type ['binary32 real->single-flonum] ['binary64 real->double-flonum])
-                (bigfloat->real ((eval-expr bf-evaluator) prog (map cons args (map bf pt)))))))])
-      (if (and prev (andmap =-or-nan? prev curr))
-          (values (- prec precision-step) curr)
-          (loop (+ prec precision-step) curr)))))
-
-(define (make-exacts args prog pts #:type type)
-  (define n (length pts))
-  (let loop ([n* 1] [prec 128])
-    (cond
-     [(>= n* n)
-      (define-values (prec* points)
-        (make-exacts* args prog pts #:type type #:start-prec prec))
-      (eprintf "~a | " prec*)
-      points]
-     [else
-      (define-values (prec* _)
-        (make-exacts* args prog (take pts n*) #:type type #:start-prec prec))
-      (loop (* n* 2) prec*)])))
-
 (define (eval-on-points args body #:pre pre #:num num #:type type)
   (define (sample _) (if (equal? type 'binary32) (sample-float) (sample-double)))
   (define nargs (length args))
@@ -158,9 +133,15 @@
                 (loop samples n))))))
   (define evaltor (match type ['binary32 racket-single-evaluator] ['binary64 racket-double-evaluator]))
 
-  (values samples (make-exacts args body samples #:type type)
+  (values samples
           (for/list ([sample samples])
-            ((eval-expr evaltor) body (map cons args (map (evaluator-real evaltor) sample))))))
+            ((evaluator-real evaltor)
+             (bigfloat->real ((eval-expr bf-evaluator) body (map cons args (map bf sample))))))
+          (for/list ([sample samples])
+            (match
+                ((eval-expr evaltor) body (map cons args (map (evaluator-real evaltor) sample)))
+              [(? real? out) out]
+              [_ +nan.0]))))
 
 (define (average-error expr #:measure [measurefn bits-error] #:points [N 8000])
   (match-define (list 'FPCore (list args ...) props ... body) expr)
@@ -181,12 +162,15 @@
   (require racket/cmdline)
 
   (define measure bits-error)
+  (define precision 2048)
 
   (command-line
    #:program "core2avgerr.rkt"
    #:once-each
    [("--measure") measurename "Which error measure to use (abs|rel|ulp|bit)"
     (set! measure (match measurename ["bit" bits-error] ["ulp" ulp-error] ["abs" abs-error] ["rel" rel-error]))]
+   [("--precision") bits "How many bits to use for precise evaluation (default: 2048)"
+    (set! precision (string->number bits))]
    #:args ()
    (for ([expr (in-port read (current-input-port))])
-     (displayln (average-error expr #:measure measure)))))
+     (displayln (parameterize ([bf-precision precision]) (average-error expr #:measure measure))))))

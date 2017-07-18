@@ -3,7 +3,7 @@ all: table.html
 
 %.fpcore: %.fpimp
 	printf ";; -*- mode: scheme -*-\n\n" > $@
-	racket tools/surface2core.rkt < $^ >> $@
+	racket tools/imp2core.rkt < $^ >> $@
 
 c/%.c: benchmarks/%.fpcore
 	printf "#include <tgmath.h>\n\n" > $@

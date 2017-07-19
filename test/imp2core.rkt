@@ -36,7 +36,8 @@
   (real->single-flonum (floating-point-bytes->real (integer->integer-bytes (random-exp 32) 4 #f))))
 
 (define (=* a b)
-  (or (or (equal? a 'timeout) (equal? b 'timeout)) (= (apply + a) b) (and (ormap nan? a) (nan? b))))
+  (or (equal? a 'timeout) (ormap (curryr equal? 'timeout) b)
+      (andmap (λ (x y) (or (= x y) (and (nan? x) (nan? y)))) a b)))
 
 (module+ main
   (command-line
@@ -64,7 +65,9 @@
                                          ['binary32 (sample-single)]))))
                (define evaltor (match type ['binary64 racket-double-evaluator] ['binary32 racket-single-evaluator]))
                (define out1 ((eval-fuel-stmt evaltor (fuel) 'timeout) body ctx))
-               (define out2 ((eval-fuel-expr evaltor (fuel) 'timeout) (last (compile-program prog)) ctx))
+               (define out2
+                 (for/list ([fpcore (compile-program prog)])
+                   ((eval-fuel-expr evaltor (fuel) 'timeout) (last fpcore) ctx)))
                (when (or (equal? out1 'timeout) (equal? out2 'timeout))
                  (set! timeout (+ 1 timeout)))
                (list ctx out1 out2)))

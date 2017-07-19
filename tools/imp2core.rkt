@@ -4,6 +4,7 @@
 
 (define canonicalize? (make-parameter false))
 (define substitute? (make-parameter false))
+(define one-to-one (make-parameter false))
 
 (define (canonicalize body)
   (-> expr? expr?)
@@ -108,13 +109,12 @@
 (define (null/c x)
   (and (list? x) (null? x)))
 
-(define/contract (compile-statements statements variables outexprs)
-  (-> (listof statement?) (listof symbol?) (listof expr?) (values expr? (dictof symbol? (or/c expr? null/c))))
+(define/contract (compile-statements statements variables outexpr)
+  (-> (listof statement?) (listof symbol?) expr? (values expr? (dictof symbol? (or/c expr? null/c))))
   (let loop ([statements statements] [bindings '()])
     (match statements
       ['()
-       (define expr (match (length outexprs) [0 0] [1 (car outexprs)] [_ (cons '+ outexprs)]))
-       (values (substitute (canonicalize expr) bindings) bindings)]
+       (values (substitute (canonicalize outexpr) bindings) bindings)]
       [(list `[= ,(? symbol? var) ,value] rest ...)
        (define value* (substitute (canonicalize value) bindings))
        (loop rest (cons (cons var value*) bindings))]
@@ -179,7 +179,7 @@
        (loop rest (append joined bindings))])))
 
 (define/contract (compile-program body)
-  (-> fpimp? fpcore?)
+  (-> fpimp? (listof fpcore?))
   (match-define `(FPImp (,variables ...) ,lines ... (output ,outexprs ...)) body)
   (define-values (statements properties) (parse-properties lines))
   (define attributes*
@@ -187,15 +187,29 @@
         (dict-update properties ':pre canonicalize)
         properties))
 
-  (define-values (out bindings)
-    (compile-statements statements variables outexprs))
+  (define outexprs*
+    (if (one-to-one)
+        (list ((one-to-one) outexprs))
+        outexprs))
 
-  `(FPCore (,@variables) ,@(unparse-properties attributes*) ,out))
+  (define outs
+    (for/list ([outexpr outexprs*])
+      (let-values ([(out bindings) (compile-statements statements variables outexpr)])
+        out)))
+
+  (for/list ([out outs])
+    `(FPCore (,@variables) ,@(unparse-properties attributes*) ,out)))
 
 (property compilation-valid
   ;; These properties aren't checked, but can be useful to write down
   (let ((x fpimp?))
-    (= (apply + (racket-run-fpcore (compile-program x))) (racket-run-fpimp x))))
+    (= (map racket-run-fpcore (compile-program x)) (racket-run-fpimp x))))
+
+(define/contract (expr-reduce operator exprs)
+  (-> operator? (listof expr?) expr?)
+  (if (null? (cdr exprs))
+      (car exprs)
+      (list operator (car exprs) (expr-reduce operator (cdr exprs)))))
 
 (module+ main
   (require racket/cmdline)
@@ -207,7 +221,17 @@
     (substitute? true)]
    ["--canonicalize" "Allow variary arithmetic expressions"
     (canonicalize? true)]
+   ["--one-to-one" how "How to combine multiple outputs (no|first|add|min|max|mult)"
+    (one-to-one
+     (match how
+       ["no" false]
+       ["first" first]
+       ["add" (curry expr-reduce '+)]
+       ["min" (curry expr-reduce 'fmin)]
+       ["max" (curry expr-reduce 'fmin)]
+       ["mult" (curry expr-reduce '*)]))]
    #:args ()
-   (for ([expr (in-port read (current-input-port))])
-     (pretty-print (compile-program expr) (current-output-port) 1)
+   (for* ([prog (in-port read (current-input-port))]
+          [expr (compile-program prog)])
+     (pretty-print expr (current-output-port) 1)
      (newline))))

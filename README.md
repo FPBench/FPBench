@@ -1,4 +1,4 @@
-![FPBench](www/img/logo.png)
+![FPBench](logo.png)
 
 FPBench makes it easier to compare and combine tools from the
 floating-point research community by developing common standards and

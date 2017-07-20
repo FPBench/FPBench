@@ -10,7 +10,7 @@ c/%.c: benchmarks/%.fpcore
 	racket tools/core2c.rkt < $^ >> $@
 
 table.html: $(wildcard benchmarks/*.fpcore)
-	cat $^ | racket tools/core2table.rkt > $@
+	cat $^ | racket tools/bench-stats.rkt --format full-html > $@
 
 test:
 	racket test/core2c.rkt benchmarks/*.fpcore

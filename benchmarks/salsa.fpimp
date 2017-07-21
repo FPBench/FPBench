@@ -1,5 +1,8 @@
 ;; -*- mode: scheme -*-
 
+;; TODO: original did not use cos and sin, instead used
+;; - cos(arg) = 1.0 -  (arg * arg * 0.5) + ((arg * arg * arg * arg) * 0.0416666666) ; 
+;; - sin(arg) = arg - ((arg * arg * arg) * 0.1666666666) + ((arg * arg * arg * arg * arg) * 0.008333333) ;
 (FPImp (sr* sl*)
  :name "Odometry"
  :description "Compute the position of a robot from the speed of the wheels.

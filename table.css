@@ -1,4 +1,0 @@
-table { width: 800px; margin: 2em auto; border-collapse: collapse; }
-td { min-width: 2em; padding: .25em 1em; }
-td:not(:first-child) { text-align: center; }
-tr:first-child th { border-bottom: 1px solid black; }

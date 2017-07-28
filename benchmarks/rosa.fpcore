@@ -10,6 +10,7 @@
          vx0 vy0 vz0)
   :name "N Body Simulation"
   :cite (darulova-kuncak-2014)
+  :fpbench-domain science
   :pre (and (< -6 x0 6) (< -6 y0 6) (< -0.2 z0 0.2)
             (< -3 vx0 3) (< -3 vy0 3) (< -0.1 vz0 0.1))
   (let ([dt 0.1]
@@ -45,6 +46,7 @@
 (FPCore (t0 w0 N)
   :name "Pendulum"
   :cite (darulova-kuncak-2014)
+  :fpbench-domain science
   :pre (and (< -2 t0 2) (< -5 w0 5))
   :example ([N 1000])
   (let ([h 0.01]
@@ -64,6 +66,7 @@
 (FPCore (x0)
   :name "Sine Newton"
   :cite (darulova-kuncak-2014)
+  :fpbench-domain mathematics
   :pre (< -1 x0 1)
   (while (< i 10)
     ([x x0 (- x (/ (+ (+ (- x (/ (pow x 3) 6.0)) (/ (pow x 5) 120.0)) (/ (pow x 7) 5040.0))
@@ -71,19 +74,11 @@
      [i 0 (+ i 1)])
     x))
 
-(FPCore (u v t1)
-  :name "Rosa's DopplerBench"
-  :cite (darulova-kuncak-2014)
-  (/ (* (- t1) v) (* (+ t1 u) (+ t1 u))))
-
-(FPCore (x)
-  :name "Rosa's Benchmark"
-  :cite (darulova-kuncak-2014)
-  (- (* 0.954929658551372 x) (* 0.12900613773279798 (* (* x x) x))))
-
 (FPCore (x1 x2)
-  :name "Rosa's FloatVsDoubleBenchmark"
+  :name "JetEngine"
   :cite (darulova-kuncak-2014)
+  :fpbench-domain controls
+  :pre (and (<= -5 x1 5) (<= -20 x2 5))
   (let ([t (- (+ (* (* 3 x1) x1) (* 2 x2)) x1)]
         [t* (- (- (* (* 3 x1) x1) (* 2 x2)) x1)]
         [d (+ (* x1 x1) 1)])
@@ -99,7 +94,23 @@
            x1)
           (* 3 s*))))))
 
-(FPCore (v w r)
-  :name "Rosa's TurbineBenchmark"
+(FPCore (u v T)
+  :name "Doppler"
   :cite (darulova-kuncak-2014)
+  :fpbench-domain science
+  :pre (and (<= -100 u 100) (<= 20 v 20000) (<= -30 T 50))
+  (let ([t1 (+ 331.4 (* 0.6 T))])
+    (/ (* (- t1) v) (* (+ t1 u) (+ t1 u)))))
+
+(FPCore (x)
+  :name "sineOrder3"
+  :cite (darulova-kuncak-2014)
+  :fpbench-domain mathematics
+  (- (* 0.954929658551372 x) (* 0.12900613773279798 (* (* x x) x))))
+
+(FPCore (v w r)
+  :name "Turbine"
+  :cite (darulova-kuncak-2014)
+  :fpbench-domain controls
+  :pre (and (<= -4.5 v -0.3) (<= 0.4 w 0.9) (<= 3.8 r 7.8))
   (- (- (+ 3 (/ 2 (* r r))) (/ (* (* 0.125 (- 3 (* 2 v))) (* (* (* w w) r) r)) (- 1 v))) 4.5))

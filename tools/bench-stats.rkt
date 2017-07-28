@@ -66,6 +66,34 @@
              (list group (count (curry equal? group) groups))))
    > #:key second))
 
+(define/contract (domain-table progs)
+  (-> (listof fpcore?) (listof (list/c string? number?)))
+  (map (λ (x) (list (car x) (length x)))
+       (group-by identity
+                 (for/list ([prog progs])
+                   (match-define `(FPCore (,vars ...) ,properties ... ,body) prog)
+                   (define-values (_ props) (parse-properties properties))
+                   (~a (dict-ref props ':fpbench-domain "(unknown)"))))))
+
+(define/contract (source-table progs)
+  (-> (listof fpcore?) (listof (list/c string? number?)))
+  (map (λ (x) (list (car x) (length x)))
+       (group-by identity
+                 (apply append
+                        (for/list ([prog progs])
+                          (match-define `(FPCore (,vars ...) ,properties ... ,body) prog)
+                          (define-values (_ props) (parse-properties properties))
+                          (map ~a (dict-ref props ':cite '())))))))
+
+(define/contract (status-table progs)
+  (-> (listof fpcore?) (listof (list/c string? number?)))
+  (map (λ (x) (list (car x) (length x)))
+       (group-by identity
+                 (for/list ([prog progs])
+                   (match-define `(FPCore (,vars ...) ,properties ... ,body) prog)
+                   (define-values (_ props) (parse-properties properties))
+                   (~a (dict-ref props ':fpbench-status 'unknown))))))
+
 (define/contract (table->string table #:title [title #f])
   (-> (listof (list/c string? number?)) #:title (or/c #f string?) string?)
   (with-output-to-string
@@ -84,7 +112,8 @@
                 (build-string (- width (string-length key)
                                  (string-length (~a value)))
                               (const #\space))
-                value)))))
+                value))
+      (newline))))
 
 (define/contract (table->xexpr table #:title [title #f])
   (-> (listof (list/c string? number?)) #:title (or/c #f string?) xexpr/c)
@@ -120,4 +149,7 @@
             ["full-html" (compose write-xexpr table->html)]))]
    #:args ()
    (let* ([progs (sequence->list (in-port read))])
-     (output (operator-table progs) #:title "Features used"))))
+     (output (operator-table progs) #:title "Features used")
+     (output (domain-table progs) #:title "Domains")
+     (output (source-table progs) #:title "Sources")
+     (output (status-table progs) #:title "Status"))))

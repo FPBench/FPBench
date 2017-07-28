@@ -185,7 +185,7 @@
  
 (FPCore (x)
  :name "NMSE section 3.11"
- :cite (hamming-1987) herbie-2015
+ :cite (hamming-1987 herbie-2015)
  :fpbench-domain textbook
  :pre (!= x 0)
  (/ (exp x) (- (exp x) 1)))

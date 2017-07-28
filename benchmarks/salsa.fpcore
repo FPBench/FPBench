@@ -1,3 +1,5 @@
+;; -*- mode: scheme -*-
+
 (FPCore
  (sr* sl*)
  :name
@@ -6,6 +8,8 @@
  "Compute the position of a robot from the speed of the wheels.\nInputs: Speed `sl`, `sr` of the left and right wheel, in rad/s."
  :cite
  (damouche-martel-chapoutot-fmics15)
+ :fpbench-domain
+ controls
  :type
  binary32
  :pre
@@ -110,6 +114,8 @@
  "Compute the position of a robot from the speed of the wheels.\nInputs: Speed `sl`, `sr` of the left and right wheel, in rad/s."
  :cite
  (damouche-martel-chapoutot-fmics15)
+ :fpbench-domain
+ controls
  :type
  binary32
  :pre
@@ -214,6 +220,8 @@
  "Keep a measure at its setpoint using a PID controller.\nInputs: Measure `m`; gains `kp`, `ki`, `kd`; setpoint `c`"
  :cite
  (damouche-martel-chapoutot-nsv14)
+ :fpbench-domain
+ controls
  :type
  binary64
  :pre
@@ -248,6 +256,8 @@
  "Solve the differential equation `y' = (c - y)^2\nInputs: Step size `h`; initial condition `y_n*`; paramter `c`"
  :cite
  (damouch-martel-chapoutot-fmics15)
+ :fpbench-domain
+ mathematics
  :type
  binary32
  :pre
@@ -312,6 +322,8 @@
  "Solve the differential equation `y' = (c - y)^2\nInputs: Step size `h`; initial condition `y_n*`; paramter `c`"
  :cite
  (damouch-martel-chapoutot-fmics15)
+ :fpbench-domain
+ mathematics
  :type
  binary32
  :pre
@@ -376,6 +388,8 @@
  "Move a mass from an initial position to a desired position.\nInputs: Initial position `y`; desired position `yd`"
  :cite
  (feron-ieee10)
+ :fpbench-domain
+ controls
  :type
  binary32
  :pre
@@ -454,6 +468,8 @@
  "Compute the trajectory of a rocket around the earth.\nInputs: Mass `Mf`; acceleration `A`"
  :cite
  (damouche-martel-chapoutot-cf15)
+ :fpbench-domain
+ controls
  :type
  binary32
  :example
@@ -588,6 +604,8 @@
  "Compute the trajectory of a rocket around the earth.\nInputs: Mass `Mf`; acceleration `A`"
  :cite
  (damouche-martel-chapoutot-cf15)
+ :fpbench-domain
+ controls
  :type
  binary32
  :example
@@ -722,6 +740,8 @@
  "Solve a linear system `Ax = b`.\nInputs: Array entries `aij`; vector entries `bi`"
  :cite
  (atkinson-1989)
+ :fpbench-domain
+ mathematics
  :type
  binary32
  :example
@@ -783,6 +803,8 @@
  "Solve a linear system `Ax = b`.\nInputs: Array entries `aij`; vector entries `bi`"
  :cite
  (atkinson-1989)
+ :fpbench-domain
+ mathematics
  :type
  binary32
  :example
@@ -849,6 +871,8 @@
  "Solve a linear system `Ax = b`.\nInputs: Array entries `aij`; vector entries `bi`"
  :cite
  (atkinson-1989)
+ :fpbench-domain
+ mathematics
  :type
  binary32
  :example
@@ -910,6 +934,8 @@
  "Solve a linear system `Ax = b`.\nInputs: Array entries `aij`; vector entries `bi`"
  :cite
  (atkinson-1989)
+ :fpbench-domain
+ mathematics
  :type
  binary32
  :example
@@ -971,6 +997,8 @@
  "Find the zeros of a function `f = (x - 2)**5`.\nInputs: Initial guess `x0`"
  :cite
  (atkinson-1989)
+ :fpbench-domain
+ mathematics
  :type
  binary32
  :pre
@@ -1040,6 +1068,8 @@
  "Find the zeros of a function `f = (x - 2)**5`.\nInputs: Initial guess `x0`"
  :cite
  (atkinson-1989)
+ :fpbench-domain
+ mathematics
  :type
  binary32
  :pre
@@ -1109,6 +1139,8 @@
  "Find the zeros of a function `f = (x - 2)**5`.\nInputs: Initial guess `x0`"
  :cite
  (atkinson-1989)
+ :fpbench-domain
+ mathematics
  :type
  binary32
  :pre
@@ -1199,6 +1231,8 @@
  "Find the zeros of a function `f = (x - 2)**5`.\nInputs: Initial guess `x0`"
  :cite
  (atkinson-1989)
+ :fpbench-domain
+ mathematics
  :type
  binary32
  :pre
@@ -1268,6 +1302,8 @@
  "Compute the largest eigenvalue of a matrix and return its vector.\nInputs: Matrix `aij`; initial guess `vi` with one nonzero element"
  :cite
  (golub-vanloan-1996)
+ :fpbench-domain
+ mathematics
  :type
  binary32
  :pre
@@ -1329,6 +1365,8 @@
  "Compute the largest eigenvalue of a matrix and return its vector.\nInputs: Matrix `aij`; initial guess `vi` with one nonzero element"
  :cite
  (golub-vanloan-1996)
+ :fpbench-domain
+ mathematics
  :type
  binary32
  :pre
@@ -1390,6 +1428,8 @@
  "Compute the largest eigenvalue of a matrix and return its vector.\nInputs: Matrix `aij`; initial guess `vi` with one nonzero element"
  :cite
  (golub-vanloan-1996)
+ :fpbench-domain
+ mathematics
  :type
  binary32
  :pre
@@ -1452,6 +1492,8 @@
  "Compute the largest eigenvalue of a matrix and return its vector.\nInputs: Matrix `aij`; initial guess `vi` with one nonzero element"
  :cite
  (golub-vanloan-1996)
+ :fpbench-domain
+ mathematics
  :type
  binary32
  :pre
@@ -1513,6 +1555,8 @@
  "Orthogonalize a set of non-zero vectors in a Euclidian or Hermitian space.\nInputs: Vectors `Qij`"
  :cite
  (abdelmalek-bit71 golub-vanloan-1996 hernandez-roman-tomas-vidal-tr07)
+ :fpbench-domain
+ mathematics
  :type
  binary32
  :pre
@@ -1614,6 +1658,8 @@
  "Orthogonalize a set of non-zero vectors in a Euclidian or Hermitian space.\nInputs: Vectors `Qij`"
  :cite
  (abdelmalek-bit71 golub-vanloan-1996 hernandez-roman-tomas-vidal-tr07)
+ :fpbench-domain
+ mathematics
  :type
  binary32
  :pre
@@ -1715,6 +1761,8 @@
  "Orthogonalize a set of non-zero vectors in a Euclidian or Hermitian space.\nInputs: Vectors `Qij`"
  :cite
  (abdelmalek-bit71 golub-vanloan-1996 hernandez-roman-tomas-vidal-tr07)
+ :fpbench-domain
+ mathematics
  :type
  binary32
  :pre
@@ -1816,6 +1864,8 @@
  "Orthogonalize a set of non-zero vectors in a Euclidian or Hermitian space.\nInputs: Vectors `Qij`"
  :cite
  (abdelmalek-bit71 golub-vanloan-1996 hernandez-roman-tomas-vidal-tr07)
+ :fpbench-domain
+ mathematics
  :type
  binary32
  :pre
@@ -1917,6 +1967,8 @@
  "Orthogonalize a set of non-zero vectors in a Euclidian or Hermitian space.\nInputs: Vectors `Qij`"
  :cite
  (abdelmalek-bit71 golub-vanloan-1996 hernandez-roman-tomas-vidal-tr07)
+ :fpbench-domain
+ mathematics
  :type
  binary32
  :pre

@@ -101,9 +101,10 @@
     [fdim (λ (x y) (abs (- x y)))]
     [< <] [> >] [<= <=] [>= >=] [== =] [!= (compose not =)]
     [and (λ (x y) (and x y))] [or (λ (x y) (or x y))] [not not]
+    [isnan nan?] [isinf infinite?]
+    [isfinite (λ (x) (not (or (nan? x) (infinite? x))))]
     ; TODO: Currently unsupported
-    ;[fma '?] [expm1 '?] [log1p '?]
-    ;[isfinite '?] [isinf '?] [isnan '?] [isnormal '?] [signbit '?]
+    ;[fma '?] [expm1 '?] [log1p '?] [isnormal '?] [signbit '?]
     ;[fmod '?] [remainder '?] [copysign '?] [nearbyint '?]
     )))
 

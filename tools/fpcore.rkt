@@ -60,7 +60,11 @@
     ((eval-expr* evaltor eval) expr ctx)))
 
 (define-syntax-rule (table-fn [var val] ...)
-  (match-lambda [`var val] ...))
+  (match-lambda
+   [`var val] ...
+   [unsupported-value
+    (error 'eval-expr "Unimplemented operation ~a"
+           unsupported-value)]))
 
 (define/contract racket-double-evaluator evaluator?
   (evaluator
@@ -98,10 +102,10 @@
     [< <] [> >] [<= <=] [>= >=] [== =] [!= (compose not =)]
     [and (λ (x y) (and x y))] [or (λ (x y) (or x y))] [not not]
     ; TODO: Currently unsupported
-    [fma '?] [expm1 '?] [log1p '?]
-    [isfinite '?] [isinf '?] [isnan '?] [isnormal '?] [signbit '?]
-    [fmod '?] [remainder '?]
-    [copysign '?] [nearbyint '?])))
+    ;[fma '?] [expm1 '?] [log1p '?]
+    ;[isfinite '?] [isinf '?] [isnan '?] [isnormal '?] [signbit '?]
+    ;[fmod '?] [remainder '?] [copysign '?] [nearbyint '?]
+    )))
 
 (define/contract racket-single-evaluator evaluator?
   (struct-copy evaluator racket-double-evaluator

@@ -1,15 +1,340 @@
 ;; -*- mode: scheme -*-
 
-; All test cases come from the EPFL Rosa project, available at
-; https://github.com/malyzajko/rosa
-; which is the subject of the POPL'14 paper
-; E. Darulova, V. Kuncak, "Sound Compilation of Reals", POPL'14
+;; All test cases come from the EPFL Rosa project, available at
+;; https://github.com/malyzajko/rosa
+;; in `/testcases/real/popl2014/`
+;; which is the subject of the POPL'14 paper
+;; E. Darulova, V. Kuncak, "Sound Compilation of Reals", POPL'14
 
-;; https://github.com/malyzajko/rosa/blob/master/testcases/real/techreport/NBody.scala
+;; This collection is called `ApproximationBenchmarks` and appears in
+;; the main evaluation table.
+
+(FPCore (u v T)
+  :name "doppler1"
+  :cite (darulova-kuncak-2014)
+  :fpbench-domain science
+  :pre (and (<= -100 u 100) (<= 20 v 20000) (<= -30 T 50))
+  :rosa-ensuring 1e-12
+  (let ([t1 (+ 331.4 (* 0.6 T))])
+    (/ (* (- t1) v) (* (+ t1 u) (+ t1 u)))))
+
+(FPCore (u v T)
+  :name "doppler2"
+  :cite (darulova-kuncak-2014)
+  :fpbench-domain science
+  :pre (and (<= -125 u 125) (<= 15 v 25000) (<= -40 T 60))
+  (let ([t1 (+ 331.4 (* 0.6 T))])
+    (/ (* (- t1) v) (* (+ t1 u) (+ t1 u)))))
+
+(FPCore (u v T)
+  :name "doppler3"
+  :cite (darulova-kuncak-2014)
+  :fpbench-domain science
+  :pre (and (<= -30 u 120) (<= 320 v 20300) (<= -50 T 30))
+  (let ([t1 (+ 331.4 (* 0.6 T))])
+    (/ (* (- t1) v) (* (+ t1 u) (+ t1 u)))))
+
+(FPCore (x1 x2 x3)
+  :name "rigidBody1"
+  :cite (darulova-kuncak-2014)
+  :fpbench-domain science
+  :pre (and (<= -15 x1 15) (<= -15 x2 15) (<= -15 x3 15))
+  (- (- (- (- (* x1 x2)) (* (* 2 x2) x3)) x1) x3))
+
+(FPCore (x1 x2 x3)
+  :name "rigidBody2"
+  :cite (darulova-kuncak-2014)
+  :fpbench-domain science
+  :pre (and (<= -15 x1 15) (<= -15 x2 15) (<= -15 x3 15))
+  (- (+ (- (+ (* (* (* 2 x1) x2) x3) (* (* 3 x3) x3))
+           (* (* (* x2 x1) x2) x3)) (* (* 3 x3) x3))
+     x2))
+
+(FPCore (x1 x2)
+  :name "jetEngine"
+  :cite (darulova-kuncak-2014)
+  :fpbench-domain controls
+  :pre (and (<= -5 x1 5) (<= -20 x2 5))
+  (let ([t (- (+ (* (* 3 x1) x1) (* 2 x2)) x1)]
+        [t* (- (- (* (* 3 x1) x1) (* 2 x2)) x1)]
+        [d (+ (* x1 x1) 1)])
+    (let ([s (/ t d)] [s* (/ t* d)])
+      (+ x1
+         (+
+          (+ 
+           (+ 
+            (+ 
+             (* (+ (* (* (* 2 x1) s) (- s 3)) (* (* x1 x1) (- (* 4 s) 6))) d)
+             (* (* (* 3 x1) x1) s))
+            (* (* x1 x1) x1))
+           x1)
+          (* 3 s*))))))
+
+(FPCore (v w r)
+  :name "turbine1"
+  :cite (darulova-kuncak-2014)
+  :fpbench-domain controls
+  :pre (and (<= -4.5 v -0.3) (<= 0.4 w 0.9) (<= 3.8 r 7.8))
+  (- (- (+ 3 (/ 2 (* r r))) (/ (* (* 0.125 (- 3 (* 2 v))) (* (* (* w w) r) r)) (- 1 v))) 4.5))
+
+(FPCore (v w r)
+  :name "turbine2"
+  :cite (darulova-kuncak-2014)
+  :fpbench-domain controls
+  :pre (and (<= -4.5 v -0.3) (<= 0.4 w 0.9) (<= 3.8 r 7.8))
+  (- (- (* 6 v) (/ (* (* 0.5 v) (* (* (* w w) r) r)) (- 1 v))) 2.5))
+
+(FPCore (v w r)
+  :name "turbine3"
+  :cite (darulova-kuncak-2014)
+  :fpbench-domain controls
+  :pre (and (<= -4.5 v -0.3) (<= 0.4 w 0.9) (<= 3.8 r 7.8))
+  (- (- (- 3 (/ 2 (* r r)))
+        (/ (* (* 0.125 (+ 1 (* 2 v))) (* (* (* w w) r) r)) (- 1 v)))
+     0.5))
+
+(FPCore (r K x)
+  :name "verhulst"
+  :cite (darulova-kuncak-2014)
+  :fpbench-domain science
+  :pre (<= 0.1 x 0.3)
+  (let ([r 4.0] [K 1.11])
+    (/ (* r x) (+ 1 (/ x K)))))
+
+(FPCore (r K x)
+  :name "predatorPrey"
+  :cite (darulova-kuncak-2014)
+  :fpbench-domain science
+  :pre (<= 0.1 x 0.3)
+  (let ([r 4.0] [K 1.11])
+    (/ (* (* r x) x) (+ 1 (* (/ x K) (/ x K))))))
+
+(FPCore (T a b N p v)
+  :name "carbonGas"
+  :cite (darulova-kuncak-2014)
+  :fpbench-domain science
+  :pre (<= 0.1 v 0.5)
+  (let ([p 3.5e7] [a 0.401] [b 42.7e-6] [t 300] [n 1000] [k 1.3806503e-23])
+    (- (* (+ p (* (* a (/ n v)) (/ n v))) (- v (* n b))) (* (* k n) t))))
+
+(FPCore (x)
+  :name "sine"
+  :cite (darulova-kuncak-2014)
+  :fpbench-domain mathematics
+  :rosa-post (=> res (< -1 res 1))
+  :rosa-ensuring 1e-14
+  :pre (< -1.57079632679 x 1.57079632679)
+  (- (+ (- x (/ (* (* x x) x) 6.0))
+        (/ (* (* (* (* x x) x) x) x) 120))
+     (/ (* (* (* (* (* (* x x) x) x) x) x) x) 5040)))
+
+(FPCore (x)
+  :name "sqroot"
+  :cite (darulova-kuncak-2014)
+  :fpbench-domain mathematics
+  :pre (<= 0 x 1)
+  (- (+ (- (+ 1.0 (* 0.5 x)) (* (* 0.125 x) x))
+        (* (* (* 0.0625 x) x) x)) (* (* (* (* 0.0390625 x) x) x) x)))
+
+(FPCore (x)
+  :name "sineOrder3"
+  :cite (darulova-kuncak-2014)
+  :fpbench-domain mathematics
+  :pre (< -2 x 2)
+  :rosa-post (=> res (< -1 res 1))
+  :rosa-ensuring 1e-14
+  (- (* 0.954929658551372 x) (* 0.12900613773279798 (* (* x x) x))))
+
+;; These are called `PathError` and appear in a figure in the paper on
+;; path error.
+
+(FPCore (a b c)
+  :name "smartRoot"
+  :cite (darulova-kuncak-2014)
+  :fpbench-domain mathematics
+  :pre (let ([a 3] [b 3.5])
+         (and (<= -2 c 2) (> (- (* b b) (* (* a c) 4.0)) 0.1)))
+  :rosa-ensuring 6e-15
+  (let ([a 3] [b 3.5])
+    (let ([discr (- (* b b) (* (* a c) 4.0))])
+      (if (> (- (* b b) (* a c)) 10)
+          (if (> b 0)
+              (/ (* c 2) (- (- b) (sqrt discr)))
+              (if (< b 0)
+                  (/ (+ (- b) (sqrt discr)) (* a 2))
+                  (/ (+ (- b) (sqrt discr)) (* a 2))))
+          (/ (+ (- b) (sqrt discr)) (* a 2))))))
+
+(FPCore (x)
+  :name "cav10"
+  :cite (darulova-kuncak-2014)
+  :pre (< 0 x 10)
+  :rosa-post (=> res (<= 0 res 3.0))
+  :rosa-ensuring 3.0
+  (if (>= (- (* x x) x) 0)
+      (/ x 10)
+      (+ (* x x) 2)))
+
+(FPCore (x)
+  :name "squareRoot3"
+  :cite (darulova-kuncak-2014)
+  :pre (< 0 x 10)
+  :rosa-ensuring 1e-10
+  (if (< x 1e-5)
+      (+ 1 (* 0.5 x))
+      (sqrt (+ 1 x))))
+
+(FPCore (x)
+  :name "squareRoot3Invalid"
+  :cite (darulova-kuncak-2014)
+  :pre (< 0 x 10)
+  :rosa-ensuring 1e-10
+  (if (< x 1e-4)
+      (+ 1 (* 0.5 x))
+      (sqrt (+ 1 x))))
+
+;; These are called `TriangleProgression` and appear in a minor table.
+
+(FPCore (a b c)
+  :name "triangle"
+  :cite (darulova-kuncak-2014)
+  :pre (and (<= 4.71 b 4.89) (<= 4.71 c 4.89))
+  (let ([a 9])
+    (let ([s (/ (+ (+ a b) c) 2)])
+      (sqrt (* (* (* s (- s a)) (- s b)) (- s c))))))
+
+(FPCore (a b c)
+  :name "triangle1"
+  :cite (darulova-kuncak-2014)
+  :pre (and (<= 1 a 9) (<= 1 b 9) (<= 1 c 9)
+            (> (+ a b) (+ c 0.1)) (> (+ a c) (+ b 0.1)) (> (+ b c) (+ a 0.1)))
+  :rosa-post (=> res (<= 0.29 res 35.1))
+  :rosa-ensuring 2.7e-11
+  (let ([s (/ (+ (+ a b) c) 2)])
+    (sqrt (* (* (* s (- s a)) (- s b)) (- s c)))))
+
+(FPCore (a b c)
+  :name "triangle2"
+  :cite (darulova-kuncak-2014)
+  :pre (and (<= 1 a 9) (<= 1 b 9) (<= 1 c 9)
+            (> (+ a b) (+ c 1e-2)) (> (+ a c) (+ b 1e-2)) (> (+ b c) (+ a 1e-2)))
+  (let ([s (/ (+ (+ a b) c) 2)])
+    (sqrt (* (* (* s (- s a)) (- s b)) (- s c)))))
+
+(FPCore (a b c)
+  :name "triangle3"
+  :cite (darulova-kuncak-2014)
+  :pre (and (<= 1 a 9) (<= 1 b 9) (<= 1 c 9)
+            (> (+ a b) (+ c 1e-3)) (> (+ a c) (+ b 1e-3)) (> (+ b c) (+ a 1e-3)))
+  (let ([s (/ (+ (+ a b) c) 2)])
+    (sqrt (* (* (* s (- s a)) (- s b)) (- s c)))))
+
+(FPCore (a b c)
+  :name "triangle4"
+  :cite (darulova-kuncak-2014)
+  :pre (and (<= 1 a 9) (<= 1 b 9) (<= 1 c 9)
+            (> (+ a b) (+ c 1e-4)) (> (+ a c) (+ b 1e-4)) (> (+ b c) (+ a 1e-4)))
+  (let ([s (/ (+ (+ a b) c) 2)])
+    (sqrt (* (* (* s (- s a)) (- s b)) (- s c)))))
+
+(FPCore (a b c)
+  :name "triangle5"
+  :cite (darulova-kuncak-2014)
+  :pre (and (<= 1 a 9) (<= 1 b 9) (<= 1 c 9)
+            (> (+ a b) (+ c 1e-5)) (> (+ a c) (+ b 1e-5)) (> (+ b c) (+ a 1e-5)))
+  (let ([s (/ (+ (+ a b) c) 2)])
+    (sqrt (* (* (* s (- s a)) (- s b)) (- s c)))))
+
+(FPCore (a b c)
+  :name "triangle6"
+  :cite (darulova-kuncak-2014)
+  :pre (and (<= 1 a 9) (<= 1 b 9) (<= 1 c 9)
+            (> (+ a b) (+ c 1e-6)) (> (+ a c) (+ b 1e-6)) (> (+ b c) (+ a 1e-6)))
+  (let ([s (/ (+ (+ a b) c) 2)])
+    (sqrt (* (* (* s (- s a)) (- s b)) (- s c)))))
+
+(FPCore (a b c)
+  :name "triangle7"
+  :cite (darulova-kuncak-2014)
+  :pre (and (<= 1 a 9) (<= 1 b 9) (<= 1 c 9)
+            (> (+ a b) (+ c 1e-7)) (> (+ a c) (+ b 1e-7)) (> (+ b c) (+ a 1e-7)))
+  (let ([s (/ (+ (+ a b) c) 2)])
+    (sqrt (* (* (* s (- s a)) (- s b)) (- s c)))))
+
+(FPCore (a b c)
+  :name "triangle8"
+  :cite (darulova-kuncak-2014)
+  :pre (and (<= 1 a 9) (<= 1 b 9) (<= 1 c 9)
+            (> (+ a b) (+ c 1e-8)) (> (+ a c) (+ b 1e-8)) (> (+ b c) (+ a 1e-8)))
+  (let ([s (/ (+ (+ a b) c) 2)])
+    (sqrt (* (* (* s (- s a)) (- s b)) (- s c)))))
+
+(FPCore (a b c)
+  :name "triangle9"
+  :cite (darulova-kuncak-2014)
+  :pre (and (<= 1 a 9) (<= 1 b 9) (<= 1 c 9)
+            (> (+ a b) (+ c 1e-9)) (> (+ a c) (+ b 1e-9)) (> (+ b c) (+ a 1e-9)))
+  (let ([s (/ (+ (+ a b) c) 2)])
+    (sqrt (* (* (* s (- s a)) (- s b)) (- s c)))))
+
+(FPCore (a b c)
+  :name "triangle10"
+  :cite (darulova-kuncak-2014)
+  :pre (and (<= 1 a 9) (<= 1 b 9) (<= 1 c 9)
+            (> (+ a b) (+ c 1e-10)) (> (+ a c) (+ b 1e-10)) (> (+ b c) (+ a 1e-10)))
+  (let ([s (/ (+ (+ a b) c) 2)])
+    (sqrt (* (* (* s (- s a)) (- s b)) (- s c)))))
+
+(FPCore (a b c)
+  :name "triangle11"
+  :cite (darulova-kuncak-2014)
+  :pre (and (<= 1 a 9) (<= 1 b 9) (<= 1 c 9)
+            (> (+ a b) (+ c 1e-11)) (> (+ a c) (+ b 1e-11)) (> (+ b c) (+ a 1e-11)))
+  (let ([s (/ (+ (+ a b) c) 2)])
+    (sqrt (* (* (* s (- s a)) (- s b)) (- s c)))))
+
+(FPCore (a b c)
+  :name "triangle12"
+  :cite (darulova-kuncak-2014)
+  :pre (and (<= 1 a 9) (<= 1 b 9) (<= 1 c 9)
+            (> (+ a b) (+ c 1e-12)) (> (+ a c) (+ b 1e-12)) (> (+ b c) (+ a 1e-12)))
+  (let ([s (/ (+ (+ a b) c) 2)])
+    (sqrt (* (* (* s (- s a)) (- s b)) (- s c)))))
+
+;; This benchmark is in the `Z3Only` file
+
+(FPCore (u)
+  :name "bspline3"
+  :cite (darulova-kuncak-2014)
+  :pre (<= 0 u 1)
+  :rosa-post (=> res (<= -0.17 res 0.05))
+  :rosa-ensuring 1e-11
+  (/ (- (* (* u u) u)) 6))
+
+;; This benchmark is in `InitialExample`
+
+(FPCore (a b c)
+  :name "triangleSorted"
+  :cite (darulova-kuncak-2014)
+  :pre (and (<= 1 a 9) (<= 1 b 9) (<= 1 c 9)
+            (> (+ a b) (+ c 1e-6)) (> (+ a c) (+ b 1e-6)) (> (+ b c) (+ a 1e-6))
+            (< a c) (< b c))
+  :rosa-post (=> res (>= res 0))
+  :rosa-ensuring 2e-9
+  (if (< a b)
+      (/ (sqrt (* (* (* (+ c (+ b a)) (- a (- c b)))
+                     (+ a (- c b))) (+ c (- b a))))
+         4.0)
+      (/ (sqrt (* (* (* (+ c (+ a b)) (- b (- c a)))
+                     (+ b (- c a))) (+ c (- a b))))
+         4.0)))
+
+;; The remaining benchmarks are from the same Github repo in the
+;; `/testcases/real/techreport/` directory.
+
 (FPCore ( x0  y0  z0
          vx0 vy0 vz0)
   :name "N Body Simulation"
-  :cite (darulova-kuncak-2014)
   :fpbench-domain science
   :pre (and (< -6 x0 6) (< -6 y0 6) (< -0.2 z0 0.2)
             (< -3 vx0 3) (< -3 vy0 3) (< -0.1 vz0 0.1))
@@ -42,10 +367,8 @@
                       ;; properly.
       x)))
 
-;; https://github.com/malyzajko/rosa/blob/master/testcases/real/techreport/Pendulum.scala
 (FPCore (t0 w0 N)
   :name "Pendulum"
-  :cite (darulova-kuncak-2014)
   :fpbench-domain science
   :pre (and (< -2 t0 2) (< -5 w0 5))
   :example ([N 1000])
@@ -62,10 +385,8 @@
        [n 0 (+ n 1)])
       t)))
 
-;; https://github.com/malyzajko/rosa/blob/master/testcases/real/techreport/SineNewton.scala
 (FPCore (x0)
   :name "Sine Newton"
-  :cite (darulova-kuncak-2014)
   :fpbench-domain mathematics
   :pre (< -1 x0 1)
   (while (< i 10)
@@ -74,43 +395,3 @@
      [i 0 (+ i 1)])
     x))
 
-(FPCore (x1 x2)
-  :name "JetEngine"
-  :cite (darulova-kuncak-2014)
-  :fpbench-domain controls
-  :pre (and (<= -5 x1 5) (<= -20 x2 5))
-  (let ([t (- (+ (* (* 3 x1) x1) (* 2 x2)) x1)]
-        [t* (- (- (* (* 3 x1) x1) (* 2 x2)) x1)]
-        [d (+ (* x1 x1) 1)])
-    (let ([s (/ t d)] [s* (/ t* d)])
-      (+ x1
-         (+
-          (+ 
-           (+ 
-            (+ 
-             (* (+ (* (* (* 2 x1) s) (- s 3)) (* (* x1 x1) (- (* 4 s) 6))) d)
-             (* (* (* 3 x1) x1) s))
-            (* (* x1 x1) x1))
-           x1)
-          (* 3 s*))))))
-
-(FPCore (u v T)
-  :name "Doppler"
-  :cite (darulova-kuncak-2014)
-  :fpbench-domain science
-  :pre (and (<= -100 u 100) (<= 20 v 20000) (<= -30 T 50))
-  (let ([t1 (+ 331.4 (* 0.6 T))])
-    (/ (* (- t1) v) (* (+ t1 u) (+ t1 u)))))
-
-(FPCore (x)
-  :name "sineOrder3"
-  :cite (darulova-kuncak-2014)
-  :fpbench-domain mathematics
-  (- (* 0.954929658551372 x) (* 0.12900613773279798 (* (* x x) x))))
-
-(FPCore (v w r)
-  :name "Turbine"
-  :cite (darulova-kuncak-2014)
-  :fpbench-domain controls
-  :pre (and (<= -4.5 v -0.3) (<= 0.4 w 0.9) (<= 3.8 r 7.8))
-  (- (- (+ 3 (/ 2 (* r r))) (/ (* (* 0.125 (- 3 (* 2 v))) (* (* (* w w) r) r)) (- 1 v))) 4.5))

@@ -2,36 +2,43 @@
 
 ;; From the FPTaylor project <https://github.com/soarlab/FPTaylor>,
 ;; all `*.txt` files in the directory `benchmarks/real2float/`.
+;; Note that the many are duplicates of benchmarks from Rosa,
+;; and those are not represented here (see rosa.fpcore instead).
 
-;; The _fp variants use mixed real/float operations, so are skipped
-
-(FPCore (v)
- :name "carbonGas"
+(FPCore (x)
+ :name "logexp"
+ :cite (solovyev-et-al-2015)
  :type binary64
- :pre (<= 0.1 v 0.5)
- (let ([p 3.5e7] [a 0.401] [b 42.7e-6] [t 300] [n 1000])
-   (- (* (+ p (* a (* (/ n v) (/ n v)))) (- v (* n b))) (* (* 1.3806503e-23 n) t))))
+ :pre (<= -8 x 8)
+ (let ([e (exp x)])
+   (log (+ 1 e))))
 
-(FPCore (u v T)
- :name "doppler1"
+(FPCore (x r lat lon)
+ :name "sphere"
+ :cite (solovyev-et-al-2015)
  :type binary64
- :pre (and (<= -100 u 100) (<= 20 v 20000) (<= -30 T 50))
- (let ([t1 (+ 331.4 (* 0.6 T))])
-   (/ (* (- t1) v) (* (+ t1 u) (+ t1 u)))))
+ :pre (and (<= -10 x 10) (<= 0 r 10)
+           (<= -1.570796 lat 1.570796) (<= -3.14159265 lon 3.14159265))
+ (let ([sinLat (sin lat)] [cosLon (cos lon)])
+   (+ x (* (* r sinLat) cosLon))))
 
-(FPCore (u v T)
- :name "doppler2"
+(FPCore (lat1 lat2  lon1 lon2)
+ :name "azimuth"
+ :cite (solovyev-et-al-2015)
  :type binary64
- :pre (and (<= -125 u 125) (<= 15 v 25000) (<= -40 T 60))
- (let ([t1 (+ 331.4 (* 0.6 T))])
-   (/ (* (- t1) v) (* (+ t1 u) (+ t1 u)))))
+ :pre (and (<= 0 lat1 0.4) (<= 0.5 lat2 1)
+           (<= 0 lon1 3.14159265) (<= -3.14159265 lon2 -0.5))
+ (let ([dLon (- lon2 lon1)])
+   (let ([s_lat1 (sin lat1)] [c_lat1 (cos lat1)]
+         [s_lat2 (sin lat2)] [c_lat2 (cos lat2)]
+         [s_dLon (sin dLon)] [c_dLon (cos dLon)])
+     (atan
+      (/ (* c_lat2 s_dLon)
+         (- (* c_lat1 s_lat2) (* (* s_lat1 c_lat2) c_dLon)))))))
 
-(FPCore (u v T)
- :name "doppler3"
- :type binary64
- :pre (and (<= -30 u 120) (<= 320 v 20300) (<= -50 T 30))
- (let ([t1 (+ 331.4 (* 0.6 T))])
-   (/ (* (- t1) v) (* (+ t1 u) (+ t1 u)))))
+;; The remainder are not used in solovyev-et-al-2015, but are present
+;; in the repository. The _fp variants use mixed real/float
+;; operations, so are skipped.
 
 (FPCore (x1 x2 x3 x4 x5 x6)
  :name "floudas1"
@@ -137,71 +144,3 @@
           (* (* x1 x3) x5))
        (* (* x1 x2) x6))
     (* (* x4 x5) x6)))
-
-(FPCore (x)
- :name "logexp"
- :type binary64
- :pre (<= -8 x 8)
- (let ([e (exp x)])
-   (log (+ 1 e))))
-
-(FPCore (x)
- :name "predPrey"
- :type binary64
- :pre (<= 0.1 x 0.3)
- (let ([k 1.11])
-   (/ (* (* 4 x) x) (+ 1 (* (/ x k) (/ x k))))))
-
-(FPCore (x1 x2 x3)
- :name "rigidbody1"
- :type binary64
- :pre (and (<= -15 x1 15) (<= -15 x2 15) (<= -15 x3 15))
- (- (- (- (- (* x1 x2)) (* (* 2 x2) x3)) x1) x3))
-
-(FPCore (x1 x2 x3)
- :name "rigidbody2"
- :type binary64
- :pre (and (<= -15 x1 15) (<= -15 x2 15) (<= -15 x3 15))
- (- (+ (- (+ (* (* (* 2 x1) x2) x3)
-             (* (* 3 x3) x3))
-          (* (* (* x2 x1) x2) x3))
-       (* (* 3 x3) x3))
-    x2))
-
-(FPCore (z)
- :name "sineOrder3"
- :type binary64
- :pre (<= -2 z 2)
- (let ([c1 0.954929658551372]
-       [c2 0.12900613773279798])
-   (- (* c1 z) (* c2 (* (* z z) z)))))
-
-(FPCore (x)
- :name "sineOrder3"
- :type binary64
- :pre (<= -1.57079632679 x 1.57079632679)
- (- (+ (- x (/ (* (* x x) x) 6.0))
-       (/ (* (* (* (* x x) x) x) x) 120.0))
-    (/ (* (* (* (* (* (* x x) x) x) x) x) x)
-       5040.0)))
-
-(FPCore (x r lat lon)
- :name "sphere"
- :type binary64
- :pre (and (<= -10 x 10) (<= 0 r 10)
-           (<= -1.570796 lat 1.570796) (<= -3.14159265 lon 3.14159265))
- (let ([sinLat (sin lat)] [cosLon (cos lon)])
-   (+ x (* (* r sinLat) cosLon))))
-
-(FPCore (y)
- :name "sqrt"
- :type binary64
- :pre (<= 0 y 1)
- (- (+ (- (+ 1.0 (* 0.5 y)) (* (* 0.125 y) y))
-       (* (* (* 0.0625 y) y) y)) (* (* (* (* 0.0390625 y) y) y) y)))
-
-(FPCore (x)
- :name "verhulst"
- :type binary64
- :pre (<= 0.1 x 0.3)
- (/ (* 4 x) (+ 1 (/ x 1.11))))

@@ -54,7 +54,7 @@ Inputs: Speed `sl`, `sr` of the left and right wheel, in rad/s."
  :name "PID"
  :description "Keep a measure at its setpoint using a PID controller.
 Inputs: Measure `m`; gains `kp`, `ki`, `kd`; setpoint `c`"
- :cite (damouche-martel-chapoutot-nsv14)
+ :cite (damouche-martel-chapoutot-nsv14 damouche-martel-chapoutot-fmics15)
  :fpbench-domain controls
  :type binary64
  :pre (and (< -10.0 m 10.0) (< -10.0 c 10.0))
@@ -109,7 +109,7 @@ Inputs: Step size `h`; initial condition `y_n*`; paramter `c`"
  :name "Lead-lag System"
  :description "Move a mass from an initial position to a desired position.
 Inputs: Initial position `y`; desired position `yd`"
- :cite (feron-ieee10)
+ :cite (feron-ieee10 damouche-martel-chapoutot-fmics15)
  :fpbench-domain controls
  :type binary32
  :pre (and (< 0 yd 50) (< 0 y 50))
@@ -138,6 +138,28 @@ Inputs: Initial position `y`; desired position `yd`"
    [= i (+ i 1.0)]
    [= e (fabs (- yc xc1))])
  (output xc1))
+
+(FPImp (u)
+ :name "Trapeze"
+ :cite (damouche-martel-chapoutot-fmics15)
+ :fpbench-domain mathematics
+ :pre (<= 1.11 u 2.22)
+ [= a 0.25]
+ [= b 5000]
+ [= n 25]
+ [= r 0]
+ [= xa 0.25]
+ [= h (/ (- b a) n)]
+ (while (< xa 5000)
+   [= xb (+ xa h)]
+   (if [(> xb 5000) [= xb 5000]])
+   [= gxa (/ u (- (+ (- (* (* (* 0.7 xa) xa) xa) (* (* 0.6 xa) xa))
+                     (* 0.9 xa)) 0.2))]
+   [= gxb (/ u (- (+ (- (* (* (* 0.7 xb) xb) xb) (* (* 0.6 xb) xb))
+                     (* 0.9 xb)) 0.2))]
+   [= r (+ r (* (* (+ gxa gxb) 0.5) h))]
+   [= xa (+ xa h)])
+ (output r))
 
 (FPImp (Mf A)
  :name "Rocket Trajectory"

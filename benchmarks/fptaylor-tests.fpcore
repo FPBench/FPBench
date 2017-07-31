@@ -3,6 +3,13 @@
 ;; From the FPTaylor project <https://github.com/soarlab/FPTaylor>,
 ;; all `*.txt` files in the directory `benchmarks/tests/`.
 
+(FPCore (x y)
+  :name "intro-example"
+  :type binary64
+  :pre (and (<= 1.001 x 2) (<= 1.001 y 2))
+  (let ([t (* x y)])
+    (/ (- t 1) (- (* t t) 1))))
+
 (FPCore (x0 x1 x2)
   :name "test01_sum3"
   :type binary32

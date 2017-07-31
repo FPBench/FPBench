@@ -50,7 +50,7 @@
  :name "NMSE problem 3.3.3"
  :cite (hamming-1987 herbie-2015)
  :fpbench-domain textbook
- :pre (!= x 0)
+ :pre (!= x 0 1 -1)
  (+ (- (/ 1 (+ x 1)) (/ 2 x)) (/ 1 (- x 1))))
 
 (FPCore (x)
@@ -70,7 +70,7 @@
  :name "NMSE problem 3.3.6"
  :cite (hamming-1987 herbie-2015)
  :fpbench-domain textbook
- :pre (>= N 0)
+ :pre (> N 0)
  (- (log (+ N 1)) (log N)))
 
 (FPCore (x)
@@ -111,21 +111,20 @@
  :name "NMSE example 3.7"
  :cite (hamming-1987 herbie-2015)
  :fpbench-domain textbook
- :pre (< -0.00017 x)
  (- (exp x) 1))
 
 (FPCore (N)
  :name "NMSE example 3.8"
  :cite (hamming-1987 herbie-2015)
  :fpbench-domain textbook
- :pre (> N 6.8e15)
+ :pre (> N 0)
  (- (- (* (+ N 1) (log (+ N 1))) (* N (log N))) 1))
   
 (FPCore (x)
  :name "NMSE example 3.9"
  :cite (hamming-1987 herbie-2015)
  :fpbench-domain textbook
- :pre (< -0.026 x 0.026)
+ :pre (!= x 0)
  (- (/ 1 x) (/ 1 (tan x))))
 
 (FPCore (x)
@@ -139,13 +138,14 @@
  :name "NMSE problem 3.4.1"
  :cite (hamming-1987 herbie-2015)
  :fpbench-domain textbook
+ :pre (!= x 0)
  (/ (- 1 (cos x)) (* x x)))
  
 (FPCore (a b eps)
  :name "NMSE problem 3.4.2"
  :cite (hamming-1987 herbie-2015)
  :fpbench-domain textbook
- :pre (< -1 eps 1)
+ :pre (!= eps 0)
  (/ (* eps (- (exp (* (+ a b) eps)) 1))
     (* (- (exp (* a eps)) 1) (- (exp (* b eps)) 1))))
 

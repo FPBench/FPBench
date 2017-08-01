@@ -68,31 +68,26 @@
 
 (define/contract (domain-table progs)
   (-> (listof fpcore?) (listof (list/c string? number?)))
-  (map (λ (x) (list (car x) (length x)))
-       (group-by identity
-                 (for/list ([prog progs])
-                   (match-define `(FPCore (,vars ...) ,properties ... ,body) prog)
-                   (define-values (_ props) (parse-properties properties))
-                   (~a (dict-ref props ':fpbench-domain "(unknown)"))))))
+  (sort
+   (map (λ (x) (list (car x) (length x)))
+        (group-by identity
+                  (for/list ([prog progs])
+                    (match-define `(FPCore (,vars ...) ,properties ... ,body) prog)
+                    (define-values (_ props) (parse-properties properties))
+                    (~a (dict-ref props ':fpbench-domain "(unknown)")))))
+   > #:key second))
 
 (define/contract (source-table progs)
   (-> (listof fpcore?) (listof (list/c string? number?)))
-  (map (λ (x) (list (car x) (length x)))
-       (group-by identity
-                 (apply append
-                        (for/list ([prog progs])
-                          (match-define `(FPCore (,vars ...) ,properties ... ,body) prog)
-                          (define-values (_ props) (parse-properties properties))
-                          (map ~a (dict-ref props ':cite '())))))))
-
-(define/contract (status-table progs)
-  (-> (listof fpcore?) (listof (list/c string? number?)))
-  (map (λ (x) (list (car x) (length x)))
-       (group-by identity
-                 (for/list ([prog progs])
-                   (match-define `(FPCore (,vars ...) ,properties ... ,body) prog)
-                   (define-values (_ props) (parse-properties properties))
-                   (~a (dict-ref props ':fpbench-status 'unknown))))))
+  (sort
+   (map (λ (x) (list (car x) (length x)))
+        (group-by identity
+                  (apply append
+                         (for/list ([prog progs])
+                           (match-define `(FPCore (,vars ...) ,properties ... ,body) prog)
+                           (define-values (_ props) (parse-properties properties))
+                           (map ~a (dict-ref props ':cite '()))))))
+   > #:key second))
 
 (define/contract (table->string table #:title [title #f])
   (-> (listof (list/c string? number?)) #:title (or/c #f string?) string?)
@@ -149,7 +144,7 @@
             ["full-html" (compose write-xexpr table->html)]))]
    #:args ()
    (let* ([progs (sequence->list (in-port read))])
+     (printf "~a Benchmarks\n\n" (length progs))
      (output (operator-table progs) #:title "Features used")
      (output (domain-table progs) #:title "Domains")
-     (output (source-table progs) #:title "Sources")
-     (output (status-table progs) #:title "Status"))))
+     (output (source-table progs) #:title "Sources"))))

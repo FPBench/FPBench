@@ -158,7 +158,7 @@
       [(list `(if [,conds ,stmtss ...] ...) rest ...)
        (when (or (null? conds) (not (equal? (last conds) 'else)))
          (set! conds (append conds (list 'else)))
-         (set! stmtss (append conds (list))))
+         (set! stmtss (append stmtss (list (list)))))
 
        (define conds*
          (for/list ([cond conds])

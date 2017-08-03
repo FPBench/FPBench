@@ -174,7 +174,7 @@
          (for/list ([var assigned-vars])
            (define options (for/list ([outb outbs])
                              (dict-ref outb var var)))
-           (cons var (merge-values conds* options))))
+           (cons var (substitute (canonicalize (merge-values conds* options)) bindings))))
 
        (loop rest (append joined bindings))])))
 

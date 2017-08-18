@@ -1,0 +1,19 @@
+; -*- mode: scheme -*-
+
+(FPCore (re im)
+ :name "Complex square root"
+ :cite (herbie-2015)
+ (* 0.5 (sqrt (* 2.0 (+ (sqrt (+ (* re re) (* im im))) re)))))
+
+(FPCore (re im)
+ :name "Complex sine and cosine"
+ :cite (herbie-2015)
+ (* (* 0.5 (sin re)) (- (exp (- im)) (exp im))))
+
+(FPCore (cp cn t s)
+ :name "Probabilities in a clustering algorithm"
+ :cite (herbie-2015)
+ :pre (and (< 0 p) (< 0 n))
+ (/
+  (* (pow (/ 1 (+ 1 (exp (- s)))) cp) (pow (- 1 (/ 1 (+ 1 (exp (- s))))) cn))
+  (* (pow (/ 1 (+ 1 (exp (- t)))) cp) (pow (- 1 (/ 1 (+ 1 (exp (- t))))) cn))))

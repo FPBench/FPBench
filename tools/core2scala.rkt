@@ -153,13 +153,11 @@
       (format "~a: Real" (fix-name (if (list? var) (car var) var)))))
   (with-output-to-string
     (λ ()
-      (printf "object ~a {\n" (fix-name name))
       (printf "\tdef ~a(~a): Real = {\n" (fix-name name) (string-join arg-strings ", "))
       (parameterize ([*names* (apply mutable-set args)])
         (when (dict-has-key? properties ':pre)
           (printf "\t\trequire(~a)\n" (expr->scala (dict-ref properties ':pre) #:indent "\t\t")))
-        (printf "\t\t~a;\n" (expr->scala body #:indent "\t\t")))
-      (printf "\t}\n}\n"))))
+        (printf "\t\t~a;\n" (expr->scala body #:indent "\t\t"))))))
 
 (module+ main
   (require racket/cmdline)
@@ -168,5 +166,7 @@
    #:program "compile.rkt"
    #:args ()
    (printf "import daisy.lang._\nimport Real._\n\n")
+   (printf "object fpcore {\n")
    (for ([expr (in-port read (current-input-port))] [n (in-naturals)])
-     (printf "~a\n" (compile-program expr #:name (format "ex~a" n))))))
+     (printf "~a\n" (compile-program expr #:name (format "ex~a" n))))
+   (printf "\t}\n}\n")))

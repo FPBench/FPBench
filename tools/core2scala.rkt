@@ -157,7 +157,8 @@
       (parameterize ([*names* (apply mutable-set args)])
         (when (dict-has-key? properties ':pre)
           (printf "\t\trequire(~a)\n" (expr->scala (dict-ref properties ':pre) #:indent "\t\t")))
-        (printf "\t\t~a;\n" (expr->scala body #:indent "\t\t"))))))
+        (printf "\t\t~a;\n" (expr->scala body #:indent "\t\t")))
+      (printf "\t}\n"))))
 
 (module+ main
   (require racket/cmdline)
@@ -169,4 +170,4 @@
    (printf "object fpcore {\n")
    (for ([expr (in-port read (current-input-port))] [n (in-naturals)])
      (printf "~a\n" (compile-program expr #:name (format "ex~a" n))))
-   (printf "\t}\n}\n")))
+   (printf "}\n")))

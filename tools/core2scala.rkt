@@ -55,28 +55,6 @@
   (for/fold ([bindings bindings]) ([var vars])
     (dict-remove bindings var)))
 
-(define (de-let expr [bindings '()])
-  (-> expr? (dictof symbol? expr?) expr?)
-  (match expr
-    [`(let ([,vars ,vals] ...) ,body)
-     (de-let
-      body
-      (for/fold ([bindings bindings]) ([var vars] [val vals])
-        (dict-set bindings var (de-let val bindings))))]
-    [`(if ,cond ,ift ,iff)
-     `(if ,(de-let cond bindings) ,(de-let ift bindings) ,(de-let iff bindings))]
-    [`(while ,cond ([,vars ,inits ,updates] ...) ,retexpr)
-     (define subbindings (dict-remove-many bindings vars))
-     `(while ,(de-let cond subbindings)
-        ,@(for/list ([var vars] [init inits] [update updates])
-            (list var (de-let init bindings) (de-let update subbindings)))
-        ,(de-let retexpr subbindings))]
-    [`(,(? operator? op) ,args ...)
-     (cons op (map (curryr de-let bindings) args))]
-    [(? constant?) expr]
-    [(? number?) expr]
-    [(? symbol?) (dict-ref bindings expr expr)]))
-
 (define (gensym name)
   (define prefixed
     (filter (λ (x) (string-prefix? (~a x) (~a name))) (set->list (*names*))))
@@ -129,7 +107,7 @@
                (expr->scala update #:names names* #:indent (format "~a\t" indent))))
      (for ([var* vars*] [temp-var temp-vars])
        (printf "~a\t~a = ~a\n" indent (fix-name var*) (fix-name temp-var)))
-     (printf "~a\t~a = ~a" indent (fix-name test-var)
+     (printf "~a\t~a = ~a\n" indent (fix-name test-var)
              (expr->scala cond #:names names* #:indent (format "~a\t" indent)))
      (printf "~a}\n" indent)
      (expr->scala retexpr #:names names* #:indent indent)]
@@ -160,14 +138,40 @@
         (printf "\t\t~a;\n" (expr->scala body #:indent "\t\t")))
       (printf "\t}\n"))))
 
+(define (unroll-loops expr n)
+  (match expr
+    [`(let ([,vars ,vals] ...) ,body)
+     `(let (,@(for/list ([var vars] [val vals]) (list var (unroll-loops vals n))))
+        ,(unroll-loops body n))]
+    [`(if ,cond ,ift ,iff)
+     `(if ,(unroll-loops cond n) ,(unroll-loops ift n) ,(unroll-loops iff n))]
+    [`(while ,cond ([,vars ,inits ,updates] ...) ,retexpr)
+     `(let (,@(map list vars inits))
+        ,(if (= n 0)
+             retexpr
+             (unroll-loops `(while ,cond (,@(map list vars updates updates)) ,retexpr)
+                           (- n 1))))]
+    [`(,(? operator? op) ,args ...)
+     (cons op (map (curryr unroll-loops n) args))]
+    [(? constant?) expr]
+    [(? number?) expr]
+    [(? symbol?) expr]))
+
 (module+ main
   (require racket/cmdline)
+  (define unroll #f)
 
   (command-line
    #:program "compile.rkt"
+   #:once-each
+   ["--unroll" n "How many iterations to unroll any loops to"
+    (set! unroll (string->number n))]
    #:args ()
    (printf "import daisy.lang._\nimport Real._\n\n")
    (printf "object fpcore {\n")
-   (for ([expr (in-port read (current-input-port))] [n (in-naturals)])
-     (printf "~a\n" (compile-program expr #:name (format "ex~a" n))))
+   (for ([prog (in-port read (current-input-port))] [n (in-naturals)])
+     (when unroll
+       (match-define (list 'FPCore (list args ...) props ... body) prog)
+       (set! prog `(FPCore ,args ,@props ,(unroll-loops body unroll))))
+     (printf "~a\n" (compile-program prog #:name (format "ex~a" n))))
    (printf "}\n")))

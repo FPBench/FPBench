@@ -56,7 +56,7 @@ Inputs: Speed `sl`, `sr` of the left and right wheel, in rad/s."
 Inputs: Measure `m`; gains `kp`, `ki`, `kd`; setpoint `c`"
  :cite (damouche-martel-chapoutot-nsv14 damouche-martel-chapoutot-fmics15)
  :fpbench-domain controls
- :type binary64
+ :precision binary64
  :pre (and (< -10.0 m 10.0) (< -10.0 c 10.0))
  :example ([m -5.0] [kp 9.4514] [ki 0.69006] [kd 2.8454])
  [= t 0.0]
@@ -82,7 +82,7 @@ Inputs: Measure `m`; gains `kp`, `ki`, `kd`; setpoint `c`"
 Inputs: Step size `h`; initial condition `y_n*`; paramter `c`"
  :cite (damouch-martel-chapoutot-fmics15)
  :fpbench-domain mathematics
- :type binary32
+ :precision binary32
  :pre (and (< 0 y_n 100) (< 10e-6 h 0.1) (< 50 c 200))
  :example ([h 0.1] [y_n* 10.1] [c 100.1])
  [= sixieme (/ 1 6)]
@@ -111,7 +111,7 @@ Inputs: Step size `h`; initial condition `y_n*`; paramter `c`"
 Inputs: Initial position `y`; desired position `yd`"
  :cite (feron-ieee10 damouche-martel-chapoutot-fmics15)
  :fpbench-domain controls
- :type binary32
+ :precision binary32
  :pre (and (< 0 yd 50) (< 0 y 50))
  :example ([y 2.5] [yd 5.0])
  [= i 0.0]
@@ -167,7 +167,7 @@ Inputs: Initial position `y`; desired position `yd`"
 Inputs: Mass `Mf`; acceleration `A`"
  :cite (damouche-martel-chapoutot-cf15)
  :fpbench-domain controls
- :type binary32
+ :precision binary32
  :example ([Mf 150000.0] [A 140.0])
  [= R 6400.0e3]
  [= G 6.67428e-11]
@@ -235,7 +235,7 @@ Inputs: Mass `Mf`; acceleration `A`"
 Inputs: Array entries `aij`; vector entries `bi`"
  :cite (atkinson-1989)
  :fpbench-domain mathematics
- :type binary32
+ :precision binary32
  :example ([a11 0.61] [a22 0.62] [a33 0.6006] [a44 0.601]
                   [b1 0.5] [b2 (/ 1.0 3.0)] [b3 0.25] [b4 (/ 1.0 5.0)])
  [= i 0.0]
@@ -269,7 +269,7 @@ Inputs: Array entries `aij`; vector entries `bi`"
 Inputs: Initial guess `x0`"
  :cite (atkinson-1989)
  :fpbench-domain mathematics
- :type binary32
+ :precision binary32
  :pre (< 0 x0 3)
  :example ([x0 0.0])
  [= eps 0.0005]
@@ -292,7 +292,7 @@ Inputs: Initial guess `x0`"
 Inputs: Matrix `aij`; initial guess `vi` with one nonzero element"
  :cite (golub-vanloan-1996)
  :fpbench-domain mathematics
- :type binary32
+ :precision binary32
  :pre (< 150 d 200)
  :example ([a11 150.0] [a12  0.01] [a13  0.01] [a14  0.01]
                   [a21  0.01] [a22 150.0] [a23  0.01] [a24  0.01]
@@ -322,7 +322,7 @@ Inputs: Matrix `aij`; initial guess `vi` with one nonzero element"
 Inputs: Vectors `Qij`"
  :cite (abdelmalek-bit71 golub-vanloan-1996 hernandez-roman-tomas-vidal-tr07)
  :fpbench-domain mathematics
- :type binary32
+ :precision binary32
  :pre (and (< 1.0 Q11 (/ 1 7)) (< 1 Q22 (/ 1 25)))
  :example ([Q11 (/ 1 63)] [Q12 0] [Q13 0]
                   [Q21 0] [Q22 (/ 1 225)] [Q23 0]

@@ -77,7 +77,7 @@
            (for ([prog (in-port read p)])
              (match-define (list 'FPCore (list vars ...) props* ... body) prog)
              (define-values (_ props) (parse-properties props*))
-             (define type (dict-ref props ':type 'binary64))
+             (define type (dict-ref props ':precision 'binary64))
              (define exec-file (compile->c prog (test-file) #:type type))
              (define timeout 0)
              (define results

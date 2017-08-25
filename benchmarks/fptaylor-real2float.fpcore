@@ -8,7 +8,7 @@
 (FPCore (x)
  :name "logexp"
  :cite (solovyev-et-al-2015)
- :type binary64
+ :precision binary64
  :pre (<= -8 x 8)
  (let ([e (exp x)])
    (log (+ 1 e))))
@@ -16,7 +16,7 @@
 (FPCore (x r lat lon)
  :name "sphere"
  :cite (solovyev-et-al-2015)
- :type binary64
+ :precision binary64
  :pre (and (<= -10 x 10) (<= 0 r 10)
            (<= -1.570796 lat 1.570796) (<= -3.14159265 lon 3.14159265))
  (let ([sinLat (sin lat)] [cosLon (cos lon)])
@@ -25,7 +25,7 @@
 (FPCore (lat1 lat2  lon1 lon2)
  :name "azimuth"
  :cite (solovyev-et-al-2015)
- :type binary64
+ :precision binary64
  :pre (and (<= 0 lat1 0.4) (<= 0.5 lat2 1)
            (<= 0 lon1 3.14159265) (<= -3.14159265 lon2 -0.5))
  (let ([dLon (- lon2 lon1)])
@@ -42,7 +42,7 @@
 
 (FPCore (x1 x2 x3 x4 x5 x6)
  :name "floudas1"
- :type binary64
+ :precision binary64
  :pre (and (<= 0 x1 6) (<= 0 x2 6) (<= 1 x3 5)
            (<= 0 x4 6) (<= 0 x5 6) (<= 0 x6 10)
            (>= (- (+ (* (- x3 3) (- x3 3)) x4) 4) 0)
@@ -55,7 +55,7 @@
 
 (FPCore (x1 x2)
  :name "floudas2"
- :type binary64
+ :precision binary64
  :pre (and (<= 0 x1 3) (<= 0 x2 4)
            (>= (- (+ (- (* 2 (* (* x1 x1) (* x1 x1))) (* (* 8 (* x1 x1)) x1)) (* (* 8 x1) x1)) x2) 0)
            (>= (- (+ (- (+ (- (* 4 (* (* x1 x1) (* x1 x1))) (* (* 32 (* x1 x1)) x1)) (* (* 88 x1) x1)) (* 96 x1)) 36) x2) 0))
@@ -63,13 +63,13 @@
 
 (FPCore (x1 x2)
  :name "floudas3"
- :type binary64
+ :precision binary64
  :pre (and (<= 0 x1 2) (<= 0 x2 3) (>= (- (+ (* -2 (* (* x1 x2) (* x1 x1))) 2) x2)))
  (+ (- (* -12 x1) (* 7 x2)) (* x2 x2)))
 
 (FPCore (x1 x2 x3)
  :name "hartman3"
- :type binary64
+ :precision binary64
  :pre (and (<= 0 x1 1) (<= 0 x2 1) (<= 0 x3 1))
  (let ([e1 (+ (+ (* 3.0 (* (- x1 0.3689) (- x1 0.3689)))
                  (* 10.0 (* (- x2 0.117) (- x2 0.117))))
@@ -90,7 +90,7 @@
 
 (FPCore (x1 x2 x3 x4 x5 x6)
  :name "hartman6"
- :type binary64
+ :precision binary64
  :pre (and (<= 0 x1 1) (<= 0 x2 1) (<= 0 x3 1) (<= 0 x4 1) (<= 0 x5 1) (<= 0 x6 1))
  (let ([e1
         (+ (+ (+ (+ (+ (* 10.0 (* (- x1 0.1312) (- x1 0.1312))) (* 3.0 (* (- x2 0.1696) (- x2 0.1696))))
@@ -115,14 +115,14 @@
 
 (FPCore (x1 x2 x3 x4 x5 x6)
  :name "kepler0"
- :type binary64
+ :precision binary64
  :pre (and (<= 4 x1 6.36) (<= 4 x2 6.36) (<= 4 x3 6.36) (<= 4 x4 6.36) (<= 4 x5 6.36) (<= 4 x6 6.36))
  (+ (- (- (+ (* x2 x5) (* x3 x6)) (* x2 x3)) (* x5 x6))
     (* x1 (+ (+ (- (+ (+ (- x1) x2) x3) x4) x5) x6))))
 
 (FPCore (x1 x2 x3 x4 x5)
  :name "kepler1"
- :type binary64
+ :precision binary64
  :pre (and (<= 4 x1 6.36) (<= 4 x2 6.36) (<= 4 x3 6.36) (<= 4 x4 6.36))
  (- (- (- (- (+ (+ (* (* x1 x4) (- (+ (+ (- x1) x2) x3) x4))
                    (* x2 (+ (+ (- x1 x2) x3) x4)))
@@ -134,7 +134,7 @@
 
 (FPCore (x1 x2 x3 x4 x5 x6)
  :name "kepler2"
- :type binary64
+ :precision binary64
  :pre (and (<= 4 x1 6.36) (<= 4 x2 6.36) (<= 4 x3 6.36)
            (<= 4 x4 6.36) (<= 4 x5 6.36) (<= 4 x6 6.36))
  (- (- (- (- (+ (+ (* (* x1 x4) (+ (+ (- (+ (+ (- x1) x2) x3) x4) x5) x6))

@@ -56,7 +56,7 @@
   (match-define `(FPImp (,vars ...) ,props&body ...) prog)
   (define-values (body props) (parse-properties props&body))
   (define evaltor
-    (match (dict-ref props ':type 'binary64)
+    (match (dict-ref props ':precision 'binary64)
       ['binary64 racket-double-evaluator]
       ['binary32 racket-single-evaluator]))
   ((eval-stmts (eval-expr evaltor)) body (map cons vars (map (evaluator-real evaltor) vals))))

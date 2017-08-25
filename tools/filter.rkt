@@ -32,8 +32,6 @@
      (set-member? (operators-in body) (string->symbol value))]
     [((or 'operators 'operations) (list ops ...))
      (subset? (operators-in body) (map string->symbol ops))]
-    [('type (list value))
-     (equal? (dict-ref properties ':type #f) (string->symbol value))]
     [((? symbol?) (list value))
      (define prop (string->symbol (format ":~a" type)))
      (and (dict-has-key? properties prop)

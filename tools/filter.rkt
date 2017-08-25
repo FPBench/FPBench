@@ -20,18 +20,29 @@
     [(? symbol?) '()]
     [(? number?) '()]))
 
-(define/contract ((filter type value) prog)
-  (-> symbol? string? (-> fpcore? boolean?))
+(define/contract ((filter type values) prog)
+  (-> symbol? (listof string?) (-> fpcore? boolean?))
   (match-define (list 'FPCore (list args ...) props ... body) prog)
   (define-values (_ properties) (parse-properties props))
 
-  (match type
-    ['cites
+  (match* (type values)
+    [('cites (list value))
      (set-member? (dict-ref properties ':cite '()) (string->symbol value))]
-    ['operator
+    [((or 'operator 'operation) (list value))
      (set-member? (operators-in body) (string->symbol value))]
-    ['type
-     (equal? (dict-ref properties ':type #f) (string->symbol value))]))
+    [((or 'operators 'operations) (list ops ...))
+     (subset? (operators-in body) (map string->symbol ops))]
+    [('type (list value))
+     (equal? (dict-ref properties ':type #f) (string->symbol value))]
+    [((? symbol?) (list value))
+     (define prop (string->symbol (format ":~a" type)))
+     (and (dict-has-key? properties prop)
+          (equal? (~a (dict-ref properties prop)) value))]
+    [((? symbol?) (list))
+     (define prop (string->symbol (format ":~a" type)))
+     (dict-has-key? properties prop)]
+    [(_ _)
+     (raise-user-error 'filter "Unknown filter ~a with ~a arguments" type (length values))]))
 
 (module+ main
   (require racket/cmdline)
@@ -42,11 +53,12 @@
    #:once-each
    [("-v" "--invert") "Invert the meaning of the filter"
     (set! invert? #t)]
-   #:args (type value)
+   #:args (type . values)
    (define test
      (compose
       (if invert? not identity)
-      (filter (string->symbol type) value)))
+      (filter (string->symbol type) values)))
    (for ([expr (in-port read (current-input-port))])
      (when (test expr)
-       (pretty-print expr)))))
+       (pretty-print expr (current-output-port) 1)
+       (newline)))))

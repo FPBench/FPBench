@@ -3,7 +3,7 @@
 (require "../tools/common.rkt" "../tools/imp2core.rkt" "../tools/fpcore.rkt" "../tools/fpimp.rkt")
 
 (define tests-to-run (make-parameter 10))
-(define fuel (make-parameter 200))
+(define fuel (make-parameter 1000))
 
 (define ((eval-fuel-expr evaltor fuel [default #f]) expr ctx)
   (let/ec k
@@ -67,7 +67,9 @@
                (define out1 ((eval-fuel-stmt evaltor (fuel) 'timeout) body ctx))
                (define out2
                  (for/list ([fpcore (compile-program prog)])
-                   ((eval-fuel-expr evaltor (fuel) 'timeout) (last fpcore) ctx)))
+                   (if (equal? out1 'timeout)
+                       'timeout
+                       ((eval-fuel-expr evaltor (fuel) 'timeout) (last fpcore) ctx))))
                (when (or (equal? out1 'timeout) (equal? out2 'timeout))
                  (set! timeout (+ 1 timeout)))
                (list ctx out1 out2)))

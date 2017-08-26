@@ -11,7 +11,7 @@
 (FPCore (x y)
   :name "sec4-example"
   :cite (solovyev-et-al-2015)
-  :type binary64
+  :precision binary64
   :pre (and (<= 1.001 x 2) (<= 1.001 y 2))
   (let ([t (* x y)])
     (/ (- t 1) (- (* t t) 1))))
@@ -21,7 +21,7 @@
 
 (FPCore (x0 x1 x2)
   :name "test01_sum3"
-  :type binary32
+  :precision binary32
   :pre (and (< 1 x0 2) (< 1 x1 2) (< 1 x2 2))
   (let ([p0 (- (+ x0 x1) x2)]
         [p1 (- (+ x1 x2) x0)]
@@ -30,7 +30,7 @@
 
 (FPCore (x0 x1 x2 x3 x4 x5 x6 x7 x8)
   :name "test02_sum8"
-  :type binary64
+  :precision binary64
   :pre (and (< 1 x0 2) (< 1 x1 2) (< 1 x2 2)
             (< 1 x3 2) (< 1 x4 2) (< 1 x5 2)
             (< 1 x6 2) (< 1 x7 2))
@@ -38,13 +38,13 @@
 
 (FPCore (x y)
   :name "test03_nonlin2"
-  :type binary64
+  :precision binary64
   :pre (and (< 0 x 1) (< -1 y -0.1))
   (/ (+ x y) (- x y)))
 
 (FPCore (m0 m1 m2 w0 w1 w2 a0 a1 a2)
   :name "test04_dqmom9"
-  :type binary64
+  :precision binary64
   :pre (and (< -1 m0 1) (< -1 m1 1) (< -1 m2 1)
             (< 0.00001 w0 1) (< 0.00001 w1 1) (< 0.00001 w2 1)
             (< 0.00001 a0 1) (< 0.00001 a1 1) (< 0.00001 a2 1))
@@ -55,25 +55,25 @@
 
 (FPCore (x)
   :name "test05_nonlin1, r4"
-  :type binary64
+  :precision binary64
   :pre (< 1.00001 x 2)
   (let ([r1 (- x 1)] [r2 (* x x)])
     (/ r1 (- r2 1))))
 
 (FPCore (x)
   :name "test05_nonlin1, test2"
-  :type binary64
+  :precision binary64
   :pre (< 1.00001 x 2)
   (/ 1 (+ x 1)))
 
 (FPCore (x0 x1 x2 x3)
   :name "test06_sums4, sum1"
-  :type binary32
+  :precision binary32
   :pre (and (< -1e-5 x0 1.00001) (< 0 x1 1) (< 0 x2 1) (< 0 x3 1))
   (+ (+ (+ x0 x1) x2) x3))
 
 (FPCore (x0 x1 x2 x3)
   :name "test06_sums4, sum2"
-  :type binary32
+  :precision binary32
   :pre (and (< -1e-5 x0 1.00001) (< 0 x1 1) (< 0 x2 1) (< 0 x3 1))
   (+ (+ x0 x1) (+ x2 x3)))

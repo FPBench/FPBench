@@ -10,7 +10,7 @@
  (damouche-martel-chapoutot-fmics15)
  :fpbench-domain
  controls
- :type
+ :precision
  binary32
  :pre
  (and (< 0.05 sl (* 2 PI)) (< 0.05 sr (* 2 PI)))
@@ -116,7 +116,7 @@
  (damouche-martel-chapoutot-fmics15)
  :fpbench-domain
  controls
- :type
+ :precision
  binary32
  :pre
  (and (< 0.05 sl (* 2 PI)) (< 0.05 sr (* 2 PI)))
@@ -222,7 +222,7 @@
  (damouche-martel-chapoutot-nsv14)
  :fpbench-domain
  controls
- :type
+ :precision
  binary64
  :pre
  (and (< -10.0 m 10.0) (< -10.0 c 10.0))
@@ -258,7 +258,7 @@
  (damouch-martel-chapoutot-fmics15)
  :fpbench-domain
  mathematics
- :type
+ :precision
  binary32
  :pre
  (and (< 0 y_n 100) (< 1e-05 h 0.1) (< 50 c 200))
@@ -324,7 +324,7 @@
  (damouch-martel-chapoutot-fmics15)
  :fpbench-domain
  mathematics
- :type
+ :precision
  binary32
  :pre
  (and (< 0 y_n 100) (< 1e-05 h 0.1) (< 50 c 200))
@@ -390,7 +390,7 @@
  (feron-ieee10)
  :fpbench-domain
  controls
- :type
+ :precision
  binary32
  :pre
  (and (< 0 yd 50) (< 0 y 50))
@@ -470,7 +470,7 @@
  (damouche-martel-chapoutot-cf15)
  :fpbench-domain
  controls
- :type
+ :precision
  binary32
  :example
  ((Mf 150000.0) (A 140.0))
@@ -606,7 +606,7 @@
  (damouche-martel-chapoutot-cf15)
  :fpbench-domain
  controls
- :type
+ :precision
  binary32
  :example
  ((Mf 150000.0) (A 140.0))
@@ -742,7 +742,7 @@
  (atkinson-1989)
  :fpbench-domain
  mathematics
- :type
+ :precision
  binary32
  :example
  ((a11 0.61)
@@ -805,7 +805,7 @@
  (atkinson-1989)
  :fpbench-domain
  mathematics
- :type
+ :precision
  binary32
  :example
  ((a11 0.61)
@@ -873,7 +873,7 @@
  (atkinson-1989)
  :fpbench-domain
  mathematics
- :type
+ :precision
  binary32
  :example
  ((a11 0.61)
@@ -936,7 +936,7 @@
  (atkinson-1989)
  :fpbench-domain
  mathematics
- :type
+ :precision
  binary32
  :example
  ((a11 0.61)
@@ -999,7 +999,7 @@
  (atkinson-1989)
  :fpbench-domain
  mathematics
- :type
+ :precision
  binary32
  :pre
  (< 0 x0 3)
@@ -1070,7 +1070,7 @@
  (atkinson-1989)
  :fpbench-domain
  mathematics
- :type
+ :precision
  binary32
  :pre
  (< 0 x0 3)
@@ -1141,7 +1141,7 @@
  (atkinson-1989)
  :fpbench-domain
  mathematics
- :type
+ :precision
  binary32
  :pre
  (< 0 x0 3)
@@ -1233,7 +1233,7 @@
  (atkinson-1989)
  :fpbench-domain
  mathematics
- :type
+ :precision
  binary32
  :pre
  (< 0 x0 3)
@@ -1304,7 +1304,7 @@
  (golub-vanloan-1996)
  :fpbench-domain
  mathematics
- :type
+ :precision
  binary32
  :pre
  (< 150 d 200)
@@ -1367,7 +1367,7 @@
  (golub-vanloan-1996)
  :fpbench-domain
  mathematics
- :type
+ :precision
  binary32
  :pre
  (< 150 d 200)
@@ -1430,7 +1430,7 @@
  (golub-vanloan-1996)
  :fpbench-domain
  mathematics
- :type
+ :precision
  binary32
  :pre
  (< 150 d 200)
@@ -1494,7 +1494,7 @@
  (golub-vanloan-1996)
  :fpbench-domain
  mathematics
- :type
+ :precision
  binary32
  :pre
  (< 150 d 200)
@@ -1557,7 +1557,7 @@
  (abdelmalek-bit71 golub-vanloan-1996 hernandez-roman-tomas-vidal-tr07)
  :fpbench-domain
  mathematics
- :type
+ :precision
  binary32
  :pre
  (and (< 1.0 Q11 (/ 1 7)) (< 1 Q22 (/ 1 25)))
@@ -1660,7 +1660,7 @@
  (abdelmalek-bit71 golub-vanloan-1996 hernandez-roman-tomas-vidal-tr07)
  :fpbench-domain
  mathematics
- :type
+ :precision
  binary32
  :pre
  (and (< 1.0 Q11 (/ 1 7)) (< 1 Q22 (/ 1 25)))
@@ -1763,7 +1763,7 @@
  (abdelmalek-bit71 golub-vanloan-1996 hernandez-roman-tomas-vidal-tr07)
  :fpbench-domain
  mathematics
- :type
+ :precision
  binary32
  :pre
  (and (< 1.0 Q11 (/ 1 7)) (< 1 Q22 (/ 1 25)))
@@ -1866,7 +1866,7 @@
  (abdelmalek-bit71 golub-vanloan-1996 hernandez-roman-tomas-vidal-tr07)
  :fpbench-domain
  mathematics
- :type
+ :precision
  binary32
  :pre
  (and (< 1.0 Q11 (/ 1 7)) (< 1 Q22 (/ 1 25)))
@@ -1969,7 +1969,7 @@
  (abdelmalek-bit71 golub-vanloan-1996 hernandez-roman-tomas-vidal-tr07)
  :fpbench-domain
  mathematics
- :type
+ :precision
  binary32
  :pre
  (and (< 1.0 Q11 (/ 1 7)) (< 1 Q22 (/ 1 25)))

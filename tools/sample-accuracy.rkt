@@ -146,7 +146,7 @@
 (define (average-error expr #:measure [measurefn bits-error] #:points [N 8000])
   (match-define (list 'FPCore (list args ...) props ... body) expr)
   (define-values (_ properties) (parse-properties props))
-  (define type (dict-ref properties ':type 'binary64))
+  (define type (dict-ref properties ':precision 'binary64))
   (define pre (dict-ref properties ':pre 'TRUE))
 
   (define-values (points exacts approxs)

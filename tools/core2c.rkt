@@ -127,7 +127,7 @@
 (define (compile-program prog #:name name)
   (match-define (list 'FPCore (list args ...) props ... body) prog)
   (define-values (_ properties) (parse-properties props))
-  (define type (dict-ref properties ':type 'binary64))
+  (define type (dict-ref properties ':precision 'binary64))
 
   (define arg-strings
     (for/list ([var args])

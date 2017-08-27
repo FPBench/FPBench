@@ -172,5 +172,6 @@
    [("--precision") bits "How many bits to use for precise evaluation (default: 2048)"
     (set! precision (string->number bits))]
    #:args ()
-   (for ([expr (in-port read (current-input-port))])
+   (port-count-lines! (current-input-port))
+   (for ([expr (in-port (curry read-fpcore "stdin"))])
      (displayln (parameterize ([bf-precision precision]) (average-error expr #:measure measure))))))

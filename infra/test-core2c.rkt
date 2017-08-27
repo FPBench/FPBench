@@ -74,7 +74,8 @@
      (for ([file files])
        (call-with-input-file file
          (λ (p)
-           (for ([prog (in-port read p)])
+           (port-count-lines! p)
+           (for ([prog (in-port (curry read-fpcore file) p)])
              (match-define (list 'FPCore (list vars ...) props* ... body) prog)
              (define-values (_ props) (parse-properties props*))
              (define type (dict-ref props ':precision 'binary64))

@@ -56,6 +56,7 @@
      (compose
       (if invert? not identity)
       (filter (string->symbol type) values)))
+   (port-count-lines! (current-input-port))
    (for ([expr (in-port read (current-input-port))])
      (when (test expr)
        (pretty-print expr (current-output-port) 1)

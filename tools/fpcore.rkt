@@ -3,7 +3,8 @@
 (require "common.rkt" math/flonum math/bigfloat math/special-functions math/base)
 (provide
  (struct-out evaluator) racket-double-evaluator racket-single-evaluator
- fpcore? expr? context/c eval-expr* eval-expr racket-run-fpcore)
+ fpcore? expr? context/c eval-expr* eval-expr racket-run-fpcore
+ read-fpcore)
 
 (struct evaluator (real constant function))
 
@@ -23,6 +24,128 @@
   `(if ,(? expr?) ,(? expr?) ,(? expr?))
   `(let ([,(? symbol?) ,(? expr?)] ...) ,(? expr?))
   `(while ,(? expr?) ([,(? symbol?) ,(? expr?) ,(? expr?)] ...) ,(? expr?)))
+
+(define type? (symbols 'boolean 'real))
+
+(define/match (operator-type op args)
+  [((or '- 'fabs 'exp 'exp2 'expm1 'log 'log10 'log2 'log1p 'sqrt
+        'cbrt 'sin 'cos 'tan 'asin 'acos 'atan 'sinh 'cosh 'tanh
+        'asinh 'acosh 'atanh 'erf 'erfc 'tgamma 'lgamma 'ceil 'floor
+        'trunc 'round 'nearbyint)
+    (list 'real))
+   'real]
+  [((or '+ '- '* '/ 'pow 'hypot 'atan2 'fmod 'remainder 'fmax 'fmin 'fdim 'copysign)
+    (list 'real 'real))
+   'real]
+  [('fma (list 'real 'real 'real)) 'real]
+  [((or '< '> '<= '>= '== '!=) (list 'real ...)) 'boolean]
+  [((or 'isfinite 'isinf 'isnan 'isnormal 'signbit) 'real) 'boolean]
+  [((or 'and 'or) (list 'boolean ...)) 'boolean]
+  [('not (list 'boolean)) 'boolean] 
+  [(_ _) #f])
+
+(define/contract (check-expr stx ctx)
+  (-> syntax? (dictof symbol? type?) (cons/c expr? type?))
+
+  (match (syntax-e stx)
+    [(? number? val)
+     (cons val 'real)]
+    [(? constant? val)
+     (cons val (match val [(or 'TRUE 'FALSE) 'boolean] [_ 'real]))]
+    [(? symbol? var)
+     (unless (dict-has-key? ctx var)
+       (raise-syntax-error #f "Undefined variable" stx))
+     (cons var (dict-ref ctx var))]
+    [(list (app syntax-e 'if) test ift iff)
+     (define test* (check-expr test ctx))
+     (unless (equal? (cdr test*) 'boolean)
+       (raise-syntax-error #f "Conditional test must return a boolean" stx test))
+     (define ift* (check-expr ift ctx))
+     (define iff* (check-expr ift ctx))
+     (unless (equal? (cdr ift*) (cdr iff*))
+       (raise-syntax-error #f "Conditional branches must have same type" stx))
+     (cons `(if ,(car test*) ,(car ift*) ,(car iff*)) (cdr ift*))]
+    [(cons (app syntax-e 'if) _)
+     (raise-syntax-error #f "Invalid conditional statement" stx)]
+    [(list (app syntax-e 'let) (app syntax-e (list (app syntax-e (list vars vals)) ...)) body)
+     (define vars*
+       (for/list ([var vars])
+         (unless (symbol? (syntax-e var))
+           (raise-syntax-error #f "Only variables may be bound by let binding" stx var))
+         (syntax-e var)))
+     (define vals* (map (curryr check-expr ctx) vals))
+     (define ctx* (apply dict-set* ctx (append-map list vars* (map cdr vals*))))
+     (define body* (check-expr body ctx*))
+     (cons `(let (,@(map list vars* (map car vals*))) ,(car body*)) (cdr body*))]
+    [(cons (app syntax-e 'let) _)
+     (raise-syntax-error #f "Invalid let bindings" stx)]
+    [(list (app syntax-e 'while) test (app syntax-e (list (app syntax-e (list vars inits updates)) ...)) body)
+     (define vars*
+       (for/list ([var vars])
+         (unless (symbol? (syntax-e var))
+           (raise-syntax-error #f "Only variables may be bound by while loop" stx var))
+         (syntax-e var)))
+     (define inits* (map (curryr check-expr ctx) inits))
+     (define ctx* (apply dict-set* ctx (append-map list vars* (map cdr inits*))))
+     (define test* (check-expr test ctx*))
+     (unless (equal? (cdr test*) 'boolean)
+       (raise-syntax-error #f "While loop conditions must return a boolean" test))
+     (define updates* (map (curryr check-expr ctx*) updates))
+     (for ([var vars] [init inits*] [update updates*])
+       (unless (equal? (cdr init) (cdr update))
+         (raise-syntax-error #f "Initialization and update must have the same type in while loop" stx var)))
+     (define body* (check-expr body ctx*))
+     (cons `(while ,(car test*) (,@(map list vars* (map car inits*) (map car updates*))) ,(car body*)) (cdr body*))]
+    [(cons (app syntax-e 'while) _)
+     (raise-syntax-error #f "Invalid while loop" stx)]
+    [(list op args ...)
+     (unless (set-member? operators (syntax-e op))
+       (raise-syntax-error #f "Unknown operator" op))
+     (define children (map (curryr check-expr ctx) args))
+     (define rtype (operator-type (syntax-e op) (map cdr children)))
+     (unless rtype
+       (raise-syntax-error #f (format "Invalid types for operator ~a" op) stx))
+     (cons (list* (syntax-e op) (map car children)) rtype)]))
+
+(define/contract (check-fpcore stx)
+  (-> syntax? fpcore?)
+  (match (syntax-e stx)
+    [(list (app syntax-e 'FPCore) (app syntax-e (list vars ...)) properties ... body)
+     (define ctx
+       (for/hash ([var vars])
+         (unless (symbol? (syntax-e var))
+           (raise-syntax-error #f "FPCore parameters must be variables" stx var))
+         (values (syntax-e var) 'real)))
+
+     (define properties*
+       (let loop ([properties properties])
+         (match properties
+           [(list) (list)]
+           [(list prop) (raise-syntax-error #f "Property with no value" prop)]
+           [(list (app syntax-e (? property? prop)) value rest ...)
+            (cons (cons prop value) (loop rest))]
+           [(list prop _ ...) (raise-syntax-error #f "Invalid property" prop)])))
+
+     (when (dict-has-key? properties* ':pre)
+       (define pre (dict-ref properties* ':pre))
+       (define pre* (check-expr pre ctx))
+       (unless (equal? (cdr pre*) 'boolean)
+         (raise-syntax-error #f "FPCore precondition must return a boolean" pre)))
+
+     (define body* (check-expr body ctx))
+     (unless (equal? (cdr body*) 'real)
+       (raise-syntax-error #f "FPCore benchmark must return a real number" body))
+     
+     `(FPCore (,@(dict-keys ctx))
+              ,@(apply append
+                       (for/list ([(prop val) (in-dict properties*)])
+                         (list prop (syntax->datum val))))
+              ,(car body*))]))
+
+(define/contract (read-fpcore name p)
+  (-> any/c input-port? (or/c fpcore? eof-object?))
+  (define stx (read-syntax name p))
+  (if (eof-object? stx) stx (check-fpcore stx)))
 
 (define/contract context/c contract? (dictof symbol? any/c))
 
@@ -127,6 +250,7 @@
   (command-line
    #:program "fpcore.rkt"
    #:args args
+   (port-count-lines! (current-input-port))
    (let ([vals (map (compose real->double-flonum string->number) args)])
-     (for ([prog (in-port read)])
+     (for ([prog (in-port (curry read-fpcore "stdin"))])
        (printf "~a\n" (racket-run-fpcore prog vals))))))

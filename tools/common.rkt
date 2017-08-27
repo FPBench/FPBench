@@ -1,6 +1,6 @@
 #lang racket
 
-(provide parse-properties unparse-properties constants operators constant? operator? define-by-match dictof property)
+(provide parse-properties unparse-properties constants operators constant? operator? define-by-match dictof property? property)
 
 (define (property? symb)
   (and (symbol? symb) (string-prefix? (symbol->string symb) ":")))

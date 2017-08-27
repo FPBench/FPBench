@@ -13,7 +13,7 @@
 (FPCore (cp cn t s)
  :name "Probabilities in a clustering algorithm"
  :cite (herbie-2015)
- :pre (and (< 0 p) (< 0 n))
+ :pre (and (< 0 cp) (< 0 cn))
  (/
   (* (pow (/ 1 (+ 1 (exp (- s)))) cp) (pow (- 1 (/ 1 (+ 1 (exp (- s))))) cn))
   (* (pow (/ 1 (+ 1 (exp (- t)))) cp) (pow (- 1 (/ 1 (+ 1 (exp (- t))))) cn))))

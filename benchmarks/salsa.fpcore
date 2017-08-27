@@ -13,7 +13,7 @@
  :precision
  binary32
  :pre
- (and (< 0.05 sl (* 2 PI)) (< 0.05 sr (* 2 PI)))
+ (and (< 0.05 sl* (* 2 PI)) (< 0.05 sr* (* 2 PI)))
  :example
  ((sr* 0.0785398163397) (sl* 0.0525398163397))
  (while
@@ -119,7 +119,7 @@
  :precision
  binary32
  :pre
- (and (< 0.05 sl (* 2 PI)) (< 0.05 sr (* 2 PI)))
+ (and (< 0.05 sl* (* 2 PI)) (< 0.05 sr* (* 2 PI)))
  :example
  ((sr* 0.0785398163397) (sl* 0.0525398163397))
  (while

@@ -50,7 +50,7 @@ Inputs: Speed `sl`, `sr` of the left and right wheel, in rad/s."
      [= j (+ j 1)]]))
  (output x y))
 
-(FPImp (m kp ki kd)
+(FPImp (m kp ki kd c)
  :name "PID"
  :description "Keep a measure at its setpoint using a PID controller.
 Inputs: Measure `m`; gains `kp`, `ki`, `kd`; setpoint `c`"
@@ -62,7 +62,6 @@ Inputs: Measure `m`; gains `kp`, `ki`, `kd`; setpoint `c`"
  [= t 0.0]
  [= dt 0.2]
  [= invdt (/ 1 dt)]
- [= c 0.0]
  [= eold 0.0]
  [= i 0.0]
  (while (< t 100.0)
@@ -83,7 +82,7 @@ Inputs: Step size `h`; initial condition `y_n*`; paramter `c`"
  :cite (damouch-martel-chapoutot-fmics15)
  :fpbench-domain mathematics
  :precision binary32
- :pre (and (< 0 y_n 100) (< 10e-6 h 0.1) (< 50 c 200))
+ :pre (and (< 0 y_n* 100) (< 10e-6 h 0.1) (< 50 c 200))
  :example ([h 0.1] [y_n* 10.1] [c 100.1])
  [= sixieme (/ 1 6)]
  [= e 1.0]
@@ -293,12 +292,18 @@ Inputs: Matrix `aij`; initial guess `vi` with one nonzero element"
  :cite (golub-vanloan-1996)
  :fpbench-domain mathematics
  :precision binary32
- :pre (< 150 d 200)
+ ;; Inlined formula for determinant of 4x4 matrix
+ :pre (< 150 (- (+ (* a11 a22 a33 a44) (* a12 a23 a34 a41) (* a13 a24 a31 a42) (* a14 a21 a32 a43)
+                   (* a11 a23 a34 a42) (* a12 a21 a33 a44) (* a13 a21 a32 a44) (* a14 a22 a33 a41)
+                   (* a11 a24 a32 a43) (* a12 a24 a31 a43) (* a13 a22 a34 a41) (* a14 a23 a31 a42))
+                (+ (* a11 a22 a34 a43) (* a12 a23 a31 a44) (* a13 a24 a32 a41) (* a14 a21 a33 a42)
+                   (* a11 a23 a32 a44) (* a12 a21 a34 a43) (* a13 a21 a34 a42) (* a14 a22 a31 a43)
+                   (* a11 a24 a33 a42) (* a12 a24 a33 a41) (* a13 a22 a31 a44) (* a14 a23 a32 a41))) 200)
  :example ([a11 150.0] [a12  0.01] [a13  0.01] [a14  0.01]
-                  [a21  0.01] [a22 150.0] [a23  0.01] [a24  0.01]
-                  [a31  0.01] [a32  0.01] [a33 150.0] [a34  0.01]
-                  [a41  0.01] [a42  0.01] [a43  0.01] [a44 150.0]
-                  [v1 0.0] [v2 0.0] [v3 0.0] [v4 1.0])
+           [a21  0.01] [a22 150.0] [a23  0.01] [a24  0.01]
+           [a31  0.01] [a32  0.01] [a33 150.0] [a34  0.01]
+           [a41  0.01] [a42  0.01] [a43  0.01] [a44 150.0]
+           [v1 0.0] [v2 0.0] [v3 0.0] [v4 1.0])
  [= i 0.0]
  [= eps 0.0005]
  [= e 1.0]

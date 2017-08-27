@@ -10,7 +10,7 @@
  (damouche-martel-chapoutot-fmics15)
  :fpbench-domain
  controls
- :precision
+ :type
  binary32
  :pre
  (and (< 0.05 sl* (* 2 PI)) (< 0.05 sr* (* 2 PI)))
@@ -48,7 +48,9 @@
                         (delta_dr (let ((c 12.34)) (* c sr))))
                     (* (- delta_dr delta_dl) inv_l))))
              (+ theta (* delta_theta 0.5)))))
-      (cos arg)))
+      (+
+       (- 1 (* (* arg arg) 0.5))
+       (* (* (* (* arg arg) arg) arg) 0.0416666666))))
    (x
     0.0
     (let ((cosi
@@ -59,7 +61,9 @@
                                (delta_dr (let ((c 12.34)) (* c sr))))
                            (* (- delta_dr delta_dl) inv_l))))
                     (+ theta (* delta_theta 0.5)))))
-             (cos arg)))
+             (+
+              (- 1 (* (* arg arg) 0.5))
+              (* (* (* (* arg arg) arg) arg) 0.0416666666))))
           (delta_d
            (let ((delta_dr (let ((c 12.34)) (* c sr)))
                  (delta_dl (let ((c 12.34)) (* c sl))))
@@ -74,7 +78,9 @@
                         (delta_dr (let ((c 12.34)) (* c sr))))
                     (* (- delta_dr delta_dl) inv_l))))
              (+ theta (* delta_theta 0.5)))))
-      (sin arg)))
+      (+
+       (- arg (* (* (* arg arg) arg) 0.1666666666))
+       (* (* (* (* (* arg arg) arg) arg) arg) 0.008333333))))
    (y
     0.0
     (let ((sini
@@ -85,7 +91,9 @@
                                (delta_dr (let ((c 12.34)) (* c sr))))
                            (* (- delta_dr delta_dl) inv_l))))
                     (+ theta (* delta_theta 0.5)))))
-             (sin arg)))
+             (+
+              (- arg (* (* (* arg arg) arg) 0.1666666666))
+              (* (* (* (* (* arg arg) arg) arg) arg) 0.008333333))))
           (delta_d
            (let ((delta_dr (let ((c 12.34)) (* c sr)))
                  (delta_dl (let ((c 12.34)) (* c sl))))
@@ -116,7 +124,7 @@
  (damouche-martel-chapoutot-fmics15)
  :fpbench-domain
  controls
- :precision
+ :type
  binary32
  :pre
  (and (< 0.05 sl* (* 2 PI)) (< 0.05 sr* (* 2 PI)))
@@ -154,7 +162,9 @@
                         (delta_dr (let ((c 12.34)) (* c sr))))
                     (* (- delta_dr delta_dl) inv_l))))
              (+ theta (* delta_theta 0.5)))))
-      (cos arg)))
+      (+
+       (- 1 (* (* arg arg) 0.5))
+       (* (* (* (* arg arg) arg) arg) 0.0416666666))))
    (x
     0.0
     (let ((cosi
@@ -165,7 +175,9 @@
                                (delta_dr (let ((c 12.34)) (* c sr))))
                            (* (- delta_dr delta_dl) inv_l))))
                     (+ theta (* delta_theta 0.5)))))
-             (cos arg)))
+             (+
+              (- 1 (* (* arg arg) 0.5))
+              (* (* (* (* arg arg) arg) arg) 0.0416666666))))
           (delta_d
            (let ((delta_dr (let ((c 12.34)) (* c sr)))
                  (delta_dl (let ((c 12.34)) (* c sl))))
@@ -180,7 +192,9 @@
                         (delta_dr (let ((c 12.34)) (* c sr))))
                     (* (- delta_dr delta_dl) inv_l))))
              (+ theta (* delta_theta 0.5)))))
-      (sin arg)))
+      (+
+       (- arg (* (* (* arg arg) arg) 0.1666666666))
+       (* (* (* (* (* arg arg) arg) arg) arg) 0.008333333))))
    (y
     0.0
     (let ((sini
@@ -191,7 +205,9 @@
                                (delta_dr (let ((c 12.34)) (* c sr))))
                            (* (- delta_dr delta_dl) inv_l))))
                     (+ theta (* delta_theta 0.5)))))
-             (sin arg)))
+             (+
+              (- arg (* (* (* arg arg) arg) 0.1666666666))
+              (* (* (* (* (* arg arg) arg) arg) arg) 0.008333333))))
           (delta_d
            (let ((delta_dr (let ((c 12.34)) (* c sr)))
                  (delta_dl (let ((c 12.34)) (* c sl))))
@@ -213,13 +229,13 @@
   y))
 
 (FPCore
- (m kp ki kd)
+ (m kp ki kd c)
  :name
  "PID"
  :description
  "Keep a measure at its setpoint using a PID controller.\nInputs: Measure `m`; gains `kp`, `ki`, `kd`; setpoint `c`"
  :cite
- (damouche-martel-chapoutot-nsv14)
+ (damouche-martel-chapoutot-nsv14 damouche-martel-chapoutot-fmics15)
  :fpbench-domain
  controls
  :precision
@@ -230,21 +246,18 @@
  ((m -5.0) (kp 9.4514) (ki 0.69006) (kd 2.8454))
  (while
   (< t 100.0)
-  ((i 0.0 (let ((e (let ((c 0.0)) (- c m))) (dt 0.2)) (+ i (* (* ki dt) e))))
+  ((i 0.0 (let ((e (- c m)) (dt 0.2)) (+ i (* (* ki dt) e))))
    (m
     m
     (let ((r
            (let ((d
-                  (let ((e (let ((c 0.0)) (- c m)))
-                        (invdt (let ((dt 0.2)) (/ 1 dt))))
+                  (let ((e (- c m)) (invdt (let ((dt 0.2)) (/ 1 dt))))
                     (* (* kd invdt) (- e eold))))
-                 (i
-                  (let ((e (let ((c 0.0)) (- c m))) (dt 0.2))
-                    (+ i (* (* ki dt) e))))
-                 (p (let ((e (let ((c 0.0)) (- c m)))) (* kp e))))
+                 (i (let ((e (- c m)) (dt 0.2)) (+ i (* (* ki dt) e))))
+                 (p (let ((e (- c m))) (* kp e))))
              (+ (+ p i) d))))
       (+ m (* 0.01 r))))
-   (eold 0.0 (let ((e (let ((c 0.0)) (- c m)))) e))
+   (eold 0.0 (let ((e (- c m))) e))
    (t 0.0 (let ((dt 0.2)) (+ t dt))))
   m))
 
@@ -261,7 +274,7 @@
  :precision
  binary32
  :pre
- (and (< 0 y_n 100) (< 1e-05 h 0.1) (< 50 c 200))
+ (and (< 0 y_n* 100) (< 1e-05 h 0.1) (< 50 c 200))
  :example
  ((h 0.1) (y_n* 10.1) (c 100.1))
  (while
@@ -327,7 +340,7 @@
  :precision
  binary32
  :pre
- (and (< 0 y_n 100) (< 1e-05 h 0.1) (< 50 c 200))
+ (and (< 0 y_n* 100) (< 1e-05 h 0.1) (< 50 c 200))
  :example
  ((h 0.1) (y_n* 10.1) (c 100.1))
  (while
@@ -387,7 +400,7 @@
  :description
  "Move a mass from an initial position to a desired position.\nInputs: Initial position `y`; desired position `yd`"
  :cite
- (feron-ieee10)
+ (feron-ieee10 damouche-martel-chapoutot-fmics15)
  :fpbench-domain
  controls
  :precision
@@ -459,6 +472,74 @@
              (if (< 1.0 yc) 1.0 yc))))
       (fabs (- yc xc1)))))
   xc1))
+
+(FPCore
+ (u)
+ :name
+ "Trapeze"
+ :cite
+ (damouche-martel-chapoutot-fmics15)
+ :fpbench-domain
+ mathematics
+ :pre
+ (<= 1.11 u 2.22)
+ (while
+  (< xa 5000)
+  ((gxa
+    0.0
+    (/
+     u
+     (- (+ (- (* (* (* 0.7 xa) xa) xa) (* (* 0.6 xa) xa)) (* 0.9 xa)) 0.2)))
+   (gxb
+    0.0
+    (let ((xb
+           (let ((xb
+                  (let ((h (let ((n 25) (a 0.25) (b 5000)) (/ (- b a) n))))
+                    (+ xa h))))
+             (if (let ((xb
+                        (let ((h
+                               (let ((n 25) (a 0.25) (b 5000)) (/ (- b a) n))))
+                          (+ xa h))))
+                   (> xb 5000))
+               5000
+               xb))))
+      (/
+       u
+       (- (+ (- (* (* (* 0.7 xb) xb) xb) (* (* 0.6 xb) xb)) (* 0.9 xb)) 0.2))))
+   (r
+    0
+    (let ((h (let ((n 25) (a 0.25) (b 5000)) (/ (- b a) n)))
+          (gxb
+           (let ((xb
+                  (let ((xb
+                         (let ((h
+                                (let ((n 25) (a 0.25) (b 5000))
+                                  (/ (- b a) n))))
+                           (+ xa h))))
+                    (if (let ((xb
+                               (let ((h
+                                      (let ((n 25) (a 0.25) (b 5000))
+                                        (/ (- b a) n))))
+                                 (+ xa h))))
+                          (> xb 5000))
+                      5000
+                      xb))))
+             (/
+              u
+              (-
+               (+ (- (* (* (* 0.7 xb) xb) xb) (* (* 0.6 xb) xb)) (* 0.9 xb))
+               0.2))))
+          (gxa
+           (/
+            u
+            (-
+             (+ (- (* (* (* 0.7 xa) xa) xa) (* (* 0.6 xa) xa)) (* 0.9 xa))
+             0.2))))
+      (+ r (* (* (+ gxa gxb) 0.5) h))))
+   (xa
+    0.25
+    (let ((h (let ((n 25) (a 0.25) (b 5000)) (/ (- b a) n)))) (+ xa h))))
+  r))
 
 (FPCore
  (Mf A)
@@ -1307,7 +1388,52 @@
  :precision
  binary32
  :pre
- (< 150 d 200)
+ (<
+  150
+  (-
+   (+
+    (+
+     (+
+      (+
+       (+
+        (+
+         (+
+          (+
+           (+
+            (+
+             (+ (* (* (* a11 a22) a33) a44) (* (* (* a12 a23) a34) a41))
+             (* (* (* a13 a24) a31) a42))
+            (* (* (* a14 a21) a32) a43))
+           (* (* (* a11 a23) a34) a42))
+          (* (* (* a12 a21) a33) a44))
+         (* (* (* a13 a21) a32) a44))
+        (* (* (* a14 a22) a33) a41))
+       (* (* (* a11 a24) a32) a43))
+      (* (* (* a12 a24) a31) a43))
+     (* (* (* a13 a22) a34) a41))
+    (* (* (* a14 a23) a31) a42))
+   (+
+    (+
+     (+
+      (+
+       (+
+        (+
+         (+
+          (+
+           (+
+            (+
+             (+ (* (* (* a11 a22) a34) a43) (* (* (* a12 a23) a31) a44))
+             (* (* (* a13 a24) a32) a41))
+            (* (* (* a14 a21) a33) a42))
+           (* (* (* a11 a23) a32) a44))
+          (* (* (* a12 a21) a34) a43))
+         (* (* (* a13 a21) a34) a42))
+        (* (* (* a14 a22) a31) a43))
+       (* (* (* a11 a24) a33) a42))
+      (* (* (* a12 a24) a33) a41))
+     (* (* (* a13 a22) a31) a44))
+    (* (* (* a14 a23) a32) a41)))
+  200)
  :example
  ((a11 150.0)
   (a12 0.01)
@@ -1370,7 +1496,52 @@
  :precision
  binary32
  :pre
- (< 150 d 200)
+ (<
+  150
+  (-
+   (+
+    (+
+     (+
+      (+
+       (+
+        (+
+         (+
+          (+
+           (+
+            (+
+             (+ (* (* (* a11 a22) a33) a44) (* (* (* a12 a23) a34) a41))
+             (* (* (* a13 a24) a31) a42))
+            (* (* (* a14 a21) a32) a43))
+           (* (* (* a11 a23) a34) a42))
+          (* (* (* a12 a21) a33) a44))
+         (* (* (* a13 a21) a32) a44))
+        (* (* (* a14 a22) a33) a41))
+       (* (* (* a11 a24) a32) a43))
+      (* (* (* a12 a24) a31) a43))
+     (* (* (* a13 a22) a34) a41))
+    (* (* (* a14 a23) a31) a42))
+   (+
+    (+
+     (+
+      (+
+       (+
+        (+
+         (+
+          (+
+           (+
+            (+
+             (+ (* (* (* a11 a22) a34) a43) (* (* (* a12 a23) a31) a44))
+             (* (* (* a13 a24) a32) a41))
+            (* (* (* a14 a21) a33) a42))
+           (* (* (* a11 a23) a32) a44))
+          (* (* (* a12 a21) a34) a43))
+         (* (* (* a13 a21) a34) a42))
+        (* (* (* a14 a22) a31) a43))
+       (* (* (* a11 a24) a33) a42))
+      (* (* (* a12 a24) a33) a41))
+     (* (* (* a13 a22) a31) a44))
+    (* (* (* a14 a23) a32) a41)))
+  200)
  :example
  ((a11 150.0)
   (a12 0.01)
@@ -1433,7 +1604,52 @@
  :precision
  binary32
  :pre
- (< 150 d 200)
+ (<
+  150
+  (-
+   (+
+    (+
+     (+
+      (+
+       (+
+        (+
+         (+
+          (+
+           (+
+            (+
+             (+ (* (* (* a11 a22) a33) a44) (* (* (* a12 a23) a34) a41))
+             (* (* (* a13 a24) a31) a42))
+            (* (* (* a14 a21) a32) a43))
+           (* (* (* a11 a23) a34) a42))
+          (* (* (* a12 a21) a33) a44))
+         (* (* (* a13 a21) a32) a44))
+        (* (* (* a14 a22) a33) a41))
+       (* (* (* a11 a24) a32) a43))
+      (* (* (* a12 a24) a31) a43))
+     (* (* (* a13 a22) a34) a41))
+    (* (* (* a14 a23) a31) a42))
+   (+
+    (+
+     (+
+      (+
+       (+
+        (+
+         (+
+          (+
+           (+
+            (+
+             (+ (* (* (* a11 a22) a34) a43) (* (* (* a12 a23) a31) a44))
+             (* (* (* a13 a24) a32) a41))
+            (* (* (* a14 a21) a33) a42))
+           (* (* (* a11 a23) a32) a44))
+          (* (* (* a12 a21) a34) a43))
+         (* (* (* a13 a21) a34) a42))
+        (* (* (* a14 a22) a31) a43))
+       (* (* (* a11 a24) a33) a42))
+      (* (* (* a12 a24) a33) a41))
+     (* (* (* a13 a22) a31) a44))
+    (* (* (* a14 a23) a32) a41)))
+  200)
  :example
  ((a11 150.0)
   (a12 0.01)
@@ -1497,7 +1713,52 @@
  :precision
  binary32
  :pre
- (< 150 d 200)
+ (<
+  150
+  (-
+   (+
+    (+
+     (+
+      (+
+       (+
+        (+
+         (+
+          (+
+           (+
+            (+
+             (+ (* (* (* a11 a22) a33) a44) (* (* (* a12 a23) a34) a41))
+             (* (* (* a13 a24) a31) a42))
+            (* (* (* a14 a21) a32) a43))
+           (* (* (* a11 a23) a34) a42))
+          (* (* (* a12 a21) a33) a44))
+         (* (* (* a13 a21) a32) a44))
+        (* (* (* a14 a22) a33) a41))
+       (* (* (* a11 a24) a32) a43))
+      (* (* (* a12 a24) a31) a43))
+     (* (* (* a13 a22) a34) a41))
+    (* (* (* a14 a23) a31) a42))
+   (+
+    (+
+     (+
+      (+
+       (+
+        (+
+         (+
+          (+
+           (+
+            (+
+             (+ (* (* (* a11 a22) a34) a43) (* (* (* a12 a23) a31) a44))
+             (* (* (* a13 a24) a32) a41))
+            (* (* (* a14 a21) a33) a42))
+           (* (* (* a11 a23) a32) a44))
+          (* (* (* a12 a21) a34) a43))
+         (* (* (* a13 a21) a34) a42))
+        (* (* (* a14 a22) a31) a43))
+       (* (* (* a11 a24) a33) a42))
+      (* (* (* a12 a24) a33) a41))
+     (* (* (* a13 a22) a31) a44))
+    (* (* (* a14 a23) a32) a41)))
+  200)
  :example
  ((a11 150.0)
   (a12 0.01)

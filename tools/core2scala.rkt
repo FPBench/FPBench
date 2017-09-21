@@ -80,7 +80,7 @@
     [`(if ,cond ,ift ,iff)
      (define test (expr->scala cond #:names names #:indent indent))
      (define outvar (gensym 'temp))
-     (printf "~avar ~a : Real\n" indent (fix-name outvar))
+     (printf "~avar ~a : Real = 0.0\n" indent (fix-name outvar))
      (printf "~aif (~a) {\n" indent test)
      (printf "~a\t~a = ~a\n" indent (fix-name outvar)
              (expr->scala ift #:names names #:indent (format "~a\t" indent)))

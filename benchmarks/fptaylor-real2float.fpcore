@@ -64,7 +64,7 @@
 (FPCore (x1 x2)
  :name "floudas3"
  :precision binary64
- :pre (and (<= 0 x1 2) (<= 0 x2 3) (>= (- (+ (* -2 (* (* x1 x2) (* x1 x1))) 2) x2)))
+ :pre (and (<= 0 x1 2) (<= 0 x2 3) (>= (+ (* -2 (* (* x1 x1) (* x1 x1))) 2) x2))
  (+ (- (* -12 x1) (* 7 x2)) (* x2 x2)))
 
 (FPCore (x1 x2 x3)
@@ -120,7 +120,7 @@
  (+ (- (- (+ (* x2 x5) (* x3 x6)) (* x2 x3)) (* x5 x6))
     (* x1 (+ (+ (- (+ (+ (- x1) x2) x3) x4) x5) x6))))
 
-(FPCore (x1 x2 x3 x4 x5)
+(FPCore (x1 x2 x3 x4)
  :name "kepler1"
  :precision binary64
  :pre (and (<= 4 x1 6.36) (<= 4 x2 6.36) (<= 4 x3 6.36) (<= 4 x4 6.36))

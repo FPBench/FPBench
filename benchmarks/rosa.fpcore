@@ -67,9 +67,9 @@
     (let ([s (/ t d)] [s* (/ t* d)])
       (+ x1
          (+
-          (+ 
-           (+ 
-            (+ 
+          (+
+           (+
+            (+
              (* (+ (* (* (* 2 x1) s) (- s 3)) (* (* x1 x1) (- (* 4 s) 6))) d)
              (* (* (* 3 x1) x1) s))
             (* (* x1 x1) x1))
@@ -102,7 +102,7 @@
         (/ (* (* 0.125 (+ 1 (* 2 v))) (* (* (* w w) r) r)) (- 1 v)))
      0.5))
 
-(FPCore (r K x)
+(FPCore (x)
   :name "verhulst"
   :cite (darulova-kuncak-2014 solovyev-et-al-2015)
   :fpbench-domain science
@@ -111,7 +111,7 @@
   (let ([r 4.0] [K 1.11])
     (/ (* r x) (+ 1 (/ x K)))))
 
-(FPCore (r K x)
+(FPCore (x)
   :name "predatorPrey"
   :cite (darulova-kuncak-2014 solovyev-et-al-2015)
   :fpbench-domain science
@@ -120,7 +120,7 @@
   (let ([r 4.0] [K 1.11])
     (/ (* (* r x) x) (+ 1 (* (/ x K) (/ x K))))))
 
-(FPCore (T a b N p v)
+(FPCore (v)
   :name "carbonGas"
   :cite (darulova-kuncak-2014 solovyev-et-al-2015)
   :fpbench-domain science
@@ -162,7 +162,7 @@
 ;; These are called `PathError` and appear in a figure in the paper on
 ;; path error.
 
-(FPCore (a b c)
+(FPCore (c)
   :name "smartRoot"
   :cite (darulova-kuncak-2014)
   :fpbench-domain mathematics
@@ -212,10 +212,9 @@
 (FPCore (a b c)
   :name "triangle"
   :cite (darulova-kuncak-2014)
-  :pre (and (<= 4.71 b 4.89) (<= 4.71 c 4.89))
-  (let ([a 9])
-    (let ([s (/ (+ (+ a b) c) 2)])
-      (sqrt (* (* (* s (- s a)) (- s b)) (- s c))))))
+  :pre (and (<= 9.0 a 9.0) (<= 4.71 b 4.89) (<= 4.71 c 4.89))
+  (let ([s (/ (+ (+ a b) c) 2)])
+      (sqrt (* (* (* s (- s a)) (- s b)) (- s c)))))
 
 (FPCore (a b c)
   :name "triangle1"

@@ -131,7 +131,11 @@
       (format "~a: Real" (fix-name (if (list? var) (car var) var)))))
   (with-output-to-string
     (λ ()
-      (printf "\tdef ~a(~a): Real = {\n" (if (dict-has-key? properties ':name) (format "`~a`" (dict-ref properties ':name)) (format "ex~a" index)) (string-join arg-strings ", "))
+      (printf "\tdef ~a(~a): Real = {\n"
+        (if (dict-has-key? properties ':name)
+            (format "`~a`" (string-replace (string-replace (dict-ref properties ':name) "\\" "\\\\") "`" "'"))
+            (format "ex~a" index))
+        (string-join arg-strings ", "))
       (parameterize ([*names* (apply mutable-set args)])
         (when (dict-has-key? properties ':pre)
           (printf "\t\trequire(~a)\n" (expr->scala (dict-ref properties ':pre) #:indent "\t\t")))

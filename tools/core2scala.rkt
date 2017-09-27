@@ -80,7 +80,7 @@
     [`(if ,cond ,ift ,iff)
      (define test (expr->scala cond #:names names #:indent indent))
      (define outvar (gensym 'temp))
-     (printf "~avar ~a : Real\n" indent (fix-name outvar))
+     (printf "~avar ~a : Real = 0.0\n" indent (fix-name outvar))
      (printf "~aif (~a) {\n" indent test)
      (printf "~a\t~a = ~a\n" indent (fix-name outvar)
              (expr->scala ift #:names names #:indent (format "~a\t" indent)))
@@ -122,7 +122,7 @@
     [(? number?)
      (format "~a" (real->double-flonum expr))]))
 
-(define (compile-program prog #:name name)
+(define (compile-program prog index)
   (match-define (list 'FPCore (list args ...) props ... body) prog)
   (define-values (_ properties) (parse-properties props))
 
@@ -131,7 +131,11 @@
       (format "~a: Real" (fix-name (if (list? var) (car var) var)))))
   (with-output-to-string
     (λ ()
-      (printf "\tdef ~a(~a): Real = {\n" (fix-name name) (string-join arg-strings ", "))
+      (printf "\tdef ~a(~a): Real = {\n"
+        (if (dict-has-key? properties ':name)
+            (format "`~a`" (string-replace (string-replace (dict-ref properties ':name) "\\" "\\\\") "`" "'"))
+            (format "ex~a" index))
+        (string-join arg-strings ", "))
       (parameterize ([*names* (apply mutable-set args)])
         (when (dict-has-key? properties ':pre)
           (printf "\t\trequire(~a)\n" (expr->scala (dict-ref properties ':pre) #:indent "\t\t")))
@@ -173,5 +177,5 @@
      (when unroll
        (match-define (list 'FPCore (list args ...) props ... body) prog)
        (set! prog `(FPCore ,args ,@props ,(unroll-loops body unroll))))
-     (printf "~a\n" (compile-program prog #:name (format "ex~a" n))))
+     (printf "~a\n" (compile-program prog n)))
    (printf "}\n")))

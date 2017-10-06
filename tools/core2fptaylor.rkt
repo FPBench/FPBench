@@ -217,7 +217,7 @@
     [(list '- a)
      (format "-~a" a)]
     [(list (or '== '< '> '<= '>= '!= 'not 'and 'or) args ...)
-     error 'application->fptaylor "Unsupported operation ~a" operator]
+     (error 'application->fptaylor "Unsupported operation ~a" operator)]
     [(list (or '+ '- '* '/) a b)
      (format "(~a ~a ~a)" a (operator->fptaylor operator) b)]
     [(list (? operator? f) args ...)

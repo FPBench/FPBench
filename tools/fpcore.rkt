@@ -61,7 +61,7 @@
      (unless (equal? (cdr test*) 'boolean)
        (raise-syntax-error #f "Conditional test must return a boolean" stx test))
      (define ift* (check-expr ift ctx))
-     (define iff* (check-expr ift ctx))
+     (define iff* (check-expr iff ctx))
      (unless (equal? (cdr ift*) (cdr iff*))
        (raise-syntax-error #f "Conditional branches must have same type" stx))
      (cons `(if ,(car test*) ,(car ift*) ,(car iff*)) (cdr ift*))]

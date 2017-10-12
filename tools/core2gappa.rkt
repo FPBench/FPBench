@@ -1,6 +1,6 @@
 #lang racket
 
-(require "common.rkt" "fpcore.rkt")
+(require "common.rkt" "fpcore.rkt" "fpcore-extra.rkt")
 (provide compile-program)
 
 (define (fix-name name)
@@ -15,6 +15,8 @@
   (match-lambda
     ['SQRT2 "sqrt(2)"]
     ['SQRT1_2 "1 / sqrt(2)"]
+    ['TRUE "0 <= 1"]
+    ['FALSE "0 > 1"]
     [c (error 'constant->gappa "Unsupported constant ~a" c)]))
 
 (define/match (operator->gappa op)
@@ -29,24 +31,19 @@
   (match (cons operator args)
     [(list '- a)
      (format "-~a" a)]
-    ; TODO: == and != are not supported directly
-    ; a == b <=> a - b in [0, 0] in Gappa
-    [(list (or '== '!=) args ...)
-     (error 'application->gappa "Unsupported operation ~a" operator)]
-    [(list (or '< '> '<= '>=) head args ...)
-     (format "(~a)"
-             (string-join
-              (for/list ([a (cons head args)] [b args])
-                (format "~a ~a ~a" a (operator->gappa operator) b))
-              " /\\ "))]
-    [(list (or '+ '- '* '/) a b)
+    [(list '== a b)
+     (format "~a - ~a in [0, 0]" a b)]
+    [(list '!= a b)
+     (format "not (~a - ~a in [0, 0])" a b)]
+    [(list (or '+ '- '* '/ '<= '>= '< '> 'and 'or) a b)
      (format "(~a ~a ~a)" a (operator->gappa operator) b)]
     [(list 'fabs arg)
      (format "|~a|" arg)]
     [(list (or 'and 'or) a b)
      (format "(~a ~a ~a)" a (operator->gappa operator) b)]
-    [(list (? operator? f) args ...)
-     (format "~a(~a)" (operator->gappa f) (string-join args ", "))]))
+    [(list (or 'sqrt 'fma 'not) args ...)
+     (format "~a(~a)" (operator->gappa operator) (string-join args ", "))]
+    [_ (error 'application->gappa "Unsupported operation ~a" operator)]))
 
 (define/match (type->rnd type)
   [('real) ""]
@@ -54,13 +51,6 @@
   [('binary64) "float<ieee_64,ne>"]
   [('binary128) "float<ieee_128,ne>"]
   [('binary80) "float<x86_80,ne>"])
-
-(define/contract (format-number num)
-  (-> number? string?)
-  (define t (inexact->exact num))
-  (if (= (denominator t) 1)
-      (format "~a" t)
-      (format "(~a)" t)))
 
 (define (format-rounded type expr)
   (define rnd (type->rnd type))
@@ -140,18 +130,18 @@
                   (printf "~a~a = ~a(~a);\n" indent (fix-name arg) (type->rnd type) (fix-name real-name)))
               (values arg arg)))
 
+          (define body* (canonicalize body))
+          
           (printf "\n")
-          (define real-expr-body (expr->gappa body #:names real-vars #:type 'real #:indent indent))
+          (define real-expr-body (expr->gappa body* #:names real-vars #:type 'real #:indent indent))
           (printf "~a~a = ~a;\n\n" indent real-expr-name real-expr-body)
             
-          (define expr-body (expr->gappa body #:names vars #:type type #:indent indent))
+          (define expr-body (expr->gappa body* #:names vars #:type type #:indent indent))
           (printf "~a~a ~a= ~a;\n\n" indent expr-name (type->rnd type) expr-body)
 
-          ; I'm not sure that local definitions are allowed here.
-          ; There should be a function to remove let expressions (in fpcore.rkt).
-          ; Another function for unrolling loops.
           (define cond-body
-            (expr->gappa (dict-ref properties ':pre '()) #:names real-vars #:type 'real #:indent indent))
+            (let ([expr (canonicalize (remove-let (dict-ref properties ':pre 'TRUE)))])
+              (expr->gappa expr #:names real-vars #:type 'real #:indent indent)))
           (when (equal? cond-body "")
             (set! cond-body "0 in [0,0]"))
           (printf "~a{ ~a\n~a   -> |~a - ~a| in ? }\n\n" indent cond-body
@@ -162,11 +152,9 @@
           ))))
 
 (module+ test
-  ; My opinion: all decimal numbers in fpcore files are real numbers
-  (parameterize ([read-decimal-as-inexact #f])
-    (for ([expr (in-port (curry read-fpcore "test")
-                         (open-input-file "../benchmarks/test.fpcore"))])
-      (printf "~a\n\n" (compile-program expr #:name "test"))))
+  (for ([expr (in-port (curry read-fpcore "test")
+                       (open-input-file "../benchmarks/test.fpcore"))])
+    (printf "~a\n\n" (compile-program expr #:name "test")))
 )
 
 ; TODO: save results in separate files?
@@ -181,9 +169,10 @@
                  (set! var-type (string->symbol type))]
    #:args ()
    (port-count-lines! (current-input-port))
-   (parameterize ([read-decimal-as-inexact #f])
-     (for ([expr (in-port (curry read-fpcore "stdin"))] [n (in-naturals)])
-       (printf "~a\n\n" (compile-program expr
-                                         #:name (format "ex~a" n)
-                                         #:var-type var-type
-                                         #:indent "  "))))))
+   (for ([expr (in-port (curry read-fpcore "stdin"))] [n (in-naturals)])
+     (printf "~a\n\n" (compile-program expr
+                                       #:name (format "ex~a" n)
+                                       #:var-type var-type
+                                       #:indent "  "))))
+  )
+

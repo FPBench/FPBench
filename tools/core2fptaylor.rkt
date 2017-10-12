@@ -184,10 +184,10 @@
               (set! inexact-scale (string->number scale))]
    #:args ()
    (port-count-lines! (current-input-port))
-   (parameterize ([read-decimal-as-inexact #f])
-     (for ([expr (in-port (curry read-fpcore "stdin"))] [n (in-naturals)])
-       (printf "~a\n\n" (compile-program expr
-                                         #:name (format "ex~a" n)
-                                         #:var-type var-type
-                                         #:inexact-scale inexact-scale
-                                         #:indent "  "))))))
+   (for ([expr (in-port (curry read-fpcore "stdin"))] [n (in-naturals)])
+     (printf "~a\n\n" (compile-program expr
+                                       #:name (format "ex~a" n)
+                                       #:var-type var-type
+                                       #:inexact-scale inexact-scale
+                                       #:indent "  "))))
+  )

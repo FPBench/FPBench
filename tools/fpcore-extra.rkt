@@ -60,6 +60,9 @@
            (loop (cdr args)
                  (for/fold ([expr expr]) ([b (cdr args)])
                    (if (constant? expr) `(!= ,(car args) ,b) `(and ,expr (!= ,(car args) ,b)))))))]
+    [(list (or 'and 'or) arg) (canonicalize arg)]
+    [(list (and (or 'and 'or) op) args ... arg)
+     `(,op ,(canonicalize (cons op args)) ,(canonicalize arg))]
     [`(,op ,args ...) `(,op ,@(map canonicalize args))]))
 
 ;; from core2scala.rkt
@@ -115,10 +118,10 @@
   (check-equal?
    (canonicalize '(let ([x (+ a b)])
                     (if (<= 1 a x b)
-                        (and (!= x a b) (== a 2 b))
+                        (and (!= x a b) (== a 2 b) (<= a 4))
                         (> x a b 3))))
    '(let ([x (+ a b)])
       (if (and (and (<= 1 a) (<= a x)) (<= x b))
-          (and (and (and (!= x a) (!= x b)) (!= a b)) (and (== a 2) (== 2 b)))
+          (and (and (and (and (!= x a) (!= x b)) (!= a b)) (and (== a 2) (== 2 b))) (<= a 4))
           (and (and (> x a) (> a b)) (> b 3)))))
 )

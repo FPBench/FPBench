@@ -144,8 +144,9 @@
 
 (define/contract (read-fpcore name p)
   (-> any/c input-port? (or/c fpcore? eof-object?))
-  (define stx (read-syntax name p))
-  (if (eof-object? stx) stx (check-fpcore stx)))
+  (parameterize ([read-decimal-as-inexact #f])
+    (define stx (read-syntax name p))
+    (if (eof-object? stx) stx (check-fpcore stx))))
 
 (define/contract context/c contract? (dictof symbol? any/c))
 

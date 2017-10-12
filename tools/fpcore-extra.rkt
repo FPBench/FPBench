@@ -1,6 +1,35 @@
 #lang racket
 
 (require "common.rkt" "fpcore.rkt")
+(provide format-number remove-let canonicalize unroll-loops)
+
+(define (factor n k)
+  (if (or (= n 0) (< k 2))
+      (values n 0)
+      (let loop ([n (inexact->exact n)] [e 0])
+        (define-values (q r) (quotient/remainder n k))
+        (if (= r 0)
+            (loop q (+ e 1))
+            (values n e)))))
+
+; TODO: use (order-of-magnitude n) from racket/math to get normalized results
+(define/contract (format-number n)
+  (-> rational? string?)
+  (define t (inexact->exact n))
+  (let*-values ([(d e10) (factor (denominator t) 10)]
+                [(d e5) (factor d 5)]
+                [(d e2) (factor d 2)])
+    (cond
+      [(= t 0) (~a t)]
+      [(> d 1) (format "(~a)" t)]
+      [else
+       (let*-values ([(m) (if (> e2 e5) (expt 5 e2) (expt 2 e5))]
+                     [(n en10) (factor (* (numerator t) m) 10)]
+                     [(e) (- en10 (+ e2 e5 e10))])
+         (cond
+           [(>= e 0)
+            (format "~a~a" n (make-string e #\0))]
+           [else (format "~ae~a" n e)]))])))
 
 (define/contract (remove-let expr [bindings '()])
   (->* (expr?) ((dictof symbol? expr?)) expr?)
@@ -12,31 +41,6 @@
      (define vals* (map (curryr remove-let bindings) vals))
      (remove-let body (apply dict-set* bindings (append-map list vars vals*)))]
     [`(,op ,args ...) (cons op (map (curryr remove-let bindings) args))]))
-
-(define/contract (extract-let gensym expr [bindings '()])
-  (->* ((-> symbol? symbol?) expr?) ((dictof symbol? symbol?))
-       (cons/c (listof (cons/c symbol? expr?)) expr?))
-  (match expr
-    [(? constant?) (cons '() expr)]
-    [(? number?) (cons '() expr)]
-    [(? symbol?) (cons '() (dict-ref bindings expr expr))]
-    [`(let ([,vars ,vals] ...) ,body)
-     (define vars* (map gensym vars))
-     (match-define (list (cons val-defs vals*) ...)
-       (map (curryr (curry extract-let gensym) bindings) vals))
-     (define defs (map cons vars* vals*))
-     (define bindings*
-       (for/fold ([bindings* bindings]) ([var* vars*] [var vars])
-         (dict-set bindings* var var*)))
-     (match-define (cons body-defs res)
-       (extract-let gensym body bindings*))
-     (cons (append (apply append val-defs) defs body-defs) res)]
-    [`(while ,args ...)
-     (error 'extract-let "while is not supported")]
-    [`(,op ,args ...)
-     (match-define (list (cons defs args*) ...)
-       (map (curryr (curry extract-let gensym) bindings) args))
-     (cons (apply append defs) `(,op ,@args*))]))
 
 (define/contract (canonicalize expr)
   (-> expr? expr?)
@@ -81,31 +85,40 @@
 
 
 (module+ test
-  (define *names* (make-parameter (mutable-set)))
-
-  (define (gensym name)
-    (define prefixed
-      (filter (λ (x) (string-prefix? (~a x) (~a name))) (set->list (*names*))))
-    (define options
-      (cons name (for/list ([_ prefixed] [i (in-naturals)]) (string->symbol (format "~a~a" name (+ i 1))))))
-    (define name*
-      (car (set-subtract options prefixed)))
-    (set-add! (*names*) name*)
-    name*)
+  (require rackunit)
 
   (parameterize ([read-decimal-as-inexact #f])
-    (for ([prog (in-port (curry read-fpcore "test")
-                         (open-input-file "../benchmarks/test.fpcore"))])
-      (match-define (list 'FPCore (list args ...) props ... body) prog)
-      (define-values (_ properties) (parse-properties props))
-      (define pre (dict-ref properties ':pre 'TRUE))
-      (printf "body: ~a\n\n" body)
-      (define body* (unroll-loops body 3))
-      (pretty-print body*)
-      (printf "canonicalized pre: ~a\n\n" (canonicalize pre))
-      (match-define (cons a b) (extract-let gensym body*))
-      (printf "extract: defs = ~a\n~a\n\n" a b)
-      (printf "remove:  ~a\n" (remove-let body))
-      (printf "remove*: ~a\n\n\n" (remove-let body*))))
+    (for ([n '(1 10/3 -2.71 -3.1e-5 #e1e+100 1e+100 -7/2 0.1)])
+      (check-equal?
+       (string->number (string-trim (format-number n) #px"[()]"))
+       (inexact->exact n))))
+        
+  (check-equal?
+   (remove-let '(let ([x (+ a b)]) (+ x a)))
+   '(+ (+ a b) a))
   
+  (check-equal?
+   (remove-let '(let ([x (+ a b)] [y (* a 2)])
+                  (let ([x (+ y x)] [a b])
+                    (- x a))))
+   '(- (+ (* a 2) (+ a b)) b))
+
+  (check-equal?
+   (remove-let '(let ([x (+ a b)])
+                  (if (let ([y (- x 0)]) (== y x))
+                      (- x (let ([z a]) z))
+                      y)))
+   '(if (== (- (+ a b) 0) (+ a b))
+        (- (+ a b) a)
+        y))
+
+  (check-equal?
+   (canonicalize '(let ([x (+ a b)])
+                    (if (<= 1 a x b)
+                        (and (!= x a b) (== a 2 b))
+                        (> x a b 3))))
+   '(let ([x (+ a b)])
+      (if (and (and (<= 1 a) (<= a x)) (<= x b))
+          (and (and (and (!= x a) (!= x b)) (!= a b)) (and (== a 2) (== 2 b)))
+          (and (and (> x a) (> a b)) (> b 3)))))
 )

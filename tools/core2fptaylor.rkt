@@ -107,7 +107,6 @@
     [(list (? operator? operator) args ...)
      (define args_fptaylor
        (map (λ (arg) (expr->fptaylor arg #:names names #:inexact-scale inexact-scale #:type type #:indent indent)) args))
-     ; Move to application->fptaylor?
      (if (and (inexact-operator? operator) (not (= inexact-scale 1)))
          (let ([args_fptaylor*
                 (for/list [(arg args_fptaylor)]
@@ -127,16 +126,25 @@
          (format "~a~a" (type->rnd type) n-str)
          n-str)]))
 
-(define (compile-program prog #:var-type [var-type 'real] #:name name
-                         #:inexact-scale [inexact-scale 1] #:indent [indent "\t"])
+(define (compile-program prog
+                         #:name name
+                         #:precision [precision #f]
+                         #:var-precision [var-precision #f] 
+                         #:inexact-scale [inexact-scale 1]
+                         #:unroll [unroll #f]
+                         #:indent [indent "\t"])
   (match-define (list 'FPCore (list args ...) props ... body) prog)
   (define-values (_ properties) (parse-properties props))
-  (define type (dict-ref properties ':precision 'binary64))
+  (define type
+    (if precision precision (dict-ref properties ':precision 'binary64)))
   ; A special property :var-precision
-  (define var-type* (dict-ref properties ':var-precision var-type))
+  (define var-type
+    (if var-precision var-precision (dict-ref properties ':var-precision 'real)))
   (define name* (dict-ref properties ':name name))
   (define var-ranges
-    (condition->range-table (dict-ref properties ':pre '())))
+    (condition->range-table (dict-ref properties ':pre 'TRUE)))
+  (define body*
+    ((compose canonicalize (if unroll (curryr unroll-loops unroll) identity)) body))
 
   (define arg-strings
     (for/list ([var args])
@@ -147,7 +155,7 @@
       (unless (is-non-empty-bounded range)
         (error 'compile-program "Bad range for ~a in ~a (~a)" var name* range))
       (match-define (interval l u) range)
-      (format "~a~a ~a in [~a, ~a];" indent (type->fptaylor var-type*) (fix-name var)
+      (format "~a~a ~a in [~a, ~a];" indent (type->fptaylor var-type) (fix-name var)
               (format-number l) (format-number u))))
 
   (with-output-to-string
@@ -155,7 +163,7 @@
         (parameterize ([*names* (apply mutable-set args)]
                        [*defs* (box '())])
           (define expr-name (gensym name*))
-          (define expr-body (expr->fptaylor body #:type type #:inexact-scale inexact-scale #:indent indent))
+          (define expr-body (expr->fptaylor body* #:type type #:inexact-scale inexact-scale #:indent indent))
           (unless (empty? arg-strings)
             (printf "Variables\n~a\n\n" (string-join arg-strings "\n")))
           (unless (empty? (unbox (*defs*)))
@@ -165,29 +173,45 @@
 
 (module+ test
   (for ([expr (in-port (curry read-fpcore "test")
-                       (open-input-file "../benchmarks/test.fpcore"))])
+                       (open-input-file "../benchmarks/fptaylor-tests.fpcore"))])
     (printf "~a\n\n" (compile-program expr #:name "test" #:indent "  ")))
 )
 
-; TODO: save results in separate files?
 (module+ main
   (require racket/cmdline)
-  (define var-type 'real)
+  (define files #f)
+  (define precision #f)
+  (define var-precision #f)
+  (define unroll #f)
   (define inexact-scale 1)
   
   (command-line
    #:program "core2fptaylor.rkt"
    #:once-each
-   ["--var-type" type "The default type of input variables"
-                 (set! var-type (string->symbol type))]
-   ["--scale" scale "The scale factor for inexactly rounded operations"
+   ["--files" "Save FPTaylor expressions in separate files"
+              (set! files #t)]
+   ["--precision" prec "The precision of all operations (overrides the :precision property)"
+             (set! precision (string->symbol prec))]
+   ["--var-precision" prec "The precision of input variables (overrides the :var-precision property)"
+                      (set! var-precision (string->symbol prec))]
+   ["--scale" scale "The scale factor for operations which are not correctly rounded"
               (set! inexact-scale (string->number scale))]
+   ["--unroll" n "How many iterations to unroll any loops to"
+               (set! unroll (string->number n))]
    #:args ()
    (port-count-lines! (current-input-port))
    (for ([expr (in-port (curry read-fpcore "stdin"))] [n (in-naturals)])
-     (printf "~a\n\n" (compile-program expr
+     (with-handlers ([exn:fail? (λ (exn) (eprintf "[ERROR]: ~a\n\n" exn))])
+       (define result (compile-program expr
                                        #:name (format "ex~a" n)
-                                       #:var-type var-type
+                                       #:precision precision
+                                       #:var-precision var-precision
                                        #:inexact-scale inexact-scale
-                                       #:indent "  "))))
+                                       #:unroll unroll
+                                       #:indent "  "))
+       (if files
+           ; TODO: generate names from the :name properties
+           (call-with-output-file (format "ex~a.txt" n) #:exists 'replace
+             (λ (p) (fprintf p "~a" result)))
+           (printf "~a\n\n" result)))))
   )

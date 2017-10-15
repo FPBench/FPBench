@@ -1,6 +1,6 @@
 #lang racket
 
-(require "common.rkt" "fpcore.rkt" "fpcore-extra.rkt")
+(require "common.rkt" "fpcore.rkt" "fpcore-extra.rkt" "range-analysis.rkt")
 (provide compile-program)
 
 (define (fix-name name)
@@ -30,7 +30,7 @@
   [('or) '\\/]
   [(_) (error 'operator->gappa "Unsupported operation ~a" op)])
 
-(define (application->gappa type operator args)
+(define (application->gappa operator args)
   (match (cons operator args)
     [(list '- a)
      (format "-~a" a)]
@@ -88,20 +88,33 @@
      (error 'expr->gappa "Unsupported operation ~a" expr)]
     [`(while ,cond ([,vars ,inits ,updates] ...) ,retexpr)
      (error 'expr->gappa "Unsupported operation ~a" expr)]
+    ; Gappa does not support strict inequalities
+    [`(< ,args ...) (expr->gappa `(<= ,@args) #:names names #:type type)]
+    [`(> ,args ...) (expr->gappa `(>= ,@args) #:names names #:type type)]
+    ; Expressions must be canonicalized
+    [`(>= ,a ,b) (expr->gappa `(<= ,b ,a) #:names names #:type type)]
+    [(list '<= (? number? a) b)
+     (application->gappa '>= (list (expr->gappa b #:names names #:type type)
+                                   (format-number a)))]
+    [(list '<= a (? number? b))
+     (application->gappa '<= (list (expr->gappa a #:names names #:type type)
+                                   (format-number b)))]
+    [`(<= ,a ,b)
+     (eprintf "[WARNING] Cannot translate the inequality: ~a\n" expr)
+     (expr->gappa 'TRUE #:names names #:type type)]
     [(list (? operator? operator) args ...)
      (define args_gappa
        (map (λ (arg) (expr->gappa arg #:names names #:type type)) args))
-     (application->gappa type operator args_gappa)]
+     (application->gappa operator args_gappa)]
     [(? constant?)
      (format "~a(~a)" (type->rnd type) (constant->gappa expr))]
     [(? symbol?)
      (fix-name (dict-ref names expr))]
     [(? number?)
-     (define t (inexact->exact expr))
-     (if (= (denominator t) 1)
-         (format-rounded type t)
-         ; Parentheses are required even if type is 'real
-         (format "~a(~a)" (type->rnd type) t))]))
+     (define n-str (format-number expr))
+     (if (string-contains? n-str "/")
+         (format "~a~a" (type->rnd type) n-str)
+         (format-rounded type n-str))]))    
 
 (define (compile-program prog
                          #:name name
@@ -117,6 +130,8 @@
   (define var-type
     (if var-precision var-precision (dict-ref properties ':var-precision 'real)))
   (define name* (dict-ref properties ':name name))
+  (define var-ranges
+    (condition->range-table (dict-ref properties ':pre 'TRUE)))
   (define body*
     ((compose canonicalize (if unroll (curryr unroll-loops unroll) identity)) body))
 
@@ -126,6 +141,7 @@
           (define real-expr-name (gensym "Mexpr"))
           (define expr-name (gensym "expr"))
 
+          ; Generate variables corresponding to input arguments
           (define real-vars
             (for/hash ([arg args])
               (define name (gensym (string-append "M" (~a arg))))
@@ -134,6 +150,7 @@
                         (fix-name (gensym (string-append "T" (~a arg))))))
               (values arg name)))
 
+          ; Generate rounded versions of input arguments
           (define vars
             (for/hash ([arg args])
               (define real-name (dict-ref real-vars arg))
@@ -142,18 +159,49 @@
                   (printf "~a = ~a(~a);\n" (fix-name arg) (type->rnd type) (fix-name real-name)))
               (values arg arg)))
 
+          ; Generate real-valued expressions
           (printf "\n")
           (define real-expr-body (expr->gappa body* #:names real-vars #:type 'real))
           (printf "~a = ~a;\n\n" real-expr-name real-expr-body)
-            
+
+          ; Generate rounded expressions
           (define expr-body (expr->gappa body* #:names vars #:type type))
           (printf "~a ~a= ~a;\n\n" expr-name (type->rnd type) expr-body)
 
-          (define cond-body
+          ; Generate preconditions (some inequalities may be skipped)
+          (define pre
             (let ([expr (canonicalize (remove-let (dict-ref properties ':pre 'TRUE)))])
               (expr->gappa expr #:names real-vars #:type 'real)))
+
+          ; Generate ranges of variables
+          (define ranges
+            (for/list ([var args])
+              (define range
+                (cond
+                  [(and var-ranges (hash-has-key? var-ranges var)) (dict-ref var-ranges var)]
+                  [else (make-interval -inf.0 +inf.0)]))
+              (if (is-non-empty-bounded range)
+                  (format "~a in [~a, ~a]" (fix-name (dict-ref real-vars var))
+                          ; TODO: round down and up if necessary
+                          ; It is also required to round non-decimal rational numbers when
+                          ; translating preconditions. But it is necessary to be careful
+                          ; and take into account the context:
+                          ; (not (<= a 1/3)) is different from (<= a 1/3).
+                          ; For preconditions P we need to generate weaker preconditions Q
+                          ; such that P ==> Q.
+                          (format-number (interval-l range))
+                          (format-number (interval-u range)))
+                  "")))
+
+          ; Combine preconditions and ranges
+          (define cond-body
+            (let ([sep (format " ~a " (operator->gappa 'and))])
+              ; For some strange reason we must add parentheses around the combined
+              ; range expression. Otherwise Gappa complains that expressions are not bounded.
+              (format "~a ~a (~a)" pre sep (string-join (filter non-empty-string? ranges) sep))))
+          
           (when (equal? cond-body "")
-            (set! cond-body "0 in [0,0]"))
+            (set! cond-body "0 <= 1"))
           (define goal
             (if rel-error
                 (format "~a -/ ~a in ?" expr-name real-expr-name)

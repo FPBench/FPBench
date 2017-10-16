@@ -123,6 +123,7 @@
   ; Should be called after remove-let and canonicalize.
   ; Note: returns #f if all inequalities are not supported.
   (match expr
+    [(? constant?) expr]
     [(list (and (or 'and 'or) op) a b)
      (define a* (remove-unsupported-inequalities a))
      (define b* (remove-unsupported-inequalities b))
@@ -241,7 +242,7 @@
 
 (module+ test
   (for ([expr (in-port (curry read-fpcore "test")
-                       (open-input-file "../benchmarks/test2.rkt"))])
+                       (open-input-file "../benchmarks/fptaylor-tests.fpcore"))])
     (printf "~a\n\n" (compile-program expr #:name "test")))
 )
 

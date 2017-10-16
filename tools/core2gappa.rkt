@@ -88,20 +88,23 @@
      (error 'expr->gappa "Unsupported operation ~a" expr)]
     [`(while ,cond ([,vars ,inits ,updates] ...) ,retexpr)
      (error 'expr->gappa "Unsupported operation ~a" expr)]
-    ; Gappa does not support strict inequalities
-    [`(< ,args ...) (expr->gappa `(<= ,@args) #:names names #:type type)]
-    [`(> ,args ...) (expr->gappa `(>= ,@args) #:names names #:type type)]
-    ; Expressions must be canonicalized
+    ; Gappa does not support strict inequalities directly.
+    ; It is possible to replace (< a b) with (not (<= b a)) but this seems to be not very useful
+    ; and complicates the approximation of rational numbers in the right hand sides of inequalities.
+    ; Note: expressions must be canonicalized.
+    [`(< ,a ,b) (expr->gappa `(<= ,a ,b) #:names names #:type type)]
+    [`(> ,a ,b) (expr->gappa `(<= ,b ,a) #:names names #:type type)]
     [`(>= ,a ,b) (expr->gappa `(<= ,b ,a) #:names names #:type type)]
     [(list '<= (? number? a) b)
+     ; TODO: approximate (round down) a if necessary (Gappa does not accept general rational numbers)
      (application->gappa '>= (list (expr->gappa b #:names names #:type type)
                                    (format-number a)))]
     [(list '<= a (? number? b))
+     ; TODO: approximate (round up) b if necessary
      (application->gappa '<= (list (expr->gappa a #:names names #:type type)
                                    (format-number b)))]
     [`(<= ,a ,b)
-     (eprintf "[WARNING] Cannot translate the inequality: ~a\n" expr)
-     (expr->gappa 'TRUE #:names names #:type type)]
+     (error 'expr->gappa "Cannot translate the inequality: ~a" expr)]
     [(list (? operator? operator) args ...)
      (define args_gappa
        (map (λ (arg) (expr->gappa arg #:names names #:type type)) args))
@@ -114,7 +117,25 @@
      (define n-str (format-number expr))
      (if (string-contains? n-str "/")
          (format "~a~a" (type->rnd type) n-str)
-         (format-rounded type n-str))]))    
+         (format-rounded type n-str))]))
+
+(define (remove-unsupported-inequalities expr)
+  ; Should be called after remove-let and canonicalize.
+  ; Note: returns #f if all inequalities are not supported.
+  (match expr
+    [(list (and (or 'and 'or) op) a b)
+     (define a* (remove-unsupported-inequalities a))
+     (define b* (remove-unsupported-inequalities b))
+     (if (not a*)
+         (if (not b*) #f b*)
+         (if (not b*) a* `(,op ,a* ,b*)))]
+    [(list (or '< '> '<= '>=) a b)
+     (if (or (number? a) (number? b))
+         expr
+         (begin (eprintf "[WARNING] Unsupported inequality: ~a\n" expr)
+                #f))]
+    [(list (or '== '!=) args ...) expr]
+    [_ (error 'remove-unsupported-inequalities "Unsupported operation ~a" expr)]))
 
 (define (compile-program prog
                          #:name name
@@ -131,7 +152,7 @@
     (if var-precision var-precision (dict-ref properties ':var-precision 'real)))
   (define name* (dict-ref properties ':name name))
   (define var-ranges
-    (condition->range-table (dict-ref properties ':pre 'TRUE)))
+    (condition->range-table (canonicalize (dict-ref properties ':pre 'TRUE))))
   (define body*
     ((compose canonicalize (if unroll (curryr unroll-loops unroll) identity)) body))
 
@@ -170,8 +191,11 @@
 
           ; Generate preconditions (some inequalities may be skipped)
           (define pre
-            (let ([expr (canonicalize (remove-let (dict-ref properties ':pre 'TRUE)))])
-              (expr->gappa expr #:names real-vars #:type 'real)))
+            (let ([expr ((compose remove-unsupported-inequalities canonicalize remove-let)
+                         (dict-ref properties ':pre 'TRUE))])
+              (if expr
+                  (expr->gappa expr #:names real-vars #:type 'real)
+                  "")))
 
           ; Generate ranges of variables
           (define ranges
@@ -195,10 +219,13 @@
 
           ; Combine preconditions and ranges
           (define cond-body
-            (let ([sep (format " ~a " (operator->gappa 'and))])
-              ; For some strange reason we must add parentheses around the combined
-              ; range expression. Otherwise Gappa complains that expressions are not bounded.
-              (format "~a ~a (~a)" pre sep (string-join (filter non-empty-string? ranges) sep))))
+            (let* ([sep (format " ~a " (operator->gappa 'and))]
+                   [ranges (string-join (filter non-empty-string? ranges) sep)])
+              (if (non-empty-string? ranges)
+                  ; For some strange reason we must add parentheses around the combined
+                  ; range expression. Otherwise Gappa complains that expressions are not bounded.
+                  (format "~a~a(~a)" pre sep ranges)
+                  pre)))
           
           (when (equal? cond-body "")
             (set! cond-body "0 <= 1"))
@@ -214,7 +241,7 @@
 
 (module+ test
   (for ([expr (in-port (curry read-fpcore "test")
-                       (open-input-file "../benchmarks/fptaylor-tests.fpcore"))])
+                       (open-input-file "../benchmarks/test2.rkt"))])
     (printf "~a\n\n" (compile-program expr #:name "test")))
 )
 

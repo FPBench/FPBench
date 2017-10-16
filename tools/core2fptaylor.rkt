@@ -142,7 +142,7 @@
     (if var-precision var-precision (dict-ref properties ':var-precision 'real)))
   (define name* (dict-ref properties ':name name))
   (define var-ranges
-    (condition->range-table (dict-ref properties ':pre 'TRUE)))
+    (condition->range-table (canonicalize (dict-ref properties ':pre 'TRUE))))
   (define body*
     ((compose canonicalize (if unroll (curryr unroll-loops unroll) identity)) body))
 

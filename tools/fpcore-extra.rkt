@@ -42,28 +42,54 @@
      (remove-let body (apply dict-set* bindings (append-map list vars vals*)))]
     [`(,op ,args ...) (cons op (map (curryr remove-let bindings) args))]))
 
-(define/contract (canonicalize expr)
+(define/match (negate-cmp cmp)
+  [('==) '!=]
+  [('!=) '==]
+  [('<) '>=]
+  [('>) '<=]
+  [('<=) '>]
+  [('>=) '<]
+  [(_) (error 'negate-cmp "Unsupported operation ~a" cmp)])
+
+(define/contract (canonicalize expr #:neg [neg #f])
+  ;; Transforms multiple argument operations (comparisons, and, or) into binary operations.
+  ;; Removes logical negations.
+  ; TODO: negation of 'if and 'while
   (-> expr? expr?)
   (match expr
+    ['TRUE (if neg 'FALSE 'TRUE)]
+    ['FALSE (if neg 'TRUE 'FALSE)]
     [(? constant?) expr]
     [(? number?) expr]
-    [(? symbol?) expr]
+    [(? symbol?) (if neg `(not ,expr) expr)]
+    [`(let ([,vars ,vals] ...) ,body)
+     `(let (,@(for/list ([var vars] [val vals]) (list var (canonicalize val))))
+        ,(canonicalize body #:neg neg))]
     [(list (and (or '== '< '> '<= '>=) op) args ...)
      (define args* (map canonicalize args))
-     (for/fold ([expr* 'TRUE]) ([a args*] [b (cdr args*)])
-       (if (constant? expr*) `(,op ,a ,b) `(and ,expr* (,op ,a ,b))))]
+     (define op* (if neg (negate-cmp op) op))
+     (define conj (if neg 'or 'and))
+     (for/fold ([expr* (if neg 'FALSE 'TRUE)]) ([a args*] [b (cdr args*)])
+       (if (constant? expr*) `(,op* ,a ,b) `(,conj ,expr* (,op* ,a ,b))))]
     [(list '!= args ...)
      (define args* (map canonicalize args))
-     (let loop ([args args*] [expr 'TRUE])
+     (define op (if neg '== '!=))
+     (define conj (if neg 'or 'and))
+     (let loop ([args args*] [expr (if neg 'FALSE 'TRUE)])
        (if (<= (length args) 1)
            expr
            (loop (cdr args)
                  (for/fold ([expr expr]) ([b (cdr args)])
-                   (if (constant? expr) `(!= ,(car args) ,b) `(and ,expr (!= ,(car args) ,b)))))))]
-    [(list (or 'and 'or) arg) (canonicalize arg)]
-    [(list (and (or 'and 'or) op) args ... arg)
-     `(,op ,(canonicalize (cons op args)) ,(canonicalize arg))]
-    [`(,op ,args ...) `(,op ,@(map canonicalize args))]))
+                   (if (constant? expr)
+                       `(,op ,(car args) ,b)
+                       `(,conj ,expr (,op ,(car args) ,b)))))))]
+    [(list 'not arg) (canonicalize arg #:neg (not neg))]
+    [(list (or 'and 'or) arg) (canonicalize arg #:neg neg)]
+    [(list 'and args ... arg)
+     `(,(if neg 'or 'and) ,(canonicalize (cons 'and args) #:neg neg) ,(canonicalize arg #:neg neg))]
+    [(list 'or args ... arg)
+     `(,(if neg 'and 'or) ,(canonicalize (cons 'or args) #:neg neg) ,(canonicalize arg #:neg neg))]
+    [`(,op ,args ...) `(,op ,@(map (curry canonicalize #:neg neg) args))]))
 
 ;; from core2scala.rkt
 (define/contract (unroll-loops expr n)
@@ -124,4 +150,21 @@
       (if (and (and (<= 1 a) (<= a x)) (<= x b))
           (and (and (and (and (!= x a) (!= x b)) (!= a b)) (and (== a 2) (== 2 b))) (<= a 4))
           (and (and (> x a) (> a b)) (> b 3)))))
+
+  (check-equal?
+   (canonicalize '(not (and TRUE FALSE p)))
+   '(or (or FALSE TRUE) (not p)))
+
+  (check-equal?
+   (canonicalize '(let ([p (<= x 2 y)])
+                    (if (not p) 1 2)))
+   '(let ([p (and (<= x 2) (<= 2 y))])
+      (if (not p) 1 2)))
+
+  (check-equal?
+   (canonicalize '(not (let ([p (not (<= a b))])
+                         (or p (!= a (+ b 1))))))
+   '(let ([p (> a b)])
+      (and (not p) (== a (+ b 1)))))
+
 )

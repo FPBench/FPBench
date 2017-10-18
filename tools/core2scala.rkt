@@ -120,7 +120,9 @@
     [(? symbol?)
      (fix-name (dict-ref names expr expr))]
     [(? number?)
-     (format "~a" (real->double-flonum expr))]))
+     (if (= expr (round expr))
+         (format "~a" (round expr))
+         (format "~a" (real->double-flonum expr)))]))
 
 (define (compile-program prog index)
   (match-define (list 'FPCore (list args ...) props ... body) prog)

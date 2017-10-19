@@ -213,5 +213,5 @@
            ; TODO: generate names from the :name properties
            (call-with-output-file (format "ex~a.txt" n) #:exists 'replace
              (λ (p) (fprintf p "~a" result)))
-           (printf "~a\n\n" result)))))
+           (printf "{\n~a\n}\n" result)))))
   )

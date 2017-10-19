@@ -147,7 +147,7 @@
 (define (unroll-loops expr n)
   (match expr
     [`(let ([,vars ,vals] ...) ,body)
-     `(let (,@(for/list ([var vars] [val vals]) (list var (unroll-loops vals n))))
+     `(let (,@(for/list ([var vars] [val vals]) (list var (unroll-loops val n))))
         ,(unroll-loops body n))]
     [`(if ,cond ,ift ,iff)
      `(if ,(unroll-loops cond n) ,(unroll-loops ift n) ,(unroll-loops iff n))]

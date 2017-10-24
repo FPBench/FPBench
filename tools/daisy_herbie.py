@@ -35,8 +35,12 @@ def runHerbie (benchmark) :
         ["racket", HERBIE_DIR + "/src/herbie.rkt", "improve", "-", "-"],
         stdout=subprocess.PIPE,
         input=benchmark, universal_newlines=True)
+    try:
+        result = out.stdout.split("\n")[-2]
+    except IndexError:
+        result = "ERROR"
     dt = time.time() - start
-    return dt, out.stdout.split("\n")[-2], out.returncode
+    return dt, result, out.returncode
 
 # Run FPCore2Scala converter on file inFname, write output to file outFname
 def runConverter (benchmark):
@@ -69,7 +73,10 @@ def runDaisy (benchmark, certificates=True):
     return dt, "FAILED", out.returncode
 
 def runTest(in_fpcore):
-    name = in_fpcore.split(":name")[1].split('"')[1]
+    if ":name" in in_fpcore:
+        name = in_fpcore.split(":name")[1].split('"')[1]
+    else:
+        name = in_fpcore
     yield name
 
     (timeHerbie, out_fpcore, exitcode) = runHerbie (in_fpcore)
@@ -118,6 +125,7 @@ if __name__ == "__main__":
 
     HERBIE_DIR = args.herbie_dir
     DAISY_DIR = args.daisy_dir
-    FPBENCH_DIR = os.path.dirname(dir_type(os.path.dirname(__file__)))
+    current_dir = os.path.dirname(__file__)
+    FPBENCH_DIR = os.path.dirname(dir_type(current_dir or "."))
 
     main()

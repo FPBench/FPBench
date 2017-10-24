@@ -27,7 +27,7 @@
                      [(n en10) (factor (* (numerator t) m) 10)]
                      [(e) (- en10 (+ e2 e5 e10))])
          (cond
-           [(>= e 0)
+           [(<= 0 e 3)
             (format "~a~a" n (make-string e #\0))]
            [else (format "~ae~a" n e)]))])))
 

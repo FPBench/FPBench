@@ -23,7 +23,7 @@ def getFiles():
 def runFilter (benchmarks, args) :
     out = subprocess.run(
         ["racket", FPBENCH_DIR + "/tools/filter.rkt"] + args,
-        input="\n\n".join(benchmarks), encoding="utf-8",
+        input="\n\n".join(benchmarks), universal_newlines=True,
         stdout=subprocess.PIPE)
     return out.stdout.split("\n\n")
 
@@ -34,7 +34,7 @@ def runHerbie (benchmark) :
     out = subprocess.run(
         ["racket", HERBIE_DIR + "/src/herbie.rkt", "improve", "-", "-"],
         stdout=subprocess.PIPE,
-        input=benchmark, encoding="utf-8")
+        input=benchmark, universal_newlines=True)
     dt = time.time() - start
     return dt, out.stdout.split("\n")[-2], out.returncode
 
@@ -42,7 +42,7 @@ def runHerbie (benchmark) :
 def runConverter (benchmark):
     out = subprocess.run(
         ["racket", FPBENCH_DIR + "/tools/core2scala.rkt"],
-        input=benchmark, encoding="utf-8",
+        input=benchmark, universal_newlines=True,
         stdout=subprocess.PIPE)
     return out.stdout, out.returncode
 
@@ -55,7 +55,7 @@ def runDaisy (benchmark, certificates=True):
         f.flush()
         out = subprocess.run(
             ["./daisy", f.name],
-            stdout=subprocess.PIPE, encoding="utf-8")
+            stdout=subprocess.PIPE, universal_newlines=True)
     dt = time.time() - start
     os.chdir(cwd)
 

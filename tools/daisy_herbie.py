@@ -116,7 +116,7 @@ def runTests(benchmarks):
     for benchmark in benchmarks:
         first = True
         for field in runTest(benchmark):
-            text = '"{}"'.format(field.replace("\"", "\\\"")) if isinstance(field, str) else "{:.2f}".format(field)
+            text = '"{}"'.format(field.replace("\"", "\\\"")) if isinstance(field, str) else "{:.2g}".format(field)
             print(text if first else ", " + text, end="")
             sys.stdout.flush()
             first = False

@@ -65,12 +65,16 @@ def runDaisy (benchmark, certificates=True):
 
     if out.returncode:
         print(out.stdout, file=sys.stderr)
+        print(out.stderr, file=sys.stderr)
+        return dt, "FAILED", out.returncode
 
     for line in out.stdout.split("\n"):
         if "abs-error" in line:
             return dt, float(line.split(",")[0].split(":")[1]), out.returncode
-
-    return dt, "FAILED", out.returncode
+    else:
+        print(out.stderr, file=sys.stderr)
+        print(out.stdout, file=sys.stderr)
+        return dt, "FAILED", out.returncode
 
 def runTest(in_fpcore):
     if ":name" in in_fpcore:
@@ -80,20 +84,30 @@ def runTest(in_fpcore):
     yield name
 
     (timeHerbie, out_fpcore, exitcode) = runHerbie (in_fpcore)
-    if not exitcode == 0: return
+    if not exitcode == 0:
+        print("HERBIE ERROR ON: ", in_fpcore, file=sys.stderr)
+        return
     yield timeHerbie
 
     (in_scala, exitcode) = runConverter (in_fpcore)
-    if not exitcode == 0: return
+    if not exitcode == 0:
+        print("CONVERTER ERROR ON: ", in_fpcore, file=sys.stderr)
+        return
 
     (out_scala, exitcode) = runConverter (out_fpcore)
-    if not exitcode == 0: return
+    if not exitcode == 0:
+        print("CONVERTER ERROR ON: ", out_fpcore, file=sys.stderr)
+        return
 
     (timeInDaisy, errInDaisy, exitCode) = runDaisy (in_scala)
-    if not exitcode == 0: return
+    if not exitcode == 0:
+        print("DAISY ERROR ON: ", in_scala, file=sys.stderr)
+        return
 
     (timeOutDaisy, errOutDaisy, exitCode) = runDaisy (out_scala)
-    if not exitcode == 0: return
+    if not exitcode == 0:
+        print("DAISY ERROR ON: ", out_scala, file=sys.stderr)
+        return
 
     yield from [timeInDaisy, timeOutDaisy, errInDaisy, errOutDaisy]
 

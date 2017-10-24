@@ -31,7 +31,8 @@
     [c (error 'constant->fptaylor "Unsupported constant ~a" c)]))
 
 (define/match (operator->fptaylor op)
-  [((or '+ '- '* '/ 'sqrt)) op]
+  [('==) '=]
+  [((or '+ '- '* '/ 'sqrt '< '> '<= '>=)) op]
   [((or 'exp 'log 'sin 'cos 'tan 'asin 'acos 'atan)) op]
   [((or 'sinh 'cosh 'tanh 'asinh 'acosh 'atanh)) op]
   [('fmax) 'max] [('fmin) 'min] [('fabs) 'abs]
@@ -41,9 +42,9 @@
   (match (cons operator args)
     [(list '- a)
      (format "-~a" a)]
-    [(list (or '== '< '> '<= '>= '!= 'not 'and 'or) args ...)
+    [(list (or '!= 'not 'and 'or) args ...)
      (error 'application->fptaylor "Unsupported operation ~a" operator)]
-    [(list (or '+ '- '* '/) a b)
+    [(list (or '+ '- '* '/ '== '< '> '<= '>=) a b)
      (format "(~a ~a ~a)" a (operator->fptaylor operator) b)]
     [(list (? operator? f) args ...)
      (format "~a(~a)" (operator->fptaylor f) (string-join args ", "))]))
@@ -137,6 +138,16 @@
      (error 'conjuncts "Logical negation is not supported")]
     [`(,op ,args ...) (list expr)]))
 
+; Removes inequalities in the form (cmp var number) and (cmp number var)
+(define (select-constraints expr)
+  (define conjs (conjuncts expr))
+  (filter (match-lambda
+            ['TRUE #f]
+            ['FALSE (error 'select-constraints "FALSE precondition")]
+            [(list (or '!= '== '< '> '<= '>=) (? symbol?) (? number?)) #f]
+            [(list (or '!= '== '< '> '<= '>=) (? number?) (? symbol?)) #f]
+            [_ #t]) conjs))
+
 (define (compile-program prog
                          #:name name
                          #:precision [precision #f]
@@ -152,8 +163,9 @@
   (define var-type
     (if var-precision var-precision (dict-ref properties ':var-precision 'real)))
   (define name* (dict-ref properties ':name name))
-  (define var-ranges
-    (condition->range-table (canonicalize (dict-ref properties ':pre 'TRUE))))
+  (define pre ((compose canonicalize remove-let)
+               (dict-ref properties ':pre 'TRUE)))
+  (define var-ranges (condition->range-table pre))
   (define body*
     ((compose canonicalize (if unroll (curryr unroll-loops unroll) identity)) body))
 
@@ -177,6 +189,14 @@
           (define expr-body (expr->fptaylor body* #:type type #:inexact-scale inexact-scale #:indent indent))
           (unless (empty? arg-strings)
             (printf "Variables\n~a\n\n" (string-join arg-strings "\n")))
+          (define constraints (select-constraints pre))
+          (unless (empty? constraints)
+            (define cs (map (curry expr->fptaylor #:type 'real #:indent indent) constraints))
+            (printf "Constraints\n")
+            (for ([c cs] [n (in-naturals)])
+              (define c-name (fix-name (gensym (format "constraint~a" n))))
+              (printf "~a~a: ~a;\n" indent c-name c))
+            (printf "\n"))
           (unless (empty? (unbox (*defs*)))
             (printf "Definitions\n~a\n\n" (string-join (reverse (unbox (*defs*))) "\n")))
           (printf "Expressions\n~a~a ~a= ~a;\n"
@@ -184,8 +204,8 @@
 
 (module+ test
   (for ([expr (in-port (curry read-fpcore "test")
-                       (open-input-file "../benchmarks/test.fpcore"))])
-    (printf "~a\n\n" (compile-program expr #:name "test" #:indent "  ")))
+                       (open-input-file "../benchmarks/fptaylor-tests.fpcore"))])
+    (printf "{\n~a}\n\n" (compile-program expr #:name "test" #:indent "  ")))
 )
 
 (module+ main
@@ -224,5 +244,5 @@
            ; TODO: generate names from the :name properties
            (call-with-output-file (format "ex~a.txt" n) #:exists 'replace
              (λ (p) (fprintf p "~a" result)))
-           (printf "{\n~a\n}\n" result)))))
+           (printf "{\n~a}\n\n" result)))))
   )

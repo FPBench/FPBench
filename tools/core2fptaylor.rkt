@@ -126,6 +126,17 @@
          (format "~a~a" (type->rnd type) n-str)
          n-str)]))
 
+; This function should be called after remove-let and canonicalize
+; (negations should be removed)
+(define (conjuncts expr)
+  (match expr
+    [`(and ,args ...) (append-map conjuncts args)]
+    [`(or ,args ...)
+     (error 'conjuncts "Logical disjunction is not supported")]
+    [`(not ,arg)
+     (error 'conjuncts "Logical negation is not supported")]
+    [`(,op ,args ...) (list expr)]))
+
 (define (compile-program prog
                          #:name name
                          #:precision [precision #f]
@@ -173,7 +184,7 @@
 
 (module+ test
   (for ([expr (in-port (curry read-fpcore "test")
-                       (open-input-file "../benchmarks/fptaylor-tests.fpcore"))])
+                       (open-input-file "../benchmarks/test.fpcore"))])
     (printf "~a\n\n" (compile-program expr #:name "test" #:indent "  ")))
 )
 

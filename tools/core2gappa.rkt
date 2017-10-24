@@ -152,8 +152,9 @@
   (define var-type
     (if var-precision var-precision (dict-ref properties ':var-precision 'real)))
   (define name* (dict-ref properties ':name name))
-  (define var-ranges
-    (condition->range-table (canonicalize (dict-ref properties ':pre 'TRUE))))
+  (define pre ((compose canonicalize remove-let)
+               (dict-ref properties ':pre 'TRUE)))
+  (define var-ranges (condition->range-table pre))
   (define body*
     ((compose canonicalize (if unroll (curryr unroll-loops unroll) identity)) body))
 
@@ -191,9 +192,8 @@
           (printf "~a ~a= ~a;\n\n" expr-name (type->rnd type) expr-body)
 
           ; Generate preconditions (some inequalities may be skipped)
-          (define pre
-            (let ([expr ((compose remove-unsupported-inequalities canonicalize remove-let)
-                         (dict-ref properties ':pre 'TRUE))])
+          (define pre*
+            (let ([expr (remove-unsupported-inequalities pre)])
               (if expr
                   (expr->gappa expr #:names real-vars #:type 'real)
                   "")))
@@ -225,7 +225,7 @@
               (if (non-empty-string? ranges)
                   ; For some strange reason we must add parentheses around the combined
                   ; range expression. Otherwise Gappa complains that expressions are not bounded.
-                  (format "~a~a(~a)" pre sep ranges)
+                  (format "~a~a(~a)" pre* sep ranges)
                   pre)))
           
           (when (equal? cond-body "")

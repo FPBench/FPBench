@@ -8,7 +8,6 @@
 
 (define ((mk-comparator f) . args)
   (let loop ([args args])
-    (eprintf "~a: ~a\n" f args)
     (cond
      [(null? args) true]
      [(null? (cdr args)) true]

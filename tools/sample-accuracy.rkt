@@ -36,7 +36,7 @@
     [min bfmin] [fdim (λ (x y) (bfabs (bf- x y)))] [expm1 bfexpm1]
     [log1p bflog1p] [< (mk-comparator bf<)] [> (mk-comparator bf>)]
     [<= (mk-comparator bf<=)] [>= (mk-comparator bf>=)] [== (mk-comparator bf=)]
-    [!= (compose not (curryr check-duplicates =))]
+    [!= (λ args (not (check-duplicates args bf=)))]
     [not not] [and (λ args (andmap identity args))]
     [or (λ args (ormap identity args))] [isfinite bfrational?]
     [isinf bfinfinite?] [isnan bfnan?] [isnormal bfrational?]

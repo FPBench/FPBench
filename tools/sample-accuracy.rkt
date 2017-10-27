@@ -6,6 +6,13 @@
 (define-syntax-rule (table-fn [var val] ...)
   (match-lambda [`var val] ...))
 
+(define ((mk-comparator f) . args)
+  (let loop ([args args])
+    (cond
+     [(null? args) true]
+     [(null? (cdr args)) true]
+     [else (and (f (car args) (cadr args)) (loop (cdr args)))])))
+
 (define/contract bf-evaluator evaluator?
   (evaluator
    bf
@@ -27,9 +34,11 @@
     [tgamma bfgamma] [lgamma bflog-gamma] [ceil bfceiling]
     [floor bffloor] [trunc bftruncate] [round bfround] [fmax bfmax]
     [min bfmin] [fdim (λ (x y) (bfabs (bf- x y)))] [expm1 bfexpm1]
-    [log1p bflog1p] [< bf<] [> bf>] [<= bf<=] [>= bf>=] [== bf=]
-    [!= (compose not bf=)] [not not] [and (λ (x y) (and x y))]
-    [or (λ (x y) (or x y))] [isfinite bfrational?]
+    [log1p bflog1p] [< (mk-comparator bf<)] [> (mk-comparator bf>)]
+    [<= (mk-comparator bf<=)] [>= (mk-comparator bf>=)] [== (mk-comparator bf=)]
+    [!= (λ args (not (check-duplicates args bf=)))]
+    [not not] [and (λ args (andmap identity args))]
+    [or (λ args (ormap identity args))] [isfinite bfrational?]
     [isinf bfinfinite?] [isnan bfnan?] [isnormal bfrational?]
     [signbit (λ (x) (= (bigfloat-signbit x) 1))]
     ; TODO: currently unsupported

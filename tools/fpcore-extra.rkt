@@ -1,7 +1,7 @@
 #lang racket
 
 (require "common.rkt" "fpcore.rkt")
-(provide format-number remove-let canonicalize unroll-loops)
+(provide format-number remove-let canonicalize split-expr to-dnf unroll-loops)
 
 (define (factor n k)
   (if (or (= n 0) (< k 2))
@@ -90,6 +90,49 @@
     [(list 'or args ... arg)
      `(,(if neg 'and 'or) ,(canonicalize (cons 'or args) #:neg neg) ,(canonicalize arg #:neg neg))]
     [`(,op ,args ...) `(,op ,@(map (curry canonicalize #:neg neg) args))]))
+
+(define/contract (split-expr op expr)
+  (-> symbol? expr? (listof expr?))
+  (match expr
+    [(list (? (symbols op)) args ...)
+     (append-map (curry split-expr op) args)]
+    [_ (list expr)]))
+
+(define (all-combinations lists)
+  (match lists
+    [(? null?) '()]
+    [(list h) (map (λ (x) (list x)) h)]
+    [_ (define lists* (all-combinations (cdr lists)))
+       (for*/list ([h (car lists)] [t lists*])
+         (list* h t))]))
+  
+(define/contract (to-dnf expr)
+  (-> expr? expr?)
+  (match expr
+    [(list (or 'let 'if 'while) args ...)
+     (error 'to-dnf "Unsupported operation ~a" expr)]
+    [(or (? constant?) (? number?) (? symbol?)) expr]
+    [`(not (not ,arg)) (to-dnf arg)]
+    [`(not (or ,args ...)) (to-dnf `(and ,@(map (λ (e) (list 'not e)) args)))]
+    [`(not (and ,args ...)) (to-dnf `(or ,@(map (λ (e) (list 'not e)) args)))]
+    [`(or ,arg) (to-dnf arg)]
+    [`(or ,args ...) `(or ,@(map to-dnf args))]
+    [`(and ,arg) (to-dnf arg)]
+; Alternative implementation without all-combinations:
+;    [`(and ,a ,b ,args ...)
+;     (define ts (for*/list ([x (split-expr 'or (to-dnf a))]
+;                            [y (split-expr 'or (to-dnf `(and ,b ,@args)))])
+;                  (list 'and x y)))
+;     (if (= (length ts) 1)
+;         (car ts)
+;         (list* 'or ts))]
+    [`(and ,args ...)
+     (define lists (map (compose (curry split-expr 'or) to-dnf) args))
+     (define ts (map (λ (t) (list* 'and t)) (all-combinations lists)))
+     (if (= (length ts) 1)
+         (car ts)
+         (list* 'or ts))]
+    [_ expr]))
 
 ;; from core2scala.rkt
 (define/contract (unroll-loops expr n)

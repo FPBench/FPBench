@@ -88,31 +88,33 @@
 (define (add-def def)
   (set-box! (*defs*) (cons def (unbox (*defs*)))))
 
-(define (expr->fptaylor expr #:names [names #hash()] #:inexact-scale [inexact-scale 1]
-                        #:type [type 'binary64] #:indent [indent "\t"])
+(define (expr->fptaylor expr
+                        #:names [names #hash()]
+                        #:inexact-scale [inexact-scale 1]
+                        #:type [type 'binary64])
   ;; Takes in an expression. Returns an expression and local definitions (in *defs*).
   (match expr
     [`(let ([,vars ,vals] ...) ,body)
      (define vars* (map gensym vars))
      (for ([var* vars*] [val vals])
-       (add-def (format "~a~a ~a= ~a;" indent (fix-name var*) (type->rnd type)
-                        (expr->fptaylor val #:names names #:inexact-scale inexact-scale #:type type #:indent indent))))
+       (add-def (format "~a ~a= ~a" (fix-name var*) (type->rnd type)
+                        (expr->fptaylor val #:names names #:inexact-scale inexact-scale #:type type))))
      (define names*
        (for/fold ([names* names]) ([var vars] [var* vars*])
          (dict-set names* var var*)))
-     (expr->fptaylor body #:names names* #:inexact-scale inexact-scale #:type type #:indent indent)]
+     (expr->fptaylor body #:names names* #:inexact-scale inexact-scale #:type type)]
     [`(if ,cond ,ift ,iff)
      (error 'expr->fptaylor "Unsupported operation ~a" expr)]
     [`(while ,cond ([,vars ,inits ,updates] ...) ,retexpr)
      (error 'expr->fptaylor "Unsupported operation ~a" expr)]
     [(list (? operator? operator) args ...)
      (define args_fptaylor
-       (map (λ (arg) (expr->fptaylor arg #:names names #:inexact-scale inexact-scale #:type type #:indent indent)) args))
+       (map (λ (arg) (expr->fptaylor arg #:names names #:inexact-scale inexact-scale #:type type)) args))
      (if (and (inexact-operator? operator) (not (= inexact-scale 1)))
          (let ([args_fptaylor*
                 (for/list [(arg args_fptaylor)]
                   (define tmp (gensym 'tmp))
-                  (add-def (format "~a~a ~a= ~a;" indent (fix-name tmp) (type->rnd type) arg))
+                  (add-def (format "~a ~a= ~a" (fix-name tmp) (type->rnd type) arg))
                   (fix-name tmp))])
            (format "~a(~a(~a))" (type->rnd type #:scale inexact-scale)
                    (operator->fptaylor operator) (string-join args_fptaylor* ", ")))
@@ -174,7 +176,7 @@
   (parameterize ([*names* (apply mutable-set args)]
                  [*defs* (box '())])
     ; Main expression
-    (define expr-body (expr->fptaylor body* #:type type #:inexact-scale inexact-scale #:indent indent))
+    (define expr-body (expr->fptaylor body* #:type type #:inexact-scale inexact-scale))
     (define multiple-pre (> (length pre-list) 1))
     (for/list ([pre pre-list] [n (in-naturals)])
       (define expr-name
@@ -194,7 +196,7 @@
                   (format-number l) (format-number u))))
       ; Other constraints
       (define constraints
-        (map (curry expr->fptaylor #:type 'real #:indent indent) (select-constraints pre)))
+        (map (curry expr->fptaylor #:type 'real) (select-constraints pre)))
       (with-output-to-string
           (λ ()
             (unless (empty? arg-strings)
@@ -206,7 +208,10 @@
                 (printf "~a~a: ~a;\n" indent c-name c))
               (printf "\n"))
             (unless (empty? (unbox (*defs*)))
-              (printf "Definitions\n~a\n\n" (string-join (reverse (unbox (*defs*))) "\n")))
+              (printf "Definitions\n")
+              (for ([def (reverse (unbox (*defs*)))])
+                (printf "~a~a;\n" indent def))
+              (printf "\n"))
             (printf "Expressions\n~a~a ~a= ~a;\n"
                     indent (fix-name expr-name) (type->rnd type) expr-body))))))
 

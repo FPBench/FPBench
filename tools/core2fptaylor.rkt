@@ -153,6 +153,7 @@
                          #:precision [precision #f]
                          #:var-precision [var-precision #f] 
                          #:inexact-scale [inexact-scale 1]
+                         #:split-or [split-or #f]
                          #:unroll [unroll #f]
                          #:indent [indent "\t"])
   (match-define (list 'FPCore (list args ...) props ... body) prog)
@@ -165,47 +166,59 @@
   (define name* (dict-ref properties ':name name))
   (define pre ((compose canonicalize remove-let)
                (dict-ref properties ':pre 'TRUE)))
-  (define var-ranges (condition->range-table pre))
   (define body*
     ((compose canonicalize (if unroll (curryr unroll-loops unroll) identity)) body))
+  (define pre-list
+    (if split-or (split-expr 'or (to-dnf pre)) (list pre)))
 
-  (define arg-strings
-    (for/list ([var args])
-      (define range
-        (cond
-          [(and var-ranges (hash-has-key? var-ranges var)) (dict-ref var-ranges var)]
-          [else (make-interval -inf.0 +inf.0)]))
-      (unless (is-non-empty-bounded range)
-        (error 'compile-program "Bad range for ~a in ~a (~a)" var name* range))
-      (match-define (interval l u) range)
-      (format "~a~a ~a in [~a, ~a];" indent (type->fptaylor var-type) (fix-name var)
-              (format-number l) (format-number u))))
-
-  (with-output-to-string
-      (λ ()
-        (parameterize ([*names* (apply mutable-set args)]
-                       [*defs* (box '())])
-          (define expr-name (gensym name*))
-          (define expr-body (expr->fptaylor body* #:type type #:inexact-scale inexact-scale #:indent indent))
-          (unless (empty? arg-strings)
-            (printf "Variables\n~a\n\n" (string-join arg-strings "\n")))
-          (define constraints (select-constraints pre))
-          (unless (empty? constraints)
-            (define cs (map (curry expr->fptaylor #:type 'real #:indent indent) constraints))
-            (printf "Constraints\n")
-            (for ([c cs] [n (in-naturals)])
-              (define c-name (fix-name (gensym (format "constraint~a" n))))
-              (printf "~a~a: ~a;\n" indent c-name c))
-            (printf "\n"))
-          (unless (empty? (unbox (*defs*)))
-            (printf "Definitions\n~a\n\n" (string-join (reverse (unbox (*defs*))) "\n")))
-          (printf "Expressions\n~a~a ~a= ~a;\n"
-                  indent (fix-name expr-name) (type->rnd type) expr-body)))))
+  (parameterize ([*names* (apply mutable-set args)]
+                 [*defs* (box '())])
+    ; Main expression
+    (define expr-body (expr->fptaylor body* #:type type #:inexact-scale inexact-scale #:indent indent))
+    (define multiple-pre (> (length pre-list) 1))
+    (for/list ([pre pre-list] [n (in-naturals)])
+      (define expr-name
+        (string-append (~a (gensym name*)) (if multiple-pre (format "_case~a" n) "")))
+      ; Ranges of variables
+      (define var-ranges (condition->range-table pre))
+      (define arg-strings
+        (for/list ([var args])
+          (define range
+            (cond
+              [(and var-ranges (hash-has-key? var-ranges var)) (dict-ref var-ranges var)]
+              [else (make-interval -inf.0 +inf.0)]))
+          (unless (is-non-empty-bounded range)
+            (error 'compile-program "Bad range for ~a in ~a (~a)" var name* range))
+          (match-define (interval l u) range)
+          (format "~a~a ~a in [~a, ~a];" indent (type->fptaylor var-type) (fix-name var)
+                  (format-number l) (format-number u))))
+      ; Other constraints
+      (define constraints
+        (map (curry expr->fptaylor #:type 'real #:indent indent) (select-constraints pre)))
+      (with-output-to-string
+          (λ ()
+            (unless (empty? arg-strings)
+              (printf "Variables\n~a\n\n" (string-join arg-strings "\n")))
+            (unless (empty? constraints)
+              (printf "Constraints\n")
+              (for ([c constraints] [n (in-naturals)])
+                (define c-name (fix-name (gensym (format "constraint~a" n))))
+                (printf "~a~a: ~a;\n" indent c-name c))
+              (printf "\n"))
+            (unless (empty? (unbox (*defs*)))
+              (printf "Definitions\n~a\n\n" (string-join (reverse (unbox (*defs*))) "\n")))
+            (printf "Expressions\n~a~a ~a= ~a;\n"
+                    indent (fix-name expr-name) (type->rnd type) expr-body))))))
 
 (module+ test
   (for ([expr (in-port (curry read-fpcore "test")
                        (open-input-file "../benchmarks/fptaylor-tests.fpcore"))])
-    (printf "{\n~a}\n\n" (compile-program expr #:name "test" #:indent "  ")))
+    (define results (compile-program expr
+                                     #:name "test"
+                                     #:split-or #t
+                                     #:indent "  "))
+    (for ([r results])
+      (printf "{\n~a}\n\n" r)))
 )
 
 (module+ main
@@ -213,6 +226,7 @@
   (define files #f)
   (define precision #f)
   (define var-precision #f)
+  (define split-or #f)
   (define unroll #f)
   (define inexact-scale 1)
   
@@ -227,22 +241,30 @@
                       (set! var-precision (string->symbol prec))]
    ["--scale" scale "The scale factor for operations which are not correctly rounded"
               (set! inexact-scale (string->number scale))]
+   ["--split-or" "Convert preconditions to DNF and create separate FPTaylor task for all conjunctions"
+                 (set! split-or #t)]
    ["--unroll" n "How many iterations to unroll any loops to"
                (set! unroll (string->number n))]
    #:args ()
    (port-count-lines! (current-input-port))
    (for ([expr (in-port (curry read-fpcore "stdin"))] [n (in-naturals)])
      (with-handlers ([exn:fail? (λ (exn) (eprintf "[ERROR]: ~a\n\n" exn))])
-       (define result (compile-program expr
-                                       #:name (format "ex~a" n)
-                                       #:precision precision
-                                       #:var-precision var-precision
-                                       #:inexact-scale inexact-scale
-                                       #:unroll unroll
-                                       #:indent "  "))
-       (if files
-           ; TODO: generate names from the :name properties
-           (call-with-output-file (format "ex~a.txt" n) #:exists 'replace
-             (λ (p) (fprintf p "~a" result)))
-           (printf "{\n~a}\n\n" result)))))
+       (define results (compile-program expr
+                                        #:name (format "ex~a" n)
+                                        #:precision precision
+                                        #:var-precision var-precision
+                                        #:inexact-scale inexact-scale
+                                        #:split-or split-or
+                                        #:unroll unroll
+                                        #:indent "  "))
+       (define multiple-results (> (length results) 1))
+       (for ([r results] [k (in-naturals)])
+         ; TODO: generate names from the :name properties
+         (define fname (string-append (format "ex~a" n)
+                                      (if multiple-results (format "_case~a" k) "")
+                                      ".txt"))
+         (if files
+             (call-with-output-file fname #:exists 'replace
+               (λ (p) (fprintf p "~a" r)))
+             (printf "{\n~a}\n\n" r))))))
   )

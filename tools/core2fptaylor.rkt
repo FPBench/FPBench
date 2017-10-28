@@ -229,6 +229,7 @@
 (module+ main
   (require racket/cmdline)
   (define files #f)
+  (define files-all #f)
   (define precision #f)
   (define var-precision #f)
   (define split-or #f)
@@ -238,8 +239,10 @@
   (command-line
    #:program "core2fptaylor.rkt"
    #:once-each
-   ["--files" "Save FPTaylor expressions in separate files"
+   ["--files" "Save FPTaylor tasks corresponding to different FPBench expression in separate files"
               (set! files #t)]
+   ["--files-all" "Save all FPTaylor tasks in separate files"
+                  (set! files-all #t)]
    ["--precision" prec "The precision of all operations (overrides the :precision property)"
              (set! precision (string->symbol prec))]
    ["--var-precision" prec "The precision of input variables (overrides the :var-precision property)"
@@ -263,13 +266,17 @@
                                         #:unroll unroll
                                         #:indent "  "))
        (define multiple-results (> (length results) 1))
-       (for ([r results] [k (in-naturals)])
-         ; TODO: generate names from the :name properties
-         (define fname (string-append (format "ex~a" n)
-                                      (if multiple-results (format "_case~a" k) "")
-                                      ".txt"))
-         (if files
-             (call-with-output-file fname #:exists 'replace
-               (λ (p) (fprintf p "~a" r)))
-             (printf "{\n~a}\n\n" r))))))
+       ; TODO: generate names from the :name properties
+       (cond
+         [files-all (for ([r results] [k (in-naturals)])
+                      (define fname (string-append (format "ex~a" n)
+                                                   (if multiple-results (format "_case~a" k) "")
+                                                   ".txt"))
+                      (call-with-output-file fname #:exists 'replace
+                        (λ (p) (fprintf p "~a" r))))]
+         [files (call-with-output-file (format "ex~a.txt" n) #:exists 'replace
+                  (λ (p) (for ([r results])
+                           (if multiple-results (fprintf p "{\n~a}\n\n" r) (fprintf p "~a" r)))))]
+         [else (for ([r results]) (printf "{\n~a}\n\n" r))])
+       )))
   )

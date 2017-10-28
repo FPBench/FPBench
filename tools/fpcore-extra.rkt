@@ -1,7 +1,7 @@
 #lang racket
 
 (require "common.rkt" "fpcore.rkt")
-(provide format-number remove-let canonicalize split-expr to-dnf unroll-loops)
+(provide format-number remove-let canonicalize split-expr to-dnf all-subexprs unroll-loops)
 
 (define (factor n k)
   (if (or (= n 0) (< k 2))
@@ -133,6 +133,26 @@
          (car ts)
          (list* 'or ts))]
     [_ expr]))
+
+(define/contract (all-subexprs expr #:no-vars [no-vars #f] #:no-consts [no-consts #f])
+  (->* (expr?) (#:no-vars boolean? #:no-consts boolean?) (listof expr?))
+  (remove-duplicates #:key remove-let
+   (let loop ([expr expr])
+     (match expr
+       [(list (or '< '> '<= '>= '== '!= 'and 'or 'not 'while) args ...)
+        (error 'all-subexprs "Unsupported operation: ~a" expr)]
+       [(? symbol?) (if no-vars '() (list expr))]
+       [(or (? number?) (? constant?)) (if no-consts '() (list expr))]
+       [`(let ([,vars ,vals] ...) ,body)
+        (define val-subexprs (append-map loop vals))
+        (define body-subexprs
+          (map (λ (e) `(let (,@(for/list ([var vars] [val vals]) (list var val))) ,e))
+               (loop body)))
+        (append body-subexprs val-subexprs)]
+       [`(if ,cond ,t ,f)
+        `(,expr ,@(loop t) ,@(loop f))] 
+       [(list op args ...)
+        (cons expr (append-map loop args))]))))
 
 ;; from core2scala.rkt
 (define/contract (unroll-loops expr n)

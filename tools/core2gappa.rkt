@@ -250,6 +250,7 @@
 (module+ main
   (require racket/cmdline)
   (define stdout #f)
+  (define auto-file-names #f)
   (define rel-error #f)
   (define precision #f)
   (define var-precision #f)
@@ -263,6 +264,8 @@
    #:once-each
    ["--stdout" "Print Gappa expressions to the standard output"
                (set! stdout #t)]
+   ["--auto-file-names" "Generate special names for all files"
+                        (set! auto-file-names #t)]
    ["--rel-error" "Produce Gappa expressions for relative errors"
                   (set! rel-error #t)]
    ["--precision" prec "The precision of all operations (overrides the :precision property)"
@@ -281,13 +284,15 @@
    (port-count-lines! (current-input-port))
    (for ([prog (in-port (curry read-fpcore "stdin"))] [n (in-naturals)])
      (with-handlers ([exn:fail? (λ (exn) (eprintf "[ERROR]: ~a\n\n" exn))])
+       (define def-name (format "ex~a" n))
+       (define prog-name (if auto-file-names def-name (fpcore-name prog def-name)))
        (define progs (fpcore-transform prog
                                        #:unroll unroll
                                        #:split split
                                        #:subexprs subexprs
                                        #:split-or split-or))
        (define results (map (curry compile-program
-                                   #:name (format "ex~a" n)
+                                   #:name def-name
                                    #:precision precision
                                    #:var-precision var-precision
                                    #:rel-error rel-error)
@@ -296,8 +301,8 @@
        (for ([r results] [k (in-naturals)])
          (if stdout
              (printf "~a\n\n" r)
-             ; TODO: generate names from the :name properties
-             (let ([fname (if multiple-results (format "ex~a_case~a.g" n k) (format "ex~a.g" n))])
+             (let ([fname (fix-file-name
+                           (string-append prog-name (if multiple-results (format "_case~a" k) "") ".g"))])
                (call-with-output-file fname #:exists 'replace
                  (λ (p) (fprintf p "~a" r)))))))))
   )

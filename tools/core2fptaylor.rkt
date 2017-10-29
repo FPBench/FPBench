@@ -273,9 +273,10 @@
        (define multiple-results (> (length results) 1))
        (cond
          [files-all (for ([r results] [k (in-naturals)])
-                      (define fname (fix-file-name (string-append prog-name
-                                                                  (if multiple-results (format "_case~a" k) "")
-                                                                  ".txt")))
+                      (define fname (fix-file-name
+                                     (string-append prog-name
+                                                    (if multiple-results (format "_case~a" k) "")
+                                                    ".txt")))
                       (call-with-output-file fname #:exists 'replace
                         (λ (p) (fprintf p "~a" r))))]
          [files (call-with-output-file (fix-file-name (format "~a.txt" prog-name)) #:exists 'replace

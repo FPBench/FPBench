@@ -11,9 +11,9 @@
 (define (fix-file-name name)
   (string-join
    (for/list ([char (~a name)])
-     (if (regexp-match #rx"[a-zA-Z0-9_.,]" (string char))
+     (if (regexp-match #rx"[a-zA-Z0-9_.,-]" (string char))
          (string char)
-         (format "-~a-" (char->integer char))))
+         (format "$~a$" (char->integer char))))
    ""))
 
 (define (factor n k)

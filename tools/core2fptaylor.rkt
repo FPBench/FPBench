@@ -151,13 +151,10 @@
             [_ #t]) conjs))
 
 (define (compile-program prog
-                         #:name name
+                         #:name [name "expr"]
                          #:precision [precision #f]
                          #:var-precision [var-precision #f] 
                          #:inexact-scale [inexact-scale 1]
-                         #:split-or [split-or #f]
-                         #:subexprs [subexprs #f]
-                         #:unroll [unroll #f]
                          #:indent [indent "\t"])
   (match-define (list 'FPCore (list args ...) props ... body) prog)
   (define-values (_ properties) (parse-properties props))
@@ -169,67 +166,52 @@
   (define name* (dict-ref properties ':name name))
   (define pre ((compose canonicalize remove-let)
                (dict-ref properties ':pre 'TRUE)))
-  (define body*
-    ((compose canonicalize (if unroll (curryr unroll-loops unroll) identity)) body))
-  (define pre-list
-    (if split-or (split-expr 'or (to-dnf pre)) (list pre)))
+  (define body* (canonicalize body))
 
-  (apply append
-   ; Iterate over all expressions
-   (for/list ([body* (if subexprs (all-subexprs body*) (list body*))] [n (in-naturals)])
-     (parameterize ([*names* (apply mutable-set args)]
-                    [*defs* (box '())])
-       ; Main expression
-       (define expr-body (expr->fptaylor body* #:type type #:inexact-scale inexact-scale))
-       (define multiple-pre (> (length pre-list) 1))
-       ; Iterate over all preconditions
-       (for/list ([pre pre-list] [k (in-naturals)])
-         (define expr-name
-           (string-append (~a (gensym name*))
-                          (if (>= n 1) (format "_expr~a" n) "")
-                          (if multiple-pre (format "_case~a" k) "")))
-         ; Ranges of variables
-         (define var-ranges (condition->range-table pre))
-         (define arg-strings
-           (for/list ([var args])
-             (define range
-               (cond
-                 [(and var-ranges (hash-has-key? var-ranges var)) (dict-ref var-ranges var)]
-                 [else (make-interval -inf.0 +inf.0)]))
-             (unless (nonempty-bounded? range)
-               (error 'compile-program "Bad range for ~a in ~a (~a)" var name* range))
-             (match-define (interval l u) range)
-             (format "~a~a ~a in [~a, ~a];" indent (type->fptaylor var-type) (fix-name var)
-                     (format-number l) (format-number u))))
-         ; Other constraints
-         (define constraints
-           (map (curry expr->fptaylor #:type 'real) (select-constraints pre)))
-         (with-output-to-string
-             (λ ()
-               (unless (empty? arg-strings)
-                 (printf "Variables\n~a\n\n" (string-join arg-strings "\n")))
-               (unless (empty? constraints)
-                 (printf "Constraints\n")
-                 (for ([c constraints] [n (in-naturals)])
-                   (define c-name (fix-name (gensym (format "constraint~a" n))))
-                   (printf "~a~a: ~a;\n" indent c-name c))
-                 (printf "\n"))
-               (unless (empty? (unbox (*defs*)))
-                 (printf "Definitions\n")
-                 (for ([def (reverse (unbox (*defs*)))])
-                   (printf "~a~a;\n" indent def))
-                 (printf "\n"))
-               (printf "Expressions\n~a~a ~a= ~a;\n"
-                       indent (fix-name expr-name) (type->rnd type) expr-body))))))))
+  (parameterize ([*names* (apply mutable-set args)]
+                 [*defs* (box '())])
+    ; Main expression
+    (define expr-body (expr->fptaylor body* #:type type #:inexact-scale inexact-scale))
+    (define expr-name (~a (gensym name*)))
+    ; Ranges of variables
+    (define var-ranges (condition->range-table pre))
+    (define arg-strings
+      (for/list ([var args])
+        (define range
+          (cond
+            [(and var-ranges (hash-has-key? var-ranges var)) (dict-ref var-ranges var)]
+            [else (make-interval -inf.0 +inf.0)]))
+        (unless (nonempty-bounded? range)
+          (error 'compile-program "Bad range for ~a in ~a (~a)" var name* range))
+        (match-define (interval l u) range)
+        (format "~a~a ~a in [~a, ~a];" indent (type->fptaylor var-type) (fix-name var)
+                (format-number l) (format-number u))))
+    ; Other constraints
+    (define constraints
+      (map (curry expr->fptaylor #:type 'real) (select-constraints pre)))
+    (with-output-to-string
+        (λ ()
+          (unless (empty? arg-strings)
+            (printf "Variables\n~a\n\n" (string-join arg-strings "\n")))
+          (unless (empty? constraints)
+            (printf "Constraints\n")
+            (for ([c constraints] [n (in-naturals)])
+              (define c-name (fix-name (gensym (format "constraint~a" n))))
+              (printf "~a~a: ~a;\n" indent c-name c))
+            (printf "\n"))
+          (unless (empty? (unbox (*defs*)))
+            (printf "Definitions\n")
+            (for ([def (reverse (unbox (*defs*)))])
+              (printf "~a~a;\n" indent def))
+            (printf "\n"))
+          (printf "Expressions\n~a~a ~a= ~a;\n"
+                  indent (fix-name expr-name) (type->rnd type) expr-body)))))
 
 (module+ test
-  (for ([expr (in-port (curry read-fpcore "test")
+  (for ([prog (in-port (curry read-fpcore "test")
                        (open-input-file "../benchmarks/fptaylor-tests.fpcore"))])
-    (define results (compile-program expr
-                                     #:name "test"
-                                     #:split-or #t
-                                     #:subexprs #f
-                                     #:indent "  "))
+    (define progs (fpcore-transform prog #:split-or #t))
+    (define results (map (curry compile-program #:name "test") progs))
     (for ([r results])
       (printf "{\n~a}\n\n" r)))
 )
@@ -242,6 +224,7 @@
   (define var-precision #f)
   (define split-or #f)
   (define subexprs #f)
+  (define split #f)
   (define unroll #f)
   (define inexact-scale 1)
   
@@ -262,21 +245,26 @@
                  (set! split-or #t)]
    ["--subexprs" "Create FPTaylor tasks for all subexpressions"
                  (set! subexprs #t)]
+   ["--split" n "Split intervals of bounded variables into the given number of parts"
+              (set! split (string->number n))]
    ["--unroll" n "How many iterations to unroll any loops to"
                (set! unroll (string->number n))]
    #:args ()
    (port-count-lines! (current-input-port))
-   (for ([expr (in-port (curry read-fpcore "stdin"))] [n (in-naturals)])
+   (for ([prog (in-port (curry read-fpcore "stdin"))] [n (in-naturals)])
      (with-handlers ([exn:fail? (λ (exn) (eprintf "[ERROR]: ~a\n\n" exn))])
-       (define results (compile-program expr
-                                        #:name (format "ex~a" n)
-                                        #:precision precision
-                                        #:var-precision var-precision
-                                        #:inexact-scale inexact-scale
-                                        #:split-or split-or
-                                        #:subexprs subexprs
-                                        #:unroll unroll
-                                        #:indent "  "))
+       (define progs (fpcore-transform prog
+                                       #:unroll unroll
+                                       #:split split
+                                       #:subexprs subexprs
+                                       #:split-or split-or))
+       (define results (map (curry compile-program
+                                   #:name (format "ex~a" n)
+                                   #:precision precision
+                                   #:var-precision var-precision
+                                   #:inexact-scale inexact-scale
+                                   #:indent "  ")
+                            progs))
        (define multiple-results (> (length results) 1))
        ; TODO: generate names from the :name properties
        (cond

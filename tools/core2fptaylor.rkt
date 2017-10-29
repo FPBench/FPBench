@@ -220,6 +220,7 @@
   (require racket/cmdline)
   (define files #f)
   (define files-all #f)
+  (define auto-file-names #f)
   (define precision #f)
   (define var-precision #f)
   (define split-or #f)
@@ -235,6 +236,8 @@
               (set! files #t)]
    ["--files-all" "Save all FPTaylor tasks in separate files"
                   (set! files-all #t)]
+   ["--auto-file-names" "Generate special names for all files"
+                        (set! auto-file-names #t)]
    ["--precision" prec "The precision of all operations (overrides the :precision property)"
              (set! precision (string->symbol prec))]
    ["--var-precision" prec "The precision of input variables (overrides the :var-precision property)"
@@ -253,28 +256,29 @@
    (port-count-lines! (current-input-port))
    (for ([prog (in-port (curry read-fpcore "stdin"))] [n (in-naturals)])
      (with-handlers ([exn:fail? (λ (exn) (eprintf "[ERROR]: ~a\n\n" exn))])
+       (define def-name (format "ex~a" n))
+       (define prog-name (if auto-file-names def-name (fpcore-name prog def-name)))
        (define progs (fpcore-transform prog
                                        #:unroll unroll
                                        #:split split
                                        #:subexprs subexprs
                                        #:split-or split-or))
        (define results (map (curry compile-program
-                                   #:name (format "ex~a" n)
+                                   #:name def-name
                                    #:precision precision
                                    #:var-precision var-precision
                                    #:inexact-scale inexact-scale
                                    #:indent "  ")
                             progs))
        (define multiple-results (> (length results) 1))
-       ; TODO: generate names from the :name properties
        (cond
          [files-all (for ([r results] [k (in-naturals)])
-                      (define fname (string-append (format "ex~a" n)
-                                                   (if multiple-results (format "_case~a" k) "")
-                                                   ".txt"))
+                      (define fname (fix-file-name (string-append prog-name
+                                                                  (if multiple-results (format "_case~a" k) "")
+                                                                  ".txt")))
                       (call-with-output-file fname #:exists 'replace
                         (λ (p) (fprintf p "~a" r))))]
-         [files (call-with-output-file (format "ex~a.txt" n) #:exists 'replace
+         [files (call-with-output-file (fix-file-name (format "~a.txt" prog-name)) #:exists 'replace
                   (λ (p) (for ([r results])
                            (if multiple-results (fprintf p "{\n~a}\n\n" r) (fprintf p "~a" r)))))]
          [else (for ([r results]) (printf "{\n~a}\n\n" r))])

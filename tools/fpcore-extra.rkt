@@ -1,11 +1,20 @@
 #lang racket
 
 (require "common.rkt" "fpcore.rkt" "range-analysis.rkt")
-(provide format-number
+(provide fix-file-name format-number
          remove-let canonicalize
          split-expr to-dnf all-subexprs unroll-loops
          fpcore-split-or fpcore-all-subexprs fpcore-split-intervals fpcore-unroll-loops
-         fpcore-transform)
+         fpcore-transform
+         fpcore-name)
+
+(define (fix-file-name name)
+  (string-join
+   (for/list ([char (~a name)])
+     (if (regexp-match #rx"[a-zA-Z0-9_.,]" (string char))
+         (string char)
+         (format "-~a-" (char->integer char))))
+   ""))
 
 (define (factor n k)
   (if (or (= n 0) (< k 2))
@@ -273,6 +282,17 @@
      (make-t split-or fpcore-split-or)
      (make-t unroll (compose list (curry fpcore-unroll-loops unroll)))))
   (transform (list prog)))
+
+(define/contract (fpcore-name prog [default-name #f])
+  (->* (fpcore?)
+       ((or/c #f string?))
+       (or/c #f string?))
+  (match-define (list 'FPCore (list args ...) props ... body) prog)
+  (define-values (_ properties) (parse-properties props))
+  (cond
+    [(dict-has-key? properties ':name) (dict-ref properties ':name)]
+    [default-name]
+    [else #f]))
 
 (module+ test
   (require rackunit)

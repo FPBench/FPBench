@@ -1,7 +1,11 @@
 #lang racket
 
 (require "common.rkt" "fpcore.rkt")
-(provide format-number remove-let canonicalize split-expr to-dnf all-subexprs unroll-loops)
+(provide format-number
+         remove-let canonicalize
+         split-expr to-dnf all-subexprs unroll-loops
+         fpcore-split-or fpcore-all-subexprs fpcore-unroll-loops
+         fpcore-transform)
 
 (define (factor n k)
   (if (or (= n 0) (< k 2))
@@ -107,6 +111,7 @@
          (list* h t))]))
   
 (define/contract (to-dnf expr)
+  ; Converts the given logical expression into an equivalent DNF
   (-> expr? expr?)
   (match expr
     [(list (or 'let 'if 'while) args ...)
@@ -135,6 +140,7 @@
     [_ expr]))
 
 (define/contract (all-subexprs expr #:no-vars [no-vars #f] #:no-consts [no-consts #f])
+  ; Returns a list of subexpressions for the given expression
   (->* (expr?) (#:no-vars boolean? #:no-consts boolean?) (listof expr?))
   (remove-duplicates #:key remove-let
    (let loop ([expr expr])
@@ -175,6 +181,57 @@
     [(? number?) expr]
     [(? symbol?) expr]))
 
+(define/contract (fpcore-unroll-loops n prog)
+  ; Unrolls loops in the given FPCore program
+  (-> exact-nonnegative-integer? fpcore? fpcore?)
+  (match-define (list 'FPCore (list args ...) props ... body) prog)
+  `(FPCore ,args ,@props ,(unroll-loops body n))) 
+
+(define/contract (fpcore-split-or prog)
+  ; Transforms preconditions into DNF and returns FPCore programs for all conjunctions
+  (-> fpcore? (listof fpcore?))
+  (match-define (list 'FPCore (list args ...) props ... body) prog)
+  (define-values (_ properties) (parse-properties props))
+  (if (not (dict-has-key? properties ':pre))
+      (list prog)
+      (let ([name (dict-ref properties ':name "ex")]
+            [pre-list ((compose (curry split-expr 'or) to-dnf remove-let)
+                       (dict-ref properties ':pre))])
+        (define multiple-pre (> (length pre-list) 1))
+        (for/list ([pre pre-list] [k (in-naturals)])
+          (define name* (if multiple-pre (format "~a_case~a" name k) name))
+          (define props* (dict-set* properties ':name name* ':pre pre))
+          `(FPCore ,args ,@(unparse-properties props*) ,body)))))
+
+(define/contract (fpcore-all-subexprs prog #:no-vars [no-vars #f] #:no-consts [no-consts #f])
+  ; Returns FPCore programs for all subexpressions
+  (->* (fpcore?) (#:no-vars boolean? #:no-consts boolean?) (listof fpcore?))
+  (match-define (list 'FPCore (list args ...) props ... body) prog)
+  (define-values (_ properties) (parse-properties props))
+  (define name (dict-ref properties ':name "ex"))
+  (define exprs (all-subexprs body #:no-vars no-vars #:no-consts no-consts))
+  (for/list ([expr exprs] [k (in-naturals)])
+    (define name* (if (>= k 1) (format "~a_expr~a" name k) name))
+    (define props* (dict-set properties ':name name*))
+    `(FPCore ,args ,@(unparse-properties props*) ,expr)))
+
+(define/contract (fpcore-transform prog
+                                   #:unroll [unroll #f]
+                                   #:split-or [split-or #f]
+                                   #:subexprs [subexprs #f])
+  (->* (fpcore?)
+       (#:unroll (or/c #f exact-nonnegative-integer?)
+        #:split-or boolean?
+        #:subexprs boolean?)
+       (listof fpcore?))
+  (define ((make-t cond f) progs)
+    (if cond (append-map f progs) progs))
+  (define transform
+    (compose
+     (make-t subexprs fpcore-all-subexprs)
+     (make-t split-or fpcore-split-or)
+     (make-t unroll (compose list (curry fpcore-unroll-loops unroll)))))
+  (transform (list prog)))
 
 (module+ test
   (require rackunit)
@@ -229,5 +286,9 @@
                          (or p (!= a (+ b 1))))))
    '(let ([p (> a b)])
       (and (not p) (== a (+ b 1)))))
+
+  (check-equal?
+   (split-expr 'or '(or (and a b) (or (and c d) x)))
+   '((and a b) (and c d) x))
 
 )

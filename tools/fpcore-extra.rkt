@@ -114,9 +114,11 @@
   ; Converts the given logical expression into an equivalent DNF
   (-> expr? expr?)
   (match expr
-    [(list (or 'let 'if 'while) args ...)
+    [(list (or 'let 'while) args ...)
      (error 'to-dnf "Unsupported operation ~a" expr)]
     [(or (? constant?) (? number?) (? symbol?)) expr]
+    [`(if ,c ,t ,e)
+     (to-dnf `(or (and (not ,c) (not ,e)) (and ,t ,c) (and ,t (not ,e))))]
     [`(not (not ,arg)) (to-dnf arg)]
     [`(not (or ,args ...)) (to-dnf `(and ,@(map (λ (e) (list 'not e)) args)))]
     [`(not (and ,args ...)) (to-dnf `(or ,@(map (λ (e) (list 'not e)) args)))]

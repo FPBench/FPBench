@@ -44,6 +44,25 @@
             (format "~a~a" n (make-string e #\0))]
            [else (format "~ae~a" n e)]))])))
 
+;; from imp2core.rkt
+(define/contract (free-variables expr)
+  (-> expr? (listof symbol?))
+  (match expr
+    [(? number?) '()]
+    [(? constant?) '()]
+    [(? symbol?) (list expr)]
+    [`(if ,test ,ift ,iff)
+     (set-union (free-variables test) (free-variables ift) (free-variables iff))]
+    [`(let ([,vars ,exprs] ...) ,body)
+     (set-union (append-map free-variables exprs) (set-subtract (free-variables body) vars))]
+    [`(while ,test ([,vars ,inits ,updates] ...) ,body)
+     (set-union (free-variables test)
+                (append-map free-variables inits)
+                (set-subtract (append-map free-variables updates) vars)
+                (set-subtract (free-variables body) vars))]
+    [(list _ exprs ...)
+     (append-map free-variables exprs)]))
+
 (define/contract (remove-let expr [bindings '()])
   (->* (expr?) ((dictof symbol? expr?)) expr?)
   (match expr
@@ -163,7 +182,14 @@
        [`(let ([,vars ,vals] ...) ,body)
         (define val-subexprs (append-map loop vals))
         (define body-subexprs
-          (map (λ (e) `(let (,@(for/list ([var vars] [val vals]) (list var val))) ,e))
+          (map (λ (e)
+                 (define free-vars (free-variables e))
+                 (define bindings
+                   (for/list ([var vars] [val vals] #:when (member var free-vars))
+                     (list var val)))
+                 (cond
+                   [(null? bindings) e]
+                   [else `(let (,@bindings) ,e)]))
                (loop body)))
         (append body-subexprs val-subexprs)]
        [`(if ,cond ,t ,f)

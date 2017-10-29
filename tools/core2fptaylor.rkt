@@ -241,7 +241,7 @@
                       (set! var-precision (string->symbol prec))]
    ["--scale" scale "The scale factor for operations which are not correctly rounded"
               (set! inexact-scale (string->number scale))]
-   ["--split-or" "Convert preconditions to DNF and create separate FPTaylor task for all conjunctions"
+   ["--split-or" "Convert preconditions to DNF and create separate FPTaylor tasks for all conjunctions"
                  (set! split-or #t)]
    ["--subexprs" "Create FPTaylor tasks for all subexpressions"
                  (set! subexprs #t)]

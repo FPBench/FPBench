@@ -196,7 +196,7 @@
                (cond
                  [(and var-ranges (hash-has-key? var-ranges var)) (dict-ref var-ranges var)]
                  [else (make-interval -inf.0 +inf.0)]))
-             (unless (is-non-empty-bounded range)
+             (unless (nonempty-bounded? range)
                (error 'compile-program "Bad range for ~a in ~a (~a)" var name* range))
              (match-define (interval l u) range)
              (format "~a~a ~a in [~a, ~a];" indent (type->fptaylor var-type) (fix-name var)

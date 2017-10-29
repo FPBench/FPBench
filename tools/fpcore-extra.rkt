@@ -1,10 +1,10 @@
 #lang racket
 
-(require "common.rkt" "fpcore.rkt")
+(require "common.rkt" "fpcore.rkt" "range-analysis.rkt")
 (provide format-number
          remove-let canonicalize
          split-expr to-dnf all-subexprs unroll-loops
-         fpcore-split-or fpcore-all-subexprs fpcore-unroll-loops
+         fpcore-split-or fpcore-all-subexprs fpcore-split-intervals fpcore-unroll-loops
          fpcore-transform)
 
 (define (factor n k)
@@ -217,12 +217,50 @@
     (define props* (dict-set properties ':name name*))
     `(FPCore ,args ,@(unparse-properties props*) ,expr)))
 
+(define/contract (fpcore-split-intervals n prog #:max [max 10000])
+  ; Uniformly splits input intervals of all bounded variables into n parts.
+  ; The total number of results is limited by the #:max parameter.
+  (->* (exact-nonnegative-integer? fpcore?)
+       (#:max exact-nonnegative-integer?)
+       (listof fpcore?))
+  (match-define (list 'FPCore (list args ...) props ... body) prog)
+  (define-values (_ properties) (parse-properties props))
+  (define name (dict-ref properties ':name "ex"))
+  (if (not (dict-has-key? properties ':pre))
+      (list prog)
+      (let* ([pre (dict-ref properties ':pre)]
+             [ranges ((compose condition->range-table canonicalize remove-let) pre)])
+        (define bounded-vars
+          (for/list ([var-interval (in-dict-pairs ranges)]
+                     #:when (nonempty-bounded? (cdr var-interval)))
+            var-interval))
+        (define splits (let ([k (length bounded-vars)])
+                         (if (> (expt n k) max) (exact-floor (expt max (/ k))) n)))
+        (if (<= splits 1)
+            (list prog)
+            (let loop ([pre-list '()] [name* name] [vars bounded-vars])
+              (cond
+                [(null? vars)
+                 (define pre* `(and ,@pre-list ,pre))
+                 (define properties* (dict-set* properties ':pre pre* ':name name*))
+                 `((FPCore ,args ,@(unparse-properties properties*) ,body))]
+                [else
+                 (match-define (cons var (interval a b)) (car vars))
+                 (define step (/ (- b a) splits))
+                 (for/fold [(progs '())] [(i (in-range splits))]
+                   (define new-pre `(<= ,(+ a (* i step)) ,var ,(+ a (* (+ i 1) step))))
+                   (define new-name (format "~a_~a~a" name* var i))
+                   (append progs
+                           (loop (cons new-pre pre-list) new-name (cdr vars))))]))))))
+
 (define/contract (fpcore-transform prog
                                    #:unroll [unroll #f]
+                                   #:split [split #f]
                                    #:split-or [split-or #f]
                                    #:subexprs [subexprs #f])
   (->* (fpcore?)
        (#:unroll (or/c #f exact-nonnegative-integer?)
+        #:split (or/c #f exact-nonnegative-integer?)
         #:split-or boolean?
         #:subexprs boolean?)
        (listof fpcore?))
@@ -231,6 +269,7 @@
   (define transform
     (compose
      (make-t subexprs fpcore-all-subexprs)
+     (make-t split (curry fpcore-split-intervals split))
      (make-t split-or fpcore-split-or)
      (make-t unroll (compose list (curry fpcore-unroll-loops unroll)))))
   (transform (list prog)))

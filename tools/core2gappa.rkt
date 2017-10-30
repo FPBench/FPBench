@@ -96,19 +96,19 @@
     [`(> ,a ,b) (expr->gappa `(<= ,b ,a) #:names names #:type type)]
     [`(>= ,a ,b) (expr->gappa `(<= ,b ,a) #:names names #:type type)]
     [(list '<= (? number? a) b)
-     ; TODO: approximate (round down) a if necessary (Gappa does not accept general rational numbers)
+     ; Approximate (round down) a if necessary (Gappa does not accept general rational numbers in inequalities)
      (application->gappa '>= (list (expr->gappa b #:names names #:type type)
-                                   (format-number a)))]
+                                   (format-number a #:direction 'down)))]
     [(list '<= a (? number? b))
-     ; TODO: approximate (round up) b if necessary
+     ; Approximate (round up) b if necessary
      (application->gappa '<= (list (expr->gappa a #:names names #:type type)
-                                   (format-number b)))]
+                                   (format-number b #:direction 'up)))]
     [`(<= ,a ,b)
      (error 'expr->gappa "Cannot translate the inequality: ~a" expr)]
     [(list (? operator? operator) args ...)
-     (define args_gappa
+     (define args-gappa
        (map (λ (arg) (expr->gappa arg #:names names #:type type)) args))
-     (application->gappa operator args_gappa)]
+     (application->gappa operator args-gappa)]
     [(? constant?)
      (format "~a(~a)" (type->rnd type) (constant->gappa expr))]
     [(? symbol?)
@@ -205,15 +205,9 @@
                   [else (make-interval -inf.0 +inf.0)]))
               (if (nonempty-bounded? range)
                   (format "~a in [~a, ~a]" (fix-name (dict-ref real-vars var))
-                          ; TODO: round down and up if necessary
-                          ; It is also required to round non-decimal rational numbers when
-                          ; translating preconditions. But it is necessary to be careful
-                          ; and take into account the context:
-                          ; (not (<= a 1/3)) is different from (<= a 1/3).
-                          ; For preconditions P we need to generate weaker preconditions Q
-                          ; such that P ==> Q.
-                          (format-number (interval-l range))
-                          (format-number (interval-u range)))
+                          ; Round down and up if necessary
+                          (format-number (interval-l range) #:direction 'down)
+                          (format-number (interval-u range) #:direction 'up))
                   "")))
 
           ; Combine preconditions and ranges

@@ -1,8 +1,8 @@
 #lang racket
 
 (require "common.rkt" "fpcore.rkt" "range-analysis.rkt")
-(provide fix-file-name format-number
-         remove-let canonicalize
+(provide fix-file-name round-decimal format-number
+         free-variables remove-let canonicalize
          split-expr to-dnf all-subexprs unroll-loops
          fpcore-split-or fpcore-all-subexprs fpcore-split-intervals fpcore-unroll-loops
          fpcore-transform
@@ -25,16 +25,35 @@
             (loop q (+ e 1))
             (values n e)))))
 
+(define/contract (round-decimal n digits direction)
+  (-> rational? exact-positive-integer? (or/c 'up 'down) rational?)
+  (case (sgn n)
+    [(0) 0]
+    [(-1) (- (round-decimal (- n) digits (if (eq? direction 'up) 'down 'up)))]
+    [else
+     (let* ([t (inexact->exact n)]
+            [e (- digits (add1 (order-of-magnitude t)))]
+            [p (expt 10 e)]
+            [t2 (* t p)]
+            [r (exact-floor t2)])
+       (if (= r t2) t
+           (/ (if (eq? direction 'up) (add1 r) r) p)))]))
+  
 ; TODO: use (order-of-magnitude n) from racket/math to get normalized results
-(define/contract (format-number n)
-  (-> rational? string?)
+(define/contract (format-number n #:digits [digits 16] #:direction [direction #f])
+  (->* (rational?)
+       (#:digits exact-positive-integer?
+        #:direction (or/c #f 'up 'down))
+       string?)
   (define t (inexact->exact n))
   (let*-values ([(d e10) (factor (denominator t) 10)]
                 [(d e5) (factor d 5)]
                 [(d e2) (factor d 2)])
     (cond
       [(= t 0) (~a t)]
-      [(> d 1) (format "(~a)" t)]
+      [(> d 1) (if direction
+                   (format-number (round-decimal t digits direction))
+                   (format "(~a)" t))]
       [else
        (let*-values ([(m) (if (> e2 e5) (expt 5 e2) (expt 2 e5))]
                      [(n en10) (factor (* (numerator t) m) 10)]

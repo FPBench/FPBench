@@ -48,12 +48,14 @@
 (define/match (type->c type)
   [('binary64) "double"]
   [('binary32) "float"]
-  [('binary80) "long double"])
+  [('binary80) "long double"]
+  [('bool) "int"])
 
 (define/match (type->suffix type)
   [('binary64) ""]
   [('binary32) "f"]
-  [('binary80) "l"])
+  [('binary80) "l"]
+  [('bool) ""])
 
 (define *names* (make-parameter (mutable-set)))
 
@@ -80,7 +82,7 @@
          (dict-set names* var var*)))
      (expr->c body #:names names* #:type type #:indent indent)]
     [`(if ,cond ,ift ,iff)
-     (define test (expr->c cond #:names names #:type type #:indent indent))
+     (define test (expr->c cond #:names names #:type 'bool #:indent indent))
      (define outvar (gensym 'temp))
      (printf "~a~a ~a;\n" indent (type->c type) (fix-name outvar))
      (printf "~aif (~a) {\n" indent test)

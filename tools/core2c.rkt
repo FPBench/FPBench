@@ -38,10 +38,10 @@
                        (format "~a != ~a" (car args) b))
                      (loop (cdr args)))))
               " && "))]
-    [(list 'and a b)
-     (format "(~a && ~a)" a b)]
-    [(list 'or a b)
-     (format "(~a || ~a)" a b)]
+    [(list 'and a ...)
+     (format "(~a)" (string-join (map ~a a) " && "))]
+    [(list 'or a ...)
+     (format "(~a)" (string-join (map ~a a) " || "))]
     [(list (? operator? f) args ...)
      (format "~a~a(~a)" f (type->suffix type) (string-join args ", "))]))
 

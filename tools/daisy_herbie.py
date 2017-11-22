@@ -100,12 +100,12 @@ def runTest(in_fpcore):
         return
 
     (timeInDaisy, errInDaisy, exitCode) = runDaisy (in_scala)
-    if not exitcode == 0:
+    if errInDaisy == "FAILED" or not exitcode == 0:
         print("DAISY ERROR ON: ", in_scala, file=sys.stderr)
         return
 
     (timeOutDaisy, errOutDaisy, exitCode) = runDaisy (out_scala)
-    if not exitcode == 0:
+    if errInDaisy == "FAILED" or not exitcode == 0:
         print("DAISY ERROR ON: ", out_scala, file=sys.stderr)
         return
 

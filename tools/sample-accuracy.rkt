@@ -8,7 +8,6 @@
 
 (define ((mk-comparator f) . args)
   (let loop ([args args])
-    (eprintf "~a: ~a\n" f args)
     (cond
      [(null? args) true]
      [(null? (cdr args)) true]
@@ -37,7 +36,7 @@
     [min bfmin] [fdim (λ (x y) (bfabs (bf- x y)))] [expm1 bfexpm1]
     [log1p bflog1p] [< (mk-comparator bf<)] [> (mk-comparator bf>)]
     [<= (mk-comparator bf<=)] [>= (mk-comparator bf>=)] [== (mk-comparator bf=)]
-    [!= (compose not (curryr check-duplicates =))]
+    [!= (λ args (not (check-duplicates args bf=)))]
     [not not] [and (λ args (andmap identity args))]
     [or (λ args (ormap identity args))] [isfinite bfrational?]
     [isinf bfinfinite?] [isnan bfnan?] [isnormal bfrational?]
@@ -67,24 +66,6 @@
 (define (if-fn test if-true if-false) (if test if-true if-false))
 (define (and-fn . as) (andmap identity as))
 (define (or-fn  . as) (ormap identity as))
-
-(define/table (operators ieee mpfr)
-  [ +      fl+      bf+     ] [ -      fl-      bf-     ]
-  [ *      fl*      bf*     ] [ /      fl/      bf/     ]
-  [ abs    flabs    bfabs   ] [ sqrt   flsqrt   bfsqrt  ]
-  [ hypot  flhypot  bfhypot ] [ exp    flexp    bfexp   ]
-  [ expm1  flexpm1  bfexpm1 ] [ pow    flexpt   bfexpt  ]
-  [ log    fllog    bflog   ] [ log1p  fllog1p  bflog1p ]
-  [ sinh   flsinh   bfsinh  ] [ cosh   flcosh   bfcosh  ]
-  [ tanh   fltanh   bftanh  ] [ sin    flsin    bfsin   ]
-  [ cos    flcos    bfcos   ] [ tan    fltan    bftan   ]
-  [ asin   flasin   bfasin  ] [ acos   flacos   bfacos  ]
-  [ atan   flatan   bfatan  ] [ atan2  atan     bfatan2 ]
-  [ <      <        bf<     ] [ >      >        bf>     ]
-  [ ==     =        bf=     ] [ !=     (compose not =) (compose not bf=)]
-  [ <=     <=       bf<=    ] [ >=     >=       bf>=    ]
-  [ and    and-fn   and-fn  ] [ or     or-fn    or-fn   ]
-  [ not    not      not     ])
 
 (define (single-flonum->bit-field x)
   (integer-bytes->integer (real->floating-point-bytes x 4) #f))

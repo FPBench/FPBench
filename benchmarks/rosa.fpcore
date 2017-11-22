@@ -334,6 +334,7 @@
             (< a c) (< b c))
   :rosa-post (=> res (>= res 0))
   :rosa-ensuring 2e-9
+  :example ((b 4.0) (c 8.5))
   (if (< a b)
       (/ (sqrt (* (* (* (+ c (+ b a)) (- a (- c b)))
                      (+ a (- c b))) (+ c (- b a))))

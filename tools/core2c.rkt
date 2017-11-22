@@ -148,6 +148,6 @@
    #:program "compile.rkt"
    #:args ()
    (port-count-lines! (current-input-port))
-   (printf "#include <math.h>\n\n")
+   (printf "#include <math.h>\n#define TRUE 1\n#define FALSE 0\n\n")
    (for ([expr (in-port (curry read-fpcore "stdin"))] [n (in-naturals)])
      (printf "~a\n" (compile-program expr #:name (format "ex~a" n))))))

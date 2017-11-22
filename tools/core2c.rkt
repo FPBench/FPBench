@@ -11,7 +11,7 @@
          (format "_~a_" (char->integer char))))
    ""))
 
-(define (application->c type operator args)
+(define (application->c precision operator args)
   (match (cons operator args)
     [(list '- a)
      (format "-~a" a)]
@@ -43,19 +43,18 @@
     [(list 'or a ...)
      (format "(~a)" (string-join (map ~a a) " || "))]
     [(list (? operator? f) args ...)
-     (format "~a~a(~a)" f (type->suffix type) (string-join args ", "))]))
+     (format "~a~a(~a)" f (type->suffix precision) (string-join args ", "))]))
 
-(define/match (type->c type)
-  [('binary64) "double"]
-  [('binary32) "float"]
-  [('binary80) "long double"]
-  [('bool) "int"])
+(define/match (type->c type precision)
+  [('real 'binary64) "double"]
+  [('real 'binary32) "float"]
+  [('real 'binary80) "long double"]
+  [('boolean _) "int"])
 
-(define/match (type->suffix type)
+(define/match (type->suffix precision)
   [('binary64) ""]
   [('binary32) "f"]
-  [('binary80) "l"]
-  [('bool) ""])
+  [('binary80) "l"])
 
 (define *names* (make-parameter (mutable-set)))
 
@@ -69,58 +68,63 @@
   (set-add! (*names*) name*)
   name*)
 
-(define (expr->c expr #:names [names #hash()] #:type [type 'binary64] #:indent [indent "\t"])
+(define (expr->c expr #:names [names #hash()] #:type [type 'binary64] #:ctx [ctx '()] #:indent [indent "\t"])
   ;; Takes in an expression. Returns an expression and a new set of names
   (match expr
     [`(let ([,vars ,vals] ...) ,body)
      (define vars* (map gensym vars))
      (for ([var vars] [var* vars*] [val vals])
-       (printf "~a~a ~a = ~a;\n" indent (type->c type) (fix-name var*)
-               (expr->c val #:names names #:type type #:indent indent)))
+       (printf "~a~a ~a = ~a;\n" indent (type->c (expression-type val ctx) type) (fix-name var*)
+               (expr->c val #:names names #:type type #:ctx ctx #:indent indent)))
      (define names*
        (for/fold ([names* names]) ([var vars] [var* vars*])
          (dict-set names* var var*)))
-     (expr->c body #:names names* #:type type #:indent indent)]
+     (define ctx* (for/fold ([ctx* ctx]) ([var vars] [val vals])
+                    (dict-set ctx* var (expression-type val ctx))))
+     (expr->c body #:names names* #:type type #:ctx ctx* #:indent indent)]
     [`(if ,cond ,ift ,iff)
-     (define test (expr->c cond #:names names #:type 'bool #:indent indent))
+     (define test (expr->c cond #:names names #:type type #:ctx ctx #:indent indent))
      (define outvar (gensym 'temp))
-     (printf "~a~a ~a;\n" indent (type->c type) (fix-name outvar))
+     (printf "~a~a ~a;\n" indent (type->c (expression-type expr ctx) type) (fix-name outvar))
      (printf "~aif (~a) {\n" indent test)
      (printf "~a\t~a = ~a;\n" indent (fix-name outvar)
-             (expr->c ift #:names names #:type type #:indent (format "~a\t" indent)))
+             (expr->c ift #:names names #:type type #:ctx ctx #:indent (format "~a\t" indent)))
      (printf "~a} else {\n" indent)
      (printf "~a\t~a = ~a;\n" indent (fix-name outvar)
-             (expr->c iff #:names names #:type type #:indent (format "~a\t" indent)))
+             (expr->c iff #:names names #:type type #:ctx ctx #:indent (format "~a\t" indent)))
      (printf "~a}\n" indent)
      (fix-name outvar)]
     [`(while ,cond ([,vars ,inits ,updates] ...) ,retexpr)
      (define vars* (map gensym vars))
      (for ([var vars] [var* vars*] [val inits])
-       (printf "~a~a ~a = ~a;\n" indent (type->c type) (fix-name var*)
-               (expr->c val #:names names #:type type #:indent indent)))
+       (printf "~a~a ~a = ~a;\n" indent (type->c (expression-type val ctx) type) (fix-name var*)
+               (expr->c val #:names names #:type type #:ctx ctx #:indent indent)))
      (define names*
        (for/fold ([names* names]) ([var vars] [var* vars*])
          (dict-set names* var var*)))
+     (define ctx*
+       (for/fold ([ctx* ctx]) ([var vars] [val inits])
+         (dict-set ctx* var (expression-type val ctx))))
      (define test-var (gensym 'test))
      (printf "~aint ~a = ~a;\n" indent (fix-name test-var)
-             (expr->c cond #:names names* #:type type #:indent indent))
+             (expr->c cond #:names names* #:type type #:ctx ctx* #:indent indent))
      (printf "~awhile (~a) {\n" indent test-var)
      (define temp-vars (map gensym vars))
      (for ([temp-var temp-vars] [update updates])
-       (printf "~a\t~a ~a = ~a;\n" indent (type->c type) (fix-name temp-var)
-               (expr->c update #:names names* #:type type #:indent (format "~a\t" indent))))
+       (printf "~a\t~a ~a = ~a;\n" indent (type->c (expression-type update ctx*) type) (fix-name temp-var)
+               (expr->c update #:names names* #:type type #:ctx ctx* #:indent (format "~a\t" indent))))
      (for ([var* vars*] [temp-var temp-vars])
        (printf "~a\t~a = ~a;\n" indent (fix-name var*) (fix-name temp-var)))
      (printf "~a\t~a = ~a;" indent (fix-name test-var)
-             (expr->c cond #:names names* #:type type #:indent (format "~a\t" indent)))
+             (expr->c cond #:names names* #:type type #:ctx ctx* #:indent (format "~a\t" indent)))
      (printf "~a}\n" indent)
-     (expr->c retexpr #:names names* #:type type #:indent indent)]
+     (expr->c retexpr #:names names* #:type type #:ctx ctx* #:indent indent)]
     [(list (? operator? operator) args ...)
      (define args_c
-       (map (λ (arg) (expr->c arg #:names names #:type type #:indent indent)) args))
+       (map (λ (arg) (expr->c arg #:names names #:type type #:ctx ctx #:indent indent)) args))
      (application->c type operator args_c)]
     [(? constant?)
-     (format "((~a) ~a)" (type->c type) expr)]
+     (format "((~a) ~a)" (type->c (expression-type expr ctx) type) expr)]
     [(? symbol?)
      (fix-name (dict-ref names expr expr))]
     [(? number?)
@@ -133,13 +137,16 @@
 
   (define arg-strings
     (for/list ([var args])
-      (format "~a ~a" (type->c type) (fix-name (if (list? var) (car var) var)))))
+      (format "~a ~a" (type->c 'real type) (fix-name (if (list? var) (car var) var)))))
+  (define ctx (map (curryr cons 'real) args))
+  (define otype (expression-type body ctx))
+
   (define c-body
     (with-output-to-string
       (λ ()
         (parameterize ([*names* (apply mutable-set args)])
-          (printf "\treturn ~a;\n" (expr->c body #:type type))))))
-  (format "~a ~a(~a) {\n~a}\n" (type->c type) (fix-name name) (string-join arg-strings ", ") c-body))
+          (printf "\treturn ~a;\n" (expr->c body #:type type #:ctx ctx))))))
+  (format "~a ~a(~a) {\n~a}\n" (type->c otype type) (fix-name name) (string-join arg-strings ", ") c-body))
 
 (module+ main
   (require racket/cmdline)

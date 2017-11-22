@@ -4,7 +4,7 @@
 (provide
  (struct-out evaluator) racket-double-evaluator racket-single-evaluator
  fpcore? expr? context/c eval-expr* eval-expr racket-run-fpcore
- read-fpcore)
+ read-fpcore expression-type)
 
 (struct evaluator (real constant function))
 
@@ -44,6 +44,51 @@
   [('not (list 'boolean)) 'boolean] 
   [(_ _) #f])
 
+(define/match (constant-type constant)
+  [((or 'TRUE 'FALSE)) 'boolean]
+  [(_) 'real])
+
+(define/contract type-cache (hash/c (cons/c expr? (dictof symbol? type?)) type?) (make-hash))
+(define/contract (expression-type expr ctx)
+  (-> expr? (dictof symbol? type?) type?)
+  (hash-ref! type-cache (cons expr ctx)
+             (λ ()
+               (match expr
+                 [(? number?) 'real]
+                 [(? constant?) (constant-type expr)]
+                 [(? symbol?) (dict-ref ctx expr)]
+                 [`(if ,test ,ift ,iff)
+                  (hash-set! type-cache (cons test ctx) 'boolean)
+                  (cond
+                   [(hash-has-key? type-cache (cons ift ctx))
+                    (define t (hash-ref type-cache (cons ift ctx)))
+                    (hash-set! type-cache (cons iff ctx) t)
+                    t]
+                   [(hash-has-key? type-cache (cons iff ctx))
+                    (define t (hash-ref type-cache (cons iff ctx)))
+                    (hash-set! type-cache (cons ift ctx) t)
+                    t]
+                   [else
+                    (define t (expression-type ift ctx))
+                    (hash-set! type-cache (cons iff ctx) t)
+                    t])]
+                 [`(let ([,vars ,vals] ...) ,body)
+                  (define ctx*
+                    (for/fold ([ctx* ctx]) ([var vars] [val vals])
+                      (dict-set ctx* var (expression-type val ctx))))
+                  (expression-type body ctx*)]
+                 [`(while ,test ([,vars ,inits ,steps] ...) ,body)
+                  (define ctx*
+                    (for/fold ([ctx* ctx]) ([var vars] [init inits] [step steps])
+                      (dict-set ctx* var (expression-type init ctx))))
+                  (for ([var vars] [step steps])
+                    (hash-set! type-cache (cons step ctx*) (dict-ref ctx* var)))
+                  (hash-set! type-cache (cons test ctx*) 'boolean)
+                  (expression-type body ctx*)]
+                 [(list op args ...)
+                  (define arg-types (map (curryr expression-type ctx) args))
+                  (operator-type op arg-types)]))))
+
 (define/contract (check-expr stx ctx)
   (-> syntax? (dictof symbol? type?) (cons/c expr? type?))
 
@@ -51,7 +96,7 @@
     [(? number? val)
      (cons val 'real)]
     [(? constant? val)
-     (cons val (match val [(or 'TRUE 'FALSE) 'boolean] [_ 'real]))]
+     (cons val (constant-type val))]
     [(? symbol? var)
      (unless (dict-has-key? ctx var)
        (raise-syntax-error #f "Undefined variable" stx))

@@ -25,7 +25,7 @@ def runFilter (benchmarks, args) :
         ["racket", FPBENCH_DIR + "/tools/filter.rkt"] + args,
         input="\n\n".join(benchmarks), universal_newlines=True,
         stdout=subprocess.PIPE)
-    return out.stdout.split("\n\n")
+    return out.stdout.strip().split("\n\n")
 
 # run Herbies improvement phase on inFname file,
 # produce resulting fpcore file in outFname
@@ -116,7 +116,7 @@ def runTests(benchmarks):
     for benchmark in benchmarks:
         first = True
         for field in runTest(benchmark):
-            text = '"{}"'.format(field.replace("\"", "\\\"")) if isinstance(field, str) else "{:.2g}".format(field)
+            text = '"{}"'.format(field.replace("\"", "\\\"")) if isinstance(field, str) else "{:0.3g}".format(field)
             print(text if first else ", " + text, end="")
             sys.stdout.flush()
             first = False

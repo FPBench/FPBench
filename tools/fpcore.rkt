@@ -190,7 +190,7 @@
     (error 'eval-expr "Unimplemented operation ~a"
            unsupported-value)]))
 
-(define (my!= #:cmp [cmp =] . args) (not (check-duplicates args cmp
+(define (my!= #:cmp [cmp =] . args) (not (check-duplicates args cmp)))
 (define (my= #:cmp [cmp =] . args)
   (match args ['() true] [(cons hd tl) (andmap (curry cmp hd) tl)]))
 

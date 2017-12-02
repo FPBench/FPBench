@@ -3,7 +3,7 @@
 import sys, os, subprocess, tempfile, time
 
 # Set by running the script
-HERBIE_DIR = DAISY_DIR = FPBENCH_DIR = None
+SAVE_DIR = HERBIE_DIR = DAISY_DIR = FPBENCH_DIR = None
 
 def dir_type(path):
     if not os.path.exists(path):
@@ -65,23 +65,23 @@ def runDaisy (benchmark, certificates=True):
 
     if out.returncode:
         print(out.stdout, file=sys.stderr)
-        print(out.stderr, file=sys.stderr)
         return dt, "FAILED", out.returncode
 
     for line in out.stdout.split("\n"):
         if "abs-error" in line:
             return dt, float(line.split(",")[0].split(":")[1]), out.returncode
     else:
-        print(out.stderr, file=sys.stderr)
         print(out.stdout, file=sys.stderr)
         return dt, "FAILED", out.returncode
 
-def runTest(in_fpcore):
+def runTest(idx, in_fpcore):
     if ":name" in in_fpcore:
         name = in_fpcore.split(":name")[1].split('"')[1]
     else:
         name = in_fpcore
     yield name
+    
+    if SAVE_DIR: open(os.path.join(SAVE_DIR, idx + ".input.fpcore"), "wt").write(in_fpcore)
 
     (timeHerbie, out_fpcore, exitcode) = runHerbie (in_fpcore)
     if not exitcode == 0:
@@ -90,16 +90,22 @@ def runTest(in_fpcore):
     yield timeHerbie
 
     (in_scala, exitcode) = runConverter (in_fpcore)
+    if SAVE_DIR: open(os.path.join(SAVE_DIR, idx + ".output.fpcore"), "wt").write(out_fpcore)
+
     if not exitcode == 0:
         print("CONVERTER ERROR ON: ", in_fpcore, file=sys.stderr)
         return
 
     (out_scala, exitcode) = runConverter (out_fpcore)
+    if SAVE_DIR: open(os.path.join(SAVE_DIR, idx + ".input.scala"), "wt").write(in_scala)
+
     if not exitcode == 0:
         print("CONVERTER ERROR ON: ", out_fpcore, file=sys.stderr)
         return
 
     (timeInDaisy, errInDaisy, exitCode) = runDaisy (in_scala)
+    if SAVE_DIR: open(os.path.join(SAVE_DIR, idx + ".output.scala"), "wt").write(out_scala)
+
     if errInDaisy == "FAILED" or not exitcode == 0:
         print("DAISY ERROR ON: ", in_scala, file=sys.stderr)
         return
@@ -112,10 +118,12 @@ def runTest(in_fpcore):
     yield from [timeInDaisy, timeOutDaisy, errInDaisy, errOutDaisy]
 
 def runTests(benchmarks):
-    print("Benchmark name, Herbie, Daisy (src), Daisy (res), roundoff err (src), roundoff err (res)")
-    for benchmark in benchmarks:
+    print("Index, Benchmark name, Herbie, Daisy (src), Daisy (res), roundoff err (src), roundoff err (res)")
+    for idx, benchmark in enumerate(benchmarks):
+        print(idx, end=", ")
+        sys.stdout.flush()
         first = True
-        for field in runTest(benchmark):
+        for field in runTest(str(idx), benchmark):
             text = '"{}"'.format(field.replace("\"", "\\\"")) if isinstance(field, str) else "{:0.3g}".format(field)
             print(text if first else ", " + text, end="")
             sys.stdout.flush()
@@ -133,6 +141,7 @@ def main():
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
+    parser.add_argument("--save", help="The directory to save intermediate files into", type=dir_type)
     parser.add_argument("herbie_dir", help="The directory of the Herbie source code", type=dir_type)
     parser.add_argument("daisy_dir", help="The directory of the Daisy source code", type=dir_type)
     args = parser.parse_args()
@@ -141,5 +150,6 @@ if __name__ == "__main__":
     DAISY_DIR = args.daisy_dir
     current_dir = os.path.dirname(__file__)
     FPBENCH_DIR = os.path.dirname(dir_type(current_dir or "."))
+    if args.save: SAVE_DIR = args.save
 
     main()

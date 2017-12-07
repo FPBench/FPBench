@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 
-import sys, os, subprocess, tempfile, time
+import sys, os, subprocess, tempfile, time, shlex
 
 # Set by running the script
 SAVE_DIR = HERBIE_DIR = DAISY_DIR = FPBENCH_DIR = None
+HERBIE_FLAGS = ""
+DAISY_FLAGS = ""
 
 def dir_type(path):
     if not os.path.exists(path):
@@ -32,7 +34,7 @@ def runFilter (benchmarks, args) :
 def runHerbie (benchmark) :
     start = time.time()
     out = subprocess.run(
-        ["racket", HERBIE_DIR + "/src/herbie.rkt", "improve", "-", "-"],
+        ["racket", HERBIE_DIR + "/src/herbie.rkt", "improve"] + HERBIE_FLAGS + ["-", "-"],
         stdout=subprocess.PIPE,
         input=benchmark, universal_newlines=True)
     try:
@@ -58,7 +60,7 @@ def runDaisy (benchmark, certificates=True):
         f.write(benchmark.encode("utf-8"))
         f.flush()
         out = subprocess.run(
-            ["./daisy", f.name],
+            ["./daisy"] + DAISY_FLAGS + [f.name],
             stdout=subprocess.PIPE, universal_newlines=True)
     dt = time.time() - start
     os.chdir(cwd)
@@ -144,10 +146,14 @@ if __name__ == "__main__":
     parser.add_argument("--save", help="The directory to save intermediate files into", type=dir_type)
     parser.add_argument("herbie_dir", help="The directory of the Herbie source code", type=dir_type)
     parser.add_argument("daisy_dir", help="The directory of the Daisy source code", type=dir_type)
+    parser.add_argument("--daisy-flags", help="Flags to pass to Daisy", type=str, default="")
+    parser.add_argument("--herbie-flags", help="Flags to pass to Herbie", type=str, default="")
     args = parser.parse_args()
 
     HERBIE_DIR = args.herbie_dir
     DAISY_DIR = args.daisy_dir
+    HERBIE_FLAGS = shlex.split(args.herbie_flags)
+    DAISY_FLAGS = shlex.split(args.daisy_flags)
     current_dir = os.path.dirname(__file__)
     FPBENCH_DIR = os.path.dirname(dir_type(current_dir or "."))
     if args.save: SAVE_DIR = args.save

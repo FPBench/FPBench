@@ -135,7 +135,7 @@ def runTests(benchmarks):
 def main():
     benchmarks = list(getFiles())
     print ("Found {} total benchmarks".format(len(benchmarks)), file=sys.stderr)
-    benchmarks = runFilter(benchmarks, ["operations", "+", "-", "/", "*", "exp", "log", "sin", "cos"])
+    benchmarks = runFilter(benchmarks, ["operations", "+", "-", "/", "*", "exp", "log", "sin", "cos", "let"])
     benchmarks = runFilter(benchmarks, ["pre"])
     print ("Filtered down to {} benchmarks".format(len(benchmarks)), file=sys.stderr)
     runTests(benchmarks)

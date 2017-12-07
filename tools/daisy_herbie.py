@@ -70,8 +70,8 @@ def runDaisy (benchmark, certificates=True):
         return dt, "FAILED", out.returncode
 
     for line in out.stdout.split("\n"):
-        if "abs-error" in line:
-            return dt, float(line.split(",")[0].split(":")[1]), out.returncode
+        if "Absolute error:" in line:
+            return dt, float(line.split(":")[1].strip()), out.returncode
     else:
         print(out.stdout, file=sys.stderr)
         return dt, "FAILED", out.returncode

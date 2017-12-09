@@ -15,8 +15,8 @@
   (match-lambda
     ['SQRT2 "sqrt(2)"]
     ['SQRT1_2 "1 / sqrt(2)"]
-    ['TRUE "0 <= 1"]
-    ['FALSE "0 => 1"]
+    ['TRUE "0 in [0, 0]"]
+    ['FALSE "1 in [0, 0]"]
     [c (error 'constant->gappa "Unsupported constant ~a" c)]))
 
 (define/match (operator->gappa op)
@@ -218,7 +218,7 @@
                   ; For some strange reason we must add parentheses around the combined
                   ; range expression. Otherwise Gappa complains that expressions are not bounded.
                   (format "~a~a(~a)" pre* sep ranges)
-                  pre)))
+                  pre*)))
           
           (when (equal? cond-body "")
             (set! cond-body "0 <= 1"))
@@ -245,6 +245,7 @@
   (require racket/cmdline)
   (define stdout #f)
   (define auto-file-names #f)
+  (define out-path ".")
   (define rel-error #f)
   (define precision #f)
   (define var-precision #f)
@@ -260,6 +261,8 @@
                (set! stdout #t)]
    ["--auto-file-names" "Generate special names for all files"
                         (set! auto-file-names #t)]
+   ["--out-path" path "Save all results in the given path"
+                 (set! out-path path)]
    ["--rel-error" "Produce Gappa expressions for relative errors"
                   (set! rel-error #t)]
    ["--precision" prec "The precision of all operations (overrides the :precision property)"
@@ -274,30 +277,34 @@
               (set! split (string->number n))]
    ["--unroll" n "How many iterations to unroll any loops to"
                (set! unroll (string->number n))]
-   #:args ()
-   (port-count-lines! (current-input-port))
-   (for ([prog (in-port (curry read-fpcore "stdin"))] [n (in-naturals)])
-     (with-handlers ([exn:fail? (λ (exn) (eprintf "[ERROR]: ~a\n\n" exn))])
-       (define def-name (format "ex~a" n))
-       (define prog-name (if auto-file-names def-name (fpcore-name prog def-name)))
-       (define progs (fpcore-transform prog
-                                       #:unroll unroll
-                                       #:split split
-                                       #:subexprs subexprs
-                                       #:split-or split-or))
-       (define results (map (curry compile-program
-                                   #:name def-name
-                                   #:precision precision
-                                   #:var-precision var-precision
-                                   #:rel-error rel-error)
-                            progs))
-       (define multiple-results (> (length results) 1))
-       (for ([r results] [k (in-naturals)])
-         (if stdout
-             (printf "~a\n\n" r)
-             (let ([fname (fix-file-name
-                           (string-append prog-name (if multiple-results (format "_case~a" k) "") ".g"))])
-               (call-with-output-file fname #:exists 'replace
-                 (λ (p) (fprintf p "~a" r)))))))))
-  )
+   #:args ([input-file #f])
+   ((if input-file
+        (curry call-with-input-file input-file)
+        (λ (proc) (proc (current-input-port))))
+    (lambda (port)
+      (port-count-lines! port)
+      (for ([prog (in-port (curry read-fpcore "input") port)] [n (in-naturals)])
+        (with-handlers ([exn:fail? (λ (exn) (eprintf "[ERROR]: ~a\n\n" exn))])
+          (define def-name (format "ex~a" n))
+          (define prog-name (if auto-file-names def-name (fpcore-name prog def-name)))
+          (define progs (fpcore-transform prog
+                                          #:unroll unroll
+                                          #:split split
+                                          #:subexprs subexprs
+                                          #:split-or split-or))
+          (define results (map (curry compile-program
+                                      #:name def-name
+                                      #:precision precision
+                                      #:var-precision var-precision
+                                      #:rel-error rel-error)
+                               progs))
+          (define multiple-results (> (length results) 1))
+          (for ([r results] [k (in-naturals)])
+            (if stdout
+                (printf "~a\n\n" r)
+                (let ([fname (fix-file-name
+                              (string-append prog-name (if multiple-results (format "_case~a" k) "") ".g"))])
+                  (call-with-output-file (build-path out-path fname) #:exists 'replace
+                    (λ (p) (fprintf p "~a" r))))))))))
+   ))
 

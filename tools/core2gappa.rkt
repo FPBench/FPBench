@@ -300,7 +300,7 @@
                                progs))
           (define multiple-results (> (length results) 1))
           (for ([r results] [k (in-naturals)])
-            (if stdout
+            (if (stdout)
                 (printf "~a\n\n" r)
                 (let ([fname (fix-file-name
                               (string-append prog-name (if multiple-results (format "_case~a" k) "") ".g"))])

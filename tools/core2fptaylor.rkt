@@ -218,70 +218,70 @@
 
 (module+ main
   (require racket/cmdline)
-  (define files #f)
-  (define files-all #f)
-  (define auto-file-names #f)
-  (define precision #f)
-  (define var-precision #f)
-  (define split-or #f)
-  (define subexprs #f)
-  (define split #f)
-  (define unroll #f)
-  (define inexact-scale 1)
+  (define files (make-parameter #f))
+  (define files-all (make-parameter #f))
+  (define auto-file-names (make-parameter #f))
+  (define precision (make-parameter #f))
+  (define var-precision (make-parameter #f))
+  (define split-or (make-parameter #f))
+  (define subexprs (make-parameter #f))
+  (define split (make-parameter #f))
+  (define unroll (make-parameter #f))
+  (define inexact-scale (make-parameter 1))
   
   (command-line
    #:program "core2fptaylor.rkt"
    #:once-each
    ["--files" "Save FPTaylor tasks corresponding to different FPBench expression in separate files"
-              (set! files #t)]
+              (files #t)]
    ["--files-all" "Save all FPTaylor tasks in separate files"
-                  (set! files-all #t)]
+                  (files-all #t)]
    ["--auto-file-names" "Generate special names for all files"
-                        (set! auto-file-names #t)]
+                        (auto-file-names #t)]
    ["--precision" prec "The precision of all operations (overrides the :precision property)"
-             (set! precision (string->symbol prec))]
+                  (precision (string->symbol prec))]
    ["--var-precision" prec "The precision of input variables (overrides the :var-precision property)"
-                      (set! var-precision (string->symbol prec))]
+                      (var-precision (string->symbol prec))]
    ["--scale" scale "The scale factor for operations which are not correctly rounded"
-              (set! inexact-scale (string->number scale))]
+              (inexact-scale (string->number scale))]
    ["--split-or" "Convert preconditions to DNF and create separate FPTaylor tasks for all conjunctions"
-                 (set! split-or #t)]
+                 (split-or #t)]
    ["--subexprs" "Create FPTaylor tasks for all subexpressions"
-                 (set! subexprs #t)]
+                 (subexprs #t)]
    ["--split" n "Split intervals of bounded variables into the given number of parts"
-              (set! split (string->number n))]
+              (split (string->number n))]
    ["--unroll" n "How many iterations to unroll any loops to"
-               (set! unroll (string->number n))]
+               (unroll (string->number n))]
    #:args ()
    (port-count-lines! (current-input-port))
    (for ([prog (in-port (curry read-fpcore "stdin"))] [n (in-naturals)])
      (with-handlers ([exn:fail? (λ (exn) (eprintf "[ERROR]: ~a\n\n" exn))])
        (define def-name (format "ex~a" n))
-       (define prog-name (if auto-file-names def-name (fpcore-name prog def-name)))
+       (define prog-name (if (auto-file-names) def-name (fpcore-name prog def-name)))
        (define progs (fpcore-transform prog
-                                       #:unroll unroll
-                                       #:split split
-                                       #:subexprs subexprs
-                                       #:split-or split-or))
+                                       #:unroll (unroll)
+                                       #:split (split)
+                                       #:subexprs (subexprs)
+                                       #:split-or (split-or)))
        (define results (map (curry compile-program
                                    #:name def-name
-                                   #:precision precision
-                                   #:var-precision var-precision
-                                   #:inexact-scale inexact-scale
+                                   #:precision (precision)
+                                   #:var-precision (var-precision)
+                                   #:inexact-scale (inexact-scale)
                                    #:indent "  ")
                             progs))
        (define multiple-results (> (length results) 1))
        (cond
-         [files-all (for ([r results] [k (in-naturals)])
-                      (define fname (fix-file-name
-                                     (string-append prog-name
-                                                    (if multiple-results (format "_case~a" k) "")
-                                                    ".txt")))
-                      (call-with-output-file fname #:exists 'replace
-                        (λ (p) (fprintf p "~a" r))))]
-         [files (call-with-output-file (fix-file-name (format "~a.txt" prog-name)) #:exists 'replace
-                  (λ (p) (for ([r results])
-                           (if multiple-results (fprintf p "{\n~a}\n\n" r) (fprintf p "~a" r)))))]
+         [(files-all) (for ([r results] [k (in-naturals)])
+                        (define fname (fix-file-name
+                                       (string-append prog-name
+                                                      (if multiple-results (format "_case~a" k) "")
+                                                      ".txt")))
+                        (call-with-output-file fname #:exists 'replace
+                          (λ (p) (fprintf p "~a" r))))]
+         [(files) (call-with-output-file (fix-file-name (format "~a.txt" prog-name)) #:exists 'replace
+                    (λ (p) (for ([r results])
+                             (if multiple-results (fprintf p "{\n~a}\n\n" r) (fprintf p "~a" r)))))]
          [else (for ([r results]) (printf "{\n~a}\n\n" r))])
        )))
   )

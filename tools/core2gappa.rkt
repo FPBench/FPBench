@@ -243,40 +243,40 @@
 
 (module+ main
   (require racket/cmdline)
-  (define stdout #f)
-  (define auto-file-names #f)
-  (define out-path ".")
-  (define rel-error #f)
-  (define precision #f)
-  (define var-precision #f)
-  (define split-or #f)
-  (define subexprs #f)
-  (define split #f)
-  (define unroll #f)
+  (define stdout (make-parameter #f))
+  (define auto-file-names (make-parameter #f))
+  (define out-path (make-parameter "."))
+  (define rel-error (make-parameter #f))
+  (define precision (make-parameter #f))
+  (define var-precision (make-parameter #f))
+  (define split-or (make-parameter #f))
+  (define subexprs (make-parameter #f))
+  (define split (make-parameter #f))
+  (define unroll (make-parameter #f))
   
   (command-line
    #:program "core2gappa.rkt"
    #:once-each
    ["--stdout" "Print Gappa expressions to the standard output"
-               (set! stdout #t)]
+               (stdout #t)]
    ["--auto-file-names" "Generate special names for all files"
-                        (set! auto-file-names #t)]
+                        (auto-file-names #t)]
    ["--out-path" path "Save all results in the given path"
-                 (set! out-path path)]
+                 (out-path path)]
    ["--rel-error" "Produce Gappa expressions for relative errors"
-                  (set! rel-error #t)]
+                  (rel-error #t)]
    ["--precision" prec "The precision of all operations (overrides the :precision property)"
-                  (set! precision (string->symbol prec))]
+                  (precision (string->symbol prec))]
    ["--var-precision" prec "The precision of input variables (overrides the :var-precision property)"
-                      (set! var-precision (string->symbol prec))]
+                      (var-precision (string->symbol prec))]
    ["--split-or" "Convert preconditions to DNF and create separate Gappa expressions for all conjunctions"
-                 (set! split-or #t)]
+                 (split-or #t)]
    ["--subexprs" "Create Gappa expressions for all subexpressions"
-                 (set! subexprs #t)]
+                 (subexprs #t)]
    ["--split" n "Split intervals of bounded variables into the given number of parts"
-              (set! split (string->number n))]
+              (split (string->number n))]
    ["--unroll" n "How many iterations to unroll any loops to"
-               (set! unroll (string->number n))]
+               (unroll (string->number n))]
    #:args ([input-file #f])
    ((if input-file
         (curry call-with-input-file input-file)
@@ -286,17 +286,17 @@
       (for ([prog (in-port (curry read-fpcore "input") port)] [n (in-naturals)])
         (with-handlers ([exn:fail? (λ (exn) (eprintf "[ERROR]: ~a\n\n" exn))])
           (define def-name (format "ex~a" n))
-          (define prog-name (if auto-file-names def-name (fpcore-name prog def-name)))
+          (define prog-name (if (auto-file-names) def-name (fpcore-name prog def-name)))
           (define progs (fpcore-transform prog
-                                          #:unroll unroll
-                                          #:split split
-                                          #:subexprs subexprs
-                                          #:split-or split-or))
+                                          #:unroll (unroll)
+                                          #:split (split)
+                                          #:subexprs (subexprs)
+                                          #:split-or (split-or)))
           (define results (map (curry compile-program
                                       #:name def-name
-                                      #:precision precision
-                                      #:var-precision var-precision
-                                      #:rel-error rel-error)
+                                      #:precision (precision)
+                                      #:var-precision (var-precision)
+                                      #:rel-error (rel-error))
                                progs))
           (define multiple-results (> (length results) 1))
           (for ([r results] [k (in-naturals)])
@@ -304,7 +304,7 @@
                 (printf "~a\n\n" r)
                 (let ([fname (fix-file-name
                               (string-append prog-name (if multiple-results (format "_case~a" k) "") ".g"))])
-                  (call-with-output-file (build-path out-path fname) #:exists 'replace
+                  (call-with-output-file (build-path (out-path) fname) #:exists 'replace
                     (λ (p) (fprintf p "~a" r))))))))))
    ))
 

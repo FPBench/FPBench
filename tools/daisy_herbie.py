@@ -53,6 +53,8 @@ def runConverter (benchmark):
     return out.stdout, out.returncode
 
 def runDaisy (benchmark, certificates=True):
+    csv_out = os.path.join(DAISY_DIR, "output", "d2h.csv")
+    if os.path.exists(csv_out): os.remove(csv_out)
     cwd = os.getcwd()
     os.chdir(DAISY_DIR)
     start = time.time()
@@ -60,21 +62,23 @@ def runDaisy (benchmark, certificates=True):
         f.write(benchmark.encode("utf-8"))
         f.flush()
         out = subprocess.run(
-            ["./daisy"] + DAISY_FLAGS + [f.name],
+            ["./daisy", "--results-csv=d2h.csv"] + DAISY_FLAGS + [f.name],
             stdout=subprocess.PIPE, universal_newlines=True)
     dt = time.time() - start
     os.chdir(cwd)
 
-    if out.returncode:
+    if out.returncode or not os.path.exists(csv_out):
         print(out.stdout, file=sys.stderr)
         return dt, "FAILED", out.returncode
 
-    for line in out.stdout.split("\n"):
-        if "Absolute error:" in line:
-            return dt, float(line.split(":")[1].strip()), out.returncode
-    else:
-        print(out.stdout, file=sys.stderr)
-        return dt, "FAILED", out.returncode
+    with open(csv_out) as f:
+        try:
+            abs_err = float(f.read().split("\n")[1].rsplit(",", 4)[1])
+            return dt, abs_err, out.returncode
+        except:
+            import traceback
+            traceback.print_exc()
+            return dt, "FAILED", out.returncode
 
 def runTest(idx, in_fpcore):
     if ":name" in in_fpcore:

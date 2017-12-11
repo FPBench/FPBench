@@ -29,6 +29,11 @@ def runFilter (benchmarks, args) :
         stdout=subprocess.PIPE)
     return out.stdout.strip().split("\n\n")
 
+def parse_herbie_error(err):
+    assert err.startswith("((") and err.endswith("))")
+    nums = [(int(x.split(" ", 1)[0]), float(x.split(" ", 1)[1])) for x in err[2:-2].split(") (")]
+    return max(nums)[1]
+
 # run Herbies improvement phase on inFname file,
 # produce resulting fpcore file in outFname
 def runHerbie (benchmark) :
@@ -37,12 +42,18 @@ def runHerbie (benchmark) :
         ["racket", HERBIE_DIR + "/src/herbie.rkt", "improve"] + HERBIE_FLAGS + ["-", "-"],
         stdout=subprocess.PIPE,
         input=benchmark, universal_newlines=True)
+    dt = time.time() - start
+
     try:
         result = out.stdout.split("\n")[-2]
-    except IndexError:
-        result = "ERROR"
-    dt = time.time() - start
-    return dt, result, out.returncode
+        fields = {x.split(" ", 1)[0]: x.split(" ", 1)[1].strip() for x in result.split(":")[1:-1]}
+        start_error = parse_herbie_error(fields["herbie-error-input"])
+        end_error = parse_herbie_error(fields["herbie-error-output"])
+        return dt, result, start_error, end_error, out.returncode
+    except:
+        import traceback
+        traceback.print_exc()
+        return dt, "ERROR", "ERROR", "ERROR", out.returncode
 
 # Run FPCore2Scala converter on file inFname, write output to file outFname
 def runConverter (benchmark):
@@ -89,11 +100,11 @@ def runTest(idx, in_fpcore):
     
     if SAVE_DIR: open(os.path.join(SAVE_DIR, idx + ".input.fpcore"), "wt").write(in_fpcore)
 
-    (timeHerbie, out_fpcore, exitcode) = runHerbie (in_fpcore)
+    (timeHerbie, out_fpcore, in_err, out_err, exitcode) = runHerbie (in_fpcore)
     if not exitcode == 0:
         print("HERBIE ERROR ON: ", in_fpcore, file=sys.stderr)
         return
-    yield timeHerbie
+    yield from [timeHerbie, in_err, out_err]
 
     (in_scala, exitcode) = runConverter (in_fpcore)
     if SAVE_DIR: open(os.path.join(SAVE_DIR, idx + ".output.fpcore"), "wt").write(out_fpcore)

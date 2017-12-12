@@ -4,7 +4,7 @@ set -e
 
 rm -rf reports d2h
 mkdir -p d2h/ reports/
-git clone https://github.com/uwplse/herbie.git d2h/herbie/
+git clone -b develop https://github.com/uwplse/herbie.git d2h/herbie/
 git clone https://github.com/malyzajko/daisy.git d2h/daisy/
 (cd d2h/daisy && sbt compile script)
 

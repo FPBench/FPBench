@@ -15,7 +15,7 @@ d2h () {
     mkdir -p reports/save/$NAME
     python3 tools/daisy_herbie.py \
             --save reports/save/$NAME \
-            --daisy-flags="$@" \
+            --daisy-flags="$*" \
             --herbie-flags="--seed '#(2172947836 2980513634 3572697779 4041609756 2019117808 48320163)'" \
             d2h/herbie/ d2h/daisy/ \
             2>reports/$NAME.error | tee reports/$NAME.csv

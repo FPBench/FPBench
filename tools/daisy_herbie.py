@@ -135,7 +135,7 @@ def runTest(idx, in_fpcore):
     yield from [timeInDaisy, timeOutDaisy, errInDaisy, errOutDaisy]
 
 def runTests(benchmarks):
-    print("Index, Benchmark name, Herbie, Daisy (src), Daisy (res), roundoff err (src), roundoff err (res)")
+    print("Index, Name, Herbie time, Herbie src error, Herbie res error, Daisy src time, Daisy res time, Daisy src error, Daisy res error")
     for idx, benchmark in enumerate(benchmarks):
         print(idx, end=", ")
         sys.stdout.flush()

@@ -53,7 +53,7 @@ def runHerbie (benchmark) :
     except:
         import traceback
         traceback.print_exc()
-        return dt, "ERROR", "ERROR", "ERROR", out.returncode
+        return dt, "ERROR", "ERROR", "ERROR", (out.returncode or 1)
 
 # Run FPCore2Scala converter on file inFname, write output to file outFname
 def runConverter (benchmark):

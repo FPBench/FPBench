@@ -15,9 +15,11 @@ function main {
 
 function plot {
   local data="$1"
-  daisy_herbie_bar    "$data"
-  herbie_time_improve "$data"
-}
+  daisy_herbie_bar       "$data"
+  herbie_time_improve    "$data"
+  cmp_src_error_measures "$data"
+  cmp_res_error_measures "$data"
+ }
 
 function terminal {
   w=800
@@ -61,6 +63,8 @@ set key autotitle columnheader
 set xlabel "Benchmark"
 set ylabel "Error Change (res / src)"
 
+set logscale y
+
 set output "$data.daisy_herbie_bar.png"
 set title "Daisy error bound after Herbie / before Herbie ($data)"
 plot "$data" using \
@@ -69,11 +73,73 @@ plot "$data" using \
 EOF
 }
 
+function cmp_src_error_measures {
+  local data="$1"
+
+  gnuplot <<EOF
+$(terminal)
+set datafile separator ","
+
+set xtics    nomirror
+set ytics    nomirror
+set offsets  1, 1, 5, 0
+
+set key autotitle columnheader
+set key vertical top left box opaque width 1.5 samplen 0
+set border back
+
+set xlabel "Herbie Source Error"
+set ylabel "Daisy Source Error"
+
+set logscale  x
+set logscale  y
+set autoscale x
+set autoscale y
+
+set output "$data.cmp_src_error_measures.png"
+set title "Herbie Source Error vs. Daisy Source Error ($data)"
+plot "$data" using \
+  $HERBIE_SRC_ERR:$DAISY_SRC_ERR \
+  notitle linecolor rgb "#000099"
+EOF
+}
+
+function cmp_res_error_measures {
+  local data="$1"
+
+  gnuplot <<EOF
+$(terminal)
+set datafile separator ","
+
+set xtics    nomirror
+set ytics    nomirror
+set offsets  1, 1, 5, 0
+
+set key autotitle columnheader
+set key vertical top left box opaque width 1.5 samplen 0
+set border back
+
+set xlabel "Herbie Result Error"
+set ylabel "Daisy Result Error"
+
+set logscale  x
+set logscale  y
+set autoscale x
+set autoscale y
+
+set output "$data.cmp_res_error_measures.png"
+set title "Herbie Result Error vs. Daisy Result Error ($data)"
+plot "$data" using \
+  $HERBIE_RES_ERR:$DAISY_RES_ERR \
+  notitle linecolor rgb "#000099"
+EOF
+}
+
 function herbie_time_improve {
   local data="$1"
 
   gnuplot <<EOF
-$(terminal 1500)
+$(terminal)
 set datafile separator ","
 
 set xtics    nomirror
@@ -87,6 +153,7 @@ set border back
 set xlabel "Herbie Time"
 set ylabel "Error Change (res / src)"
 
+set logscale  y
 set autoscale y
 
 set output "$data.herbie_time_improve.png"

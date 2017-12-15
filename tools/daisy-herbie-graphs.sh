@@ -15,7 +15,8 @@ function main {
 
 function plot {
   local data="$1"
-  daisy_herbie_bar "$data"
+  daisy_herbie_bar    "$data"
+  herbie_time_improve "$data"
 }
 
 function terminal {
@@ -28,10 +29,16 @@ set terminal pngcairo dashed size $w,$h font "Helvetica,11"
 EOF
 }
 
+HERBIE_TM="3"
+HERBIE_SRC_ERR="4"
+HERBIE_RES_ERR="5"
+DAISY_SRC_TM="6"
+DAISY_RES_TM="7"
+DAISY_SRC_ERR="8"
+DAISY_RES_ERR="9"
+
 function daisy_herbie_bar {
   local data="$1"
-  local derr_src="8"
-  local derr_res="9"
 
   gnuplot <<EOF
 $(terminal 1500)
@@ -54,11 +61,39 @@ set key autotitle columnheader
 set xlabel "Benchmark"
 set ylabel "Error Change (res / src)"
 
-set output "$data.png"
+set output "$data.daisy_herbie_bar.png"
 set title "Daisy error bound after Herbie / before Herbie ($data)"
 plot "$data" using \
-  (\$$derr_res/\$$derr_src):xtic(2) \
+  (\$$DAISY_RES_ERR/\$$DAISY_SRC_ERR):xtic(2) \
   title "Error Ratio" linecolor rgb "#000099"
+EOF
+}
+
+function herbie_time_improve {
+  local data="$1"
+
+  gnuplot <<EOF
+$(terminal 1500)
+set datafile separator ","
+
+set xtics    nomirror
+set ytics    nomirror
+set offsets  1, 1, 5, 0
+
+set key autotitle columnheader
+set key vertical top left box opaque width 1.5 samplen 0
+set border back
+
+set xlabel "Herbie Time"
+set ylabel "Error Change (res / src)"
+
+set autoscale y
+
+set output "$data.herbie_time_improve.png"
+set title "Herbie Time vs. Daisy Error Improvement ($data)"
+plot "$data" using \
+  $HERBIE_TM:(\$$DAISY_RES_ERR/\$$DAISY_SRC_ERR) \
+  notitle linecolor rgb "#000099"
 EOF
 }
 

@@ -97,7 +97,7 @@ def runTest(idx, in_fpcore):
     else:
         name = in_fpcore
     yield name
-    
+
     if SAVE_DIR: open(os.path.join(SAVE_DIR, idx + ".input.fpcore"), "wt").write(in_fpcore)
 
     (timeHerbie, out_fpcore, in_err, out_err, exitcode) = runHerbie (in_fpcore)
@@ -135,13 +135,28 @@ def runTest(idx, in_fpcore):
     yield from [timeInDaisy, timeOutDaisy, errInDaisy, errOutDaisy]
 
 def runTests(benchmarks):
-    print("Index, Name, Herbie time, Herbie src error, Herbie res error, Daisy src time, Daisy res time, Daisy src error, Daisy res error")
+    cols = [ "Index"
+           , "Name"
+           , "Herbie time"
+           , "Herbie src error"
+           , "Herbie res error"
+           , "Daisy src time"
+           , "Daisy res time"
+           , "Daisy src error"
+           , "Daisy res error"
+           ]
+    print('"' + '", "'.join(cols) + '"')
     for idx, benchmark in enumerate(benchmarks):
-        print(idx, end=", ")
+        print(idx, end=",")
         sys.stdout.flush()
         first = True
         for field in runTest(str(idx), benchmark):
-            text = '"{}"'.format(field.replace("\"", "\\\"")) if isinstance(field, str) else "{:0.3g}".format(field)
+            if isinstance(field, str):
+                field = field.replace(',', '')
+                field = field.replace('"', '\\"')
+                text = '"{}"'.format(field)
+            else:
+                text = "{:0.3g}".format(field)
             print(text if first else ", " + text, end="")
             sys.stdout.flush()
             first = False

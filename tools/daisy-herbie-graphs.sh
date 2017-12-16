@@ -100,7 +100,7 @@ set output "$data.cmp_src_error_measures.png"
 set title "Herbie Source Error vs. Daisy Source Error ($data)"
 plot "$data" using \
   $HERBIE_SRC_ERR:$DAISY_SRC_ERR \
-  notitle linecolor rgb "#000099"
+  notitle linecolor rgb "#000099" pointtype 7
 EOF
 }
 
@@ -131,7 +131,7 @@ set output "$data.cmp_res_error_measures.png"
 set title "Herbie Result Error vs. Daisy Result Error ($data)"
 plot "$data" using \
   $HERBIE_RES_ERR:$DAISY_RES_ERR \
-  notitle linecolor rgb "#000099"
+  notitle linecolor rgb "#000099" pointtype 7
 EOF
 }
 
@@ -160,7 +160,7 @@ set output "$data.herbie_time_improve.png"
 set title "Herbie Time vs. Daisy Error Improvement ($data)"
 plot "$data" using \
   $HERBIE_TM:(\$$DAISY_RES_ERR/\$$DAISY_SRC_ERR) \
-  notitle linecolor rgb "#000099"
+  notitle linecolor rgb "#000099" pointtype 7
 EOF
 }
 

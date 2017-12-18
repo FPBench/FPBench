@@ -12,7 +12,7 @@
  :cite (hamming-1987 herbie-2015)
  :fpbench-domain textbook
  (- (sin (+ x eps)) (sin x)))
- 
+
 (FPCore (x)
  :name "NMSE example 3.4"
  :cite (hamming-1987 herbie-2015)
@@ -25,7 +25,7 @@
  :cite (hamming-1987 herbie-2015)
  :fpbench-domain textbook
  (- (atan (+ N 1)) (atan N)))
- 
+
 (FPCore (x)
  :name "NMSE example 3.6"
  :cite (hamming-1987 herbie-2015)
@@ -45,7 +45,7 @@
  :cite (hamming-1987 herbie-2015)
  :fpbench-domain textbook
  (- (tan (+ x eps)) (tan x)))
- 
+
 (FPCore (x)
  :name "NMSE problem 3.3.3"
  :cite (hamming-1987 herbie-2015)
@@ -65,7 +65,7 @@
  :cite (hamming-1987 herbie-2015)
  :fpbench-domain textbook
  (- (cos (+ x eps)) (cos x)))
- 
+
 (FPCore (N)
  :name "NMSE problem 3.3.6"
  :cite (hamming-1987 herbie-2015)
@@ -78,7 +78,7 @@
  :cite (hamming-1987 herbie-2015)
  :fpbench-domain textbook
  (+ (- (exp x) 2) (exp (- x))))
- 
+
 (FPCore (a b c)
  :name "NMSE p42, positive"
  :cite (hamming-1987 herbie-2015)
@@ -119,7 +119,7 @@
  :fpbench-domain textbook
  :pre (> N 0)
  (- (- (* (+ N 1) (log (+ N 1))) (* N (log N))) 1))
-  
+
 (FPCore (x)
  :name "NMSE example 3.9"
  :cite (hamming-1987 herbie-2015)
@@ -133,14 +133,14 @@
  :fpbench-domain textbook
  :pre (< -1 x 1)
  (/ (log (- 1 x)) (log (+ 1 x))))
-  
+
 (FPCore (x)
  :name "NMSE problem 3.4.1"
  :cite (hamming-1987 herbie-2015)
  :fpbench-domain textbook
  :pre (!= x 0)
  (/ (- 1 (cos x)) (* x x)))
- 
+
 (FPCore (a b eps)
  :name "NMSE problem 3.4.2"
  :cite (hamming-1987 herbie-2015)
@@ -182,11 +182,10 @@
  :cite (hamming-1987 herbie-2015)
  :fpbench-domain textbook
  (- (exp (* a x)) 1))
- 
+
 (FPCore (x)
  :name "NMSE section 3.11"
  :cite (hamming-1987 herbie-2015)
  :fpbench-domain textbook
  :pre (!= x 0)
  (/ (exp x) (- (exp x) 1)))
- 

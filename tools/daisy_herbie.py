@@ -29,6 +29,31 @@ def runFilter (benchmarks, args) :
         stdout=subprocess.PIPE)
     return out.stdout.strip().split("\n\n")
 
+def addPreconditions (sexp_file, benchmarks) :
+    pres = {}
+    for line in sexp_file:
+        # TODO: Very hacky
+        name = line.split("(")[1].strip()
+        precondition = line.rstrip()[1+len(name):-1].strip()
+        assert name[0] == name[-1] == '"', "Failed to parse the extra preconditions file"
+        pres[name] = precondition
+
+    used = {}
+    for benchmark in benchmarks:
+        for name, pre in pres.items():
+            if ":name " + name in benchmark or ":name\n " + name in benchmark:
+                break
+        else:
+            yield benchmark
+            continue
+        used[name] = True
+        idx = benchmark.index(")") + 1
+        yield benchmark[:idx] + " :pre " + pre + " " + benchmark[idx:]
+
+    for name, pre in pres.items():
+        if name not in used:
+            print("Unused extra precondition `{}` (possible misspelled name)".format(name))
+
 def parse_herbie_error(err):
     assert err.startswith("((") and err.endswith("))")
     nums = [(int(x.split(" ", 1)[0]), float(x.split(" ", 1)[1])) for x in err[2:-2].split(") (")]
@@ -162,9 +187,11 @@ def runTests(benchmarks):
             first = False
         print()
 
-def main():
+def main(args):
     benchmarks = list(getFiles())
     print ("Found {} total benchmarks".format(len(benchmarks)), file=sys.stderr)
+    if args.extra_preconditions:
+        benchmarks = list(addPreconditions(args.extra_preconditions, benchmarks))
     benchmarks = runFilter(benchmarks, ["operations", "+", "-", "/", "*", "exp", "log", "sin", "cos", "let"])
     benchmarks = runFilter(benchmarks, ["pre"])
     print ("Filtered down to {} benchmarks".format(len(benchmarks)), file=sys.stderr)
@@ -178,6 +205,7 @@ if __name__ == "__main__":
     parser.add_argument("daisy_dir", help="The directory of the Daisy source code", type=dir_type)
     parser.add_argument("--daisy-flags", help="Flags to pass to Daisy", type=str, default="")
     parser.add_argument("--herbie-flags", help="Flags to pass to Herbie", type=str, default="")
+    parser.add_argument("--extra-preconditions", help="An S-expression file of new preconditions to apply", type=open, default=None)
     args = parser.parse_args()
 
     HERBIE_DIR = args.herbie_dir
@@ -188,4 +216,4 @@ if __name__ == "__main__":
     FPBENCH_DIR = os.path.dirname(dir_type(current_dir or "."))
     if args.save: SAVE_DIR = args.save
 
-    main()
+    main(args)

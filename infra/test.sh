@@ -15,6 +15,7 @@ d2h () {
     echo "d2h $@ > $NAME"
     mkdir -p reports/save/$NAME
     python3 tools/daisy_herbie.py \
+            --extra-preconditions infra/extra-preconditions.sexp \
             --save reports/save/$NAME \
             --daisy-flags="$*" \
             --herbie-flags="--seed '#(2172947836 2980513634 3572697779 4041609756 2019117808 48320163)'" \

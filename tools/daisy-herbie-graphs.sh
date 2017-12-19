@@ -91,9 +91,8 @@ set border back
 set xlabel "Herbie Source Error"
 set ylabel "Daisy Source Error"
 
-set logscale  x
-set logscale  y
 set autoscale x
+set logscale  y
 set autoscale y
 
 set output "$data.cmp_src_error_measures.png"
@@ -122,9 +121,8 @@ set border back
 set xlabel "Herbie Result Error"
 set ylabel "Daisy Result Error"
 
-set logscale  x
-set logscale  y
 set autoscale x
+set logscale  y
 set autoscale y
 
 set output "$data.cmp_res_error_measures.png"

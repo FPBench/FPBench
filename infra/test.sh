@@ -6,7 +6,7 @@ rm -rf reports d2h
 mkdir -p d2h/ reports/
 git clone -b develop https://github.com/uwplse/herbie.git d2h/herbie/
 git clone https://github.com/malyzajko/daisy.git d2h/daisy/
-[! -h benchmarks/herbie ] && ln -s d2h/herbie/bench benchmarks/herbie
+[ ! -h benchmarks/herbie ] && ln -s d2h/herbie/bench benchmarks/herbie
 (cd d2h/daisy && sbt compile script)
 
 d2h () {

@@ -31,6 +31,7 @@ set terminal pngcairo dashed size $w,$h font "Helvetica,11"
 EOF
 }
 
+BENCH_NAME="2"
 HERBIE_TM="3"
 HERBIE_SRC_ERR="4"
 HERBIE_RES_ERR="5"
@@ -39,8 +40,43 @@ DAISY_RES_TM="7"
 DAISY_SRC_ERR="8"
 DAISY_RES_ERR="9"
 
+function clean_csv {
+  local data="$1"
+
+  awk -F',' "
+    NR == 1 || NF == 9 && \$$DAISY_RES_ERR ~ /\./ {
+      print \$0;
+      next
+    }
+
+    {
+      print \"Warning: skipping \" \$$BENCH_NAME \" in '$data' (bad row)\" \
+        > \"/dev/stderr\"
+    }" \
+  "$data"
+}
+
 function daisy_herbie_bar {
   local data="$1"
+
+  local tmp="$(mktemp "$data.XXXXX")"
+  clean_csv "$data" \
+    | awk -F',' "
+        NR == 1 {
+          print \"name,err_rat\";
+          next
+        }
+
+        \$$DAISY_SRC_ERR != 0.0 {
+          print \$$BENCH_NAME \",\" \$$DAISY_RES_ERR/\$$DAISY_SRC_ERR;
+          next
+        }
+
+        {
+          print \"Warning: skipping \" \$$BENCH_NAME \" in '$data' (div by 0)\" \
+            > \"/dev/stderr\"
+        }" \
+    > "$tmp"
 
   gnuplot <<EOF
 $(terminal 1500)
@@ -52,13 +88,10 @@ set ytics    nomirror
 set offsets  1, 1, 5, 0
 
 set style fill       solid
-set style data       histogram
+set style data       histograms
 set style histogram  clustered
 
 set boxwidth 1
-
-set key invert horizontal top left
-set key autotitle columnheader
 
 set xlabel "Benchmark"
 set ylabel "Error Change (res / src)"
@@ -66,11 +99,52 @@ set ylabel "Error Change (res / src)"
 set logscale y
 
 set output "$data.daisy_herbie_bar.png"
+set multiplot
+
+bm    = 0.15
+lm    = 0.12
+rm    = 0.95
+gap   = 0.001
+size  = 0.95
+relsz = 0.66
+y1    = 0.0
+y2    = 2.0
+y3    = 75
+y4    = 150
+
+unset key
+set lmargin at screen lm
+set rmargin at screen rm
+
+set border 1+2+8
+set bmargin at screen bm
+set tmargin at screen + size * relsz
+
+set yrange [y1:y2]
+plot "$tmp" using \
+  (\$2):xtic(1) \
+  notitle \
+  linecolor rgb "#000099"
+
+unset xtics
+unset xlabel
+unset ylabel
+
 set title "Daisy error bound after Herbie / before Herbie ($data)"
-plot "$data" using \
-  (\$$DAISY_RES_ERR/\$$DAISY_SRC_ERR):xtic(2) \
-  title "Error Ratio" linecolor rgb "#000099"
+set key invert horizontal top left
+set key autotitle columnheader
+
+set border 2+4+8
+set bmargin at screen bm + size * relsz + gap
+set tmargin at screen + size + gap
+
+set yrange [y3:y4]
+plot "$tmp" using \
+  (\$2):xtic(1) \
+  title "Error Ratio" \
+  linecolor rgb "#000099"
 EOF
+  rm "$tmp"
 }
 
 function cmp_src_error_measures {

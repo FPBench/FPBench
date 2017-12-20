@@ -20,7 +20,7 @@ d2h () {
             --daisy-flags="$*" \
             --herbie-flags="--seed '#(2172947836 2980513634 3572697779 4041609756 2019117808 48320163)'" \
             d2h/herbie/ d2h/daisy/ \
-            2>reports/$NAME.error | tee reports/$NAME.csv
+            2>reports/$NAME.error | tee reports/$NAME.csv || echo "Python failed" >&2
 } 
 
 d2h ival    --rangeMethod=interval
@@ -28,4 +28,6 @@ d2h subdiv  --rangeMethod=interval --subdiv
 d2h smt     --rangeMethod=smt
 d2h rewrite --rangeMethod=smt --rewrite
 d2h dynamic --dynamic
+
+bash infra/graphs.sh reports/*.csv || echo "Graphs failed!" >&2
 

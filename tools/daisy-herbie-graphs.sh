@@ -79,13 +79,12 @@ function daisy_herbie_bar {
     > "$tmp"
 
   gnuplot <<EOF
-$(terminal 1500)
+$(terminal 2000 1000)
 set datafile separator ","
 
 set xtics    rotate by 45 right
 set xtics    nomirror
 set ytics    nomirror
-set offsets  1, 1, 5, 0
 
 set style fill       solid
 set style data       histograms
@@ -96,53 +95,50 @@ set boxwidth 1
 set xlabel "Benchmark"
 set ylabel "Error Change (res / src)"
 
-set logscale y
-
 set output "$data.daisy_herbie_bar.png"
 set multiplot
 
-bm    = 0.15
-lm    = 0.12
+bm    = 0.12
+lm    = 0.08
 rm    = 0.95
-gap   = 0.001
-size  = 0.95
+gap   = 0.03
+size  = 0.80
 relsz = 0.66
 y1    = 0.0
-y2    = 2.0
-y3    = 75
-y4    = 150
+y2    = 1.5
+y3    = 30
+y4    = 50
 
-unset key
+set key autotitle columnheader
 set lmargin at screen lm
 set rmargin at screen rm
+set logscale y
 
+unset key
 set border 1+2+8
 set bmargin at screen bm
-set tmargin at screen + size * relsz
+set tmargin at screen bm + size * relsz
 
 set yrange [y1:y2]
-plot "$tmp" using \
-  (\$2):xtic(1) \
-  notitle \
-  linecolor rgb "#000099"
-
-unset xtics
-unset xlabel
-unset ylabel
+plot "$tmp" using (\$2):xtic(1) \
+  notitle linecolor rgb "#000099"
 
 set title "Daisy error bound after Herbie / before Herbie ($data)"
 set key invert horizontal top left
-set key autotitle columnheader
+
+unset xtics
+set   ytics   autofreq
+unset xlabel
+unset ylabel
 
 set border 2+4+8
 set bmargin at screen bm + size * relsz + gap
-set tmargin at screen + size + gap
+set tmargin at screen bm + size + gap
+
 
 set yrange [y3:y4]
-plot "$tmp" using \
-  (\$2):xtic(1) \
-  title "Error Ratio" \
-  linecolor rgb "#000099"
+plot "$tmp" using (\$2):xtic(1) \
+  title "Error Ratio" linecolor rgb "#000099"
 EOF
   rm "$tmp"
 }

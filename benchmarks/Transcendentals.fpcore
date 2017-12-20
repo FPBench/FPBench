@@ -6,7 +6,7 @@
   (let ([h 0.01])
     (let ([L 2.0])
       (let ([g 9.80665])
-        (let ([k1w ( * ( / (- g) L) (sint))])
+        (let ([k1w ( * ( / (- g) L) (sin t))])
           (let ([k2t ( + w ( * ( / h 2) k1w))])
             ( + t ( * h k2t)))))))
 )
@@ -25,29 +25,29 @@
 (FPCore ( x )
 :name "analysis1"
   :pre (and( > x -1.57079632679)( < x 1.57079632679))
-  (let ([x1 (sinx)])
-    (let ([x2 (cosx)])
+  (let ([x1 (sin x)])
+    (let ([x2 (cos x)])
       ( * ( * ( * x1 x1) x2) x2)))
 )
 
 (FPCore ( x )
 :name "analysis2"
   :pre (and( <= -1.1 x)( < x 0.9))
-  (let ([x1 ( / 1 (cosx))])
-    (let ([x2 (tanx)])
+  (let ([x1 ( / 1 (cos x))])
+    (let ([x2 (tan x)])
       ( / ( * x1 x1) ( + 4 ( * x2 x2)))))
 )
 
 (FPCore ( x )
 :name "logExp"
   :pre (and( <= -8.0 x)( <= x 8.0))
-  (let ([e (expx)])
+  (let ([e (exp x)])
     (let ([t ( + 1 e)])
-      (logt)))
+      (log t)))
 )
 
 (FPCore ( r  x  lat  lon )
 :name "sphere"
   :pre (and( <= 0.0 r)( <= r 10.0)( <= -10.0 x)( <= x 10.0)( <= -1.570796 lat)( <= lat 1.570796)( <= -3.14159265 lon)( <= lon 3.14159265))
-  ( + x ( * ( * r (sinlat)) (coslon)))
+  ( + x ( * ( * r (sin lat)) (cos lon)))
 )

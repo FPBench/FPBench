@@ -7,7 +7,7 @@
 (FPCore ( z )
 :name "arcLength"
   :pre (and( <= 100.0 z)( <= z 103.0))
-  :ensuring Tree? (class daisy.lang.Trees$Lambda)
+  :ensuring (Tree? (class daisy.lang.Trees$Lambda))
   (let ([main_i 1])
     (let ([main_n 1000])
       (let ([main_dppi 3.14159])

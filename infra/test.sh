@@ -27,5 +27,5 @@ d2h ival    --rangeMethod=interval
 d2h subdiv  --rangeMethod=interval --subdiv
 d2h smt     --rangeMethod=smt
 d2h rewrite --rangeMethod=smt --rewrite
-d2h dynamic --rangeMethod=smt --dynamic
+d2h dynamic --dynamic
 

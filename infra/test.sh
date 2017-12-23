@@ -14,7 +14,8 @@ d2h () {
     shift
     echo "d2h $@ > $NAME"
     mkdir -p reports/save/$NAME
-    python3 tools/daisy_herbie.py \
+    timeout 5m \
+            python3 tools/daisy_herbie.py \
             --extra-preconditions infra/extra-preconditions.sexp \
             --save reports/save/$NAME \
             --daisy-flags="$*" \

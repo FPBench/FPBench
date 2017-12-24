@@ -61,10 +61,10 @@ def parse_herbie_error(err):
 
 # run Herbies improvement phase on inFname file,
 # produce resulting fpcore file in outFname
-def runHerbie (benchmark) :
+def runHerbie (benchmark, timeout=300) :
     start = time.time()
     out = subprocess.run(
-        ["racket", HERBIE_DIR + "/src/herbie.rkt", "improve"] + HERBIE_FLAGS + ["-", "-"],
+        ["racket", HERBIE_DIR + "/src/herbie.rkt", "improve", "--timeout", str(timeout)] + HERBIE_FLAGS + ["-", "-"],
         stdout=subprocess.PIPE,
         input=benchmark, universal_newlines=True)
     dt = time.time() - start
@@ -88,7 +88,7 @@ def runConverter (benchmark):
         stdout=subprocess.PIPE)
     return out.stdout, out.returncode
 
-def runDaisy (benchmark, certificates=True):
+def runDaisy (benchmark, certificates=True, timeout=300):
     csv_out = os.path.join(DAISY_DIR, "output", "d2h.csv")
     if os.path.exists(csv_out): os.remove(csv_out)
     cwd = os.getcwd()
@@ -98,7 +98,7 @@ def runDaisy (benchmark, certificates=True):
         f.write(benchmark.encode("utf-8"))
         f.flush()
         out = subprocess.run(
-            ["./daisy", "--results-csv=d2h.csv"] + DAISY_FLAGS + [f.name],
+            ["timeout", "{}s".format(timeout), "./daisy", "--results-csv=d2h.csv"] + DAISY_FLAGS + [f.name],
             stdout=subprocess.PIPE, universal_newlines=True)
     dt = time.time() - start
     os.chdir(cwd)
@@ -116,7 +116,7 @@ def runDaisy (benchmark, certificates=True):
             traceback.print_exc()
             return dt, "FAILED", out.returncode
 
-def runTest(idx, in_fpcore):
+def runTest(idx, in_fpcore, args):
     if ":name" in in_fpcore:
         name = in_fpcore.split(":name")[1].split('"')[1]
     else:
@@ -125,7 +125,7 @@ def runTest(idx, in_fpcore):
 
     if SAVE_DIR: open(os.path.join(SAVE_DIR, idx + ".input.fpcore"), "wt").write(in_fpcore)
 
-    (timeHerbie, out_fpcore, in_err, out_err, exitcode) = runHerbie (in_fpcore)
+    (timeHerbie, out_fpcore, in_err, out_err, exitcode) = runHerbie (in_fpcore, timeout=args.timeout)
     if not exitcode == 0:
         print("HERBIE ERROR ON: ", in_fpcore, file=sys.stderr)
         return
@@ -145,21 +145,21 @@ def runTest(idx, in_fpcore):
         print("CONVERTER ERROR ON: ", out_fpcore, file=sys.stderr)
         return
 
-    (timeInDaisy, errInDaisy, exitCode) = runDaisy (in_scala)
+    (timeInDaisy, errInDaisy, exitCode) = runDaisy (in_scala, timeout=args.timeout)
     if SAVE_DIR: open(os.path.join(SAVE_DIR, idx + ".output.scala"), "wt").write(out_scala)
 
     if errInDaisy == "FAILED" or not exitcode == 0:
         print("DAISY ERROR ON: ", in_scala, file=sys.stderr)
         return
 
-    (timeOutDaisy, errOutDaisy, exitCode) = runDaisy (out_scala)
+    (timeOutDaisy, errOutDaisy, exitCode) = runDaisy (out_scala, timeout=args.timeout)
     if errInDaisy == "FAILED" or not exitcode == 0:
         print("DAISY ERROR ON: ", out_scala, file=sys.stderr)
         return
 
     yield from [timeInDaisy, timeOutDaisy, errInDaisy, errOutDaisy]
 
-def runTests(benchmarks):
+def runTests(benchmarks, args):
     cols = [ "Index"
            , "Name"
            , "Herbie time"
@@ -175,7 +175,7 @@ def runTests(benchmarks):
         print(idx, end=",")
         sys.stdout.flush()
         first = True
-        for field in runTest(str(idx), benchmark):
+        for field in runTest(str(idx), benchmark, args):
             if isinstance(field, str):
                 field = field.replace(',', '')
                 field = field.replace('"', '\\"')
@@ -195,7 +195,7 @@ def main(args):
     benchmarks = runFilter(benchmarks, ["operations", "+", "-", "/", "*", "exp", "log", "sin", "cos", "let"])
     benchmarks = runFilter(benchmarks, ["pre"])
     print ("Filtered down to {} benchmarks".format(len(benchmarks)), file=sys.stderr)
-    runTests(benchmarks)
+    runTests(benchmarks, args)
 
 if __name__ == "__main__":
     import argparse
@@ -206,6 +206,7 @@ if __name__ == "__main__":
     parser.add_argument("--daisy-flags", help="Flags to pass to Daisy", type=str, default="")
     parser.add_argument("--herbie-flags", help="Flags to pass to Herbie", type=str, default="")
     parser.add_argument("--extra-preconditions", help="An S-expression file of new preconditions to apply", type=open, default=None)
+    parser.add_argument("--timeout", help="How many seconds to time out at for Herbie and Daisy", type=int, default=300)
     args = parser.parse_args()
 
     HERBIE_DIR = args.herbie_dir

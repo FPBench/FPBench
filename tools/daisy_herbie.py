@@ -70,7 +70,10 @@ def runHerbie (benchmark, timeout=300) :
     dt = time.time() - start
 
     try:
-        result = out.stdout.split("\n")[-2]
+        if result.count("\n") > 1:
+            result = out.stdout.split("\n")[-2]
+        else:
+            return dt, "ERROR", "ERROR", "ERROR", (out.returncode or 1)
         fields = {x.split(" ", 1)[0]: x.split(" ", 1)[1].strip() for x in result.split(":")[1:-1]}
         if "herbie-error-input" in fields and "herbie-error-output" in fields:
             start_error = parse_herbie_error(fields["herbie-error-input"])

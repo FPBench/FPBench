@@ -116,7 +116,8 @@
        (map (λ (arg) (expr->scala arg #:names names #:indent indent)) args))
      (application->scala operator args_c)]
     [(? constant?)
-     (format "~a" expr)]
+     (let ([double ((evaluator-constant racket-double-evaluator) expr)])
+       (format "~a" double))]
     [(? symbol?)
      (fix-name (dict-ref names expr expr))]
     [(? number?)

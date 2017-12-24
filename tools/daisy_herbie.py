@@ -72,9 +72,12 @@ def runHerbie (benchmark, timeout=300) :
     try:
         result = out.stdout.split("\n")[-2]
         fields = {x.split(" ", 1)[0]: x.split(" ", 1)[1].strip() for x in result.split(":")[1:-1]}
-        start_error = parse_herbie_error(fields["herbie-error-input"])
-        end_error = parse_herbie_error(fields["herbie-error-output"])
-        return dt, result, start_error, end_error, out.returncode
+        if "herbie-error-input" in fields and "herbie-error-output" in fields:
+            start_error = parse_herbie_error(fields["herbie-error-input"])
+            end_error = parse_herbie_error(fields["herbie-error-output"])
+            return dt, result, start_error, end_error, out.returncode
+        else:
+            return dt, result, "TIMEOUT", "TIMEOUT", out.returncode
     except:
         import traceback
         traceback.print_exc()

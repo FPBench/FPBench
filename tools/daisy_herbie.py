@@ -70,7 +70,7 @@ def runHerbie (benchmark, timeout=300) :
     dt = time.time() - start
 
     try:
-        if result.count("\n") > 1:
+        if out.stdout.count("\n") > 1:
             result = out.stdout.split("\n")[-2]
         else:
             return dt, "ERROR", "ERROR", "ERROR", (out.returncode or 1)

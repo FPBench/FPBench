@@ -94,7 +94,7 @@ def runConverter (benchmark):
         stdout=subprocess.PIPE)
     return out.stdout, out.returncode
 
-def runDaisy (benchmark, certificates=True, timeout=300):
+def runDaisy (benchmark, timeout=300):
     csv_out = os.path.join(DAISY_DIR, "output", "d2h.csv")
     if os.path.exists(csv_out): os.remove(csv_out)
     cwd = os.getcwd()
@@ -133,7 +133,7 @@ def runTest(idx, in_fpcore, args):
 
     (timeHerbie, out_fpcore, in_err, out_err, exitcode) = runHerbie (in_fpcore, timeout=args.timeout)
     if not exitcode == 0:
-        print("HERBIE ERROR ON: ", in_fpcore, file=sys.stderr)
+        print("HERBIE ERROR ON: ", in_fpcore, file=sys.stderr, flush=True)
         return
     yield from [timeHerbie, in_err, out_err]
 
@@ -141,26 +141,26 @@ def runTest(idx, in_fpcore, args):
     if SAVE_DIR: open(os.path.join(SAVE_DIR, idx + ".output.fpcore"), "wt").write(out_fpcore)
 
     if not exitcode == 0:
-        print("CONVERTER ERROR ON: ", in_fpcore, file=sys.stderr)
+        print("CONVERTER ERROR ON: ", in_fpcore, file=sys.stderr, flush=True)
         return
 
     (out_scala, exitcode) = runConverter (out_fpcore)
     if SAVE_DIR: open(os.path.join(SAVE_DIR, idx + ".input.scala"), "wt").write(in_scala)
 
     if not exitcode == 0:
-        print("CONVERTER ERROR ON: ", out_fpcore, file=sys.stderr)
+        print("CONVERTER ERROR ON: ", out_fpcore, file=sys.stderr, flush=True)
         return
 
     (timeInDaisy, errInDaisy, exitCode) = runDaisy (in_scala, timeout=args.timeout)
     if SAVE_DIR: open(os.path.join(SAVE_DIR, idx + ".output.scala"), "wt").write(out_scala)
 
     if errInDaisy == "FAILED" or not exitcode == 0:
-        print("DAISY ERROR ON: ", in_scala, file=sys.stderr)
+        print("DAISY ERROR FOR ", DAISYFLAGS, " ON: ", in_scala, file=sys.stderr, flush=True)
         return
 
     (timeOutDaisy, errOutDaisy, exitCode) = runDaisy (out_scala, timeout=args.timeout)
     if errInDaisy == "FAILED" or not exitcode == 0:
-        print("DAISY ERROR ON: ", out_scala, file=sys.stderr)
+        print("DAISY ERROR FOR ", DAISYFLAGS, " ON: ", out_scala, file=sys.stderr, flush=True)
         return
 
     yield from [timeInDaisy, timeOutDaisy, errInDaisy, errOutDaisy]

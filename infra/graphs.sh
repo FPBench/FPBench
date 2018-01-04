@@ -19,7 +19,7 @@ function plot {
   herbie_time_improve    "$data"
   cmp_src_error_measures "$data"
   cmp_res_error_measures "$data"
- }
+}
 
 function terminal {
   w=800

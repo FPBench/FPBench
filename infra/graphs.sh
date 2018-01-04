@@ -6,6 +6,18 @@ set -e
 gnuplot -V &> /dev/null \
   || { echo "ERROR: gnuplot is required."; exit 1; }
 
+# names for CSV columns
+readonly    BENCH_INDEX=1
+readonly     BENCH_NAME=2
+readonly      HERBIE_TM=3
+readonly HERBIE_SRC_ERR=4
+readonly HERBIE_RES_ERR=5
+readonly   DAISY_SRC_TM=6
+readonly   DAISY_RES_TM=7
+readonly  DAISY_SRC_ERR=8
+readonly  DAISY_RES_ERR=9
+readonly          NCOLS=9
+
 function main {
   while [ "$#" -gt 0 ]; do
     plot "$1"
@@ -31,20 +43,11 @@ set terminal pngcairo dashed size $w,$h font "Helvetica,11"
 EOF
 }
 
-readonly     BENCH_NAME="2"
-readonly      HERBIE_TM="3"
-readonly HERBIE_SRC_ERR="4"
-readonly HERBIE_RES_ERR="5"
-readonly   DAISY_SRC_TM="6"
-readonly   DAISY_RES_TM="7"
-readonly  DAISY_SRC_ERR="8"
-readonly  DAISY_RES_ERR="9"
-
 function clean_csv {
   local data="$1"
 
   awk -F',' "
-    NR == 1 || NF == 9 && \$$DAISY_RES_ERR ~ /\./ {
+    NR == 1 || NF == \$$NCOLS && \$$DAISY_RES_ERR ~ /\./ {
       print \$0;
       next
     }
@@ -82,13 +85,13 @@ function daisy_herbie_bar {
 $(terminal 2000 1000)
 set datafile separator ","
 
-set xtics    rotate by 45 right
-set xtics    nomirror
-set ytics    nomirror
+set xtics rotate by 45 right
+set xtics nomirror
+set ytics nomirror
 
-set style fill       solid
-set style data       histograms
-set style histogram  clustered
+set style fill      solid
+set style data      histograms
+set style histogram clustered
 
 set boxwidth 1
 

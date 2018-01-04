@@ -31,14 +31,14 @@ set terminal pngcairo dashed size $w,$h font "Helvetica,11"
 EOF
 }
 
-BENCH_NAME="2"
-HERBIE_TM="3"
-HERBIE_SRC_ERR="4"
-HERBIE_RES_ERR="5"
-DAISY_SRC_TM="6"
-DAISY_RES_TM="7"
-DAISY_SRC_ERR="8"
-DAISY_RES_ERR="9"
+readonly     BENCH_NAME="2"
+readonly      HERBIE_TM="3"
+readonly HERBIE_SRC_ERR="4"
+readonly HERBIE_RES_ERR="5"
+readonly   DAISY_SRC_TM="6"
+readonly   DAISY_RES_TM="7"
+readonly  DAISY_SRC_ERR="8"
+readonly  DAISY_RES_ERR="9"
 
 function clean_csv {
   local data="$1"

@@ -155,12 +155,12 @@ def runTest(idx, in_fpcore, args):
     if SAVE_DIR: open(os.path.join(SAVE_DIR, idx + ".output.scala"), "wt").write(out_scala)
 
     if errInDaisy == "FAILED" or not exitcode == 0:
-        print("DAISY ERROR FOR ", DAISYFLAGS, " ON: ", in_scala, file=sys.stderr, flush=True)
+        print("DAISY ERROR FOR ", DAISY_FLAGS, " ON: ", in_scala, file=sys.stderr, flush=True)
         return
 
     (timeOutDaisy, errOutDaisy, exitCode) = runDaisy (out_scala, timeout=args.timeout)
     if errInDaisy == "FAILED" or not exitcode == 0:
-        print("DAISY ERROR FOR ", DAISYFLAGS, " ON: ", out_scala, file=sys.stderr, flush=True)
+        print("DAISY ERROR FOR ", DAISY_FLAGS, " ON: ", out_scala, file=sys.stderr, flush=True)
         return
 
     yield from [timeInDaisy, timeOutDaisy, errInDaisy, errOutDaisy]

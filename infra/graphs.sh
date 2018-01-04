@@ -3,7 +3,7 @@
 # exit on error
 set -e
 
-gnuplot -V &> /dev/null \
+gnuplot -V > /dev/null 2>&1 \
   || { echo "ERROR: gnuplot is required."; exit 1; }
 
 # names for CSV columns
@@ -83,6 +83,7 @@ function daisy_herbie_bar {
         }" \
     > "$tmp"
 
+  local maxY=1.5
   gnuplot <<EOF
 $(terminal 3000 1000)
 set datafile separator ","
@@ -93,6 +94,7 @@ set boxwidth 0.75
 
 set xtics nomirror
 set xtics rotate by -45
+
 set xlabel "Benchmark"
 set ylabel "Error Change (res / src)"
 
@@ -100,9 +102,9 @@ set key horizontal top left
 set linetype 1 linecolor rgb "#000099"
 
 set output "$data.daisy_herbie_bar.png"
-set title "Daisy Error Bound: post-Herbie / pre-Herbie ($data)"
+set title "Daisy Error Bound: post-Herbie / pre-Herbie ($data) [OUTLIER THRESHOLD $maxY]"
 
-set yrange [0:1.5]
+set yrange [0:$maxY]
 plot "$tmp"         \
   using 0:2:xtic(1) \
   with boxes        \
@@ -117,26 +119,22 @@ function cmp_src_error_measures {
   gnuplot <<EOF
 $(terminal)
 set datafile separator ","
+set key autotitle columnhead
 
-set xtics    nomirror
-set ytics    nomirror
-set offsets  1, 1, 5, 0
-
-set key autotitle columnheader
-set key vertical top left box opaque width 1.5 samplen 0
-set border back
+set xtics nomirror
 
 set xlabel "Herbie Source Error"
 set ylabel "Daisy Source Error"
 
 set autoscale x
-set logscale  y
 set autoscale y
+set logscale  y
 
 set output "$data.cmp_src_error_measures.png"
 set title "Herbie Source Error vs. Daisy Source Error ($data)"
-plot "$data" using \
-  $HERBIE_SRC_ERR:$DAISY_SRC_ERR \
+
+plot "$data" \
+  using $HERBIE_SRC_ERR:$DAISY_SRC_ERR \
   notitle linecolor rgb "#000099" pointtype 7
 EOF
 }
@@ -147,26 +145,22 @@ function cmp_res_error_measures {
   gnuplot <<EOF
 $(terminal)
 set datafile separator ","
+set key autotitle columnhead
 
-set xtics    nomirror
-set ytics    nomirror
-set offsets  1, 1, 5, 0
-
-set key autotitle columnheader
-set key vertical top left box opaque width 1.5 samplen 0
-set border back
+set xtics nomirror
 
 set xlabel "Herbie Result Error"
 set ylabel "Daisy Result Error"
 
 set autoscale x
-set logscale  y
 set autoscale y
+set logscale  y
 
 set output "$data.cmp_res_error_measures.png"
 set title "Herbie Result Error vs. Daisy Result Error ($data)"
-plot "$data" using \
-  $HERBIE_RES_ERR:$DAISY_RES_ERR \
+
+plot "$data" \
+  using $HERBIE_RES_ERR:$DAISY_RES_ERR \
   notitle linecolor rgb "#000099" pointtype 7
 EOF
 }
@@ -174,28 +168,23 @@ EOF
 function herbie_time_improve {
   local data="$1"
 
+  local maxY=1.5
   gnuplot <<EOF
 $(terminal)
 set datafile separator ","
-
-set xtics    nomirror
-set ytics    nomirror
-set offsets  1, 1, 5, 0
-
 set key autotitle columnheader
-set key vertical top left box opaque width 1.5 samplen 0
-set border back
+
+set xtics nomirror
 
 set xlabel "Herbie Time"
 set ylabel "Error Change (res / src)"
 
-set logscale  y
-set autoscale y
-
 set output "$data.herbie_time_improve.png"
-set title "Herbie Time vs. Daisy Error Improvement ($data)"
-plot "$data" using \
-  $HERBIE_TM:(\$$DAISY_RES_ERR/\$$DAISY_SRC_ERR) \
+set title "Herbie Time vs. Daisy Error Improvement ($data) [OUTLIERS DROPPED $maxY]"
+
+set yrange [0:$maxY]
+plot "$data" \
+  using $HERBIE_TM:(\$$DAISY_RES_ERR/\$$DAISY_SRC_ERR) \
   notitle linecolor rgb "#000099" pointtype 7
 EOF
 }

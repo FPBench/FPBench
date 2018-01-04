@@ -111,16 +111,29 @@ def runDaisy (benchmark, timeout=300):
 
     if out.returncode or not os.path.exists(csv_out):
         print(out.stdout, file=sys.stderr)
-        return dt, "FAILED", out.returncode
+        if "Zero denominator not allowed" in out.stdout:
+            error = "DIV0.A"
+        elif "trying to divide by interval containing 0" in out.stdout:
+            error = "DIV0.B"
+        elif "error: not found: value " in out.stdout:
+            error = "FN." + out.stdout.split("error: not found: value ", 1)[1].split(" ", 1)[0]
+        elif "Power is only supported for positive integer powers > 2" in in out.stdout:
+            error = "POW"
+        else:
+            error = "FAILED"
+        return dt, error, (out.returncode or 1)
 
     with open(csv_out) as f:
+        csvdata = f.read()
+        if csvdata.count("\n") < 1:
+            return dt, "NOOUT", (out.returncode or 1)
         try:
-            abs_err = float(f.read().split("\n")[1].rsplit(",", 4)[1])
+            abs_err = float(csvdata.split("\n")[1].rsplit(",", 4)[1])
             return dt, abs_err, out.returncode
         except:
             import traceback
             traceback.print_exc()
-            return dt, "FAILED", out.returncode
+            return dt, "EXCEPTION", (out.returncode or 1)
 
 def runTest(idx, in_fpcore, args):
     if ":name" in in_fpcore:
@@ -154,12 +167,12 @@ def runTest(idx, in_fpcore, args):
     (timeInDaisy, errInDaisy, exitCode) = runDaisy (in_scala, timeout=args.timeout)
     if SAVE_DIR: open(os.path.join(SAVE_DIR, idx + ".output.scala"), "wt").write(out_scala)
 
-    if errInDaisy == "FAILED" or not exitcode == 0:
+    if exitcode != 0:
         print("DAISY ERROR FOR ", DAISY_FLAGS, " ON: ", in_scala, file=sys.stderr, flush=True)
         return
 
     (timeOutDaisy, errOutDaisy, exitCode) = runDaisy (out_scala, timeout=args.timeout)
-    if errInDaisy == "FAILED" or not exitcode == 0:
+    if exitcode != 0:
         print("DAISY ERROR FOR ", DAISY_FLAGS, " ON: ", out_scala, file=sys.stderr, flush=True)
         return
 

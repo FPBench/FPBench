@@ -25,8 +25,8 @@ d2h () {
 
 d2h ival    --rangeMethod=interval
 d2h subdiv  --rangeMethod=interval --subdiv
-d2h smt     --rangeMethod=smt
-d2h rewrite --rangeMethod=smt --rewrite
+d2h smt     --rangeMethod=smt --solver=dReal
+d2h rewrite --rangeMethod=smt --rewrite --solver=dReal
 d2h dynamic --dynamic
 
 bash infra/graphs.sh reports/*.csv || echo "Graphs failed!" >&2

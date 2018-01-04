@@ -47,13 +47,15 @@ function clean_csv {
   local data="$1"
 
   awk -F',' "
-    NR == 1 || NF == \$$NCOLS && \$$DAISY_RES_ERR ~ /\./ {
+    NR == 1 || NF == $NCOLS && \$$DAISY_RES_ERR ~ /\./ {
       print \$0;
       next
     }
 
     {
-      print \"Warning: skipping \" \$$BENCH_NAME \" in '$data' (bad row)\" \
+      print \"Warning: skipping \"     \
+        \$$BENCH_NAME \" in '$data' \" \
+        \" (bad row [NF = \" NF \"])\" \
         > \"/dev/stderr\"
     }" \
   "$data"
@@ -82,66 +84,29 @@ function daisy_herbie_bar {
     > "$tmp"
 
   gnuplot <<EOF
-$(terminal 2000 1000)
+$(terminal 3000 1000)
 set datafile separator ","
+set key autotitle columnhead
 
-set xtics rotate by 45 right
+set style fill solid border -1
+set boxwidth 0.75
+
 set xtics nomirror
-set ytics nomirror
-
-set style fill      solid
-set style data      histograms
-set style histogram clustered
-
-set boxwidth 1
-
+set xtics rotate by -45
 set xlabel "Benchmark"
 set ylabel "Error Change (res / src)"
 
+set key horizontal top left
+set linetype 1 linecolor rgb "#000099"
+
 set output "$data.daisy_herbie_bar.png"
-set multiplot
+set title "Daisy Error Bound: post-Herbie / pre-Herbie ($data)"
 
-bm    = 0.12
-lm    = 0.08
-rm    = 0.95
-gap   = 0.03
-size  = 0.80
-relsz = 0.66
-y1    = 0.0
-y2    = 1.5
-y3    = 30
-y4    = 50
-
-set key autotitle columnheader
-set lmargin at screen lm
-set rmargin at screen rm
-set logscale y
-
-unset key
-set border 1+2+8
-set bmargin at screen bm
-set tmargin at screen bm + size * relsz
-
-set yrange [y1:y2]
-plot "$tmp" using (\$2):xtic(1) \
-  notitle linecolor rgb "#000099"
-
-set title "Daisy error bound after Herbie / before Herbie ($data)"
-set key invert horizontal top left
-
-unset xtics
-set   ytics   autofreq
-unset xlabel
-unset ylabel
-
-set border 2+4+8
-set bmargin at screen bm + size * relsz + gap
-set tmargin at screen bm + size + gap
-
-
-set yrange [y3:y4]
-plot "$tmp" using (\$2):xtic(1) \
-  title "Error Ratio" linecolor rgb "#000099"
+set yrange [0:1.5]
+plot "$tmp"         \
+  using 0:2:xtic(1) \
+  with boxes        \
+  title "Error Ratio"
 EOF
   rm "$tmp"
 }

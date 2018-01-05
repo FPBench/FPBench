@@ -17,6 +17,7 @@ d2h () {
     python3 tools/daisy_herbie.py \
             --extra-preconditions infra/extra-preconditions.sexp \
             --save reports/save/$NAME \
+            --timeout 120 \
             --daisy-flags="$*" \
             --herbie-flags="--seed '#(2172947836 2980513634 3572697779 4041609756 2019117808 48320163)'" \
             d2h/herbie/ d2h/daisy/ \

@@ -109,8 +109,11 @@ def runDaisy (benchmark, timeout=300):
     dt = time.time() - start
     os.chdir(cwd)
 
+    if exitcode != 0:
+
+        return
+
     if out.returncode or not os.path.exists(csv_out):
-        print(out.stdout, file=sys.stderr)
         if "Zero denominator not allowed" in out.stdout:
             error = "DIV0.A"
         elif "trying to divide by interval containing 0" in out.stdout:
@@ -123,7 +126,11 @@ def runDaisy (benchmark, timeout=300):
             error = "TIMEOUT"
         else:
             error = "FAILED"
+        print("DAISY ERROR ", error, " FOR ", DAISY_FLAGS, file=sys.stderr, flush=True)
+        print(out.stdout, file=sys.stderr)
         return dt, error, (out.returncode or 1)
+
+    print (out.stdout, file=sys.stdout)
 
     with open(csv_out) as f:
         csvdata = f.read()
@@ -169,14 +176,7 @@ def runTest(idx, in_fpcore, args):
     (timeInDaisy, errInDaisy, exitCode) = runDaisy (in_scala, timeout=args.timeout)
     if SAVE_DIR: open(os.path.join(SAVE_DIR, idx + ".output.scala"), "wt").write(out_scala)
 
-    if exitcode != 0:
-        print("DAISY ERROR FOR ", DAISY_FLAGS, " ON: ", in_scala, file=sys.stderr, flush=True)
-        return
-
     (timeOutDaisy, errOutDaisy, exitCode) = runDaisy (out_scala, timeout=args.timeout)
-    if exitcode != 0:
-        print("DAISY ERROR FOR ", DAISY_FLAGS, " ON: ", out_scala, file=sys.stderr, flush=True)
-        return
 
     yield from [timeInDaisy, timeOutDaisy, errInDaisy, errOutDaisy]
 

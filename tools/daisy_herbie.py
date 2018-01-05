@@ -109,10 +109,6 @@ def runDaisy (benchmark, timeout=300):
     dt = time.time() - start
     os.chdir(cwd)
 
-    if exitcode != 0:
-
-        return
-
     if out.returncode or not os.path.exists(csv_out):
         if "Zero denominator not allowed" in out.stdout:
             error = "DIV0.A"
@@ -173,10 +169,10 @@ def runTest(idx, in_fpcore, args):
         print("CONVERTER ERROR ON: ", out_fpcore, file=sys.stderr, flush=True)
         return
 
-    (timeInDaisy, errInDaisy, exitCode) = runDaisy (in_scala, timeout=args.timeout)
+    (timeInDaisy, errInDaisy, exitcode) = runDaisy (in_scala, timeout=args.timeout)
     if SAVE_DIR: open(os.path.join(SAVE_DIR, idx + ".output.scala"), "wt").write(out_scala)
 
-    (timeOutDaisy, errOutDaisy, exitCode) = runDaisy (out_scala, timeout=args.timeout)
+    (timeOutDaisy, errOutDaisy, exitcode) = runDaisy (out_scala, timeout=args.timeout)
 
     yield from [timeInDaisy, timeOutDaisy, errInDaisy, errOutDaisy]
 

@@ -209,7 +209,7 @@ def main(args):
     print ("Found {} total benchmarks".format(len(benchmarks)), file=sys.stderr)
     if args.extra_preconditions:
         benchmarks = list(addPreconditions(args.extra_preconditions, benchmarks))
-    benchmarks = runFilter(benchmarks, ["operations", "+", "-", "/", "*", "exp", "log", "sin", "cos", "let"])
+    benchmarks = runFilter(benchmarks, ["operations", "+", "-", "/", "*", "exp", "log", "sin", "cos", "let", "sqrt", "tan"])
     benchmarks = runFilter(benchmarks, ["pre"])
     print ("Filtered down to {} benchmarks".format(len(benchmarks)), file=sys.stderr)
     runTests(benchmarks, args)

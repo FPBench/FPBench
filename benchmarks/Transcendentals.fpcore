@@ -38,16 +38,3 @@
       ( / ( * x1 x1) ( + 4 ( * x2 x2)))))
 )
 
-(FPCore ( x )
-:name "logExp"
-  :pre (and( <= -8.0 x)( <= x 8.0))
-  (let ([e (exp x)])
-    (let ([t ( + 1 e)])
-      (log t)))
-)
-
-(FPCore ( r  x  lat  lon )
-:name "sphere"
-  :pre (and( <= 0.0 r)( <= r 10.0)( <= -10.0 x)( <= x 10.0)( <= -1.570796 lat)( <= lat 1.570796)( <= -3.14159265 lon)( <= lon 3.14159265))
-  ( + x ( * ( * r (sin lat)) (cos lon)))
-)

@@ -120,7 +120,7 @@ def runDaisy (benchmark, timeout=300):
             error = "DIV0.B"
         elif "error: not found: value " in out.stdout:
             error = "FN." + out.stdout.split("error: not found: value ", 1)[1].split(" ", 1)[0]
-        elif "Power is only supported for positive integer powers > 2" in in out.stdout:
+        elif "Power is only supported for positive integer powers > 2" in out.stdout:
             error = "POW"
         elif out.returncode == 124 or out.returncode == 137: # see timeout(1)
             error = "TIMEOUT"

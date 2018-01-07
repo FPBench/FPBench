@@ -109,13 +109,16 @@ def runDaisy (benchmark, timeout=300):
     dt = time.time() - start
     os.chdir(cwd)
 
+    print(out.stdout, file=sys.stderr, flush=True)
+
     if out.returncode or not os.path.exists(csv_out):
         if "Zero denominator not allowed" in out.stdout:
-            error = "DIV0.A"
+            error = "DIV0/A"
         elif "trying to divide by interval containing 0" in out.stdout:
-            error = "DIV0.B"
+            error = "DIV0/B"
         elif "error: not found: value " in out.stdout:
-            error = "FN." + out.stdout.split("error: not found: value ", 1)[1].split(" ", 1)[0]
+            fn = out.stdout.split("error: not found: value ", 1)[1].split(" ", 1)[0].strip()
+            error = "FN/" + fn
         elif "Power is only supported for positive integer powers > 2" in out.stdout:
             error = "POW"
         elif out.returncode == 124 or out.returncode == 137: # see timeout(1)
@@ -123,10 +126,7 @@ def runDaisy (benchmark, timeout=300):
         else:
             error = "FAILED"
         print("DAISY ERROR ", error, " FOR ", DAISY_FLAGS, file=sys.stderr, flush=True)
-        print(out.stdout, file=sys.stderr)
         return dt, error, (out.returncode or 1)
-
-    print (out.stdout, file=sys.stdout)
 
     with open(csv_out) as f:
         csvdata = f.read()
@@ -189,8 +189,7 @@ def runTests(benchmarks, args):
            ]
     print('"' + '", "'.join(cols) + '"')
     for idx, benchmark in enumerate(benchmarks):
-        print(idx, end=",")
-        sys.stdout.flush()
+        print(idx, end=",", flush=True)
         first = True
         for field in runTest(str(idx), benchmark, args):
             if isinstance(field, str):
@@ -199,8 +198,7 @@ def runTests(benchmarks, args):
                 text = '"{}"'.format(field)
             else:
                 text = "{:0.3g}".format(field)
-            print(text if first else ", " + text, end="")
-            sys.stdout.flush()
+            print(text if first else ", " + text, end="", flush=True)
             first = False
         print()
 

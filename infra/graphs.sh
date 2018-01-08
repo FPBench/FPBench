@@ -19,18 +19,21 @@ readonly  DAISY_RES_ERR=9
 readonly          NCOLS=9
 
 function main {
+  local IDX=0
   while [ "$#" -gt 0 ]; do
-    plot "$1"
+    plot "$1" "$IDX"
     shift
+    IDX=$((IDX+1))
   done
 }
 
 function plot {
   local data="$1"
-  daisy_herbie_bar       "$data"
-  herbie_time_improve    "$data"
-  cmp_src_error_measures "$data"
-  cmp_res_error_measures "$data"
+  local IDX="$2"
+  daisy_herbie_bar       "$data" "$IDX"
+  herbie_time_improve    "$data" "$IDX"
+  cmp_src_error_measures "$data" "$IDX"
+  cmp_res_error_measures "$data" "$IDX"
 }
 
 function terminal {
@@ -45,7 +48,9 @@ EOF
 
 function clean_csv {
   local data="$1"
+  local IDX="$2"
 
+  awk -F',' "{ print \$1, ",", \$2, ",", \$3, ",", \$4, ",", \$5, ",", \$$((6 + 4*IDX)), ",", \$$((7 + 4*IDX)), ",", \$$((8 + 4*IDX)), ",", \$$((9 + 4*IDX)) }" | \
   awk -F',' "
     NR == 1 || NF == $NCOLS && \$1 !~ /\"/ && \$3 !~ /\"/ && \$4 !~ /\"/ && \$5 !~ /\"/ && \$6 !~ /\"/ && \$7 !~ /\"/ && \$8 !~ /\"/ && \$9 !~ /\"/ {
       print \$0;
@@ -63,9 +68,10 @@ function clean_csv {
 
 function daisy_herbie_bar {
   local data="$1"
+  local IDX="$2"
 
   local tmp="$(mktemp "$data.XXXXX")"
-  clean_csv "$data" \
+  clean_csv "$data" "$IDX" \
     | awk -F',' "
         NR == 1 {
           print \"name,err_rat\";
@@ -101,7 +107,7 @@ set ylabel "Error Change (res / src)"
 set key horizontal top left
 set linetype 1 linecolor rgb "#000099"
 
-set output "$data.daisy_herbie_bar.png"
+set output "$data.$IDX.daisy_herbie_bar.png"
 set title "Daisy Error Bound: post-Herbie / pre-Herbie ($data) [OUTLIER THRESHOLD $maxY]"
 
 set yrange [0:$maxY]
@@ -115,6 +121,7 @@ EOF
 
 function cmp_src_error_measures {
   local data="$1"
+  local IDX="$2"
 
   gnuplot <<EOF
 $(terminal)
@@ -130,17 +137,18 @@ set autoscale x
 set autoscale y
 set logscale  y
 
-set output "$data.cmp_src_error_measures.png"
+set output "$data.$IDX.cmp_src_error_measures.png"
 set title "Herbie Source Error vs. Daisy Source Error ($data)"
 
 plot "$data" \
-  using $HERBIE_SRC_ERR:$DAISY_SRC_ERR \
+  using $HERBIE_SRC_ERR:$((DAISY_SRC_ERR+4*IDX)) \
   notitle linecolor rgb "#000099" pointtype 7
 EOF
 }
 
 function cmp_res_error_measures {
   local data="$1"
+  local IDX="$2"
 
   gnuplot <<EOF
 $(terminal)
@@ -156,17 +164,18 @@ set autoscale x
 set autoscale y
 set logscale  y
 
-set output "$data.cmp_res_error_measures.png"
+set output "$data.$IDX.cmp_res_error_measures.png"
 set title "Herbie Result Error vs. Daisy Result Error ($data)"
 
 plot "$data" \
-  using $HERBIE_RES_ERR:$DAISY_RES_ERR \
+  using $HERBIE_RES_ERR:$((DAISY_RES_ERR+4*IDX)) \
   notitle linecolor rgb "#000099" pointtype 7
 EOF
 }
 
 function herbie_time_improve {
   local data="$1"
+  local IDX="$2"
 
   local maxY=1.5
   gnuplot <<EOF
@@ -179,12 +188,12 @@ set xtics nomirror
 set xlabel "Herbie Time"
 set ylabel "Error Change (res / src)"
 
-set output "$data.herbie_time_improve.png"
+set output "$data.$IDX.herbie_time_improve.png"
 set title "Herbie Time vs. Daisy Error Improvement ($data) [OUTLIERS DROPPED $maxY]"
 
 set yrange [0:$maxY]
 plot "$data" \
-  using $HERBIE_TM:(\$$DAISY_RES_ERR/\$$DAISY_SRC_ERR) \
+  using $HERBIE_TM:(\$$((DAISY_RES_ERR+4*IDX))/\$$((DAISY_SRC_ERR+4*IDX))) \
   notitle linecolor rgb "#000099" pointtype 7
 EOF
 }

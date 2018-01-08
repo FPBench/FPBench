@@ -21,4 +21,4 @@ python3 tools/daisy_herbie.py \
         d2h/herbie/ d2h/daisy/ \
         2>reports/error.log | tee reports/log.csv || echo "Python failed" >&2
 
-bash infra/graphs.sh reports/log.csv || echo "Graphs failed!" >&2
+bash infra/graphs.sh reports/log.csv reports/log.csv reports/log.csv reports/log.csv reports/log.csv || echo "Graphs failed!" >&2

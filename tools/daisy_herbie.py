@@ -127,6 +127,7 @@ def runDaisy (benchmark, flags=[], timeout=300):
         else:
             error = "FAILED"
         print("DAISY ERROR ", error, " FOR ", flags, file=sys.stderr, flush=True)
+        print(out.stdout, file=sys.stderr, flush=True)
         return dt, error, (out.returncode or 1)
 
     print(out.stdout, file=sys.stderr, flush=True)

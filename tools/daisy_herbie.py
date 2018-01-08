@@ -93,7 +93,7 @@ def runConverter (benchmark):
         stdout=subprocess.PIPE)
     return out.stdout, out.returncode
 
-def runDaisy (benchmark, flags=flags, timeout=300):
+def runDaisy (benchmark, flags=[], timeout=300):
     csv_out = os.path.join(DAISY_DIR, "output", "d2h.csv")
     if os.path.exists(csv_out): os.remove(csv_out)
     cwd = os.getcwd()

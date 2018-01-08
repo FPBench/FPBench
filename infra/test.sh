@@ -17,6 +17,8 @@ python3 tools/daisy_herbie.py \
         --daisy-flags="--rangeMethod=interval --subdiv" \
         --daisy-flags="--rangeMethod=smt --solver=dReal" \
         --daisy-flags="--rangeMethod=smt --solver=dReal --rewrite" \
+        --daisy-flags="--rangeMethod=smt --solver=z3" \
+        --daisy-flags="--rangeMethod=smt --solver=z3 --rewrite" \
         --daisy-flags="--dynamic" \
         d2h/herbie/ d2h/daisy/ \
         2>reports/error.log | tee reports/log.csv || echo "Python failed" >&2

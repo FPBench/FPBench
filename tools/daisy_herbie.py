@@ -115,11 +115,15 @@ def runDaisy (benchmark, flags=flags, timeout=300):
             error = "DIV0/A"
         elif "trying to divide by interval containing 0" in out.stdout:
             error = "DIV0/B"
+        elif "trying to divide by error interval containing 0" in out.stdout:
+            error = "DIV0/C"
         elif "error: not found: value " in out.stdout:
             fn = out.stdout.split("error: not found: value ", 1)[1].split(" ", 1)[0].strip()
             error = "FN/" + fn
         elif "Power is only supported for positive integer powers > 2" in out.stdout:
             error = "POW"
+        elif "trying to take the square root of a negative number" in out.stdout:
+            error = "SQRTNEG"
         elif out.returncode == 124 or out.returncode == 137: # see timeout(1)
             error = "TIMEOUT"
         else:

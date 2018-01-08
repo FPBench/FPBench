@@ -108,8 +108,6 @@ def runDaisy (benchmark, flags=flags, timeout=300):
     dt = time.time() - start
     os.chdir(cwd)
 
-    print(out.stdout, file=sys.stderr, flush=True)
-
     if out.returncode or not os.path.exists(csv_out):
         if "Zero denominator not allowed" in out.stdout:
             error = "DIV0/A"
@@ -130,6 +128,8 @@ def runDaisy (benchmark, flags=flags, timeout=300):
             error = "FAILED"
         print("DAISY ERROR ", error, " FOR ", flags, file=sys.stderr, flush=True)
         return dt, error, (out.returncode or 1)
+
+    print(out.stdout, file=sys.stderr, flush=True)
 
     with open(csv_out) as f:
         csvdata = f.read()

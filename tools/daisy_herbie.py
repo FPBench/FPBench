@@ -5,7 +5,6 @@ import sys, os, subprocess, tempfile, time, shlex
 # Set by running the script
 SAVE_DIR = HERBIE_DIR = DAISY_DIR = FPBENCH_DIR = None
 HERBIE_FLAGS = ""
-DAISY_FLAGS = ""
 
 def dir_type(path):
     if not os.path.exists(path):
@@ -94,7 +93,7 @@ def runConverter (benchmark):
         stdout=subprocess.PIPE)
     return out.stdout, out.returncode
 
-def runDaisy (benchmark, timeout=300):
+def runDaisy (benchmark, flags=flags, timeout=300):
     csv_out = os.path.join(DAISY_DIR, "output", "d2h.csv")
     if os.path.exists(csv_out): os.remove(csv_out)
     cwd = os.getcwd()
@@ -104,7 +103,7 @@ def runDaisy (benchmark, timeout=300):
         f.write(benchmark.encode("utf-8"))
         f.flush()
         out = subprocess.run(
-            ["timeout", "{}s".format(timeout), "./daisy", "--results-csv=d2h.csv"] + DAISY_FLAGS + [f.name],
+            ["timeout", "{}s".format(timeout), "./daisy", "--results-csv=d2h.csv"] + flags + [f.name],
             stdout=subprocess.PIPE, universal_newlines=True)
     dt = time.time() - start
     os.chdir(cwd)
@@ -125,7 +124,7 @@ def runDaisy (benchmark, timeout=300):
             error = "TIMEOUT"
         else:
             error = "FAILED"
-        print("DAISY ERROR ", error, " FOR ", DAISY_FLAGS, file=sys.stderr, flush=True)
+        print("DAISY ERROR ", error, " FOR ", flags, file=sys.stderr, flush=True)
         return dt, error, (out.returncode or 1)
 
     with open(csv_out) as f:
@@ -164,17 +163,16 @@ def runTest(idx, in_fpcore, args):
 
     (out_scala, exitcode) = runConverter (out_fpcore)
     if SAVE_DIR: open(os.path.join(SAVE_DIR, idx + ".input.scala"), "wt").write(in_scala)
+    if SAVE_DIR: open(os.path.join(SAVE_DIR, idx + ".output.scala"), "wt").write(out_scala)
 
     if not exitcode == 0:
         print("CONVERTER ERROR ON: ", out_fpcore, file=sys.stderr, flush=True)
         return
 
-    (timeInDaisy, errInDaisy, exitcode) = runDaisy (in_scala, timeout=args.timeout)
-    if SAVE_DIR: open(os.path.join(SAVE_DIR, idx + ".output.scala"), "wt").write(out_scala)
-
-    (timeOutDaisy, errOutDaisy, exitcode) = runDaisy (out_scala, timeout=args.timeout)
-
-    yield from [timeInDaisy, timeOutDaisy, errInDaisy, errOutDaisy]
+    for flags in args.daisy_flags:
+        (timeInDaisy, errInDaisy, exitcode) = runDaisy(in_scala, timeout=args.timeout, flags=flags)
+        (timeOutDaisy, errOutDaisy, exitcode) = runDaisy(out_scala, timeout=args.timeout, flags=flags)
+        yield from [timeInDaisy, timeOutDaisy, errInDaisy, errOutDaisy]
 
 def runTests(benchmarks, args):
     cols = [ "Index"
@@ -218,16 +216,15 @@ if __name__ == "__main__":
     parser.add_argument("--save", help="The directory to save intermediate files into", type=dir_type)
     parser.add_argument("herbie_dir", help="The directory of the Herbie source code", type=dir_type)
     parser.add_argument("daisy_dir", help="The directory of the Daisy source code", type=dir_type)
-    parser.add_argument("--daisy-flags", help="Flags to pass to Daisy", type=str, default="")
-    parser.add_argument("--herbie-flags", help="Flags to pass to Herbie", type=str, default="")
+    parser.add_argument("--daisy-flags", help="Flags to pass to Daisy", type=shlex.split, action="append", default="")
+    parser.add_argument("--herbie-flags", help="Flags to pass to Herbie", type=shlex.split, default="")
     parser.add_argument("--extra-preconditions", help="An S-expression file of new preconditions to apply", type=open, default=None)
     parser.add_argument("--timeout", help="How many seconds to time out at for Herbie and Daisy", type=int, default=300)
     args = parser.parse_args()
 
     HERBIE_DIR = args.herbie_dir
     DAISY_DIR = args.daisy_dir
-    HERBIE_FLAGS = shlex.split(args.herbie_flags)
-    DAISY_FLAGS = shlex.split(args.daisy_flags)
+    HERBIE_FLAGS = args.herbie_flags
     current_dir = os.path.dirname(__file__)
     FPBENCH_DIR = os.path.dirname(dir_type(current_dir or "."))
     if args.save: SAVE_DIR = args.save

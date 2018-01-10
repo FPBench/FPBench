@@ -109,7 +109,7 @@ def runDaisy (benchmark, flags=[], timeout=300):
     os.chdir(cwd)
 
     if out.returncode or not os.path.exists(csv_out):
-        if "Zero denominator not allowed" in out.stdout:
+        if "Zero denominator is not allowed" in out.stdout:
             error = "DIV0/A"
         elif "trying to divide by interval containing 0" in out.stdout:
             error = "DIV0/B"
@@ -120,13 +120,19 @@ def runDaisy (benchmark, flags=[], timeout=300):
             error = "FN/" + fn
         elif "Power is only supported for positive integer powers > 2" in out.stdout:
             error = "POW"
+        elif "error: type mismatch;" in out.stdout:
+            error = "TYPE"
+        elif "Trying to take the sqrt of a negative number!" in out.stdout:
+            error = "SQRTNEG/A"
         elif "trying to take the square root of a negative number" in out.stdout:
-            error = "SQRTNEG"
+            error = "SQRTNEG/B"
         elif out.returncode == 124 or out.returncode == 137: # see timeout(1)
             error = "TIMEOUT"
+        elif "Something really bad happened. Cannot continue." in out.stdout:
+            error = "FAILED/BAD"
         else:
             error = "FAILED"
-        print("DAISY ERROR ", error, " FOR ", flags, file=sys.stderr, flush=True)
+        print("DAISY ERROR", error, "FOR", flags, file=sys.stderr, flush=True)
         print(out.stdout, file=sys.stderr, flush=True)
         return dt, error, (out.returncode or 1)
 

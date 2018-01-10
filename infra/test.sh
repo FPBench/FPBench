@@ -9,6 +9,7 @@ git clone git-rts@gitlab.mpi-sws.org:AVA/daisy.git d2h/daisy/
 [ ! -h benchmarks/herbie ] && ln -s $PWD/d2h/herbie/bench benchmarks/herbie
 (cd d2h/daisy && sbt compile script)
 
+mkdir reports/save
 python3 tools/daisy_herbie.py \
         --extra-preconditions infra/extra-preconditions.sexp \
         --save reports/save/ \

@@ -79,7 +79,7 @@ def runHerbie (benchmark, timeout=300) :
             end_error = parse_herbie_error(fields["herbie-error-output"])
             return dt, result, start_error, end_error, out.returncode
         else:
-            return dt, result, "TIMEOUT", "TIMEOUT", out.returncode
+            return dt, result, "TIMEOUT", "TIMEOUT", out.returncode or 1
     except:
         import traceback
         traceback.print_exc()

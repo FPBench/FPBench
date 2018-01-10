@@ -266,7 +266,6 @@
                           (let ([xc0_1 ( + ( + ( * Ac00 xc0) ( * Ac01 xc1)) ( * Bc0 y))])
                             (let ([xc1_1 ( + ( + ( * Ac10 xc0_1) ( * Ac11 xc1)) ( * Bc1 y))])
                               ( + ( + ( * Cc0 xc0_1) ( * Cc1 xc1_1)) ( * Dc y))))))))))))))))
-)
 
 (FPCore ( y )
 :name "leadLag3"
@@ -289,7 +288,6 @@
                                   (let ([xc0_3 ( + ( + ( * Ac00 xc0_2) ( * Ac01 xc1_2)) ( * Bc0 y))])
                                     (let ([xc1_3 ( + ( + ( * Ac10 xc0_3) ( * Ac11 xc1_2)) ( * Bc1 y))])
                                       ( + ( + ( * Cc0 xc0_3) ( * Cc1 xc1_3)) ( * Dc y))))))))))))))))))))
-)
 
 (FPCore ( y )
 :name "leadLag5"
@@ -316,7 +314,6 @@
                                           (let ([xc0_5 ( + ( + ( * Ac00 xc0_3) ( * Ac01 xc1_3)) ( * Bc0 y))])
                                             (let ([xc1_5 ( + ( + ( * Ac10 xc0_4) ( * Ac11 xc1_3)) ( * Bc1 y))])
                                               ( + ( + ( * Cc0 xc0_4) ( * Cc1 xc1_4)) ( * Dc y))))))))))))))))))))))))
-)
 
 (FPCore ( u )
 :name "trapezoid1"

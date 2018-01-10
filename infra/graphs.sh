@@ -21,7 +21,7 @@ readonly          NCOLS=9
 function main {
   local IDX=0
   while [ "$#" -gt 0 ]; do
-    plot "$1" "$IDX"
+    plot "$1" "$IDX" || true
     shift
     IDX=$((IDX+1))
   done

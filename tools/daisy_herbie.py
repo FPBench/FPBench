@@ -103,7 +103,7 @@ def runDaisy (benchmark, flags=[], timeout=300):
         f.write(benchmark.encode("utf-8"))
         f.flush()
         out = subprocess.run(
-            ["timeout", "{}s".format(timeout), "./daisy", "--results-csv=d2h.csv"] + flags + [f.name],
+            ["timeout", "-s", "KILL", "{}s".format(timeout), "./daisy", "--results-csv=d2h.csv"] + flags + [f.name],
             stdout=subprocess.PIPE, universal_newlines=True)
     dt = time.time() - start
     os.chdir(cwd)

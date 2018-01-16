@@ -62,10 +62,13 @@ def parse_herbie_error(err):
 # produce resulting fpcore file in outFname
 def runHerbie (benchmark, timeout=300) :
     start = time.time()
-    out = subprocess.run(
-        ["racket", HERBIE_DIR + "/src/herbie.rkt", "improve", "--timeout", str(timeout)] + HERBIE_FLAGS + ["-", "-"],
-        stdout=subprocess.PIPE,
-        input=benchmark, universal_newlines=True)
+    try:
+        out = subprocess.run(
+            ["racket", HERBIE_DIR + "/src/herbie.rkt", "improve", "--timeout", str(timeout)] + HERBIE_FLAGS + ["-", "-"],
+            stdout=subprocess.PIPE, input=benchmark, universal_newlines=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return dt, result, "TIMEOUT", "TIMEOUT", 1
+
     dt = time.time() - start
 
     try:
@@ -102,9 +105,13 @@ def runDaisy (benchmark, flags=[], timeout=300):
     with tempfile.NamedTemporaryFile(suffix=".scala") as f:
         f.write(benchmark.encode("utf-8"))
         f.flush()
-        out = subprocess.run(
-            ["timeout", "-s", "KILL", "{}s".format(timeout), "./daisy", "--results-csv=d2h.csv"] + flags + [f.name],
-            stdout=subprocess.PIPE, universal_newlines=True)
+        try:
+            out = subprocess.run(
+                ["./daisy", "--results-csv=d2h.csv"] + flags + [f.name],
+                stdout=subprocess.PIPE, universal_newlines=True, timeout=timeout)
+        except subprocess.TimeoutExpired:
+            return dt, "TIMEOUT", 1
+
     dt = time.time() - start
     os.chdir(cwd)
 
@@ -126,8 +133,6 @@ def runDaisy (benchmark, flags=[], timeout=300):
             error = "SQRTNEG/A"
         elif "trying to take the square root of a negative number" in out.stdout:
             error = "SQRTNEG/B"
-        elif out.returncode == 124 or out.returncode == 137: # see timeout(1)
-            error = "TIMEOUT"
         elif "Something really bad happened. Cannot continue." in out.stdout:
             error = "FAILED/BAD"
         else:
@@ -140,8 +145,6 @@ def runDaisy (benchmark, flags=[], timeout=300):
 
     with open(csv_out) as f:
         csvdata = f.read()
-        if csvdata.count("\n") < 1:
-            return dt, "NOOUT", (out.returncode or 1)
         try:
             abs_err = float(csvdata.split("\n")[1].rsplit(",", 4)[1])
             return dt, abs_err, out.returncode

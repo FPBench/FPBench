@@ -66,8 +66,8 @@ def runHerbie (benchmark, timeout=300) :
         out = subprocess.run(
             ["racket", HERBIE_DIR + "/src/herbie.rkt", "improve", "--timeout", str(timeout)] + HERBIE_FLAGS + ["-", "-"],
             stdout=subprocess.PIPE, input=benchmark, universal_newlines=True, timeout=timeout)
-    except subprocess.TimeoutExpired:
-        return dt, result, "TIMEOUT", "TIMEOUT", 1
+    except subprocess.TimeoutExpired as e:
+        return e.timeout, result, "TIMEOUT", "TIMEOUT", 1
 
     dt = time.time() - start
 
@@ -109,8 +109,8 @@ def runDaisy (benchmark, flags=[], timeout=300):
             out = subprocess.run(
                 ["./daisy", "--results-csv=d2h.csv"] + flags + [f.name],
                 stdout=subprocess.PIPE, universal_newlines=True, timeout=timeout)
-        except subprocess.TimeoutExpired:
-            return dt, "TIMEOUT", 1
+        except subprocess.TimeoutExpired as e:
+            return e.timeout, "TIMEOUT", 1
 
     dt = time.time() - start
     os.chdir(cwd)

@@ -67,7 +67,7 @@ def runHerbie (benchmark, timeout=300) :
             ["racket", HERBIE_DIR + "/src/herbie.rkt", "improve", "--timeout", str(timeout)] + HERBIE_FLAGS + ["-", "-"],
             stdout=subprocess.PIPE, input=benchmark, universal_newlines=True, timeout=timeout)
     except subprocess.TimeoutExpired as e:
-        return e.timeout, result, "TIMEOUT", "TIMEOUT", 1
+        return e.timeout, benchmark, "TIMEOUT", "TIMEOUT", 1
 
     dt = time.time() - start
 
@@ -162,9 +162,9 @@ def runTest(idx, in_fpcore, args):
 
     if SAVE_DIR: open(os.path.join(SAVE_DIR, idx + ".input.fpcore"), "wt").write(in_fpcore)
 
-    (timeHerbie, out_fpcore, in_err, out_err, exitcode) = runHerbie (in_fpcore, timeout=args.timeout)
+    (timeHerbie, out_fpcore, in_err, out_err, exitcodeHerbie) = runHerbie (in_fpcore, timeout=args.timeout)
     yield from [timeHerbie, in_err, out_err]
-    if not exitcode == 0:
+    if not exitcodeHerbie == 0:
         print("HERBIE ERROR ON: ", in_fpcore, file=sys.stderr, flush=True)
         return
 
@@ -185,8 +185,11 @@ def runTest(idx, in_fpcore, args):
 
     for flags in args.daisy_flags:
         (timeInDaisy, errInDaisy, exitcode) = runDaisy(in_scala, timeout=args.timeout, flags=flags)
-        (timeOutDaisy, errOutDaisy, exitcode) = runDaisy(out_scala, timeout=args.timeout, flags=flags)
-        yield from [timeInDaisy, timeOutDaisy, errInDaisy, errOutDaisy]
+        if not exitcodeHerbie == 0:
+            (timeOutDaisy, errOutDaisy, exitcode) = runDaisy(out_scala, timeout=args.timeout, flags=flags)
+            yield from [timeInDaisy, timeOutDaisy, errInDaisy, errOutDaisy]
+        else:
+            yield from [timeInDaisy, "TIMEOUT", errInDaisy, "TIMEOUT"]
 
 def runTests(benchmarks, args):
     cols = [ "Index"

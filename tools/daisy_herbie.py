@@ -168,7 +168,6 @@ def runTest(idx, in_fpcore, args):
     yield from [timeHerbie, in_err, out_err]
     if not exitcodeHerbie == 0:
         print("HERBIE ERROR ON: ", in_fpcore, file=sys.stderr, flush=True)
-        return
 
     (in_scala, exitcode) = runConverter (in_fpcore)
     if SAVE_DIR: open(os.path.join(SAVE_DIR, idx + ".output.fpcore"), "wt").write(out_fpcore)

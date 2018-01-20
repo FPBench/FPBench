@@ -107,7 +107,7 @@ def runDaisy (benchmark, flags=[], timeout=300):
         f.flush()
         try:
             out = subprocess.run(
-                ["./daisy", "--results-csv=d2h.csv"] + flags + [f.name],
+                ["timeout", "{}s".format(timeout), "./daisy", "--results-csv=d2h.csv"] + flags + [f.name],
                 stdout=subprocess.PIPE, universal_newlines=True, timeout=timeout)
         except subprocess.TimeoutExpired as e:
             return e.timeout, "TIMEOUT", 1
@@ -135,6 +135,8 @@ def runDaisy (benchmark, flags=[], timeout=300):
             error = "SQRTNEG/B"
         elif "Something really bad happened. Cannot continue." in out.stdout:
             error = "FAILED/BAD"
+        elif out.returncode in [124, 137]:
+            error = "TIMEOUT"
         else:
             error = "FAILED"
         print("DAISY ERROR", error, "FOR", flags, file=sys.stderr, flush=True)

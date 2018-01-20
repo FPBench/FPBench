@@ -185,7 +185,7 @@ def runTest(idx, in_fpcore, args):
 
     for flags in args.daisy_flags:
         (timeInDaisy, errInDaisy, exitcode) = runDaisy(in_scala, timeout=args.timeout, flags=flags)
-        if not exitcodeHerbie == 0:
+        if exitcodeHerbie == 0:
             (timeOutDaisy, errOutDaisy, exitcode) = runDaisy(out_scala, timeout=args.timeout, flags=flags)
             yield from [timeInDaisy, timeOutDaisy, errInDaisy, errOutDaisy]
         else:

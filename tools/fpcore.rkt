@@ -190,6 +190,10 @@
     (error 'eval-expr "Unimplemented operation ~a"
            unsupported-value)]))
 
+(define (my!= #:cmp [cmp =] . args) (not (check-duplicates args cmp)))
+(define (my= #:cmp [cmp =] . args)
+  (match args ['() true] [(cons hd tl) (andmap (curry cmp hd) tl)]))
+
 (define/contract racket-double-evaluator evaluator?
   (evaluator
    real->double-flonum
@@ -223,8 +227,7 @@
     [ceil ceiling] [floor floor] [trunc truncate] [round round]
     [fmax max] [fmin min]
     [fdim (λ (x y) (abs (- x y)))]
-    [< <] [> >] [<= <=] [>= >=] [== =]
-    [!= (λ args (not (check-duplicates args =)))]
+    [< <] [> >] [<= <=] [>= >=] [== my=] [!= my!=]
     [and (λ (x y) (and x y))] [or (λ (x y) (or x y))] [not not]
     [isnan nan?] [isinf infinite?]
     [isfinite (λ (x) (not (or (nan? x) (infinite? x))))]

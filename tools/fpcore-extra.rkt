@@ -1,7 +1,20 @@
 #lang racket
 
-(require "common.rkt" "fpcore.rkt")
-(provide format-number remove-let canonicalize unroll-loops)
+(require "common.rkt" "fpcore.rkt" "range-analysis.rkt")
+(provide fix-file-name round-decimal format-number
+         free-variables remove-let canonicalize
+         split-expr to-dnf all-subexprs unroll-loops
+         fpcore-split-or fpcore-all-subexprs fpcore-split-intervals fpcore-unroll-loops
+         fpcore-transform
+         fpcore-name)
+
+(define (fix-file-name name)
+  (string-join
+   (for/list ([char (~a name)])
+     (if (regexp-match #rx"[a-zA-Z0-9_.,-]" (string char))
+         (string char)
+         (format "$~a$" (char->integer char))))
+   ""))
 
 (define (factor n k)
   (if (or (= n 0) (< k 2))
@@ -12,24 +25,62 @@
             (loop q (+ e 1))
             (values n e)))))
 
+(define/contract (round-decimal n digits direction)
+  (-> rational? exact-positive-integer? (or/c 'up 'down) rational?)
+  (case (sgn n)
+    [(0) 0]
+    [(-1) (- (round-decimal (- n) digits (if (eq? direction 'up) 'down 'up)))]
+    [else
+     (let* ([t (inexact->exact n)]
+            [e (- digits (add1 (order-of-magnitude t)))]
+            [p (expt 10 e)]
+            [t2 (* t p)]
+            [r (exact-floor t2)])
+       (if (= r t2) t
+           (/ (if (eq? direction 'up) (add1 r) r) p)))]))
+  
 ; TODO: use (order-of-magnitude n) from racket/math to get normalized results
-(define/contract (format-number n)
-  (-> rational? string?)
+(define/contract (format-number n #:digits [digits 16] #:direction [direction #f])
+  (->* (rational?)
+       (#:digits exact-positive-integer?
+        #:direction (or/c #f 'up 'down))
+       string?)
   (define t (inexact->exact n))
   (let*-values ([(d e10) (factor (denominator t) 10)]
                 [(d e5) (factor d 5)]
                 [(d e2) (factor d 2)])
     (cond
       [(= t 0) (~a t)]
-      [(> d 1) (format "(~a)" t)]
+      [(> d 1) (if direction
+                   (format-number (round-decimal t digits direction))
+                   (format "(~a)" t))]
       [else
        (let*-values ([(m) (if (> e2 e5) (expt 5 e2) (expt 2 e5))]
                      [(n en10) (factor (* (numerator t) m) 10)]
                      [(e) (- en10 (+ e2 e5 e10))])
          (cond
-           [(>= e 0)
+           [(<= 0 e 3)
             (format "~a~a" n (make-string e #\0))]
            [else (format "~ae~a" n e)]))])))
+
+;; from imp2core.rkt
+(define/contract (free-variables expr)
+  (-> expr? (listof symbol?))
+  (match expr
+    [(? number?) '()]
+    [(? constant?) '()]
+    [(? symbol?) (list expr)]
+    [`(if ,test ,ift ,iff)
+     (set-union (free-variables test) (free-variables ift) (free-variables iff))]
+    [`(let ([,vars ,exprs] ...) ,body)
+     (set-union (append-map free-variables exprs) (set-subtract (free-variables body) vars))]
+    [`(while ,test ([,vars ,inits ,updates] ...) ,body)
+     (set-union (free-variables test)
+                (append-map free-variables inits)
+                (set-subtract (append-map free-variables updates) vars)
+                (set-subtract (free-variables body) vars))]
+    [(list _ exprs ...)
+     (append-map free-variables exprs)]))
 
 (define/contract (remove-let expr [bindings '()])
   (->* (expr?) ((dictof symbol? expr?)) expr?)
@@ -91,6 +142,80 @@
      `(,(if neg 'and 'or) ,(canonicalize (cons 'or args) #:neg neg) ,(canonicalize arg #:neg neg))]
     [`(,op ,args ...) `(,op ,@(map (curry canonicalize #:neg neg) args))]))
 
+(define/contract (split-expr op expr)
+  (-> symbol? expr? (listof expr?))
+  (match expr
+    [(list (? (symbols op)) args ...)
+     (append-map (curry split-expr op) args)]
+    [_ (list expr)]))
+
+(define (all-combinations lists)
+  (match lists
+    [(? null?) '()]
+    [(list h) (map (λ (x) (list x)) h)]
+    [_ (define lists* (all-combinations (cdr lists)))
+       (for*/list ([h (car lists)] [t lists*])
+         (list* h t))]))
+  
+(define/contract (to-dnf expr)
+  ; Converts the given logical expression into an equivalent DNF
+  (-> expr? expr?)
+  (match expr
+    [(list (or 'let 'while) args ...)
+     (error 'to-dnf "Unsupported operation ~a" expr)]
+    [(or (? constant?) (? number?) (? symbol?)) expr]
+    [`(if ,c ,t ,e)
+     (to-dnf `(or (and (not ,c) (not ,e)) (and ,t ,c) (and ,t (not ,e))))]
+    [`(not (not ,arg)) (to-dnf arg)]
+    [`(not (or ,args ...)) (to-dnf `(and ,@(map (λ (e) (list 'not e)) args)))]
+    [`(not (and ,args ...)) (to-dnf `(or ,@(map (λ (e) (list 'not e)) args)))]
+    [`(or ,arg) (to-dnf arg)]
+    [`(or ,args ...) `(or ,@(map to-dnf args))]
+    [`(and ,arg) (to-dnf arg)]
+; Alternative implementation without all-combinations:
+;    [`(and ,a ,b ,args ...)
+;     (define ts (for*/list ([x (split-expr 'or (to-dnf a))]
+;                            [y (split-expr 'or (to-dnf `(and ,b ,@args)))])
+;                  (list 'and x y)))
+;     (if (= (length ts) 1)
+;         (car ts)
+;         (list* 'or ts))]
+    [`(and ,args ...)
+     (define lists (map (compose (curry split-expr 'or) to-dnf) args))
+     (define ts (map (λ (t) (list* 'and t)) (all-combinations lists)))
+     (if (= (length ts) 1)
+         (car ts)
+         (list* 'or ts))]
+    [_ expr]))
+
+(define/contract (all-subexprs expr #:no-vars [no-vars #f] #:no-consts [no-consts #f])
+  ; Returns a list of subexpressions for the given expression
+  (->* (expr?) (#:no-vars boolean? #:no-consts boolean?) (listof expr?))
+  (remove-duplicates #:key remove-let
+   (let loop ([expr expr])
+     (match expr
+       [(list (or '< '> '<= '>= '== '!= 'and 'or 'not 'while) args ...)
+        (error 'all-subexprs "Unsupported operation: ~a" expr)]
+       [(? symbol?) (if no-vars '() (list expr))]
+       [(or (? number?) (? constant?)) (if no-consts '() (list expr))]
+       [`(let ([,vars ,vals] ...) ,body)
+        (define val-subexprs (append-map loop vals))
+        (define body-subexprs
+          (map (λ (e)
+                 (define free-vars (free-variables e))
+                 (define bindings
+                   (for/list ([var vars] [val vals] #:when (member var free-vars))
+                     (list var val)))
+                 (cond
+                   [(null? bindings) e]
+                   [else `(let (,@bindings) ,e)]))
+               (loop body)))
+        (append body-subexprs val-subexprs)]
+       [`(if ,cond ,t ,f)
+        `(,expr ,@(loop t) ,@(loop f))] 
+       [(list op args ...)
+        (cons expr (append-map loop args))]))))
+
 ;; from core2scala.rkt
 (define/contract (unroll-loops expr n)
   (-> expr? exact-nonnegative-integer? expr?)
@@ -112,6 +237,107 @@
     [(? number?) expr]
     [(? symbol?) expr]))
 
+(define/contract (fpcore-unroll-loops n prog)
+  ; Unrolls loops in the given FPCore program
+  (-> exact-nonnegative-integer? fpcore? fpcore?)
+  (match-define (list 'FPCore (list args ...) props ... body) prog)
+  `(FPCore ,args ,@props ,(unroll-loops body n))) 
+
+(define/contract (fpcore-split-or prog)
+  ; Transforms preconditions into DNF and returns FPCore programs for all conjunctions
+  (-> fpcore? (listof fpcore?))
+  (match-define (list 'FPCore (list args ...) props ... body) prog)
+  (define-values (_ properties) (parse-properties props))
+  (if (not (dict-has-key? properties ':pre))
+      (list prog)
+      (let ([name (dict-ref properties ':name "ex")]
+            [pre-list ((compose (curry split-expr 'or) to-dnf remove-let)
+                       (dict-ref properties ':pre))])
+        (define multiple-pre (> (length pre-list) 1))
+        (for/list ([pre pre-list] [k (in-naturals)])
+          (define name* (if multiple-pre (format "~a_case~a" name k) name))
+          (define props* (dict-set* properties ':name name* ':pre pre))
+          `(FPCore ,args ,@(unparse-properties props*) ,body)))))
+
+(define/contract (fpcore-all-subexprs prog #:no-vars [no-vars #f] #:no-consts [no-consts #f])
+  ; Returns FPCore programs for all subexpressions
+  (->* (fpcore?) (#:no-vars boolean? #:no-consts boolean?) (listof fpcore?))
+  (match-define (list 'FPCore (list args ...) props ... body) prog)
+  (define-values (_ properties) (parse-properties props))
+  (define name (dict-ref properties ':name "ex"))
+  (define exprs (all-subexprs body #:no-vars no-vars #:no-consts no-consts))
+  (for/list ([expr exprs] [k (in-naturals)])
+    (define name* (if (>= k 1) (format "~a_expr~a" name k) name))
+    (define props* (dict-set properties ':name name*))
+    `(FPCore ,args ,@(unparse-properties props*) ,expr)))
+
+(define/contract (fpcore-split-intervals n prog #:max [max 10000])
+  ; Uniformly splits input intervals of all bounded variables into n parts.
+  ; The total number of results is limited by the #:max parameter.
+  (->* (exact-nonnegative-integer? fpcore?)
+       (#:max exact-nonnegative-integer?)
+       (listof fpcore?))
+  (match-define (list 'FPCore (list args ...) props ... body) prog)
+  (define-values (_ properties) (parse-properties props))
+  (define name (dict-ref properties ':name "ex"))
+  (if (not (dict-has-key? properties ':pre))
+      (list prog)
+      (let* ([pre (dict-ref properties ':pre)]
+             [ranges ((compose condition->range-table canonicalize remove-let) pre)])
+        (define bounded-vars
+          (for/list ([var-interval (in-dict-pairs ranges)]
+                     #:when (nonempty-bounded? (cdr var-interval)))
+            var-interval))
+        (define splits (let ([k (length bounded-vars)])
+                         (if (> (expt n k) max) (exact-floor (expt max (/ k))) n)))
+        (if (<= splits 1)
+            (list prog)
+            (let loop ([pre-list '()] [name* name] [vars bounded-vars])
+              (cond
+                [(null? vars)
+                 (define pre* `(and ,@pre-list ,pre))
+                 (define properties* (dict-set* properties ':pre pre* ':name name*))
+                 `((FPCore ,args ,@(unparse-properties properties*) ,body))]
+                [else
+                 (match-define (cons var (interval a b)) (car vars))
+                 (define step (/ (- b a) splits))
+                 (for/fold [(progs '())] [(i (in-range splits))]
+                   (define new-pre `(<= ,(+ a (* i step)) ,var ,(+ a (* (+ i 1) step))))
+                   (define new-name (format "~a_~a~a" name* var i))
+                   (append progs
+                           (loop (cons new-pre pre-list) new-name (cdr vars))))]))))))
+
+(define/contract (fpcore-transform prog
+                                   #:unroll [unroll #f]
+                                   #:split [split #f]
+                                   #:split-or [split-or #f]
+                                   #:subexprs [subexprs #f])
+  (->* (fpcore?)
+       (#:unroll (or/c #f exact-nonnegative-integer?)
+        #:split (or/c #f exact-nonnegative-integer?)
+        #:split-or boolean?
+        #:subexprs boolean?)
+       (listof fpcore?))
+  (define ((make-t cond f) progs)
+    (if cond (append-map f progs) progs))
+  (define transform
+    (compose
+     (make-t subexprs fpcore-all-subexprs)
+     (make-t split (curry fpcore-split-intervals split))
+     (make-t split-or fpcore-split-or)
+     (make-t unroll (compose list (curry fpcore-unroll-loops unroll)))))
+  (transform (list prog)))
+
+(define/contract (fpcore-name prog [default-name #f])
+  (->* (fpcore?)
+       ((or/c #f string?))
+       (or/c #f string?))
+  (match-define (list 'FPCore (list args ...) props ... body) prog)
+  (define-values (_ properties) (parse-properties props))
+  (cond
+    [(dict-has-key? properties ':name) (dict-ref properties ':name)]
+    [default-name]
+    [else #f]))
 
 (module+ test
   (require rackunit)
@@ -166,5 +392,9 @@
                          (or p (!= a (+ b 1))))))
    '(let ([p (> a b)])
       (and (not p) (== a (+ b 1)))))
+
+  (check-equal?
+   (split-expr 'or '(or (and a b) (or (and c d) x)))
+   '((and a b) (and c d) x))
 
 )

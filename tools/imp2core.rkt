@@ -50,10 +50,10 @@
 
 (define (appears? expr variable)
   (match expr
-    [(or 'E 'PI) #f]
+    [(? constant?) #f]
     [(== variable) #t]
     [`(if ,cond ,ift ,iff)
-     (or (curryr appears? variable) (list cond ift iff))]
+     (ormap (curryr appears? variable) (list cond ift iff))]
     [`(let ([,vars ,vals] ...) ,body)
      (or (ormap (curryr appears? variable) vals)
          (and (not (member variable vars)) (appears? body variable)))]
@@ -97,7 +97,7 @@
     [`(if ,test ,ift ,iff)
      (set-union (free-variables test) (free-variables ift) (free-variables iff))]
     [`(let ([,vars ,exprs] ...) ,body)
-     (set-union (append-map free-variables exprs) (set-subtract vars (free-variables body)))]
+     (set-union (append-map free-variables exprs) (set-subtract (free-variables body) vars))]
     [`(while ,test ([,vars ,inits ,updates] ...) ,body)
      (set-union (free-variables test)
                 (append-map free-variables inits)

@@ -1,7 +1,7 @@
 #lang racket
 
 (require "common.rkt" "fpcore.rkt")
-(provide (struct-out interval) make-interval is-non-empty-bounded condition->range-table)
+(provide (struct-out interval) make-interval nonempty-bounded? condition->range-table)
 
 ;; Range analysis is based on https://github.com/uwplse/herbie/blob/master/src/range-analysis.rkt
 
@@ -22,7 +22,7 @@
     [(<= l u) (interval l u)]
     [else #f]))
 
-(define (is-non-empty-bounded intvl)
+(define (nonempty-bounded? intvl)
   (match intvl
     [(interval l u) (and (rational? l) (rational? u) (<= l u))]
     [else #f]))

@@ -15,8 +15,8 @@
   (match-lambda
     ['SQRT2 "sqrt(2)"]
     ['SQRT1_2 "1 / sqrt(2)"]
-    ['TRUE "0 <= 1"]
-    ['FALSE "0 => 1"]
+    ['TRUE "0 in [0, 0]"]
+    ['FALSE "1 in [0, 0]"]
     [c (error 'constant->gappa "Unsupported constant ~a" c)]))
 
 (define/match (operator->gappa op)
@@ -96,19 +96,19 @@
     [`(> ,a ,b) (expr->gappa `(<= ,b ,a) #:names names #:type type)]
     [`(>= ,a ,b) (expr->gappa `(<= ,b ,a) #:names names #:type type)]
     [(list '<= (? number? a) b)
-     ; TODO: approximate (round down) a if necessary (Gappa does not accept general rational numbers)
+     ; Approximate (round down) a if necessary (Gappa does not accept general rational numbers in inequalities)
      (application->gappa '>= (list (expr->gappa b #:names names #:type type)
-                                   (format-number a)))]
+                                   (format-number a #:direction 'down)))]
     [(list '<= a (? number? b))
-     ; TODO: approximate (round up) b if necessary
+     ; Approximate (round up) b if necessary
      (application->gappa '<= (list (expr->gappa a #:names names #:type type)
-                                   (format-number b)))]
+                                   (format-number b #:direction 'up)))]
     [`(<= ,a ,b)
      (error 'expr->gappa "Cannot translate the inequality: ~a" expr)]
     [(list (? operator? operator) args ...)
-     (define args_gappa
+     (define args-gappa
        (map (λ (arg) (expr->gappa arg #:names names #:type type)) args))
-     (application->gappa operator args_gappa)]
+     (application->gappa operator args-gappa)]
     [(? constant?)
      (format "~a(~a)" (type->rnd type) (constant->gappa expr))]
     [(? symbol?)
@@ -139,11 +139,10 @@
     [_ (error 'remove-unsupported-inequalities "Unsupported operation ~a" expr)]))
 
 (define (compile-program prog
-                         #:name name
+                         #:name [name "expr"]
                          #:precision [precision #f]
                          #:var-precision [var-precision #f]
-                         #:rel-error [rel-error #f]
-                         #:unroll [unroll #f])
+                         #:rel-error [rel-error #f])
   (match-define (list 'FPCore (list args ...) props ... body) prog)
   (define-values (_ properties) (parse-properties props))
   (define type
@@ -152,16 +151,16 @@
   (define var-type
     (if var-precision var-precision (dict-ref properties ':var-precision 'real)))
   (define name* (dict-ref properties ':name name))
-  (define var-ranges
-    (condition->range-table (canonicalize (dict-ref properties ':pre 'TRUE))))
-  (define body*
-    ((compose canonicalize (if unroll (curryr unroll-loops unroll) identity)) body))
+  (define pre ((compose canonicalize remove-let)
+               (dict-ref properties ':pre 'TRUE)))
+  (define var-ranges (condition->range-table pre))
+  (define body* (canonicalize body))
 
   (with-output-to-string
       (λ ()
         (parameterize ([*names* (apply mutable-set args)])
-          (define real-expr-name (gensym "Mexpr"))
-          (define expr-name (gensym "expr"))
+          (define real-expr-name (gensym (string-append "M" name)))
+          (define expr-name (gensym name))
 
           ; Generate variables corresponding to input arguments
           (define real-vars
@@ -191,9 +190,8 @@
           (printf "~a ~a= ~a;\n\n" expr-name (type->rnd type) expr-body)
 
           ; Generate preconditions (some inequalities may be skipped)
-          (define pre
-            (let ([expr ((compose remove-unsupported-inequalities canonicalize remove-let)
-                         (dict-ref properties ':pre 'TRUE))])
+          (define pre*
+            (let ([expr (remove-unsupported-inequalities pre)])
               (if expr
                   (expr->gappa expr #:names real-vars #:type 'real)
                   "")))
@@ -205,17 +203,11 @@
                 (cond
                   [(and var-ranges (hash-has-key? var-ranges var)) (dict-ref var-ranges var)]
                   [else (make-interval -inf.0 +inf.0)]))
-              (if (is-non-empty-bounded range)
+              (if (nonempty-bounded? range)
                   (format "~a in [~a, ~a]" (fix-name (dict-ref real-vars var))
-                          ; TODO: round down and up if necessary
-                          ; It is also required to round non-decimal rational numbers when
-                          ; translating preconditions. But it is necessary to be careful
-                          ; and take into account the context:
-                          ; (not (<= a 1/3)) is different from (<= a 1/3).
-                          ; For preconditions P we need to generate weaker preconditions Q
-                          ; such that P ==> Q.
-                          (format-number (interval-l range))
-                          (format-number (interval-u range)))
+                          ; Round down and up if necessary
+                          (format-number (interval-l range) #:direction 'down)
+                          (format-number (interval-u range) #:direction 'up))
                   "")))
 
           ; Combine preconditions and ranges
@@ -225,8 +217,8 @@
               (if (non-empty-string? ranges)
                   ; For some strange reason we must add parentheses around the combined
                   ; range expression. Otherwise Gappa complains that expressions are not bounded.
-                  (format "~a~a(~a)" pre sep ranges)
-                  pre)))
+                  (format "~a~a(~a)" pre* sep ranges)
+                  pre*)))
           
           (when (equal? cond-body "")
             (set! cond-body "0 <= 1"))
@@ -241,46 +233,78 @@
           ))))
 
 (module+ test
-  (for ([expr (in-port (curry read-fpcore "test")
+  (for ([prog (in-port (curry read-fpcore "test")
                        (open-input-file "../benchmarks/fptaylor-tests.fpcore"))])
-    (printf "~a\n\n" (compile-program expr #:name "test")))
+    (define progs (fpcore-transform prog #:split-or #t))
+    (define results (map (curry compile-program #:name "test") progs))
+    (for ([r results])
+      (printf "~a\n\n" r)))
 )
 
 (module+ main
   (require racket/cmdline)
-  (define stdout #f)
-  (define rel-error #f)
-  (define precision #f)
-  (define var-precision #f)
-  (define unroll #f)
+  (define stdout (make-parameter #f))
+  (define auto-file-names (make-parameter #f))
+  (define out-path (make-parameter "."))
+  (define rel-error (make-parameter #f))
+  (define precision (make-parameter #f))
+  (define var-precision (make-parameter #f))
+  (define split-or (make-parameter #f))
+  (define subexprs (make-parameter #f))
+  (define split (make-parameter #f))
+  (define unroll (make-parameter #f))
   
   (command-line
    #:program "core2gappa.rkt"
    #:once-each
    ["--stdout" "Print Gappa expressions to the standard output"
-               (set! stdout #t)]
+               (stdout #t)]
+   ["--auto-file-names" "Generate special names for all files"
+                        (auto-file-names #t)]
+   ["--out-path" path "Save all results in the given path"
+                 (out-path path)]
    ["--rel-error" "Produce Gappa expressions for relative errors"
-                  (set! rel-error #t)]
+                  (rel-error #t)]
    ["--precision" prec "The precision of all operations (overrides the :precision property)"
-                  (set! precision (string->symbol prec))]
+                  (precision (string->symbol prec))]
    ["--var-precision" prec "The precision of input variables (overrides the :var-precision property)"
-                      (set! var-precision (string->symbol prec))]
+                      (var-precision (string->symbol prec))]
+   ["--split-or" "Convert preconditions to DNF and create separate Gappa expressions for all conjunctions"
+                 (split-or #t)]
+   ["--subexprs" "Create Gappa expressions for all subexpressions"
+                 (subexprs #t)]
+   ["--split" n "Split intervals of bounded variables into the given number of parts"
+              (split (string->number n))]
    ["--unroll" n "How many iterations to unroll any loops to"
-               (set! unroll (string->number n))]
-   #:args ()
-   (port-count-lines! (current-input-port))
-   (for ([expr (in-port (curry read-fpcore "stdin"))] [n (in-naturals)])
-     (with-handlers ([exn:fail? (λ (exn) (eprintf "[ERROR]: ~a\n\n" exn))])
-       (define result (compile-program expr
-                                       #:name (format "ex~a" n)
-                                       #:precision precision
-                                       #:var-precision var-precision
-                                       #:rel-error rel-error
-                                       #:unroll unroll))
-       (if stdout
-           (printf "~a\n\n" result)
-           ; TODO: generate names from the :name properties
-           (call-with-output-file (format "ex~a.g" n) #:exists 'replace
-             (λ (p) (fprintf p "~a" result)))))))
-  )
+               (unroll (string->number n))]
+   #:args ([input-file #f])
+   ((if input-file
+        (curry call-with-input-file input-file)
+        (λ (proc) (proc (current-input-port))))
+    (lambda (port)
+      (port-count-lines! port)
+      (for ([prog (in-port (curry read-fpcore "input") port)] [n (in-naturals)])
+        (with-handlers ([exn:fail? (λ (exn) (eprintf "[ERROR]: ~a\n\n" exn))])
+          (define def-name (format "ex~a" n))
+          (define prog-name (if (auto-file-names) def-name (fpcore-name prog def-name)))
+          (define progs (fpcore-transform prog
+                                          #:unroll (unroll)
+                                          #:split (split)
+                                          #:subexprs (subexprs)
+                                          #:split-or (split-or)))
+          (define results (map (curry compile-program
+                                      #:name def-name
+                                      #:precision (precision)
+                                      #:var-precision (var-precision)
+                                      #:rel-error (rel-error))
+                               progs))
+          (define multiple-results (> (length results) 1))
+          (for ([r results] [k (in-naturals)])
+            (if (stdout)
+                (printf "~a\n\n" r)
+                (let ([fname (fix-file-name
+                              (string-append prog-name (if multiple-results (format "_case~a" k) "") ".g"))])
+                  (call-with-output-file (build-path (out-path) fname) #:exists 'replace
+                    (λ (p) (fprintf p "~a" r))))))))))
+   ))
 

@@ -6,7 +6,7 @@
 (define (fix-name name)
   (string-join
    (for/list ([char (~a name)])
-     (if (regexp-match #rx"[a-zA-Z0-9]" (string char))
+     (if (regexp-match #rx"[a-zA-Z0-9_]" (string char))
          (string char)
          (format "_~a_" (char->integer char))))
    ""))
@@ -48,14 +48,12 @@
 (define/match (type->c type)
   [('binary64) "double"]
   [('binary32) "float"]
-  [('binary80) "long double"]
-  [('bool) "int"])
+  [('binary80) "long double"])
 
 (define/match (type->suffix type)
   [('binary64) ""]
   [('binary32) "f"]
-  [('binary80) "l"]
-  [('bool) ""])
+  [('binary80) "l"])
 
 (define *names* (make-parameter (mutable-set)))
 
@@ -82,7 +80,7 @@
          (dict-set names* var var*)))
      (expr->c body #:names names* #:type type #:indent indent)]
     [`(if ,cond ,ift ,iff)
-     (define test (expr->c cond #:names names #:type 'bool #:indent indent))
+     (define test (expr->c cond #:names names #:type type #:indent indent))
      (define outvar (gensym 'temp))
      (printf "~a~a ~a;\n" indent (type->c type) (fix-name outvar))
      (printf "~aif (~a) {\n" indent test)

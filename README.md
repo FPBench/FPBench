@@ -55,6 +55,26 @@ ships with tools for manipulating FPImp programs:
 We recommend using FPImp only for writing FPCore computations; FPImp
 is not a standard and we do not recommend using it in other tools.
 
+Papers
+------
+
+*Toward a Standard Benchmark Format and Suite for Floating-Point
+Analysis*, at NSV’16, by N. Damouche, M. Martel, P. Panchekha, C.
+Qiu, A. Sanchez-Stern, and Z. Tatlock
+
+> Described the FPBench standards project, including the FPCore
+> standard. The standards (in `www/spec`) continue this work.
+
+*Combining Tools for Optimization and Analysis of Floating-Point
+Computations*, at FM’18, by H. Becker, P. Panchekha, E. Darulova, and
+Z. Tatlock
+
+> Described experiments combining
+> [Daisy](https://gitlab.mpi-sws.org/AVA/daisy-public) and
+> [Herbie](https://herbie.uwplse.org) using the FPBench format and
+> tools. All scripts are available in the `daisy_herbie` branch.
+
+
 Helping Out
 -----------
 

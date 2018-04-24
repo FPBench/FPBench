@@ -13,7 +13,7 @@ mkdir reports/save
 python3 tools/daisy_herbie.py \
         --extra-preconditions infra/extra-preconditions.sexp \
         --save reports/save/ \
-        --timeout 120 \
+        --timeout 600 \
         --daisy-flags="--rangeMethod=interval --subdiv" \
         --daisy-flags="--rangeMethod=smt --solver=z3" \
         --daisy-flags="--rangeMethod=interval --subdiv --rewrite" \

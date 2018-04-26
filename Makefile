@@ -8,9 +8,9 @@ RPATH=/var/www/fpbench/reports/$(shell date +%s)/
 
 nightly:
 	bash infra/test.sh
-	rsync -r reports/ uwplse.org:$RPATH
-	ssh uwplse.org chmod a+x $RPATH
-	ssh uwplse.org chmod -R a+r $RPATH
+	rsync -r reports/ uwplse.org:$(RPATH)
+	ssh uwplse.org chmod a+x $(RPATH)
+	ssh uwplse.org chmod -R a+r $(RPATH)
 
 %.fpcore: %.fpimp
 	printf ";; -*- mode: scheme -*-\n\n" > $@

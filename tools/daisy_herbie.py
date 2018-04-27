@@ -75,6 +75,7 @@ def runHerbie (benchmark, timeout=300) :
         if out.stdout.count("\n") > 1:
             result = out.stdout.split("\n")[-2]
         else:
+            print("HERBIE ERROR ON: ", benchmark, file=sys.stderr, flush=True)
             return dt, "ERROR", "ERROR", "ERROR", (out.returncode or 1)
         fields = {x.split(" ", 1)[0]: x.split(" ", 1)[1].strip() for x in result.split(":")[1:-1]}
         if "herbie-error-input" in fields and "herbie-error-output" in fields:
@@ -84,6 +85,7 @@ def runHerbie (benchmark, timeout=300) :
         else:
             return dt, result, "TIMEOUT", "TIMEOUT", out.returncode or 1
     except:
+        print("HERBIE DRIVER ERROR ON: ", benchmark, file=sys.stderr, flush=True)
         import traceback
         traceback.print_exc()
         return dt, "ERROR", "ERROR", "ERROR", (out.returncode or 1)
@@ -94,6 +96,9 @@ def runConverter (benchmark):
         ["racket", FPBENCH_DIR + "/tools/core2scala.rkt"],
         input=benchmark, universal_newlines=True,
         stdout=subprocess.PIPE)
+
+    if out.returncode:
+        print("CONVERTER ERROR ON: ", benchmark, file=sys.stderr, flush=True)
     return out.stdout, out.returncode
 
 def runDaisy (benchmark, flags=[], timeout=300):
@@ -166,23 +171,13 @@ def runTest(idx, in_fpcore, args):
 
     (timeHerbie, out_fpcore, in_err, out_err, exitcodeHerbie) = runHerbie (in_fpcore, timeout=args.timeout)
     yield from [timeHerbie, in_err, out_err]
-    if not exitcodeHerbie == 0:
-        print("HERBIE ERROR ON: ", in_fpcore, file=sys.stderr, flush=True)
 
     (in_scala, exitcode) = runConverter (in_fpcore)
     if SAVE_DIR: open(os.path.join(SAVE_DIR, idx + ".output.fpcore"), "wt").write(out_fpcore)
 
-    if not exitcode == 0:
-        print("CONVERTER ERROR ON: ", in_fpcore, file=sys.stderr, flush=True)
-        return
-
     (out_scala, exitcode) = runConverter (out_fpcore)
     if SAVE_DIR: open(os.path.join(SAVE_DIR, idx + ".input.scala"), "wt").write(in_scala)
     if SAVE_DIR: open(os.path.join(SAVE_DIR, idx + ".output.scala"), "wt").write(out_scala)
-
-    if not exitcode == 0:
-        print("CONVERTER ERROR ON: ", out_fpcore, file=sys.stderr, flush=True)
-        return
 
     for flags in args.daisy_flags:
         (timeInDaisy, errInDaisy, exitcode) = runDaisy(in_scala, timeout=args.timeout, flags=flags)

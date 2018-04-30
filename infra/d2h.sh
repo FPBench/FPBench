@@ -21,9 +21,11 @@ FPBENCH=.
 mkdir reports/save
 WHERE="$PWD"/reports/save
 
-cat benchmarks/*.fpcore | \
-    racket "$FPBENCH"/tools/filter.rkt operations + - '*' / exp log sin cos let sqrt tan | \
-    racket "$FPBENCH"/tools/filter.rkt pre > "$WHERE"/input.fpcore
+cat benchmarks/*.fpcore \
+    | racket "$FPBENCH"/tools/filter.rkt operations + - '*' / exp log sin cos let sqrt tan \
+    | racket "$FPBENCH"/tools/filter.rkt pre \
+    | racket "$FPBENCH"/tools/filter.rkt --invert name "hartman6" \
+    > "$WHERE"/input.fpcore
 
 printf "Input benchmarks: "; grep FPCore "$WHERE/input.fpcore" | wc -l
 racket "$HERBIE"/src/herbie.rkt improve --timeout "$TIMEOUT" --threads "$THREADS" "$WHERE"/input.fpcore "$WHERE"/output.fpcore

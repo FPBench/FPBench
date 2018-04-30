@@ -1,12 +1,15 @@
 #!/bin/sh
 
 set -e
+set -x
 
 TIMEOUT=600
 THREADS=6
 
 rm -rf reports d2h
 mkdir -p d2h/ reports/
+exec >reports/log.log 2>&1
+
 git clone -b develop https://github.com/uwplse/herbie.git d2h/herbie/
 git clone git-rts@gitlab.mpi-sws.org:AVA/daisy.git d2h/daisy/
 [ ! -h benchmarks/herbie ] && ln -s $PWD/d2h/herbie/bench benchmarks/herbie
@@ -16,7 +19,7 @@ HERBIE=d2h/herbie
 DAISY=d2h/daisy
 FPBENCH=.
 
-#mkdir reports/save
+mkdir reports/save
 WHERE="$PWD"/reports/save
 
 cat benchmarks/*.fpcore | \

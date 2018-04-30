@@ -3,8 +3,7 @@
 import sys, os, subprocess, tempfile, time, shlex
 
 # Set by running the script
-SAVE_DIR = HERBIE_DIR = DAISY_DIR = FPBENCH_DIR = None
-HERBIE_FLAGS = ""
+SAVE_DIR = DAISY_DIR = FPBENCH_DIR = None
 
 def dir_type(path):
     if not os.path.exists(path):
@@ -58,37 +57,28 @@ def parse_herbie_error(err):
     nums = [(int(x.split(" ", 1)[0]), float(x.split(" ", 1)[1])) for x in err[2:-2].split(") (")]
     return max(nums)[1]
 
-# run Herbies improvement phase on inFname file,
-# produce resulting fpcore file in outFname
-def runHerbie (benchmark, timeout=300) :
+def runHerbie (benchmarks, args) :
     start = time.time()
     try:
         out = subprocess.run(
-            ["racket", HERBIE_DIR + "/src/herbie.rkt", "improve", "--timeout", str(timeout)] + HERBIE_FLAGS + ["-", "-"],
-            stdout=subprocess.PIPE, input=benchmark, universal_newlines=True, timeout=timeout)
+            ["racket", args.herbie_dir + "/src/herbie.rkt", "improve", "--timeout", str(args.timeout)] + args.herbie_flags + ["-", "-"],
+            stdout=subprocess.PIPE, input=benchmark, universal_newlines=True, timeout=len(benchmarks)*args.timeout)
     except subprocess.TimeoutExpired as e:
-        return e.timeout, benchmark, "TIMEOUT", "TIMEOUT", 1
+        raise Exception("Herbie timed out")
 
-    dt = time.time() - start
+    if out.returncode: raise Exception("Herbie failed")
+    return [i for i in out.stdout.split("\n") if i.startswith("(FPCore")]
 
-    try:
-        if out.stdout.count("\n") > 1:
-            result = out.stdout.split("\n")[-2]
-        else:
-            print("HERBIE ERROR ON: ", benchmark, file=sys.stderr, flush=True)
-            return dt, "ERROR", "ERROR", "ERROR", (out.returncode or 1)
-        fields = {x.split(" ", 1)[0]: x.split(" ", 1)[1].strip() for x in result.split(":")[1:-1]}
-        if "herbie-error-input" in fields and "herbie-error-output" in fields:
-            start_error = parse_herbie_error(fields["herbie-error-input"])
-            end_error = parse_herbie_error(fields["herbie-error-output"])
-            return dt, result, start_error, end_error, out.returncode
-        else:
-            return dt, result, "TIMEOUT", "TIMEOUT", out.returncode or 1
-    except:
-        print("HERBIE DRIVER ERROR ON: ", benchmark, file=sys.stderr, flush=True)
-        import traceback
-        traceback.print_exc()
-        return dt, "ERROR", "ERROR", "ERROR", (out.returncode or 1)
+def parseHerbie (in_fpcore, out_fpcore) :
+    fields = {x.split(" ", 1)[0]: x.split(" ", 1)[1].strip() for x in out_fpcore.split(":")[1:-1]}
+    status = fields["herbie-status"]
+    dt = fields["herbie-time"]
+    if status == "success":
+        start_error = parse_herbie_error(fields["herbie-error-input"])
+        end_error = parse_herbie_error(fields["herbie-error-output"])
+        return dt, start_error, end_error, False
+    else:
+        return dt, "TIMEOUT", "TIMEOUT", True
 
 # Run FPCore2Scala converter on file inFname, write output to file outFname
 def runConverter (benchmark):
@@ -160,7 +150,7 @@ def runDaisy (benchmark, flags=[], timeout=300):
             traceback.print_exc()
             return dt, "EXCEPTION", (out.returncode or 1)
 
-def runTest(idx, in_fpcore, args):
+def runTest(idx, in_fpcore, out_fpcore, args):
     if ":name" in in_fpcore:
         name = in_fpcore.split(":name")[1].split('"')[1]
     else:
@@ -169,7 +159,7 @@ def runTest(idx, in_fpcore, args):
 
     if SAVE_DIR: open(os.path.join(SAVE_DIR, idx + ".input.fpcore"), "wt").write(in_fpcore)
 
-    (timeHerbie, out_fpcore, in_err, out_err, exitcodeHerbie) = runHerbie (in_fpcore, timeout=args.timeout)
+    (timeHerbie, in_err, out_err, herbieFailed) = parseHerbie (in_fpcore, out_fpcore)
     yield from [timeHerbie, in_err, out_err]
 
     (in_scala, exitcode) = runConverter (in_fpcore)
@@ -181,13 +171,13 @@ def runTest(idx, in_fpcore, args):
 
     for flags in args.daisy_flags:
         (timeInDaisy, errInDaisy, exitcode) = runDaisy(in_scala, timeout=args.timeout, flags=flags)
-        if exitcodeHerbie == 0:
+        if herbieFailed == 0:
             (timeOutDaisy, errOutDaisy, exitcode) = runDaisy(out_scala, timeout=args.timeout, flags=flags)
             yield from [timeInDaisy, timeOutDaisy, errInDaisy, errOutDaisy]
         else:
             yield from [timeInDaisy, "TIMEOUT", errInDaisy, "TIMEOUT"]
 
-def runTests(benchmarks, args):
+def runTests(benchmarks, benchmarks2, args):
     cols = [ "Index"
            , "Name"
            , "Herbie time"
@@ -199,10 +189,10 @@ def runTests(benchmarks, args):
            , "Daisy res error"
            ]
     print('"' + '", "'.join(cols) + '"')
-    for idx, benchmark in enumerate(benchmarks):
+    for idx, (benchmark, benchmark2) in enumerate(zip(benchmarks, benchmarks2)):
         print(idx, end=",", flush=True)
         first = True
-        for field in runTest(str(idx), benchmark, args):
+        for field in runTest(str(idx), benchmark, benchmark2, args):
             if isinstance(field, str):
                 field = field.replace(',', '')
                 field = field.replace('"', '\\"')
@@ -220,8 +210,10 @@ def main(args):
         benchmarks = list(addPreconditions(args.extra_preconditions, benchmarks))
     benchmarks = runFilter(benchmarks, ["operations", "+", "-", "/", "*", "exp", "log", "sin", "cos", "let", "sqrt", "tan"])
     benchmarks = runFilter(benchmarks, ["pre"])
+    benchmarks = runFilter(benchmarks, ["--invert", "name", "hartman6"]) # Causes a VM crash in Herbie
     print ("Filtered down to {} benchmarks".format(len(benchmarks)), file=sys.stderr)
-    runTests(benchmarks, args)
+    benchmarks2 = runHerbie(benchmarks, args)
+    runTests(benchmarks, benchmarks2, args)
 
 if __name__ == "__main__":
     import argparse
@@ -235,9 +227,7 @@ if __name__ == "__main__":
     parser.add_argument("--timeout", help="How many seconds to time out at for Herbie and Daisy", type=int, default=300)
     args = parser.parse_args()
 
-    HERBIE_DIR = args.herbie_dir
     DAISY_DIR = args.daisy_dir
-    HERBIE_FLAGS = args.herbie_flags
     current_dir = os.path.dirname(__file__)
     FPBENCH_DIR = os.path.dirname(dir_type(current_dir or "."))
     if args.save: SAVE_DIR = args.save

@@ -2,6 +2,8 @@
 
 set -e
 
+THREADS=6
+
 rm -rf reports d2h
 mkdir -p d2h/ reports/
 git clone -b develop https://github.com/uwplse/herbie.git d2h/herbie/
@@ -14,6 +16,7 @@ python3 tools/daisy_herbie.py \
         --extra-preconditions infra/extra-preconditions.sexp \
         --save reports/save/ \
         --timeout 600 \
+        --herbie-flags="--threads $THREADS"
         --daisy-flags="--rangeMethod=interval --subdiv" \
         --daisy-flags="--rangeMethod=smt --solver=z3" \
         --daisy-flags="--rangeMethod=interval --subdiv --rewrite" \

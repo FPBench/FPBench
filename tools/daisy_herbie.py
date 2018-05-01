@@ -62,7 +62,7 @@ def runHerbie (benchmarks, args) :
     try:
         out = subprocess.run(
             ["racket", args.herbie_dir + "/src/herbie.rkt", "improve", "--timeout", str(args.timeout)] + args.herbie_flags + ["-", "-"],
-            stdout=subprocess.PIPE, input=benchmark, universal_newlines=True, timeout=len(benchmarks)*args.timeout)
+            stdout=subprocess.PIPE, input="\n\n".join(benchmark), universal_newlines=True, timeout=len(benchmarks)*args.timeout)
     except subprocess.TimeoutExpired as e:
         raise Exception("Herbie timed out")
 

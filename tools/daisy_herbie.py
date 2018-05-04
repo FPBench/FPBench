@@ -72,13 +72,13 @@ def runHerbie (benchmarks, args) :
 def parseHerbie (in_fpcore, out_fpcore) :
     fields = {x.split(" ", 1)[0]: x.split(" ", 1)[1].strip() for x in out_fpcore.split(":")[1:-1]}
     status = fields["herbie-status"]
-    dt = fields["herbie-time"]
+    dt = float(fields["herbie-time"])
     if status == "success":
         start_error = parse_herbie_error(fields["herbie-error-input"])
         end_error = parse_herbie_error(fields["herbie-error-output"])
-        return dt, start_error, end_error, False
+        return round(dt / 1000, 2), start_error, end_error, False
     else:
-        return dt, "TIMEOUT", "TIMEOUT", True
+        return round(dt / 1000, 2), "TIMEOUT", "TIMEOUT", True
 
 # Run FPCore2Scala converter on file inFname, write output to file outFname
 def runConverter (benchmark):

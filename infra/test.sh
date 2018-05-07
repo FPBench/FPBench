@@ -16,7 +16,7 @@ python3 tools/daisy_herbie.py \
         --extra-preconditions infra/extra-preconditions.sexp \
         --save reports/save/ \
         --timeout 600 \
-        --herbie-flags="--threads $THREADS" \
+        --herbie-flags="--threads $THREADS --disable fn:cbrt" \
         --daisy-flags="--rangeMethod=interval --subdiv" \
         --daisy-flags="--rangeMethod=smt --solver=z3" \
         --daisy-flags="--rangeMethod=interval --subdiv --rewrite" \

@@ -61,7 +61,7 @@
   [('acosh) "math.acosh(~a)"]
   [('atanh) "math.atanh(~a)"]
   [('erf) "math.erf(~a)"]
-  [('erfc) "1 - math.erf(~a)"]
+  [('erfc) "1 - math.erf(~a)"] ;; TODO: This implementation has large error for large inputs
   [('tgamma) "math.gamma(~a)"]
   [('lgamma) "math.log(math.gamma(~a))"]
   [('ceil) "math.ceil(~a)"]

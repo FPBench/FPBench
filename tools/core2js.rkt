@@ -168,7 +168,7 @@
         (parameterize ([*names* (apply mutable-set args)])
           (printf "\treturn ~a;\n" (expr->js body #:type type))))))
   (format "function ~a(~a) {\n~a}\n"
-          (fix-name (if (dict-has-key? properties ':name) (dict-ref properties ':name) name))
+          (fix-name name)
           (string-join arg-strings ", ")
           func-body))
 

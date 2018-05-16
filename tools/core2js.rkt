@@ -128,18 +128,16 @@
        (for/fold ([names* names]) ([var vars] [var* vars*])
          (dict-set names* var var*)))
      (define test-var (fix-name (gensym 'test)))
-     (printf "~avar ~a = function() {\n~a~a;\n~a}\n" indent test-var
-             (format "~a\t" indent)
-             (expr->js cond #:names names* #:type type #:indent (format "~a\t" indent))
-             indent)
-     (printf "~awhile (~a()) {\n" indent (fix-name test-var))
+     (printf "~avar ~a = ~a\n" indent test-var
+             (expr->js cond #:names names* #:type type #:indent (format "~a\t" indent)))
+     (printf "~awhile (~a) {\n" indent test-var)
      (define temp-vars (map gensym vars))
      (for ([temp-var temp-vars] [update updates])
        (printf "~a\tvar ~a = ~a;\n" indent (fix-name temp-var)
                (expr->js update #:names names* #:type type #:indent (format "~a\t" indent))))
      (for ([var* vars*] [temp-var temp-vars])
        (printf "~a\t~a = ~a;\n" indent (fix-name var*) (fix-name temp-var)))
-     #;(printf "~a\t~a = ~a;" indent (fix-name test-var)
+     (printf "~a\t~a = ~a;" indent test-var
              (expr->js cond #:names names* #:type type #:indent (format "~a\t" indent)))
      (printf "~a}\n" indent)
      (expr->js retexpr #:names names* #:type type #:indent indent)]

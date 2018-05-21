@@ -56,13 +56,14 @@
 
 
 (define (=* a b)
-  (if (equal? a b)
-    #t
-    (let* ([epsilon-factor .999999999]
-           [e1 (* epsilon-factor a)]
-           [e2 (* (- 2 epsilon-factor) a)])
-      ;; test ranges (e1, e2) (e2, e1) to include negative inputs
-      (or (= a b) (<= e1 b e2) (<= e2 b e1) (and (nan? a) (nan? b))))))
+  (match (list a b)
+    ['(timeout timeout) true]
+    [else
+      (let* ([epsilon-factor .999999999]
+             [e1 (* epsilon-factor a)]
+             [e2 (* (- 2 epsilon-factor) a)])
+        ;; test ranges (e1, e2) (e2, e1) to include negative inputs
+        (or (= a b) (<= e1 b e2) (<= e2 b e1) (and (nan? a) (nan? b))))]))
 
 ;; TODO: Add types
 (module+ main

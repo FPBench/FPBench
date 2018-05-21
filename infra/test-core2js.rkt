@@ -2,6 +2,7 @@
 
 (require "../tools/common.rkt" "../tools/core2js.rkt" "../tools/fpcore.rkt")
 
+;; The output file requires mathjs to be installed
 (define tests-to-run (make-parameter 10))
 (define test-file (make-parameter "/tmp/test.js"))
 (define fuel (make-parameter 1000))
@@ -50,7 +51,7 @@
       ["-Infinity\n" "-inf.0"]
       [x (substring x 0 (sub1 (string-length x)))]))
   ;; javascript can return imaginary numbers which the reference implementation
-  ;; doesn't have (returns NaN)
+  ;; doesn't have (returns NaN). This is a consequence of the mathjs library
   (if (number? (string->number out*))
     (real->double-flonum (string->number out*))
     +nan.0))

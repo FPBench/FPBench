@@ -30,7 +30,7 @@
        (define N (length (second prog)))
        (fprintf p "math = require('mathjs')\n\n~a\n\n" (compile-program prog #:name "f"))
        (fprintf p "console.log(f(~a));\n"
-                (string-join (map (curry format "~a(process.argv[~a])" 'parseFloat) 
+                (string-join (map (curry format "parseFloat(process.argv[~a])")
                                   (map ((curry +) 2) (range N))) ", "))))
   test-file)
 

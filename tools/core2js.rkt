@@ -34,6 +34,9 @@
 
 (define/match (operator->js op)
   [((or '== '+ '- '* '/  '< '> '<= '>=)) (format "(~a ~a ~a)" "~a" op "~a")]
+  [('and) "~a && ~a"]
+  [('or) "~a || ~a"]
+  [('not) "!~a"]
   [('fabs) "math.abs(~a)"]
   [('exp) "math.exp(~a)"]
   [('exp2) "math.pow(2, ~a)"]

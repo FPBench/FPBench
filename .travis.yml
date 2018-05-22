@@ -1,21 +1,12 @@
-matrix:
-  include:
-    - language: c
-      env:
-        global:
-          - RACKET_DIR=~/racket
-          - RACKET_VERSION="6.9"
-      before_install:
-        - git clone https://github.com/greghendershott/travis-racket.git ../travis-racket
-        - cat ../travis-racket/install-racket.sh | bash
-        - export PATH="${RACKET_DIR}/bin:${PATH}"
-      script:
-        - make test
-
-      - language: node_js
-        node_js:
-          - "8.9.3"
-        before_script:
-          - npm install mathjs
-        script:
-          - make test-js
+language: node_js
+env:
+  global:
+    - RACKET_DIR=~/racket
+    - RACKET_VERSION="6.9"
+before_install:
+  - git clone https://github.com/greghendershott/travis-racket.git ../travis-racket
+  - cat ../travis-racket/install-racket.sh | bash
+  - npm install mathjs
+  - export PATH="${RACKET_DIR}/bin:${PATH}"
+script:
+  - make test

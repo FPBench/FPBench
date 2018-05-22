@@ -6,7 +6,7 @@ test:
 	racket infra/test-imp2core.rkt benchmarks/*.fpimp
 
 test-js:
-	node infra/test.js
+	node test.js
 
 %.fpcore: %.fpimp
 	printf ";; -*- mode: scheme -*-\n\n" > $@

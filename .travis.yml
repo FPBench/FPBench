@@ -10,5 +10,6 @@ before_install:
   - cd infra
   - npm install mathjs
   - ls
+  - cd ..
 script:
   - make test

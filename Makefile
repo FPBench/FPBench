@@ -1,7 +1,7 @@
 .PHONY: test
 
 test:
-	racket infra/test-core2js.rkt benchmarks/*.fpcore -o infra/
+	racket infra/test-core2js.rkt benchmarks/*.fpcore -o ./
 	racket infra/test-core2c.rkt benchmarks/*.fpcore
 	racket infra/test-imp2core.rkt benchmarks/*.fpimp
 

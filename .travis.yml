@@ -3,7 +3,7 @@ node_js:
   - "8.9.3"
 before_install:
   - export RACKET_DIR=~/racket
-  - expor RACKET_VERSION="6.9"
+  - export RACKET_VERSION="6.9"
   - git clone https://github.com/greghendershott/travis-racket.git ../travis-racket
   - cat ../travis-racket/install-racket.sh | bash
   - npm install mathjs

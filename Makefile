@@ -5,6 +5,9 @@ test:
 	racket infra/test-core2c.rkt benchmarks/*.fpcore
 	racket infra/test-imp2core.rkt benchmarks/*.fpimp
 
+test-js:
+	node test.js
+
 %.fpcore: %.fpimp
 	printf ";; -*- mode: scheme -*-\n\n" > $@
 	racket tools/imp2core.rkt --canonicalize < $^ >> $@

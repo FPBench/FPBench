@@ -9,4 +9,4 @@ before_install:
   - cat ../travis-racket/install-racket.sh | bash
   - export PATH="${RACKET_DIR}/bin:${PATH}"
 script:
-  - make test-js
+  - make test

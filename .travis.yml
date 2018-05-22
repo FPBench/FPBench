@@ -9,4 +9,4 @@ before_install:
   - npm install mathjs
   - export PATH="${RACKET_DIR}/bin:${PATH}"
 script:
-k - make test
+  - make test

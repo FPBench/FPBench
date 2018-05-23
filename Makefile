@@ -1,6 +1,7 @@
 .PHONY: test
 
 test:
+	racket infra/test-core2js.rkt -o ./tmp.js benchmarks/*.fpcore
 	racket infra/test-core2c.rkt benchmarks/*.fpcore
 	racket infra/test-imp2core.rkt benchmarks/*.fpimp
 
@@ -11,4 +12,3 @@ test:
 c/%.c: benchmarks/%.fpcore
 	printf "#include <tgmath.h>\n\n" > $@
 	racket tools/core2c.rkt < $^ >> $@
-

@@ -1,3 +1,5 @@
+notifications:
+  slack: uw-cse:O3kA2v8PDrUzH6YTuMfVUy8z
 language: node_js
 node_js:
   - "6.11.4"

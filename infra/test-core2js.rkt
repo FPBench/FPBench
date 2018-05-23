@@ -45,11 +45,11 @@
                                                       (dict-values ctx)))
                               " ")))))
   (define out*
-    (match out
-      ["NaN\n" "+nan.0"]
-      ["Infinity\n" "+inf.0"]
-      ["-Infinity\n" "-inf.0"]
-      [x (substring x 0 (sub1 (string-length x)))]))
+    (match (string-trim out)
+      ["NaN" "+nan.0"]
+      ["Infinity" "+inf.0"]
+      ["-Infinity" "-inf.0"]
+      [x x]))
   ;; javascript can return imaginary numbers which the reference implementation
   ;; doesn't have (returns NaN). This is a consequence of the mathjs library
   (if (number? (string->number out*))

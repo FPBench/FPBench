@@ -49,7 +49,7 @@
       ["NaN" "+nan.0"]
       ["Infinity" "+inf.0"]
       ["-Infinity" "-inf.0"]
-      [x x]))
+      [(? string->number x) x]))
   ;; javascript can return imaginary numbers which the reference implementation
   ;; doesn't have (returns NaN). This is a consequence of the mathjs library
   (if (number? (string->number out*))

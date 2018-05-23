@@ -4,7 +4,7 @@ language: node_js
 node_js:
   - "6.11.4"
 before_install:
-  - npm install mathjs
+  - npm install mathjs@4.2.1
   - export RACKET_DIR=~/racket
   - export RACKET_VERSION="6.9"
   - git clone https://github.com/greghendershott/travis-racket.git ../travis-racket

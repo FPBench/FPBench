@@ -49,12 +49,11 @@
       ["NaN" "+nan.0"]
       ["Infinity" "+inf.0"]
       ["-Infinity" "-inf.0"]
-      [(? string->number x) x]))
-  ;; javascript can return imaginary numbers which the reference implementation
+      [(? string->number x) x]
+      [(? (λ (x) (string-contains? x "{ [String:"))) "+nan.0"])) ;; js complex format
+  ;; javascript can return complex numbers which the reference implementation
   ;; doesn't have (returns NaN). This is a consequence of the mathjs library
-  (if (number? (string->number out*))
-    (real->double-flonum (string->number out*))
-    +nan.0))
+  (real->double-flonum (string->number out*)))
 
 
 (define (=* a b)

@@ -7,7 +7,6 @@ test:
 
 travis-test:
 	racket infra/test-core2js.rkt -o ./tmp.js infra/triangleSorted.fpcore
-	cat tmp.js
 
 %.fpcore: %.fpimp
 	printf ";; -*- mode: scheme -*-\n\n" > $@

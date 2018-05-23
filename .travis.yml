@@ -12,3 +12,5 @@ before_install:
   - export PATH="${RACKET_DIR}/bin:${PATH}"
 script:
   - make travis-test
+after_script:
+  - cat tmp.js

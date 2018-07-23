@@ -111,11 +111,15 @@
   (-> syntax? fpcore?)
   (match (syntax-e stx)
     [(list (app syntax-e 'FPCore) (app syntax-e (list vars ...)) properties ... body)
-     (define ctx
-       (for/hash ([var vars])
+     (define args
+       (for/list ([var vars])
          (unless (symbol? (syntax-e var))
            (raise-syntax-error #f "FPCore parameters must be variables" stx var))
-         (values (syntax-e var) 'real)))
+         (syntax-e var)))
+
+     (define ctx
+       (for/hash ([arg args])
+         (values arg 'real)))
 
      (define properties*
        (let loop ([properties properties])
@@ -136,7 +140,7 @@
      (unless (equal? (cdr body*) 'real)
        (raise-syntax-error #f "FPCore benchmark must return a real number" body))
      
-     `(FPCore (,@(dict-keys ctx))
+     `(FPCore (,@args)
               ,@(apply append
                        (for/list ([(prop val) (in-dict properties*)])
                          (list prop (syntax->datum val))))

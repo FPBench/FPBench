@@ -3,7 +3,7 @@
 (require "../tools/common.rkt" "../tools/imp2core.rkt" "../tools/fpcore.rkt" "../tools/fpimp.rkt")
 
 (define tests-to-run (make-parameter 10))
-(define fuel (make-parameter 1000))
+(define fuel (make-parameter 100))
 
 (define ((eval-fuel-expr evaltor fuel [default #f]) expr ctx)
   (let/ec k

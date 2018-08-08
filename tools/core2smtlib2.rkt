@@ -44,7 +44,10 @@
     [(or +inf.0 +inf.f) (format "(_ +oo ~a ~a)" w p)]
     [(or -inf.0 -inf.f) (format "(_ -oo ~a ~a)" w p)]
     [(or +nan.0 +nan.f) (format "(_ NaN ~a ~a)" w p)]
-    [_ (let* ([q (inexact->exact x)]
+    [_ (let* ([q (if (single-flonum? x)
+                     ;; Workaround for misbehavior of inexact->exact with single-flonum inputs
+                     (inexact->exact (real->double-flonum x))
+                     (inexact->exact x))]
               [n (numerator q)]
               [d (denominator q)])
          (if (= d 1)

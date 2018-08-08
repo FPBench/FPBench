@@ -73,6 +73,10 @@
     (match-define (list 'FPCore (list vars ...) props* ... body) prog)
     (define-values (_ props) (parse-properties props*))
     (define type (dict-ref props ':precision 'binary64))
+    (define-values (w p)
+        (match type
+          ['binary32 (values 8 24)]
+          ['binary64 (values 11 53)]))
     (define timeout 0)
     (define results
       (for/list ([i (in-range (tests-to-run))])
@@ -105,8 +109,9 @@
                                              [_ (format " (~a timeouts)" timeout)]))
       (set! err (+ err (count (λ (x) (not (=* (second x) (third x)))) results)))
       (for ([x (in-list results)] #:unless (=* (second x) (third x)))
-        (printf "\t~a ≠ ~a @ ~a\n" (second x) (third x)
-                (string-join (map (λ (x) (format "~a = ~a" (car x) (cdr x))) (first x)) ", ")))))
+        (printf "\t~a ≠ ~a @ ~a\n\t~a\n" (second x) (third x)
+                (string-join (map (λ (x) (format "~a = ~a" (car x) (cdr x))) (first x)) ", ")
+                (string-join (map (λ (x) (format "~a = ~a" (car x) (number->smt (cdr x) w p 'nearestEven))) (first x)) ", ")))))
   err)
 
 (module+ main

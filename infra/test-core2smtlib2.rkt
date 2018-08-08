@@ -4,7 +4,7 @@
 
 (define tests-to-run (make-parameter 10))
 (define test-file (make-parameter "/tmp/test.smtlib2"))
-(define fuel (make-parameter 1000))
+(define fuel (make-parameter 100))
 
 (define (translate->smt prog ctx test-file #:type type)
   (call-with-output-file test-file #:exists 'replace

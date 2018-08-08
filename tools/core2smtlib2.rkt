@@ -2,7 +2,7 @@
 
 (require math/bigfloat)
 (require "common.rkt" "fpcore.rkt")
-(provide compile-program)
+(provide compile-program rm->smt number->smt)
 
 ;; Extremely simple html-inspired escapes. The understanding is that the
 ;; only difference between symbols is that FPCore allows : in names,
@@ -39,12 +39,17 @@
 ;; lots of real divisions to a formula is probably not wise.
 ;; However, at least with z3, defining constants in this way does not seem to cause
 ;; any significant issues.
-(define (rational->smt q w p rm)
-  (let ([n (numerator q)]
-        [d (denominator q)])
-    (if (= d 1)
-        (format "((_ to_fp ~a ~a) ~a ~a)" w p (rm->smt rm) n)
-        (format "((_ to_fp ~a ~a) ~a (/ ~a ~a))" w p (rm->smt rm) n d))))
+(define (number->smt x w p rm)
+  (match x
+    [(or +inf.0 +inf.f) (format "(_ +oo ~a ~a)" w p)]
+    [(or -inf.0 -inf.f) (format "(_ -oo ~a ~a)" w p)]
+    [(or +nan.0 +nan.f) (format "(_ NaN ~a ~a)" w p)]
+    [_ (let* ([q (inexact->exact x)]
+              [n (numerator q)]
+              [d (denominator q)])
+         (if (= d 1)
+             (format "((_ to_fp ~a ~a) ~a ~a)" w p (rm->smt rm) n)
+             (format "((_ to_fp ~a ~a) ~a (/ ~a ~a))" w p (rm->smt rm) n d)))]))
 
 ;; Macro should grab the computation specified in the constants table
 ;; and wrap it with the right precision context.
@@ -56,7 +61,7 @@
    (bf-rounding-mode (rm->bf rm))
    (let ([qbf expr])
      ;; In theory the rounding mode used here doesn't matter.
-     (rational->smt (bigfloat->rational qbf) w p rm)))
+     (number->smt (bigfloat->rational qbf) w p rm)))
   )
 
 (define (constant->smt c w p rm)
@@ -76,8 +81,8 @@
     ['SQRT1_2 (bf-constant (bfsqrt (bf/ 1.bf 2.bf)) w p rm)]
     ['TRUE "true"]
     ['FALSE "false"]
-    ['INFINITY "(_ +oo 11 53)"]
-    ['NAN "(_ NaN 11 53)"]
+    ['INFINITY (format "(_ +oo ~a ~a)" w p)]
+    ['NAN (format "(_ NaN ~a ~a)" w p)]
     [_ (error 'constant->smt "Unsupported constant ~a" c)]))
 
 (define (operator->smt op rm)
@@ -199,7 +204,7 @@
     [(? symbol?)
      (fix-name expr)]
     [(? number?)
-     (rational->smt expr w p rm)]
+     (number->smt expr w p rm)]
     [_ (error 'expr->smt "Unsupported expr ~a" expr)]))
 
 (define (compile-program prog #:name name)

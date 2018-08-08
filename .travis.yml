@@ -3,12 +3,18 @@ notifications:
 language: node_js
 node_js:
   - "6.11.4"
+env:
+  global:
+    - RACKET_DIR=~/racket
+    - RACKET_VERSION="7.0"
+    - Z3_VERSION="4.7.1"
+    - Z3_DISTRIB="z3-4.7.1-x64-ubuntu-14.04"
 before_install:
   - npm install mathjs@4.2.1
-  - export RACKET_DIR=~/racket
-  - export RACKET_VERSION="6.9"
   - git clone https://github.com/greghendershott/travis-racket.git ../travis-racket
   - cat ../travis-racket/install-racket.sh | bash
-  - export PATH="${RACKET_DIR}/bin:${PATH}"
+  - curl -L -O https://github.com/Z3Prover/z3/releases/download/z3-${Z3_VERSION}/${Z3_DISTRIB}.zip
+  - unzip ${Z3_DISTRIB}.zip
+  - export PATH="${RACKET_DIR}/bin:${PWD}/${Z3_DISTRIB}/bin:${PATH}"
 script:
   - make test

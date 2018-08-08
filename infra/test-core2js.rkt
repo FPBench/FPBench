@@ -5,7 +5,7 @@
 ;; The output file requires mathjs to be installed
 (define tests-to-run (make-parameter 10))
 (define test-file (make-parameter "/tmp/test.js"))
-(define fuel (make-parameter 1000))
+(define fuel (make-parameter 100))
 
 (define (compile->js prog test-file)
   (call-with-output-file test-file #:exists 'replace

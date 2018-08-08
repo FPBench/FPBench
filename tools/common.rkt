@@ -34,7 +34,7 @@
   '(E LOG2E LOG10E LN2 LN10
       PI PI_2 PI_4 1_PI 2_PI 2_SQRTPI
       SQRT2 SQRT1_2 MAXFLOAT HUGE_VAL
-      TRUE FALSE))
+      INFINITY NAN TRUE FALSE))
 
 (define (constant? x)
   (set-member? constants x))

@@ -4,7 +4,7 @@
 
 (define tests-to-run (make-parameter 10))
 (define test-file (make-parameter "/tmp/test.c"))
-(define fuel (make-parameter 1000))
+(define fuel (make-parameter 100))
 
 (define (compile->c prog test-file #:type [type 'binary64])
   (call-with-output-file test-file #:exists 'replace

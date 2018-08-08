@@ -3,7 +3,7 @@
 (require "test-common.rkt" "../tools/common.rkt" "../tools/imp2core.rkt" "../tools/fpcore.rkt" "../tools/fpimp.rkt")
 
 (define tests-to-run (make-parameter 10))
-(define fuel (make-parameter 1000))
+(define fuel (make-parameter 100))
 
 (define (=* a b)
   (or (equal? a 'timeout) (ormap (curryr equal? 'timeout) b)

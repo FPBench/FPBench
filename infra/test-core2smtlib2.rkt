@@ -127,4 +127,4 @@
    #:args ()
 
    (let ([error (run-tests (current-input-port) "stdin")])
-     exit error)))
+     (exit error))))

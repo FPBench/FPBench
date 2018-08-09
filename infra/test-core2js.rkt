@@ -1,29 +1,11 @@
 #lang racket
 
-(require "../tools/common.rkt" "../tools/core2js.rkt" "../tools/fpcore.rkt")
+(require "test-common.rkt" "../tools/common.rkt" "../tools/core2js.rkt" "../tools/fpcore.rkt")
 
 ;; The output file requires mathjs to be installed
 (define tests-to-run (make-parameter 10))
 (define test-file (make-parameter "/tmp/test.js"))
 (define fuel (make-parameter 100))
-
-(define ((eval-fuel evaltor fuel [default #f]) expr ctx)
-  (let/ec k
-    (let eval ([expr expr] [ctx ctx] [fuel fuel])
-      (if (<= fuel 0)
-        (k default)
-        ((eval-expr* evaltor (λ (expr ctx) (eval expr ctx (- fuel 1)))) expr ctx)))))
-
-;; TODO: add support for multiple types
-(define (random-exp k)
-  "Like (random (expt 2 k)), but k is allowed to be arbitrarily large"
-  (if (< k 31) ; Racket generates random numbers in the range [0, 2^32-2]; I think it's a bug
-      (random (expt 2 k))
-      (let ([head (* (expt 2 31) (random-exp (- k 31)))])
-        (+ head (random (expt 2 31))))))
-
-(define (sample-double)
-  (floating-point-bytes->real (integer->integer-bytes (random-exp 64) 8 #f)))
 
 (define (compile->js prog test-file)
   (call-with-output-file test-file #:exists 'replace
@@ -50,6 +32,7 @@
       ["Infinity" "+inf.0"]
       ["-Infinity" "-inf.0"]
       [(? string->number x) x]
+      [(? (λ (x) (string-contains? x "im:"))) "+nan.0"] ;; other js complex format
       [(? (λ (x) (string-contains? x "{ [String:"))) "+nan.0"])) ;; js complex format
   ;; javascript can return complex numbers which the reference implementation
   ;; doesn't have (returns NaN). This is a consequence of the mathjs library
@@ -94,7 +77,7 @@
                                (cons var (sample-double))))
                  (define evaltor racket-double-evaluator)
                  (define out
-                   (match ((eval-fuel evaltor (fuel) 'timeout) body ctx)
+                   (match ((eval-fuel-expr evaltor (fuel) 'timeout) body ctx)
                      [(? real? result)
                       (real->double-flonum result)]
                      [(? complex? result)

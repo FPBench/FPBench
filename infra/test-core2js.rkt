@@ -6,6 +6,7 @@
 (define tests-to-run (make-parameter 10))
 (define test-file (make-parameter "/tmp/test.js"))
 (define fuel (make-parameter 100))
+(define ulps (make-parameter 0))
 
 (define (compile->js prog test-file)
   (call-with-output-file test-file #:exists 'replace
@@ -41,8 +42,7 @@
     [else
      ;; test ranges (e1, e2) (e2, e1) to include negative inputs
      (or (= a b)
-         ;; See nodejs/node#22248
-         (<= (abs (flonums-between a b)) 1)
+         (<= (abs (flonums-between a b)) (ulps))
          (and (nan? a) (nan? b)))]))
 
 ;; TODO: Add types
@@ -54,6 +54,8 @@
     (fuel (string->number fuel_))]
    ["--repeat" repeat_ "Number of times to test each program"
     (tests-to-run (string->number repeat_))]
+   ["--error" ulps_ "Error, in ULPs, allowed for node"
+    (ulps (string->number ulps_))]
    ["-o" name_ "Name for generated js file"
     (test-file name_)]
    #:args files

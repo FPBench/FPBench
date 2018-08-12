@@ -1,17 +1,18 @@
 #lang racket
 
+(require math/flonum)
 (require "test-common.rkt" "../tools/common.rkt" "../tools/core2js.rkt" "../tools/fpcore.rkt")
 
-;; The output file requires mathjs to be installed
 (define tests-to-run (make-parameter 10))
 (define test-file (make-parameter "/tmp/test.js"))
 (define fuel (make-parameter 100))
+(define ulps (make-parameter 0))
 
 (define (compile->js prog test-file)
   (call-with-output-file test-file #:exists 'replace
     (λ (p)
        (define N (length (second prog)))
-       (fprintf p "math = require('mathjs')\n\n~a\n\n" (compile-program prog #:name "f"))
+       (fprintf p "~a\n\n" (compile-program prog #:name "f"))
        (fprintf p "console.log(f(~a));\n"
                 (string-join (for/list ([i (range N)])
                                (format "parseFloat(process.argv[~a])" (+ i 2)))
@@ -31,11 +32,7 @@
       ["NaN" "+nan.0"]
       ["Infinity" "+inf.0"]
       ["-Infinity" "-inf.0"]
-      [(? string->number x) x]
-      [(? (λ (x) (string-contains? x "im:"))) "+nan.0"] ;; other js complex format
-      [(? (λ (x) (string-contains? x "{ [String:"))) "+nan.0"])) ;; js complex format
-  ;; javascript can return complex numbers which the reference implementation
-  ;; doesn't have (returns NaN). This is a consequence of the mathjs library
+      [(? string->number x) x]))
   (real->double-flonum (string->number out*)))
 
 
@@ -43,11 +40,10 @@
   (match (list a b)
     ['(timeout timeout) true]
     [else
-      (let* ([epsilon-factor .999999999]
-             [e1 (* epsilon-factor a)]
-             [e2 (* (- 2 epsilon-factor) a)])
-        ;; test ranges (e1, e2) (e2, e1) to include negative inputs
-        (or (= a b) (<= e1 b e2) (<= e2 b e1) (and (nan? a) (nan? b))))]))
+     ;; test ranges (e1, e2) (e2, e1) to include negative inputs
+     (or (= a b)
+         (<= (abs (flonums-between a b)) (ulps))
+         (and (nan? a) (nan? b)))]))
 
 ;; TODO: Add types
 (module+ main
@@ -58,6 +54,8 @@
     (fuel (string->number fuel_))]
    ["--repeat" repeat_ "Number of times to test each program"
     (tests-to-run (string->number repeat_))]
+   ["--error" ulps_ "Error, in ULPs, allowed for node"
+    (ulps (string->number ulps_))]
    ["-o" name_ "Name for generated js file"
     (test-file name_)]
    #:args files

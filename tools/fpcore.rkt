@@ -42,7 +42,7 @@
 
 (define type? (symbols 'boolean 'real))
 
-;; TODO: add updated number definition
+;; TODO: add updated number definition (hex, rational, and digits)
 
 (define/match (operator-type op args)
   [((or '- 'fabs 'exp 'exp2 'expm1 'log 'log10 'log2 'log1p 'sqrt

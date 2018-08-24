@@ -43,13 +43,12 @@
 (define type? (symbols 'boolean 'real))
 
 ;; TODO: add updated number definition
-;; TODO: add the cast operator
 
 (define/match (operator-type op args)
   [((or '- 'fabs 'exp 'exp2 'expm1 'log 'log10 'log2 'log1p 'sqrt
         'cbrt 'sin 'cos 'tan 'asin 'acos 'atan 'sinh 'cosh 'tanh
         'asinh 'acosh 'atanh 'erf 'erfc 'tgamma 'lgamma 'ceil 'floor
-        'trunc 'round 'nearbyint)
+        'trunc 'round 'nearbyint 'cast)
     (list 'real))
    'real]
   [((or '+ '- '* '/ 'pow 'hypot 'atan2 'fmod 'remainder 'fmax 'fmin 'fdim 'copysign)
@@ -273,6 +272,7 @@
     [and (λ (x y) (and x y))] [or (λ (x y) (or x y))] [not not]
     [isnan nan?] [isinf infinite?]
     [isfinite (λ (x) (not (or (nan? x) (infinite? x))))]
+    [cast identity]
     ; TODO: Currently unsupported
     ;[fma '?] [expm1 '?] [log1p '?] [isnormal '?] [signbit '?]
     ;[fmod '?] [remainder '?] [copysign '?] [nearbyint '?]

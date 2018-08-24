@@ -286,9 +286,10 @@
   (define vars*
     (for/list ([var vars] [val vals])
       (match var
-        [`(! ,props ... ,(? symbol? var*))
+        [`(! ,var-props* ... ,(? symbol? var*))
+         (define-values (_ var-props) (parse-properties var-props*))
          (cons var*
-           (match (dict-ref (parse-properties props) 'precision base-precision)
+           (match (dict-ref var-props ':precision base-precision)
              ['binary64 (real->double-flonum val)]
              ['binary32 (real->single-flonum val)]))]
         [(? symbol?)

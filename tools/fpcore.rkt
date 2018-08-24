@@ -42,7 +42,8 @@
 
 (define type? (symbols 'boolean 'real))
 
-;;TOOD: add updated number definition
+;; TODO: add updated number definition
+;; TODO: add the cast operator
 
 (define/match (operator-type op args)
   [((or '- 'fabs 'exp 'exp2 'expm1 'log 'log10 'log2 'log1p 'sqrt

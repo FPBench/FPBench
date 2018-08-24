@@ -189,7 +189,7 @@
   (match expr
     [(? number?) ((evaluator-real evaltor) expr)]
     [(? constant?) ((evaluator-constant evaltor) expr)]
-    [(? symbol?) (dict-ref ctx expr)]
+    [(? symbol?) ((evaluator-real evaltor) (dict-ref ctx expr))]
     [`(if ,test ,ift ,iff)
      (if (rec test ctx) (rec ift ctx) (rec iff ctx))]
     [`(let ([,vars ,vals] ...) ,body)
@@ -208,9 +208,14 @@
                ,res)
             ctx))
          (rec res ctx*))]
-    [`(! ,props ... ,body)
-     (begin
-       ((eval-expr* evaltor rec) body ctx))]
+    [`(! ,props* ... ,body)
+     (define-values (_ props) (parse-properties props*))
+     (define evaltor*
+       (match (dict-ref props ':precision evaltor)
+         ['binary64 racket-double-evaluator]
+         ['binary32 racket-single-evaluator]
+         [_ evaltor]))
+     ((eval-expr* evaltor* rec) body ctx)]
     [(list (? operator? op) args ...)
      (apply ((evaluator-function evaltor) op)
             (map (curryr rec ctx) args))]))

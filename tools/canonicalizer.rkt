@@ -5,7 +5,7 @@
 (provide compile-program expr->canon)
 
 (define (flatten-context ctx)
-  (flatten (hash->list ctx)))
+  (apply append (map (match-lambda [(cons prop val) (list prop val)]) (hash->list ctx))))
 
 (define (update-ctx ctx updates)
   (define new-hash (make-immutable-hash updates))

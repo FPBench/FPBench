@@ -50,7 +50,7 @@
   (match-define (list 'FPCore (list args ...) props ... body) prog)
   (define-values (_ properties) (parse-properties props))
   (define ctx (make-immutable-hash properties))
-  (~a `(FPCore ,args ,@props ,(expr->canon body ctx))))
+  `(FPCore ,args ,@props ,(expr->canon body ctx)))
 
 (module+ main
   (require racket/cmdline)
@@ -60,4 +60,4 @@
    #:args ()
    (port-count-lines! (current-input-port))
    (for ([expr (in-port (curry read-fpcore "stdin"))] [n (in-naturals)])
-     (printf "~a\n" (compile-program expr #:name (format "ex~a" n))))))
+     (pretty-write (compile-program expr #:name (format "ex~a" n))))))

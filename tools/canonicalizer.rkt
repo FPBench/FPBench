@@ -50,7 +50,7 @@
   (for/list ([arg args])
     (if (list? arg)
       (append (reverse (cdr (reverse arg))) props (list (last arg)))
-      (append (list '! arg) props))))
+      (append (list '!) props (list arg)))))
 
 (define (compile-program prog #:name name)
   (match-define (list 'FPCore (list args ...) props ... body) prog)

@@ -46,11 +46,17 @@
        `(! ,@(flatten-context ctx) ,(cons operator new-args)))]
     [_ (error 'expr->smt "Unsupported expr ~a" expr)]))
 
+(define (canonicalize-args args props)
+  (for/list ([arg args])
+    (if (list? arg)
+      (append (reverse (cdr (reverse arg))) props (list (last arg)))
+      (append (list '! arg) props))))
+
 (define (compile-program prog #:name name)
   (match-define (list 'FPCore (list args ...) props ... body) prog)
   (define-values (_ properties) (parse-properties props))
   (define ctx (make-immutable-hash properties))
-  `(FPCore ,args ,@props ,(expr->canon body ctx)))
+  `(FPCore ,(canonicalize-args args props) ,(expr->canon body ctx)))
 
 (module+ main
   (require racket/cmdline)

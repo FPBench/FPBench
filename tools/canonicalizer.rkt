@@ -33,7 +33,9 @@
      expr]
     [(or (? constant?) (? number?))
      (if (= (length (hash-keys ctx)) 0)
-       expr
+       (if (= (inexact->exact (exact->inexact expr)) expr)
+         (exact->inexact expr)
+         expr)
      `(! ,@(flatten-context ctx) ,expr))]
     [(list '! props ... body)
      (define-values (_ properties) (parse-properties props))

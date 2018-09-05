@@ -51,7 +51,8 @@
 (define (canonicalize-args args props)
   (for/list ([arg args])
     (if (list? arg)
-      (append (reverse (cdr (reverse arg))) props (list (last arg)))
+      (car (canonicalize-args (list (last arg))
+                              (append props (reverse (cdr (reverse (cdr arg)))))))
       (append (list '!) props (list arg)))))
 
 (define (compile-program prog #:name name)

@@ -6,7 +6,7 @@
 Inputs: Speed `sl`, `sr` of the left and right wheel, in rad/s."
  :cite (damouche-martel-chapoutot-fmics15)
  :fpbench-domain controls
- :type binary32
+ :precision binary32
  :pre (and (< 0.05 sl* (* 2 PI)) (< 0.05 sr* (* 2 PI)))
  :example ([sr* 0.0785398163397] [sl* 0.0525398163397])
  [= cosi 0.0]

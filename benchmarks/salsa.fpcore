@@ -10,7 +10,7 @@
  (damouche-martel-chapoutot-fmics15)
  :fpbench-domain
  controls
- :type
+ :precision
  binary32
  :pre
  (and (< 0.05 sl* (* 2 PI)) (< 0.05 sr* (* 2 PI)))
@@ -124,7 +124,7 @@
  (damouche-martel-chapoutot-fmics15)
  :fpbench-domain
  controls
- :type
+ :precision
  binary32
  :pre
  (and (< 0.05 sl* (* 2 PI)) (< 0.05 sr* (* 2 PI)))

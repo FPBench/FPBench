@@ -13,7 +13,7 @@
   :name "doppler1"
   :cite (darulova-kuncak-2014)
   :fpbench-domain science
-  :type binary64
+  :precision binary64
   :pre (and (<= -100 u 100) (<= 20 v 20000) (<= -30 T 50))
   :rosa-ensuring 1e-12
   (let ([t1 (+ 331.4 (* 0.6 T))])
@@ -23,7 +23,7 @@
   :name "doppler2"
   :cite (darulova-kuncak-2014)
   :fpbench-domain science
-  :type binary64
+  :precision binary64
   :pre (and (<= -125 u 125) (<= 15 v 25000) (<= -40 T 60))
   (let ([t1 (+ 331.4 (* 0.6 T))])
     (/ (* (- t1) v) (* (+ t1 u) (+ t1 u)))))

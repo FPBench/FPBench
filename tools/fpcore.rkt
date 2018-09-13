@@ -11,27 +11,44 @@
 (define/contract (fpcore? thing)
   contract?
   (match thing
-    [`(FPCore (,(? symbol?) ...) ,props ... ,(? expr?))
-     (define-values (rest props*) (parse-properties props))
-     (null? rest)]
+    [`(FPCore (,(? argument?) ...) ,props ... ,(? expr?))
+     (properties? props)]
     [_ false]))
 
-(define-by-match expr?
-  (? number?)
-  (? constant?)
-  (? symbol?)
-  (list (? operator?) (? expr?) ...)
-  `(if ,(? expr?) ,(? expr?) ,(? expr?))
-  `(let ([,(? symbol?) ,(? expr?)] ...) ,(? expr?))
-  `(while ,(? expr?) ([,(? symbol?) ,(? expr?) ,(? expr?)] ...) ,(? expr?)))
+(define (properties? props)
+  (define-values (rest props*) (parse-properties props))
+  (null? rest))
+
+(define (argument? arg)
+  (match arg
+    [(? symbol? arg) true]
+    [`(! ,props ... ,(? symbol?))
+     (properties? props)]
+    [_ false]))
+
+(define (expr? expr)
+  (match expr
+    [(? number?) true]
+    [(? constant?) true]
+    [(? symbol?) true]
+    [(list (? operator?) (? expr?) ...) true]
+    [`(if ,(? expr?) ,(? expr?) ,(? expr?)) true]
+    [`(let ([,(? symbol?) ,(? expr?)] ...) ,(? expr?)) true]
+    [`(while ,(? expr?) ([,(? symbol?) ,(? expr?) ,(? expr?)] ...) ,(? expr?)) true]
+    [`(cast ,(? expr?)) true]
+    [`(! ,props ... ,(? expr?))
+      (properties? props)]
+    [_ false]))
 
 (define type? (symbols 'boolean 'real))
+
+;; TODO: add updated number definition (hex, rational, and digits)
 
 (define/match (operator-type op args)
   [((or '- 'fabs 'exp 'exp2 'expm1 'log 'log10 'log2 'log1p 'sqrt
         'cbrt 'sin 'cos 'tan 'asin 'acos 'atan 'sinh 'cosh 'tanh
         'asinh 'acosh 'atanh 'erf 'erfc 'tgamma 'lgamma 'ceil 'floor
-        'trunc 'round 'nearbyint)
+        'trunc 'round 'nearbyint 'cast)
     (list 'real))
    'real]
   [((or '+ '- '* '/ 'pow 'hypot 'atan2 'fmod 'remainder 'fmax 'fmin 'fdim 'copysign)
@@ -45,7 +62,7 @@
   [(_ _) #f])
 
 (define/contract (check-expr stx ctx)
-  (-> syntax? (dictof symbol? type?) (cons/c expr? type?))
+  (-> syntax? (dictof argument? type?) (cons/c expr? type?))
 
   (match (syntax-e stx)
     [(? number? val)
@@ -98,6 +115,10 @@
      (cons `(while ,(car test*) (,@(map list vars* (map car inits*) (map car updates*))) ,(car body*)) (cdr body*))]
     [(cons (app syntax-e 'while) _)
      (raise-syntax-error #f "Invalid while loop" stx)]
+    [(list (app syntax-e '!) props ... expr)
+     (define expr* (check-expr expr ctx))
+     (define props* (map syntax-e props))
+     (cons `(! ,@props* ,(car expr*)) (cdr expr*))]
     [(list op args ...)
      (unless (set-member? operators (syntax-e op))
        (raise-syntax-error #f "Unknown operator" op))
@@ -107,15 +128,22 @@
        (raise-syntax-error #f (format "Invalid types for operator ~a" op) stx))
      (cons (list* (syntax-e op) (map car children)) rtype)]))
 
+(define (syntax-e-rec stx)
+  (match (syntax-e stx)
+    [`(,stx-elem ...) (map syntax-e-rec stx-elem)]
+    [stx* stx*]))
+
 (define/contract (check-fpcore stx)
   (-> syntax? fpcore?)
   (match (syntax-e stx)
     [(list (app syntax-e 'FPCore) (app syntax-e (list vars ...)) properties ... body)
-     (define args
-       (for/list ([var vars])
-         (unless (symbol? (syntax-e var))
-           (raise-syntax-error #f "FPCore parameters must be variables" stx var))
-         (syntax-e var)))
+     (define-values (annotated-args args)
+       (for/lists (annotated-args args) ([var vars])
+         (let ([var* (syntax-e-rec var)])
+           (unless (argument? var*)
+             (raise-syntax-error #f "FPCore parameters must be variables" stx var))
+           (values var*
+                   (if (list? var*) (last var*) var*)))))
 
      (define ctx
        (for/hash ([arg args])
@@ -140,7 +168,7 @@
      (unless (equal? (cdr body*) 'real)
        (raise-syntax-error #f "FPCore benchmark must return a real number" body))
      
-     `(FPCore (,@args)
+     `(FPCore (,@annotated-args)
               ,@(apply append
                        (for/list ([(prop val) (in-dict properties*)])
                          (list prop (syntax->datum val))))
@@ -159,7 +187,7 @@
   (match expr
     [(? number?) ((evaluator-real evaltor) expr)]
     [(? constant?) ((evaluator-constant evaltor) expr)]
-    [(? symbol?) (dict-ref ctx expr)]
+    [(? symbol?) ((evaluator-real evaltor) (dict-ref ctx expr))]
     [`(if ,test ,ift ,iff)
      (if (rec test ctx) (rec ift ctx) (rec iff ctx))]
     [`(let ([,vars ,vals] ...) ,body)
@@ -178,6 +206,14 @@
                ,res)
             ctx))
          (rec res ctx*))]
+    [`(! ,props* ... ,body)
+     (define-values (_ props) (parse-properties props*))
+     (define evaltor*
+       (match (dict-ref props ':precision evaltor)
+         ['binary64 racket-double-evaluator]
+         ['binary32 racket-single-evaluator]
+         [_ evaltor]))
+     ((eval-expr* evaltor* rec) body ctx)]
     [(list (? operator? op) args ...)
      (apply ((evaluator-function evaltor) op)
             (map (curryr rec ctx) args))]))
@@ -235,6 +271,7 @@
     [and (λ (x y) (and x y))] [or (λ (x y) (or x y))] [not not]
     [isnan nan?] [isinf infinite?]
     [isfinite (λ (x) (not (or (nan? x) (infinite? x))))]
+    [cast identity]
     ; TODO: Currently unsupported
     ;[fma '?] [expm1 '?] [log1p '?] [isnormal '?] [signbit '?]
     ;[fmod '?] [remainder '?] [copysign '?] [nearbyint '?]
@@ -249,11 +286,25 @@
   (-> fpcore? (listof real?) real?)
   (match-define `(FPCore (,vars ...) ,props* ... ,body) prog)
   (define-values (_ props) (parse-properties props*))
-  (define evaltor
-    (match (dict-ref props ':precision 'binary64)
-      ['binary64 racket-double-evaluator]
-      ['binary32 racket-single-evaluator]))
-  ((eval-expr evaltor) body (map cons vars (map (evaluator-real evaltor) vals))))
+  (define base-precision (dict-ref props ':precision 'binary64))
+  (define vars*
+    (for/list ([var vars] [val vals])
+      (match var
+        [`(! ,var-props* ... ,(? symbol? var*))
+         (define-values (_ var-props) (parse-properties var-props*))
+         (cons var*
+           (match (dict-ref var-props ':precision base-precision)
+             ['binary64 (real->double-flonum val)]
+             ['binary32 (real->single-flonum val)]))]
+        [(? symbol?)
+         (cons var
+            (match base-precision
+             ['binary64 (real->double-flonum val)]
+             ['binary32 (real->single-flonum val)]))])))
+  (define evaltor (match base-precision
+    ['binary64 racket-double-evaluator]
+    ['binary32 racket-single-evaluator]))
+  ((eval-expr evaltor) body vars*))
 
 (module+ main
   (command-line

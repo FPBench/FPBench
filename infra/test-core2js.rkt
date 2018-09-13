@@ -58,42 +58,38 @@
     (ulps (string->number ulps_))]
    ["-o" name_ "Name for generated js file"
     (test-file name_)]
-   #:args files
+   #:args ()
    (let ([error 0])
-     (for ([file files])
-       (call-with-input-file file
-         (λ (p)
-           (port-count-lines! p)
-           (for ([prog (in-port (curry read-fpcore file) p)])
-             (match-define (list 'FPCore (list vars ...) props* ... body) prog)
-             (define-values (_ props) (parse-properties props*))
-             (define exec-file (compile->js prog (test-file)))
-             (define timeout 0)
-             (define results
-               (for/list ([i (in-range (tests-to-run))])
-                 (define ctx (for/list ([var vars])
-                               (cons var (sample-double))))
-                 (define evaltor racket-double-evaluator)
-                 (define out
-                   (match ((eval-fuel-expr evaltor (fuel) 'timeout) body ctx)
-                     [(? real? result)
-                      (real->double-flonum result)]
-                     [(? complex? result)
-                      +nan.0]
-                     ['timeout 'timeout]
-                     [(? boolean? result) result]))
-                 (when (equal? out 'timeout)
-                   (set! timeout (+ timeout 1)))
-                 (define out* (if (equal? out 'timeout) 'timeout (run<-js exec-file ctx)))
-                 (list ctx out out*)))
-             (unless (null? results)
-               (printf "~a/~a: ~a~a\n" (count (λ (x) (=* (second x) (third x))) results) (length results)
-                       (dict-ref props ':name body) (match timeout
-                                                      [0 ""]
-                                                      [1 " (1 timeout)"]
-                                                      [_ (format " (~a timeouts)" timeout)]))
-               (set! error (+ error (count (λ (x) (not (=* (second x) (third x)))) results)))
-               (for ([x (in-list results)] #:unless (=* (second x) (third x)))
-                 (printf "\t~a ≠ ~a @ ~a\n" (second x) (third x)
-                         (string-join (map (λ (x) (format "~a = ~a" (car x) (cdr x))) (first x)) ", "))))))))
+     (for ([prog (in-port (curry read-fpcore "stdin") (current-input-port))])
+       (match-define (list 'FPCore (list vars ...) props* ... body) prog)
+       (define-values (_ props) (parse-properties props*))
+       (define exec-file (compile->js prog (test-file)))
+       (define timeout 0)
+       (define results
+         (for/list ([i (in-range (tests-to-run))])
+           (define ctx (for/list ([var vars])
+                         (cons var (sample-double))))
+           (define evaltor racket-double-evaluator)
+           (define out
+             (match ((eval-fuel-expr evaltor (fuel) 'timeout) body ctx)
+               [(? real? result)
+                (real->double-flonum result)]
+               [(? complex? result)
+                +nan.0]
+               ['timeout 'timeout]
+               [(? boolean? result) result]))
+           (when (equal? out 'timeout)
+             (set! timeout (+ timeout 1)))
+           (define out* (if (equal? out 'timeout) 'timeout (run<-js exec-file ctx)))
+           (list ctx out out*)))
+       (unless (null? results)
+         (printf "~a/~a: ~a~a\n" (count (λ (x) (=* (second x) (third x))) results) (length results)
+                 (dict-ref props ':name body) (match timeout
+                                                [0 ""]
+                                                [1 " (1 timeout)"]
+                                                [_ (format " (~a timeouts)" timeout)]))
+         (set! error (+ error (count (λ (x) (not (=* (second x) (third x)))) results)))
+         (for ([x (in-list results)] #:unless (=* (second x) (third x)))
+           (printf "\t~a ≠ ~a @ ~a\n" (second x) (third x)
+                   (string-join (map (λ (x) (format "~a = ~a" (car x) (cdr x))) (first x)) ", ")))))
      (exit error))))

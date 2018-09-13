@@ -66,8 +66,7 @@
      (dict-has-key? prop-hash prop)]
     [((? symbol?) (list values ...))
      (define prop (string->symbol (format ":~a" type)))
-     (and (dict-has-key? prop-hash prop)
-          (subset? (map ~a (set->list (dict-ref prop-hash prop))) values))]
+     (subset? (set-map (dict-ref prop-hash prop '()) ~a) values)]
     [('cites (list values ...))
      (subset? (map string->symbol values) (append-map set->list (dict-ref prop-hash ':cite '())))]
     [(_ _)

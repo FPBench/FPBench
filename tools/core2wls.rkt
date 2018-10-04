@@ -24,7 +24,7 @@
     (set-box! var-counter (+ counter 1))
     (string-append "LOOPVAR" (number->string counter))))
 
-(define (number->math x)
+(define (number->wls x)
   (match x
     [(or +inf.0 +inf.f) "Infinity"]
     [(or -inf.0 -inf.f) "(-Infinity)"]
@@ -39,7 +39,7 @@
              (format "~a" n)
              (format "(~a/~a)" n d)))]))
 
-(define (constant->math c)
+(define (constant->wls c)
   (match c
     ['E "E"]
     ['LOG2E "Log[2, E]"]
@@ -58,9 +58,9 @@
     ['FALSE "False"]
     ['INFINITY "Infinity"]
     ['NAN "Indeterminate"]
-    [_ (error 'constant->math "Unsupported constant ~a" c)]))
+    [_ (error 'constant->wls "Unsupported constant ~a" c)]))
 
-(define (operator->math op)
+(define (operator->wls op)
   (match op
     ['+ "(~a + ~a)"]
     ['- "(~a - ~a)"]
@@ -130,77 +130,77 @@
     ;['isnan "(~a === Indeterminate)"]
     ;['isnormal ""]
     ;['signbit "(Sign[~a] == -1)"]
-    [_ (error 'operator->math "Unsupported operator ~a" op)]))
+    [_ (error 'operator->wls "Unsupported operator ~a" op)]))
 
-(define (application->math operator args)
+(define (application->wls operator args)
   (match (cons operator args)
     [(list (or '< '> '<= '>= '== '!= 'and 'or) args ...)
-     (format (operator->math operator)
+     (format (operator->wls operator)
              (string-join
               (for/list ([a args]) (format "~a" a))
               ", "))]
     [(list '- a)
      (format "(-~a)" a)]
     [(list (? operator? op) args ...)
-     (apply format (operator->math op) args)]
-    [_ (error 'application->math "Unsupported application ~a ~a" operator args)]))
+     (apply format (operator->wls op) args)]
+    [_ (error 'application->wls "Unsupported application ~a ~a" operator args)]))
 
-(define (expr->math expr names)
+(define (expr->wls expr names)
   (match expr
     [`(if ,condition ,true-branch ,false-branch)
      (format "If[~a, ~a, ~a]"
-             (expr->math condition names)
-             (expr->math true-branch names)
-             (expr->math false-branch names))]
+             (expr->wls condition names)
+             (expr->wls true-branch names)
+             (expr->wls false-branch names))]
     [`(let ([,vars ,vals] ...) ,body)
      (format "With[{~a}, ~a]"
              (string-join
               (for/list ([var vars] [val vals])
                 (format "~a = ~a"
-                        (fix-name (symbol->string var) names) (expr->math val names)))
+                        (fix-name (symbol->string var) names) (expr->wls val names)))
               ", ")
-             (expr->math body names))]
+             (expr->wls body names))]
     [`(while ,condition ([,vars ,inits ,updates] ...) ,body)
      (let ([varnames (for/list ([var vars]) (fix-name (symbol->string var) names))]
            [loopvarnames (for/list ([var vars]) (loopvar-name))])
        (format "Block[{~a}, While[~a, With[{~a}, ~a]]; ~a]"
                (string-join
                 (for/list ([var varnames] [init-expr inits])
-                  (format "~a = ~a" var (expr->math init-expr names)))
+                  (format "~a = ~a" var (expr->wls init-expr names)))
                 ", ")
-               (expr->math condition names)
+               (expr->wls condition names)
                (string-join
                 (for/list ([loopvar loopvarnames] [update-expr updates))
-                  (format "~a = ~a" loopvar (expr->math update-expr names)))
+                  (format "~a = ~a" loopvar (expr->wls update-expr names)))
                 ", ")
                (string-join
                 (for/list ([var varnames] [loopvar loopvarnames])
                   (format "~a = ~a" var loopvar))
                 "; ")
-               (expr->math body names)))]
+               (expr->wls body names)))]
 
     ;; Ignore all casts and precision contexts
     [`(cast ,body)
-     (expr->math body names)]
+     (expr->wls body names)]
     [(list '! props ... body)
-     (expr->math body names)]
+     (expr->wls body names)]
 
     [(list (? operator? operator) args ...)
-     (application->math operator
+     (application->wls operator
                        (for/list ([arg args])
-                         (expr->math arg names)))]
+                         (expr->wls arg names)))]
     [(? constant?)
-     (constant->math expr)]
+     (constant->wls expr)]
     [(? symbol?)
      (fix-name (symbol->string expr) names)]
     [(? number?)
-     (number->math expr)]
+     (number->wls expr)]
     [(list 'digits (? number? m) (? number? e) (? number? b))
      (format "(~a * ~a ^ ~a)"
-             (number->math m)
-             (number->math e)
-             (number->math b))]
-    [_ (error 'expr->math "Unsupported expr ~a" expr)]))
+             (number->wls m)
+             (number->wls e)
+             (number->wls b))]
+    [_ (error 'expr->wls "Unsupported expr ~a" expr)]))
 
 (define (compile-program prog #:name name)
   (match-define (list 'FPCore (list args ...) props ... body) prog)
@@ -216,7 +216,7 @@
   (format "~a[~a] :=\n~a"
           progname
           (string-join argnames ", ")
-          (expr->math body names)))
+          (expr->wls body names)))
 
 (module+ main
   (require racket/cmdline)

@@ -19,6 +19,10 @@
               (set-box! var-counter (+ counter 1))
               (hash-set! names name uniquified)
               uniquified)))))
+(define (loopvar-name)
+  (let ([counter (unbox var-counter)])
+    (set-box! var-counter (+ counter 1))
+    (string-append "LOOPVAR" (number->string counter))))
 
 (define (number->math x)
   (match x
@@ -74,7 +78,7 @@
     ['pow "Power[~a, ~a]"]
     ['sqrt "Sqrt[~a]"]
     ['cbrt "Power[~a, 1/3]"]
-    ['hypot "Sqrt[~a^2 + ~a^2]"]
+    ['hypot "Sqrt[~a ^ 2 + ~a ^ 2]"]
     ['sin "Sin[~a]"]
     ['cos "Cos[~a]"]
     ['tan "Tan[~a]"]
@@ -148,7 +152,6 @@
              (expr->math condition names)
              (expr->math true-branch names)
              (expr->math false-branch names))]
-
     [`(let ([,vars ,vals] ...) ,body)
      (format "With[{~a}, ~a]"
              (string-join
@@ -158,7 +161,30 @@
               ", ")
              (expr->math body names))]
     [`(while ,condition ([,vars ,inits ,updates] ...) ,body)
-     (error 'expr->math "Loops not supported: ~a" expr)]
+     (let ([varnames (for/list ([var vars]) (fix-name (symbol->string var) names))]
+           [loopvarnames (for/list ([var vars]) (loopvar-name))])
+       (format "Block[{~a}, While[~a, With[{~a}, ~a]]; ~a]"
+               (string-join
+                (for/list ([var varnames] [init-expr inits])
+                  (format "~a = ~a" var (expr->math init-expr names)))
+                ", ")
+               (expr->math condition names)
+               (string-join
+                (for/list ([loopvar loopvarnames] [update-expr updates))
+                  (format "~a = ~a" loopvar (expr->math update-expr names)))
+                ", ")
+               (string-join
+                (for/list ([var varnames] [loopvar loopvarnames])
+                  (format "~a = ~a" var loopvar))
+                "; ")
+               (expr->math body names)))]
+
+    ;; Ignore all casts and precision contexts
+    [`(cast ,body)
+     (expr->math body names)]
+    [(list '! props ... body)
+     (expr->math body names)]
+
     [(list (? operator? operator) args ...)
      (application->math operator
                        (for/list ([arg args])
@@ -169,6 +195,11 @@
      (fix-name (symbol->string expr) names)]
     [(? number?)
      (number->math expr)]
+    [(list 'digits (? number? m) (? number? e) (? number? b))
+     (format "(~a * ~a ^ ~a)"
+             (number->math m)
+             (number->math e)
+             (number->math b))]
     [_ (error 'expr->math "Unsupported expr ~a" expr)]))
 
 (define (compile-program prog #:name name)

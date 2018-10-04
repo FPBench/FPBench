@@ -170,7 +170,7 @@
                 ", ")
                (expr->wls condition names)
                (string-join
-                (for/list ([loopvar loopvarnames] [update-expr updates))
+                (for/list ([loopvar loopvarnames] [update-expr updates])
                   (format "~a = ~a" loopvar (expr->wls update-expr names)))
                 ", ")
                (string-join

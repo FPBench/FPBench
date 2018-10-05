@@ -98,19 +98,19 @@
     ['lgamma "LogGamma[~a]"]
     ['ceil "Ceiling[~a]"]
     ['floor "Floor[~a]"]
-    ;; Mathematica's Mod[] function does not have the same
-    ;; behavior of either of these operations (as far as I
-    ;; can tell).
-    ;['fmod ""]
-    ;['remainder "(fp.rem ~a ~a)"]
+    ;; Both remainders have to be emulated
+    ['fmod "With[{TMP1 = ~a, TMP2 = ~a}, Mod[Abs[TMP1], Abs[TMP2]] * Sign[TMP1]]"]
+    ['remainder "With[{TMP1 = ~a, TMP2 = ~a}, TMP1 - Round[TMP1 / TMP2] * TMP2]"]
     ['fmax "Max[~a, ~a]"]
     ['fmin "Min[~a, ~a]"]
     ['fdim "Max[0, ~a - ~a]"]
-    ['copysign "(~a * Sign[~a])"]
+    ;; Sign[0] is 0, so we can't just multiply
+    ['copysign "With[{TMP1 = Abs[~a], TMP2 = Sign[~a]}, TMP1 * If[TMP2 == 0, 1, TMP2]]"]
     ;; Mathematica's Round[] rounds to even integers, like
-    ;; nearbyint with the rounding mode set to RNE.
-    ;['trunc ""]
-    ;['round ""]
+    ;; nearbyint with the rounding mode set to RNE. So we have to emulate
+    ;; the other rounding functions.
+    ['trunc "With[{TMP1 = ~a}, Floor[Abs[TMP1]] * Sign[TMP1]]"]
+    ['round "With[{TMP1 = ~a}, If[Abs[TMP1] - Floor[Abs[TMP1]] < 1/2, Floor[Abs[TMP1]] * Sign[TMP1], Ceil[Abs[TMP1]] * Sign[TMP1]]]"]
     ['nearbyint "Round[~a]"]
     ;; Comparisons and logical ops take one format argument,
     ;; which is a pre-concatenated string of inputs
@@ -124,12 +124,27 @@
     ['and "And[~a]"]
     ['or "Or[~a]"]
     ['not "Not[~a]"]
-    ;; These are a little complicated...
-    ;['isfinite ""]
-    ;['isinf ""]
-    ;['isnan "(~a === Indeterminate)"]
-    ;['isnormal ""]
-    ;['signbit "(Sign[~a] == -1)"]
+    ;; Arbitrary decision: simplify here, as the rest of the enclosing expression is just going
+    ;; to be boolean logic.
+    ;; Some notes:
+    ;;  - Abs[Simplify[x]] is not always the same as Simplify[Abs[x]]. In cases where division
+    ;;    by zero produces ComplexInfinity, which we probably ??? want to detect as isinf, the Abs[]
+    ;;    can be pushed through i.e. into the bottom of the division, resulting in the ComplexInfinity
+    ;;    escaping outside the Abs[].
+    ;;  - Indeterminate == Anything will be kept symbolic, so we have to use structural equality with ===
+    ;;    to check if something is Indeterminate. This might result in false negatives, where a quantity
+    ;;    that should have simplified to Indeterminate but hasn't yet, is not recognized as Indeterminate.
+    ;;  - Some comparisons may remain symbolic, which would then be carried through boolean logic and
+    ;;    produce a final result like Not[foo == 0] where foo is complicated.
+    ;;  - There are almost certainly bugs and inconsistencies in the behavior of these functions; it would
+    ;;    be highly unwise to build anything important that depends on them, though they will probably
+    ;;    work in most reasonable cases.
+    ['isinf "(Abs[Simplify[~a]] == Infinity)"]
+    ['isnan "(Simplify[~a] === Indeterminate)"]
+    ['isfinite "With[{TMP1 = Simplify[~a]}, Not[Or[Abs[TMP1] == Infinity, TMP1 === Indeterminate]]]"]
+    ['isnormal "With[{TMP1 = Simplify[~a]}, Not[Or[Abs[TMP1] == Infinity, TMP1 === Indeterminate, TMP1 == 0]]]"]
+    ;; This will not distinguish negative zero, which mostly makes sense for actual reals
+    ['signbit "(Sign[Simplify[~a]] == -1)"]
     [_ (error 'operator->wls "Unsupported operator ~a" op)]))
 
 (define (application->wls operator args)

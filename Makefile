@@ -11,7 +11,6 @@ test:
 	| racket infra/test-core2smtlib2.rkt
 ifneq (, $(shell which wolframscript))
 	cat benchmarks/*.fpcore | racket tools/filter.rkt precision binary32 binary64 \
-	| racket tools/filter.rkt --invert operators fmod remainder trunc round isfinite isinf isnan isnormal signbit \
 	| racket infra/test-core2wls.rkt
 endif
 

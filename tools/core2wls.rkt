@@ -1,7 +1,7 @@
 #lang racket
 
 (require "common.rkt" "fpcore.rkt")
-(provide compile-program)
+(provide compile-program number->wls)
 
 (define bad-chars (regexp "^[0-9]+|[^a-z0-9]+"))
 
@@ -9,7 +9,7 @@
 (define (fix-name name names)
   (if (hash-has-key? names name)
       (hash-ref names name)
-      (let ([shortened (regexp-replace bad-chars name "")])
+      (let ([shortened (regexp-replace* bad-chars name "")])
         (if (string=? name shortened)
             (begin
               (hash-set! names name name)

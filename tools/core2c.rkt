@@ -55,6 +55,13 @@
   [('binary32) "f"]
   [('binary80) "l"])
 
+(define/match (constant->c expr)
+  [('TRUE) "TRUE"]
+  [('FALSE) "FALSE"]
+  [('INFINITY) "INFINITY"]
+  [('NAN) "NAN"]
+  [(else) (format "M_~a" expr)])
+
 (define *names* (make-parameter (mutable-set)))
 
 (define (gensym name)
@@ -118,7 +125,7 @@
        (map (λ (arg) (expr->c arg #:names names #:type type #:indent indent)) args))
      (application->c type operator args_c)]
     [(? constant?)
-     (format "((~a) ~a)" (type->c type) expr)]
+     (format "((~a) ~a)" (type->c type) (constant->c expr))]
     [(? symbol?)
      (fix-name (dict-ref names expr expr))]
     [(? number?)

@@ -19,6 +19,7 @@
     [`(! ,props ... ,body)
      (operators-in body)]
     [(list op args ...) (cons op (append-map operators-in args))]
+    [(? constant?) (list expr)]
     [(? symbol?) '()]
     [(? number?) '()]))
 

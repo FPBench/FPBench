@@ -56,9 +56,9 @@
    'real]
   [('fma (list 'real 'real 'real)) 'real]
   [((or '< '> '<= '>= '== '!=) (list 'real ...)) 'boolean]
-  [((or 'isfinite 'isinf 'isnan 'isnormal 'signbit) 'real) 'boolean]
+  [((or 'isfinite 'isinf 'isnan 'isnormal 'signbit) (list 'real)) 'boolean]
   [((or 'and 'or) (list 'boolean ...)) 'boolean]
-  [('not (list 'boolean)) 'boolean] 
+  [('not (list 'boolean)) 'boolean]
   [(_ _) #f])
 
 (define/contract (check-expr stx ctx)
@@ -167,7 +167,7 @@
      (define body* (check-expr body ctx))
      (unless (equal? (cdr body*) 'real)
        (raise-syntax-error #f "FPCore benchmark must return a real number" body))
-     
+
      `(FPCore (,@annotated-args)
               ,@(apply append
                        (for/list ([(prop val) (in-dict properties*)])
@@ -264,17 +264,36 @@
     [acos acos] [atan atan] [atan2 atan] [sinh sinh] [cosh cosh]
     [tanh tanh] [asinh asinh] [acosh acosh] [atanh atanh]
     [erf erf] [erfc erfc] [tgamma gamma] [lgamma log-gamma]
-    [ceil ceiling] [floor floor] [trunc truncate] [round round]
+    [ceil ceiling] [floor floor] [trunc truncate]
     [fmax max] [fmin min]
-    [fdim (λ (x y) (abs (- x y)))]
     [< <] [> >] [<= <=] [>= >=] [== my=] [!= my!=]
     [and (λ (x y) (and x y))] [or (λ (x y) (or x y))] [not not]
     [isnan nan?] [isinf infinite?]
     [isfinite (λ (x) (not (or (nan? x) (infinite? x))))]
     [cast identity]
-    ; TODO: Currently unsupported
-    ;[fma '?] [expm1 '?] [log1p '?] [isnormal '?] [signbit '?]
-    ;[fmod '?] [remainder '?] [copysign '?] [nearbyint '?]
+    ;; fixed
+    [fdim (λ (x y) (if (> x y)
+                       (- x y)
+                       +0.0))]
+    ;; new
+    [signbit (lambda (x) (= (bigfloat-signbit (bf x)) 1))]
+    [copysign (lambda (x y) (if (= (bigfloat-signbit (bf y)) 1)
+                                (- (abs x))
+                                (abs x)))]
+    ;; TODO: previously implemented, but seem to be incorrect
+    [round round]
+    ;; TODO: known to be inaccurate or incorrect
+    [fma (lambda (a b c) (+ (* a b) c))]
+    [cbrt (lambda (x) (expt x 1/3))]
+    [expm1 (lambda (x) (- (exp x) 1.0))]
+    [log1p (lambda (x) (log (+ 1.0 x)))]
+    [isnormal (lambda (x) (not (or (nan? x) (infinite? x) (<= (abs x) 0.0))))]
+    ;; TODO: not known to be correct
+    [nearbyint round]
+    [fmod (lambda (x y) (let ([n (truncate (/ (abs x) (abs y)))])
+                          (* (- (abs x) (* (abs y) n)) (sgn x))))]
+    [remainder (lambda (x y) (let ([n (round (/ x y))])
+                               (- x (* y n))))]
     )))
 
 (define/contract racket-single-evaluator evaluator?

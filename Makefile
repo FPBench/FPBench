@@ -8,7 +8,7 @@ core2js_prec = binary64
 core2js_unsupported = "fma" "!=" "isfinite" "isnormal" "signbit" "exp2" "erf" "erfc" "tgamma" "lgamma" "fmod" "remainder" "fdim" "copysign" "nearbyint"
 
 core2smtlib2_prec = binary32 binary64
-core2smtlib2_unsupported = "while" "!=" "exp" "exp2" "expm1" "log" "log10" "log2" "log1p" "pow" "cbrt" "hypot" "sin" "cos" "tan" "asin" "acos" "atan" "atan2" "sinh" "cosh" "tanh" "asinh" "acosh" "atanh" "erf" "erfc" "tgamma" "lgamma" "ceil" "floor" "fmod" "fdim" "copysign" "isfinite" "LOG2E" "LOG10E" "1_PI" "2_PI" "2_SQRTPI"
+core2smtlib2_unsupported = "while" "!=" "exp" "exp2" "expm1" "log" "log10" "log2" "log1p" "pow" "cbrt" "hypot" "sin" "cos" "tan" "asin" "acos" "atan" "atan2" "sinh" "cosh" "tanh" "asinh" "acosh" "atanh" "erf" "erfc" "tgamma" "lgamma" "ceil" "floor" "fmod" "fdim" "copysign" "isfinite" "LOG2E" "LOG10E" "M_1_PI" "M_2_PI" "M_2_SQRTPI"
 
 core2wls_prec = binary32 binary64
 

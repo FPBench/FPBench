@@ -20,8 +20,8 @@
     [E (bfexp 1.bf)] [LOG2E (bf/ 1.bf log2.bf)]
     [LOG10E (bf/ 1.bf (bflog 10.bf))] [LN2 log2.bf] [LN10 (bflog 10.bf)]
     [PI pi.bf] [PI_2 (bf/ pi.bf 2.bf)] [PI_4 (bf/ pi.bf 4.bf)]
-    [1_PI (bf/ 1.bf pi.bf)] [2_PI (bf/ 2.bf pi.bf)]
-    [2_SQRTPI (bf/ 2.bf (bfsqrt pi.bf))] [SQRT2 (bfsqrt 2.bf)]
+    [M_1_PI (bf/ 1.bf pi.bf)] [M_2_PI (bf/ 2.bf pi.bf)]
+    [M_2_SQRTPI (bf/ 2.bf (bfsqrt pi.bf))] [SQRT2 (bfsqrt 2.bf)]
     [SQRT1_2 (bf/ 1.bf (bfsqrt 2.bf))] [NAN +nan.bf] [INFINITY +inf.bf]
     [TRUE #t] [FALSE #f])
    (table-fn

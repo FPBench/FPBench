@@ -51,26 +51,26 @@
 (FPCore
  ()
  :name
- "Test 1_PI (1/1)"
+ "Test M_1_PI (1/1)"
  :spec
  1.0
- (if (and (< 0.25 1_PI) (< 1_PI 0.5)) 1 0))
+ (if (and (< 0.25 M_1_PI) (< M_1_PI 0.5)) 1 0))
 
 (FPCore
  ()
  :name
- "Test 2_PI (1/1)"
+ "Test M_2_PI (1/1)"
  :spec
  1.0
- (if (and (< 0.5 2_PI) (< 2_PI 1.0)) 1 0))
+ (if (and (< 0.5 M_2_PI) (< M_2_PI 1.0)) 1 0))
 
 (FPCore
  ()
  :name
- "Test 2_SQRTPI (1/1)"
+ "Test M_2_SQRTPI (1/1)"
  :spec
  1.0
- (if (and (< 1.0 2_SQRTPI) (< 2_SQRTPI 2.0)) 1 0))
+ (if (and (< 1.0 M_2_SQRTPI) (< M_2_SQRTPI 2.0)) 1 0))
 
 (FPCore
  ()

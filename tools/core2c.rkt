@@ -56,11 +56,15 @@
   [('binary80) "l"])
 
 (define/match (constant->c expr)
-  [('TRUE) "TRUE"]
-  [('FALSE) "FALSE"]
-  [('INFINITY) "INFINITY"]
-  [('NAN) "NAN"]
+  [((or 'M_1_PI 'M_2_PI 'M_2_SQRTPI 'TRUE 'FALSE 'INFINITY 'NAN))
+   (format "~a" expr)]
   [(else) (format "M_~a" expr)])
+
+  ;; [('TRUE) "TRUE"]
+  ;; [('FALSE) "FALSE"]
+  ;; [('INFINITY) "INFINITY"]
+  ;; [('NAN) "NAN"]
+  ;; [(else) (format "M_~a" expr)])
 
 (define *names* (make-parameter (mutable-set)))
 

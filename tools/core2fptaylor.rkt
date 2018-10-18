@@ -23,9 +23,9 @@
     ['PI "4 * atan(1)"]
     ['PI_2 "2 * atan(1)"]
     ['PI_4 "atan(1)"]
-    ['1_PI "1 / (4 * atan(1))"]
-    ['2_PI "1 / (2 * atan(1))"]
-    ['2_SQRTPI "1 / sqrt(atan(1))"]
+    ['M_1_PI "1 / (4 * atan(1))"]
+    ['M_2_PI "1 / (2 * atan(1))"]
+    ['M_2_SQRTPI "1 / sqrt(atan(1))"]
     ['SQRT2 "sqrt(2)"]
     ['SQRT1_2 "1 / sqrt(2)"]
     [c (error 'constant->fptaylor "Unsupported constant ~a" c)]))

@@ -16,4 +16,4 @@ before_install:
   - unzip ${Z3_DISTRIB}.zip
   - export PATH="${RACKET_DIR}/bin:${PWD}/${Z3_DISTRIB}/bin:${PATH}"
 script:
-  - make test
+  - make sanity test

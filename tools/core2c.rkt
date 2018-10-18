@@ -60,12 +60,6 @@
    (format "~a" expr)]
   [(else) (format "M_~a" expr)])
 
-  ;; [('TRUE) "TRUE"]
-  ;; [('FALSE) "FALSE"]
-  ;; [('INFINITY) "INFINITY"]
-  ;; [('NAN) "NAN"]
-  ;; [(else) (format "M_~a" expr)])
-
 (define *names* (make-parameter (mutable-set)))
 
 (define (gensym name)

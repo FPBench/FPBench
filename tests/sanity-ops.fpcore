@@ -1,0 +1,210 @@
+(FPCore () :name "Test + (1/3)" :spec 1.0 (+ 0.0 1.0))
+
+(FPCore () :name "Test + (2/3)" :spec 2.0 (+ 1.0 1.0))
+
+(FPCore () :name "Test + (3/3)" :spec 0.0 (+ -1.0 1.0))
+
+(FPCore () :name "Test - (1/3)" :spec -1.0 (- 0.0 1.0))
+
+(FPCore () :name "Test - (2/3)" :spec 0.0 (- 1.0 1.0))
+
+(FPCore () :name "Test - (3/3)" :spec -2.0 (- -1.0 1.0))
+
+(FPCore () :name "Test * (1/3)" :spec 0.0 (* 0.0 1.0))
+
+(FPCore () :name "Test * (2/3)" :spec -2.0 (* 2.0 -1.0))
+
+(FPCore () :name "Test * (3/3)" :spec 4.0 (* 2.0 2.0))
+
+(FPCore () :name "Test / (1/3)" :spec 1.0 (/ 1.0 1.0))
+
+(FPCore () :name "Test / (2/3)" :spec -0.5 (/ -1.0 2.0))
+
+(FPCore () :name "Test / (3/3)" :spec -1.0 (/ 2.0 -2.0))
+
+(FPCore () :name "Test fabs (1/3)" :spec 0.0 (fabs 0.0))
+
+(FPCore () :name "Test fabs (2/3)" :spec 1.0 (fabs -1.0))
+
+(FPCore () :name "Test fabs (3/3)" :spec 1.0 (fabs 1.0))
+
+(FPCore () :name "Test fma (1/5)" :spec 0.0 (fma 0.0 1.0 0.0))
+
+(FPCore () :name "Test fma (2/5)" :spec 1.0 (fma 1.0 1.0 0.0))
+
+(FPCore () :name "Test fma (3/5)" :spec 0.0 (fma 1.0 -1.0 1.0))
+
+(FPCore () :name "Test fma (4/5)" :spec 2.0 (fma 1.0 1.0 1.0))
+
+(FPCore () :name "Test fma (5/5)" :spec -2.0 (fma -1.0 2.0 0.0))
+
+(FPCore () :name "Test exp (1/1)" :spec 1.0 (exp 0.0))
+
+(FPCore () :name "Test exp2 (1/4)" :spec 0.5 (exp2 -1.0))
+
+(FPCore () :name "Test exp2 (2/4)" :spec 1.0 (exp2 0.0))
+
+(FPCore () :name "Test exp2 (3/4)" :spec 2.0 (exp2 1.0))
+
+(FPCore () :name "Test exp2 (4/4)" :spec 4.0 (exp2 2.0))
+
+(FPCore () :name "Test expm1 (1/1)" :spec 0.0 (expm1 0.0))
+
+(FPCore () :name "Test log (1/1)" :spec 0.0 (log 1.0))
+
+(FPCore () :name "Test log10 (1/2)" :spec 0.0 (log10 1.0))
+
+(FPCore () :name "Test log10 (2/2)" :spec 1.0 (log10 10.0))
+
+(FPCore () :name "Test log2 (1/3)" :spec 0.0 (log2 1.0))
+
+(FPCore () :name "Test log2 (2/3)" :spec 1.0 (log2 2.0))
+
+(FPCore () :name "Test log2 (3/3)" :spec 2.0 (log2 4.0))
+
+(FPCore () :name "Test log1p (1/1)" :spec 0.0 (log1p 0.0))
+
+(FPCore () :name "Test pow (1/5)" :spec 0.0 (pow 0.0 1.0))
+
+(FPCore () :name "Test pow (2/5)" :spec 1.0 (pow 1.0 0.0))
+
+(FPCore () :name "Test pow (3/5)" :spec 1.0 (pow 1.0 1.0))
+
+(FPCore () :name "Test pow (4/5)" :spec 1.0 (pow 1.0 2.0))
+
+(FPCore () :name "Test pow (5/5)" :spec 4.0 (pow 2.0 2.0))
+
+(FPCore () :name "Test sqrt (1/3)" :spec 0.0 (sqrt 0.0))
+
+(FPCore () :name "Test sqrt (2/3)" :spec 1.0 (sqrt 1.0))
+
+(FPCore () :name "Test sqrt (3/3)" :spec 2.0 (sqrt 4.0))
+
+(FPCore () :name "Test cbrt (1/3)" :spec 0.0 (cbrt 0.0))
+
+(FPCore () :name "Test cbrt (2/3)" :spec 1.0 (cbrt 1.0))
+
+(FPCore () :name "Test cbrt (3/3)" :spec 2.0 (cbrt 8.0))
+
+(FPCore () :name "Test hypot (1/2)" :spec 0.0 (hypot 0.0 0.0))
+
+(FPCore () :name "Test hypot (2/2)" :spec 5.0 (hypot 3.0 4.0))
+
+(FPCore () :name "Test sin (1/1)" :spec 0.0 (sin 0.0))
+
+(FPCore () :name "Test cos (1/1)" :spec 1.0 (cos 0.0))
+
+(FPCore () :name "Test tan (1/1)" :spec 0.0 (tan 0.0))
+
+(FPCore () :name "Test asin (1/1)" :spec 0.0 (asin 0.0))
+
+(FPCore () :name "Test acos (1/1)" :spec 0.0 (acos 1.0))
+
+(FPCore () :name "Test atan (1/1)" :spec 0.0 (atan 0.0))
+
+(FPCore () :name "Test atan2 (1/1)" :spec 0.0 (atan2 0.0 1.0))
+
+(FPCore () :name "Test sinh (1/1)" :spec 0.0 (sinh 0.0))
+
+(FPCore () :name "Test cosh (1/1)" :spec 1.0 (cosh 0.0))
+
+(FPCore () :name "Test tanh (1/1)" :spec 0.0 (tanh 0.0))
+
+(FPCore () :name "Test asinh (1/1)" :spec 0.0 (asinh 0.0))
+
+(FPCore () :name "Test acosh (1/1)" :spec 0.0 (acosh 1.0))
+
+(FPCore () :name "Test atanh (1/1)" :spec 0.0 (atanh 0.0))
+
+(FPCore () :name "Test erf (1/1)" :spec 0.0 (erf 0.0))
+
+(FPCore () :name "Test erfc (1/1)" :spec 1.0 (erfc 0.0))
+
+(FPCore () :name "Test tgamma (1/3)" :spec 1.0 (tgamma 1.0))
+
+(FPCore () :name "Test tgamma (2/3)" :spec 1.0 (tgamma 2.0))
+
+(FPCore () :name "Test tgamma (3/3)" :spec 2.0 (tgamma 3.0))
+
+(FPCore () :name "Test lgamma (1/2)" :spec 0.0 (lgamma 1.0))
+
+(FPCore () :name "Test lgamma (2/2)" :spec 0.0 (lgamma 2.0))
+
+(FPCore () :name "Test ceil (1/4)" :spec 0.0 (ceil 0.0))
+
+(FPCore () :name "Test ceil (2/4)" :spec 1.0 (ceil 0.25))
+
+(FPCore () :name "Test ceil (3/4)" :spec 1.0 (ceil 0.75))
+
+(FPCore () :name "Test ceil (4/4)" :spec 1.0 (ceil 1.0))
+
+(FPCore () :name "Test floor (1/4)" :spec 0.0 (floor 0.0))
+
+(FPCore () :name "Test floor (2/4)" :spec 0.0 (floor 0.25))
+
+(FPCore () :name "Test floor (3/4)" :spec 0.0 (floor 0.75))
+
+(FPCore () :name "Test floor (4/4)" :spec 1.0 (floor 1.0))
+
+(FPCore () :name "Test fmod (1/3)" :spec 0.0 (fmod 1.0 1.0))
+
+(FPCore () :name "Test fmod (2/3)" :spec 0.25 (fmod 1.25 1.0))
+
+(FPCore () :name "Test fmod (3/3)" :spec 1.0 (fmod 3.0 2.0))
+
+(FPCore () :name "Test remainder (1/3)" :spec 0.0 (remainder 1 1))
+
+(FPCore () :name "Test remainder (2/3)" :spec 0.25 (remainder 1.25 1))
+
+(FPCore () :name "Test remainder (3/3)" :spec -1.0 (remainder 3 2))
+
+(FPCore () :name "Test fmax (1/3)" :spec 1.0 (fmax 1.0 0.0))
+
+(FPCore () :name "Test fmax (2/3)" :spec 0.0 (fmax -1.0 0.0))
+
+(FPCore () :name "Test fmax (3/3)" :spec 1.0 (fmax 1.0 -1.0))
+
+(FPCore () :name "Test fmin (1/3)" :spec 0.0 (fmin 1.0 0.0))
+
+(FPCore () :name "Test fmin (2/3)" :spec -1.0 (fmin -1.0 0.0))
+
+(FPCore () :name "Test fmin (3/3)" :spec -1.0 (fmin 1.0 -1.0))
+
+(FPCore () :name "Test fdim (1/3)" :spec 1.0 (fdim 2.0 1.0))
+
+(FPCore () :name "Test fdim (2/3)" :spec 0.0 (fdim 1.0 1.0))
+
+(FPCore () :name "Test fdim (3/3)" :spec 0.0 (fdim 1.0 2.0))
+
+(FPCore () :name "Test copysign (1/4)" :spec 1.0 (copysign 1.0 1.0))
+
+(FPCore () :name "Test copysign (2/4)" :spec 1.0 (copysign -1.0 1.0))
+
+(FPCore () :name "Test copysign (3/4)" :spec -1.0 (copysign 1.0 -1.0))
+
+(FPCore () :name "Test copysign (4/4)" :spec -1.0 (copysign -1.0 -1.0))
+
+(FPCore () :name "Test trunc (1/4)" :spec 0.0 (trunc 0.0))
+
+(FPCore () :name "Test trunc (2/4)" :spec 0.0 (trunc 0.25))
+
+(FPCore () :name "Test trunc (3/4)" :spec -0.0 (trunc -0.75))
+
+(FPCore () :name "Test trunc (4/4)" :spec 1.0 (trunc 1.0))
+
+(FPCore () :name "Test round (1/4)" :spec 0.0 (round 0.0))
+
+(FPCore () :name "Test round (2/4)" :spec 0.0 (round 0.25))
+
+(FPCore () :name "Test round (3/4)" :spec 1.0 (round 0.75))
+
+(FPCore () :name "Test round (4/4)" :spec 1.0 (round 1.0))
+
+(FPCore () :name "Test nearbyint (1/4)" :spec 0.0 (nearbyint 0.0))
+
+(FPCore () :name "Test nearbyint (2/4)" :spec 0.0 (nearbyint 0.25))
+
+(FPCore () :name "Test nearbyint (3/4)" :spec 1.0 (nearbyint 0.75))
+
+(FPCore () :name "Test nearbyint (4/4)" :spec 1.0 (nearbyint 1.0))
+

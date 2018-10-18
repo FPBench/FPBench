@@ -149,7 +149,7 @@
     ['and "(and ~a)"]
     ['or "(or ~a)"]
     ['not "(not ~a)"]
-    ['isfinite "(not (fp.isInfinite ~a))"]
+    ;['isfinite ""] ;; needs special logic to avoid computing inner expression twice
     ['isinf "(fp.isInfinite ~a)"]
     ['isnan "(fp.isNaN ~a)"]
     ['isnormal "(fp.isNormal ~a)"]

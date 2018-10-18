@@ -19,12 +19,14 @@
         (fprintf port "(define-const arg~a (_ FloatingPoint ~a ~a) ~a)\n"
                  i w p (number->smt value w p 'nearestEven)))
       (fprintf port "(check-sat)\n")
-      (fprintf port "(eval (f ~a))\n"
-               (string-join
-                (for/list ([i (in-range (length ctx))])
-                  (format "arg~a" i))
-                " "))))
-  test-file)
+      (if (= (length ctx) 0)
+          (fprintf port "(eval f)\n")
+          (fprintf port "(eval (f ~a))\n"
+                   (string-join
+                    (for/list ([i (in-range (length ctx))])
+                      (format "arg~a" i))
+                    " ")))))
+    test-file)
 
 (define (run<-smt exec-name #:type type)
   (let*

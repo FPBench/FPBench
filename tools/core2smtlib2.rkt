@@ -77,9 +77,9 @@
     ['PI (bf-constant pi.bf w p rm)]
     ['PI_2 (bf-constant (bf/ pi.bf 2.bf) w p rm)] ; ok since division by 2 is exact
     ['PI_4 (bf-constant (bf/ pi.bf 4.bf) w p rm)] ; ok since division by 4 is exact
-    ;['1_PI ""]
-    ;['2_PI ""]
-    ;['2_SQRTPI ""]
+    ;['M_1_PI ""]
+    ;['M_2_PI ""]
+    ;['M_2_SQRTPI ""]
     ['SQRT2 (bf-constant (bfsqrt 2.bf) w p rm)]
     ['SQRT1_2 (bf-constant (bfsqrt (bf/ 1.bf 2.bf)) w p rm)]
     ['TRUE "true"]
@@ -149,7 +149,7 @@
     ['and "(and ~a)"]
     ['or "(or ~a)"]
     ['not "(not ~a)"]
-    ['isfinite "(not (fp.isInfinite ~a))"]
+    ;['isfinite ""] ;; needs special logic to avoid computing inner expression twice
     ['isinf "(fp.isInfinite ~a)"]
     ['isnan "(fp.isNaN ~a)"]
     ['isnormal "(fp.isNormal ~a)"]

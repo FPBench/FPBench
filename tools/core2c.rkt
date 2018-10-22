@@ -55,6 +55,11 @@
   [('binary32) "f"]
   [('binary80) "l"])
 
+(define/match (constant->c expr)
+  [((or 'M_1_PI 'M_2_PI 'M_2_SQRTPI 'TRUE 'FALSE 'INFINITY 'NAN))
+   (format "~a" expr)]
+  [(else) (format "M_~a" expr)])
+
 (define *names* (make-parameter (mutable-set)))
 
 (define (gensym name)
@@ -118,7 +123,7 @@
        (map (λ (arg) (expr->c arg #:names names #:type type #:indent indent)) args))
      (application->c type operator args_c)]
     [(? constant?)
-     (format "((~a) ~a)" (type->c type) expr)]
+     (format "((~a) ~a)" (type->c type) (constant->c expr))]
     [(? symbol?)
      (fix-name (dict-ref names expr expr))]
     [(? number?)

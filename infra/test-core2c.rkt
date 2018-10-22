@@ -10,7 +10,7 @@
   (call-with-output-file test-file #:exists 'replace
     (λ (p)
       (define N (length (second prog)))
-      (fprintf p "#include <stdlib.h>\n#include <stdio.h>\n#include <math.h>\n\n~a\n\n" (compile-program prog #:name "f"))
+      (fprintf p "#include <stdlib.h>\n#include <stdio.h>\n#include <math.h>\n#define TRUE 1\n#define FALSE 0\n\n~a\n\n" (compile-program prog #:name "f"))
       (fprintf p "int main(int argc, char **argv) { ")
       (define strtox (match type ['binary64 "strtod"] ['binary32 "strtof"]))
       (fprintf p "printf(\"%.20g\", f(~a)); return 0; }\n"

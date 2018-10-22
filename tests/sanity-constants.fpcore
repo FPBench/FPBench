@@ -1,0 +1,90 @@
+(FPCore () :name "Test E (1/1)" :spec 1.0 (if (and (< 2.0 E) (< E 3.0)) 1 0))
+
+(FPCore
+ ()
+ :name
+ "Test LOG2E (1/1)"
+ :spec
+ 1.0
+ (if (and (< 1.0 LOG2E) (< LOG2E 2.0)) 1 0))
+
+(FPCore
+ ()
+ :name
+ "Test LOG10E (1/1)"
+ :spec
+ 1.0
+ (if (and (< 0.25 LOG10E) (< LOG10E 0.5)) 1 0))
+
+(FPCore
+ ()
+ :name
+ "Test LN2 (1/1)"
+ :spec
+ 1.0
+ (if (and (< 0.5 LN2) (< LN2 1.0)) 1 0))
+
+(FPCore
+ ()
+ :name
+ "Test PI (1/1)"
+ :spec
+ 1.0
+ (if (and (< 3.0 PI) (< PI 4.0)) 1 0))
+
+(FPCore
+ ()
+ :name
+ "Test PI_2 (1/1)"
+ :spec
+ 1.0
+ (if (and (< 1.0 PI_2) (< PI_2 2.0)) 1 0))
+
+(FPCore
+ ()
+ :name
+ "Test PI_4 (1/1)"
+ :spec
+ 1.0
+ (if (and (< 0.5 PI_4) (< PI_4 1.0)) 1 0))
+
+(FPCore
+ ()
+ :name
+ "Test M_1_PI (1/1)"
+ :spec
+ 1.0
+ (if (and (< 0.25 M_1_PI) (< M_1_PI 0.5)) 1 0))
+
+(FPCore
+ ()
+ :name
+ "Test M_2_PI (1/1)"
+ :spec
+ 1.0
+ (if (and (< 0.5 M_2_PI) (< M_2_PI 1.0)) 1 0))
+
+(FPCore
+ ()
+ :name
+ "Test M_2_SQRTPI (1/1)"
+ :spec
+ 1.0
+ (if (and (< 1.0 M_2_SQRTPI) (< M_2_SQRTPI 2.0)) 1 0))
+
+(FPCore
+ ()
+ :name
+ "Test SQRT2 (1/1)"
+ :spec
+ 1.0
+ (if (and (< 1.0 SQRT2) (< SQRT2 2.0)) 1 0))
+
+(FPCore
+ ()
+ :name
+ "Test SQRT1_2 (1/1)"
+ :spec
+ 1.0
+ (if (and (< 0.5 SQRT1_2) (< SQRT1_2 1.0)) 1 0))
+

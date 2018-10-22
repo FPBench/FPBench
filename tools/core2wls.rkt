@@ -49,9 +49,9 @@
     ['PI "Pi"]
     ['PI_2 "(Pi / 2)"]
     ['PI_4 "(Pi / 4)"]
-    ['1_PI "(1 / Pi)"]
-    ['2_PI "(2 / Pi)"]
-    ['2_SQRTPI "(2 / Sqrt[Pi])"]
+    ['M_1_PI "(1 / Pi)"]
+    ['M_2_PI "(2 / Pi)"]
+    ['M_2_SQRTPI "(2 / Sqrt[Pi])"]
     ['SQRT2 "Sqrt[2]"]
     ['SQRT1_2 "Sqrt[1 / 2]"]
     ['TRUE "True"]
@@ -110,7 +110,7 @@
     ;; nearbyint with the rounding mode set to RNE. So we have to emulate
     ;; the other rounding functions.
     ['trunc "With[{TMP1 = ~a}, Floor[Abs[TMP1]] * Sign[TMP1]]"]
-    ['round "With[{TMP1 = ~a}, If[Abs[TMP1] - Floor[Abs[TMP1]] < 1/2, Floor[Abs[TMP1]] * Sign[TMP1], Ceil[Abs[TMP1]] * Sign[TMP1]]]"]
+    ['round "With[{TMP1 = ~a}, If[Abs[TMP1] - Floor[Abs[TMP1]] < 1/2, Floor[Abs[TMP1]] * Sign[TMP1], Ceiling[Abs[TMP1]] * Sign[TMP1]]]"]
     ['nearbyint "Round[~a]"]
     ;; Comparisons and logical ops take one format argument,
     ;; which is a pre-concatenated string of inputs
@@ -139,7 +139,7 @@
     ;;  - There are almost certainly bugs and inconsistencies in the behavior of these functions; it would
     ;;    be highly unwise to build anything important that depends on them, though they will probably
     ;;    work in most reasonable cases.
-    ['isinf "(Abs[Simplify[~a]] == Infinity)"]
+    ['isinf "With[{TMP1 = Simplify[~a]}, And[Not[TMP1 === Indeterminate], Abs[TMP1] == Infinity]]"]
     ['isnan "(Simplify[~a] === Indeterminate)"]
     ['isfinite "With[{TMP1 = Simplify[~a]}, Not[Or[Abs[TMP1] == Infinity, TMP1 === Indeterminate]]]"]
     ['isnormal "With[{TMP1 = Simplify[~a]}, Not[Or[Abs[TMP1] == Infinity, TMP1 === Indeterminate, TMP1 == 0]]]"]

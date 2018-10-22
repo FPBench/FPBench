@@ -19,6 +19,7 @@
     [`(! ,props ... ,body)
      (operators-in body)]
     [(list op args ...) (cons op (append-map operators-in args))]
+    [(? constant?) (list expr)]
     [(? symbol?) '()]
     [(? number?) '()]))
 
@@ -61,6 +62,10 @@
      (set-member? (operators-in body) (string->symbol value))]
     [((or 'operators 'operations) (list ops ...))
      (subset? (operators-in body) (map string->symbol ops))]
+    [((or 'not-operators 'not-operations) (list ops ...))
+     (define body-ops (operators-in body))
+     (for/and ([op (map string->symbol ops)])
+       (not (set-member? body-ops op)))]
     [((? symbol?) (list))
      (define prop (string->symbol (format ":~a" type)))
      (dict-has-key? prop-hash prop)]

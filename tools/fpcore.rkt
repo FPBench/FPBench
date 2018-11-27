@@ -316,10 +316,7 @@
              ['binary64 (real->double-flonum val)]
              ['binary32 (real->single-flonum val)]))]
         [(? symbol?)
-         (cons var
-            (match base-precision
-             ['binary64 (real->double-flonum val)]
-             ['binary32 (real->single-flonum val)]))])))
+         (cons var val)])))
   (define evaltor (match base-precision
     ['binary64 racket-double-evaluator]
     ['binary32 racket-single-evaluator]))

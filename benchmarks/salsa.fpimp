@@ -79,7 +79,7 @@ Inputs: Measure `m`; gains `kp`, `ki`, `kd`; setpoint `c`"
  :name "Runge-Kutta 4"
  :description "Solve the differential equation `y' = (c - y)^2
 Inputs: Step size `h`; initial condition `y_n*`; paramter `c`"
- :cite (damouch-martel-chapoutot-fmics15)
+ :cite (damouche-martel-chapoutot-fmics15)
  :fpbench-domain mathematics
  :precision binary32
  :pre (and (< 0 y_n* 100) (< 10e-6 h 0.1) (< 50 c 200))

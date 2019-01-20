@@ -181,7 +181,7 @@
   (require racket/cmdline)
 
   (command-line
-   #:program "compile.rkt"
+   #:program "core2js.rkt"
    #:once-each
    ["--runtime" runtime_ "Library containing implementations of unsupported math functions"
     (*runtime* runtime_)]

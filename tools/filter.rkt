@@ -1,27 +1,28 @@
 #lang racket
 
 (require "common.rkt" "fpcore.rkt")
+(provide operators-in)
 
 (define/contract (operators-in expr)
   (-> expr? (listof symbol?))
 
-  (match expr
-    [`(while ,test ([,vars ,inits ,updates] ...) ,res)
-     (cons 'while
-           (append (operators-in test)
-                   (append-map operators-in inits)
-                   (append-map operators-in updates)
-                   (operators-in res)))]
-    [`(let ([,vars ,vals] ...) ,body)
-     (cons 'let (append (append-map operators-in vals) (operators-in body)))]
-    [`(if ,cond ,ift ,iff)
-     (cons 'if (append (operators-in cond) (operators-in ift) (operators-in iff)))]
-    [`(! ,props ... ,body)
-     (operators-in body)]
-    [(list op args ...) (cons op (append-map operators-in args))]
-    [(? constant?) (list expr)]
-    [(? symbol?) '()]
-    [(? number?) '()]))
+  (remove-duplicates
+   (match expr
+     [`(while ,test ([,vars ,inits ,updates] ...) ,res)
+      (cons 'while
+            (append (operators-in test)
+                    (append-map operators-in inits)
+                    (append-map operators-in updates)
+                    (operators-in res)))]
+     [`(let ([,vars ,vals] ...) ,body)
+      (cons 'let (append (append-map operators-in vals) (operators-in body)))]
+     [`(if ,cond ,ift ,iff)
+      (cons 'if (append (operators-in cond) (operators-in ift) (operators-in iff)))]
+     [`(! ,props ... ,body)
+      (operators-in body)]
+     [(list op args ...) (cons op (append-map operators-in args))]
+     [(? symbol?) '()]
+     [(? number?) '()])))
 
 (define property-hash? (hash/c symbol? (set/c any/c)))
 (define (property-hash-add! hash props)

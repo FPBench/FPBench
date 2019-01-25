@@ -3,6 +3,11 @@
 (require json)
 (require "common.rkt" "fpcore.rkt" "filter.rkt")
 
+(define (~pp value)
+  (let ([p (open-output-string)])
+    (pretty-print value p 1 #:newline? #f)
+    (get-output-string p)))
+
 (define/contract (core->json core)
   (-> fpcore? jsexpr?)
 
@@ -12,13 +17,14 @@
     (for/hash ([(prop value) (in-dict prop-dict)])
       (values prop
               (match prop
-                [':cite (map ~a value)]
-                [_ (~a value)]))))
+                [':cite (map ~pp value)]
+                [_ (if (string? value) value (~pp value))]))))
   (hash-set*
    prop-hash
-   'arguments (map ~a args)
-   'body (~a body)
-   'operators (map ~a (operators-in body))))
+   'arguments (map ~pp args)
+   'body (~pp body)
+   'operators (map ~pp (operators-in body))
+   'core (~pp core)))
 
 (module+ main
   (define padding-function #f)

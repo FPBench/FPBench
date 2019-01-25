@@ -9,9 +9,7 @@
   (let loop ([lines lines] [props '()])
     (match lines
       [(list (? property? prop) value rest ...)
-       (if (list? value)
-         (loop rest (cons (cons prop (list value)) props))
-         (loop rest (cons (cons prop value) props)))]
+       (loop rest (cons (cons prop value) props))]
       [(list _ ...)
        (values lines (reverse props))])))
 

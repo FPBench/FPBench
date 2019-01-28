@@ -2,7 +2,7 @@
 
 (require math/bigfloat)
 (require "common.rkt" "fpcore.rkt")
-(provide compile-program rm->smt number->smt)
+(provide core->smtlib2 rm->smt number->smt)
 
 ;; Extremely simple html-inspired escapes. The understanding is that the
 ;; only difference between symbols is that FPCore allows : in names,
@@ -210,7 +210,7 @@
      (number->smt expr w p rm)]
     [_ (error 'expr->smt "Unsupported expr ~a" expr)]))
 
-(define (compile-program prog #:name name)
+(define (core->smtlib2 prog #:name name)
   (match-define (list 'FPCore (list args ...) props ... body) prog)
   (define-values (_ properties) (parse-properties props))
   (define type (dict-ref properties ':precision 'binary64))
@@ -222,7 +222,7 @@
       ['binary32 (values 8 24)]
       ['binary64 (values 11 53)]
       ['binary128 (values 15 113)]
-      [_ (error 'compile-program "Unsupported precision type ~a" type)]))
+      [_ (error 'core->smtlib2 "Unsupported precision type ~a" type)]))
 
   (define arg-strings
     (for/list ([var args])
@@ -242,4 +242,4 @@
    #:args ()
    (port-count-lines! (current-input-port))
    (for ([expr (in-port (curry read-fpcore "stdin"))] [n (in-naturals)])
-     (printf "~a\n" (compile-program expr #:name (format "ex~a" n))))))
+     (printf "~a\n" (core->smtlib2 expr #:name (format "ex~a" n))))))

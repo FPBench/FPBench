@@ -1,7 +1,7 @@
 #lang racket
 
 (require "common.rkt" "fpcore.rkt" "fpcore-extra.rkt" "range-analysis.rkt")
-(provide compile-program)
+(provide core->fptaylor)
 
 (define (fix-name name)
   (string-join
@@ -150,7 +150,7 @@
             [(list (or '!= '== '< '> '<= '>=) (? number?) (? symbol?)) #f]
             [_ #t]) conjs))
 
-(define (compile-program prog
+(define (core->fptaylor prog
                          #:name [name "expr"]
                          #:precision [precision #f]
                          #:var-precision [var-precision #f] 
@@ -182,7 +182,7 @@
             [(and var-ranges (hash-has-key? var-ranges var)) (dict-ref var-ranges var)]
             [else (make-interval -inf.0 +inf.0)]))
         (unless (nonempty-bounded? range)
-          (error 'compile-program "Bad range for ~a in ~a (~a)" var name* range))
+          (error 'core->fptaylor "Bad range for ~a in ~a (~a)" var name* range))
         (match-define (interval l u) range)
         (format "~a~a ~a in [~a, ~a];" indent (type->fptaylor var-type) (fix-name var)
                 (format-number l) (format-number u))))
@@ -211,7 +211,7 @@
   (for ([prog (in-port (curry read-fpcore "test")
                        (open-input-file "../benchmarks/fptaylor-tests.fpcore"))])
     (define progs (fpcore-transform prog #:split-or #t))
-    (define results (map (curry compile-program #:name "test") progs))
+    (define results (map (curry core->fptaylor #:name "test") progs))
     (for ([r results])
       (printf "{\n~a}\n\n" r)))
 )
@@ -270,7 +270,7 @@
                                           #:split (split)
                                           #:subexprs (subexprs)
                                           #:split-or (split-or)))
-          (define results (map (curry compile-program
+          (define results (map (curry core->fptaylor
                                       #:name def-name
                                       #:precision (precision)
                                       #:var-precision (var-precision)

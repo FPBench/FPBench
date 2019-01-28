@@ -1,6 +1,6 @@
 #lang racket
 (require "common.rkt" "fpcore.rkt" "fpimp.rkt")
-(provide compile-program)
+(provide imp->core)
 
 (define canonicalize? (make-parameter false))
 (define substitute? (make-parameter false))
@@ -178,7 +178,7 @@
 
        (loop rest (append joined bindings))])))
 
-(define/contract (compile-program body)
+(define/contract (imp->core body)
   (-> fpimp? (listof fpcore?))
   (match-define `(FPImp (,variables ...) ,lines ... (output ,outexprs ...)) body)
   (define-values (statements properties) (parse-properties lines))
@@ -203,7 +203,7 @@
 (property compilation-valid
   ;; These properties aren't checked, but can be useful to write down
   (let ((x fpimp?))
-    (= (map racket-run-fpcore (compile-program x)) (racket-run-fpimp x))))
+    (= (map racket-run-fpcore (imp->core x)) (racket-run-fpimp x))))
 
 (define/contract (expr-reduce operator exprs)
   (-> operator? (listof expr?) expr?)
@@ -232,6 +232,6 @@
        ["mult" (curry expr-reduce '*)]))]
    #:args ()
    (for* ([prog (in-port read (current-input-port))]
-          [expr (compile-program prog)])
+          [expr (imp->core prog)])
      (pretty-print expr (current-output-port) 1)
      (newline))))

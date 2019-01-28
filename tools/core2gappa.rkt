@@ -1,7 +1,7 @@
 #lang racket
 
 (require "common.rkt" "fpcore.rkt" "fpcore-extra.rkt" "range-analysis.rkt")
-(provide compile-program)
+(provide core->gappa)
 
 (define (fix-name name)
   (string-join
@@ -138,7 +138,7 @@
     [(list (or '== '!=) args ...) expr]
     [_ (error 'remove-unsupported-inequalities "Unsupported operation ~a" expr)]))
 
-(define (compile-program prog
+(define (core->gappa prog
                          #:name [name "expr"]
                          #:precision [precision #f]
                          #:var-precision [var-precision #f]
@@ -236,7 +236,7 @@
   (for ([prog (in-port (curry read-fpcore "test")
                        (open-input-file "../benchmarks/fptaylor-tests.fpcore"))])
     (define progs (fpcore-transform prog #:split-or #t))
-    (define results (map (curry compile-program #:name "test") progs))
+    (define results (map (curry core->gappa #:name "test") progs))
     (for ([r results])
       (printf "~a\n\n" r)))
 )
@@ -292,7 +292,7 @@
                                           #:split (split)
                                           #:subexprs (subexprs)
                                           #:split-or (split-or)))
-          (define results (map (curry compile-program
+          (define results (map (curry core->gappa
                                       #:name def-name
                                       #:precision (precision)
                                       #:var-precision (var-precision)

@@ -1,7 +1,7 @@
 #lang racket
 
 (require "common.rkt" "fpcore.rkt")
-(provide compile-program)
+(provide core->scala)
 
 (define (fix-name name)
   (string-join
@@ -124,7 +124,7 @@
          (format "~a" (round expr))
          (format "~a" (real->double-flonum expr)))]))
 
-(define (compile-program prog index)
+(define (core->scala prog index)
   (match-define (list 'FPCore (list args ...) props ... body) prog)
   (define-values (_ properties) (parse-properties props))
 
@@ -179,5 +179,5 @@
      (when unroll
        (match-define (list 'FPCore (list args ...) props ... body) prog)
        (set! prog `(FPCore ,args ,@props ,(unroll-loops body unroll))))
-     (printf "~a\n" (compile-program prog n)))
+     (printf "~a\n" (core->scala prog n)))
    (printf "}\n")))

@@ -12,7 +12,7 @@
   (call-with-output-file test-file #:exists 'replace
     (λ (p)
        (define N (length (second prog)))
-       (fprintf p "~a\n\n" (compile-program prog #:name "f"))
+       (fprintf p "~a\n\n" (core->js prog #:name "f"))
        (fprintf p "console.log(f(~a));\n"
                 (string-join (for/list ([i (range N)])
                                (format "parseFloat(process.argv[~a])" (+ i 2)))

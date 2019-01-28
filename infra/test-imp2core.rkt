@@ -36,7 +36,7 @@
                (define evaltor (match type ['binary64 racket-double-evaluator] ['binary32 racket-single-evaluator]))
                (define out1 ((eval-fuel-stmt evaltor (fuel) 'timeout) body ctx))
                (define out2
-                 (for/list ([fpcore (compile-program prog)])
+                 (for/list ([fpcore (imp->core prog)])
                    (if (equal? out1 'timeout)
                        'timeout
                        ((eval-fuel-expr evaltor (fuel) 'timeout) (last fpcore) ctx))))

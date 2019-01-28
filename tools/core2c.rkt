@@ -1,7 +1,7 @@
 #lang racket
 
 (require "common.rkt" "fpcore.rkt")
-(provide compile-program)
+(provide core->c)
 
 (define (fix-name name)
   (string-join
@@ -129,7 +129,7 @@
     [(? number?)
      (format "~a~a" (real->double-flonum expr) (type->suffix type))]))
 
-(define (compile-program prog #:name name)
+(define (core->c prog #:name name)
   (match-define (list 'FPCore (list args ...) props ... body) prog)
   (define-values (_ properties) (parse-properties props))
   (define type (dict-ref properties ':precision 'binary64))
@@ -153,4 +153,4 @@
    (port-count-lines! (current-input-port))
    (printf "#include <math.h>\n#define TRUE 1\n#define FALSE 0\n\n")
    (for ([expr (in-port (curry read-fpcore "stdin"))] [n (in-naturals)])
-     (printf "~a\n" (compile-program expr #:name (format "ex~a" n))))))
+     (printf "~a\n" (core->c expr #:name (format "ex~a" n))))))

@@ -1,7 +1,7 @@
 #lang racket
 
 (require "common.rkt" "fpcore.rkt")
-(provide compile-program number->wls)
+(provide core->wls number->wls)
 
 (define bad-chars (regexp "^[0-9]+|[^a-z0-9]+"))
 
@@ -217,7 +217,7 @@
              (number->wls b))]
     [_ (error 'expr->wls "Unsupported expr ~a" expr)]))
 
-(define (compile-program prog #:name name)
+(define (core->wls prog #:name name)
   (match-define (list 'FPCore (list args ...) props ... body) prog)
 
   (define names (make-hash))
@@ -241,4 +241,4 @@
    #:args ()
    (port-count-lines! (current-input-port))
    (for ([expr (in-port (curry read-fpcore "stdin"))] [n (in-naturals)])
-     (printf "~a\n" (compile-program expr #:name (format "ex~a" n))))))
+     (printf "~a\n" (core->wls expr #:name (format "ex~a" n))))))

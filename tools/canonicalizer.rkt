@@ -2,7 +2,7 @@
 
 (require "common.rkt" "fpcore.rkt")
 (require racket/hash)
-(provide compile-program expr->canon)
+(provide canonicalize-core expr->canon)
 
 (define *to-canonicalize* (make-parameter '(:pre :spec)))
 (define *to-propagate* (make-parameter '(:precision :round :math-library)))
@@ -60,7 +60,7 @@
         arg
         (append (list '!) props (list arg))))))
 
-(define (compile-program prog #:name name)
+(define (canonicalize-core prog #:name name)
   (match-define (list 'FPCore (list args ...) props ... body) prog)
   (define-values (_ properties) (parse-properties props))
   (define propagate-properties (for/list ([prop properties]
@@ -122,4 +122,4 @@
 
   (port-count-lines! (current-input-port))
   (for ([expr (in-port (curry read-fpcore "stdin"))] [n (in-naturals)])
-    (pretty-write (compile-program expr #:name (format "ex~a" n)))))
+    (pretty-write (canonicalize-core expr #:name (format "ex~a" n)))))

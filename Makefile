@@ -22,7 +22,7 @@ sanity:
 
 	cat tests/sanity*.fpcore | $(FILTER) precision $(core2js_prec) \
 	| $(FILTER) not-operators $(core2js_unsupported_ops) \
-	| racket infra/test-core2js.rkt -o ./tmp.js --repeat 1
+	| racket infra/test-core2js.rkt --repeat 1
 
 	cat tests/sanity*.fpcore | $(FILTER) precision $(core2smtlib2_prec) \
 	| $(FILTER) not-operators $(core2smtlib2_unsupported_ops) \
@@ -44,7 +44,7 @@ test:
 
 	cat benchmarks/*.fpcore tests/test*.fpcore | $(FILTER) precision $(core2js_prec) \
 	| $(FILTER) not-operators $(core2js_unsupported_ops) $(known_inaccurate) \
-	| racket infra/test-core2js.rkt -o ./tmp.js --error 150
+	| racket infra/test-core2js.rkt --error 150
 
 	cat benchmarks/*.fpcore tests/test*.fpcore | $(FILTER) precision $(core2smtlib2_prec) \
 	| $(FILTER) not-operators $(core2smtlib2_unsupported_ops) $(known_inaccurate) \

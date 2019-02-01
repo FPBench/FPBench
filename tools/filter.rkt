@@ -1,7 +1,7 @@
 #lang racket
 
 (require "common.rkt" "fpcore.rkt")
-(provide operators-in)
+(provide operators-in constants-in)
 
 (define/contract (operators-in expr)
   (-> expr? (listof symbol?))
@@ -21,6 +21,27 @@
      [`(! ,props ... ,body)
       (operators-in body)]
      [(list op args ...) (cons op (append-map operators-in args))]
+     [(? symbol?) '()]
+     [(? number?) '()])))
+
+(define/contract (constants-in expr)
+  (-> expr? (listof symbol?))
+
+  (remove-duplicates
+   (match expr
+     [`(while ,test ([,vars ,inits ,updates] ...) ,res)
+            (append (constants-in test)
+                    (append-map constants-in inits)
+                    (append-map constants-in updates)
+                    (constants-in res))]
+     [`(let ([,vars ,vals] ...) ,body)
+      (append (append-map constants-in vals) (constants-in body))]
+     [`(if ,cond ,ift ,iff)
+      (append (constants-in cond) (constants-in ift) (constants-in iff))]
+     [`(! ,props ... ,body)
+      (constants-in body)]
+     [(list op args ...) (append-map constants-in args)]
+     [(? constant?) (list expr)]
      [(? symbol?) '()]
      [(? number?) '()])))
 
@@ -67,6 +88,16 @@
      (define body-ops (operators-in body))
      (for/and ([op (map string->symbol ops)])
        (not (set-member? body-ops op)))]
+
+    [('constant (list value))
+     (set-member? (constants-in body) (string->symbol value))]
+    [('constants (list ops ...))
+     (subset? (constants-in body) (map string->symbol ops))]
+    [('not-constants (list ops ...))
+     (define body-ops (constants-in body))
+     (for/and ([op (map string->symbol ops)])
+       (not (set-member? body-ops op)))]
+
     [((? symbol?) (list))
      (define prop (string->symbol (format ":~a" type)))
      (dict-has-key? prop-hash prop)]

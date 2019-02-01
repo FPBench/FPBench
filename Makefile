@@ -13,7 +13,7 @@ core2smtlib2_unsupported_consts = "LOG2E" "LOG10E" "M_1_PI" "M_2_PI" "M_2_SQRTPI
 
 core2wls_prec = binary32 binary64
 
-known_inaccurate = "expm1" "log10" "log2" "log1p" "cbrt" "sinh" "cosh" "tanh" "asinh" "acosh" "atanh" "erf" "erfc" "tgamma" "lgamma" "fmod" "remainder"
+known_inaccurate = "round" "isnormal" "fmod" "remainder"
 
 
 sanity:
@@ -40,7 +40,7 @@ test:
 
 	cat benchmarks/*.fpcore tests/test*.fpcore | $(FILTER) precision $(core2c_prec) \
 	| $(FILTER) not-operators $(known_inaccurate) \
-	| racket infra/test-core2c.rkt
+	| racket infra/test-core2c.rkt --error 3
 
 	cat benchmarks/*.fpcore tests/test*.fpcore | $(FILTER) precision $(core2js_prec) \
 	| $(FILTER) not-operators $(core2js_unsupported_ops) $(known_inaccurate) \

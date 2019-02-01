@@ -230,6 +230,32 @@
     (error 'eval-expr "Unimplemented operation ~a"
            unsupported-value)]))
 
+(define (compute-with-bf fn)
+  (lambda (arg)
+    (let-values ([(p bf->float)
+                  (cond
+                    [(single-flonum? arg) (values 24 (compose real->single-flonum bigfloat->real))]
+                    [(double-flonum? arg) (values 53 (compose real->double-flonum bigfloat->real))])])
+      (parameterize ([bf-precision p])
+        (bf->float (fn (bf arg)))))))
+
+(define (compute-with-bf-2 fn)
+  (lambda (arg1 arg2)
+    (let-values ([(p bf->float)
+                  (cond
+                    [(single-flonum? arg1) (values 24 (compose real->single-flonum bigfloat->real))]
+                    [(double-flonum? arg1) (values 53 (compose real->double-flonum bigfloat->real))])])
+      (parameterize ([bf-precision p])
+        (bf->float (fn (bf arg1) (bf arg2)))))))
+
+(define (compute-with-bf-fma arg1 arg2 arg3)
+  (let-values ([(p bf->float)
+                (cond
+                  [(single-flonum? arg1) (values 24 (compose real->single-flonum bigfloat->real))]
+                  [(double-flonum? arg1) (values 53 (compose real->double-flonum bigfloat->real))])])
+    (parameterize ([bf-precision (+ (* p 2) 1)])
+      (bf->float (bf+ (bf* (bf arg1) (bf arg2)) (bf arg3))))))
+
 (define (my!= #:cmp [cmp =] . args) (not (check-duplicates args cmp)))
 (define (my= #:cmp [cmp =] . args)
   (match args ['() true] [(cons hd tl) (andmap (curry cmp hd) tl)]))
@@ -256,42 +282,69 @@
     [TRUE #t] [FALSE #f])
    (table-fn
     [+ +] [- -] [* *] [/ /] [fabs abs]
-    [exp exp] [exp2 (λ (x) (expt 2.0 x))]
-    [log log] [log10 (λ (x) (/ (log x) (log 10.0)))]
-    [log2 (λ (x) (/ (log x) (log 2.0)))]
+    ;; probably more of these should use mpfr
+    [exp exp] [log log]
     [pow expt] [sqrt sqrt]
-    [hypot flhypot] [sin sin] [cos cos] [tan tan] [asin asin]
-    [acos acos] [atan atan] [atan2 atan] [sinh sinh] [cosh cosh]
-    [tanh tanh] [asinh asinh] [acosh acosh] [atanh atanh]
-    [erf erf] [erfc erfc] [tgamma gamma] [lgamma log-gamma]
+    [sin sin] [cos cos] [tan tan]
+    [asin asin] [acos acos] [atan atan] [atan2 atan]
     [ceil ceiling] [floor floor] [trunc truncate]
     [fmax max] [fmin min]
     [< <] [> >] [<= <=] [>= >=] [== my=] [!= my!=]
     [and (λ (x y) (and x y))] [or (λ (x y) (or x y))] [not not]
     [isnan nan?] [isinf infinite?]
-    [isfinite (λ (x) (not (or (nan? x) (infinite? x))))]
+    [nearbyint round]
     [cast identity]
-    ;; fixed
+
+    ;; emulate behavior
+    [isfinite (λ (x) (not (or (nan? x) (infinite? x))))]
     [fdim (λ (x y) (if (> x y)
                        (- x y)
                        +0.0))]
-    ;; new
-    [signbit (lambda (x) (= (bigfloat-signbit (bf x)) 1))]
-    [copysign (lambda (x y) (if (= (bigfloat-signbit (bf y)) 1)
-                                (- (abs x))
-                                (abs x)))]
-    ;; TODO: previously implemented, but seem to be incorrect
+    [signbit (λ (x) (= (bigfloat-signbit (bf x)) 1))]
+    [copysign (λ (x y) (if (= (bigfloat-signbit (bf y)) 1)
+                           (- (abs x))
+                           (abs x)))]
+
+    ;; use mpfr
+
+    ;[cbrt (lambda (x) (expt x 1/3))]
+    [cbrt (compute-with-bf bfcbrt)]
+    ;[exp2 (λ (x) (expt 2.0 x))]
+    [exp2 (compute-with-bf bfexp2)]
+    ;[expm1 (lambda (x) (- (exp x) 1.0))]
+    [expm1 (compute-with-bf bfexpm1)]
+    ;[log1p (lambda (x) (log (+ 1.0 x)))]
+    [log1p (compute-with-bf bflog1p)]
+    ;[log10 (λ (x) (/ (log x) (log 10.0)))]
+    [log10 (compute-with-bf bflog10)]
+    ;[log2 (λ (x) (/ (log x) (log 2.0)))]
+    [log2 (compute-with-bf bflog2)]
+
+    ;[fma (lambda (a b c) (+ (* a b) c))]
+    [fma compute-with-bf-fma]
+    ;[hypot flhypot]
+    [hypot (compute-with-bf-2 bfhypot)]
+
+    [sinh (compute-with-bf bfsinh)]
+    [cosh (compute-with-bf bfcosh)]
+    [tanh (compute-with-bf bftanh)]
+    [asinh (compute-with-bf bfasinh)]
+    [acosh (compute-with-bf bfacosh)]
+    [atanh (compute-with-bf bfatanh)]
+
+    [erf (compute-with-bf bferf)]
+    [erfc (compute-with-bf bferfc)]
+    [tgamma (compute-with-bf bfgamma)]
+    [lgamma (compute-with-bf bflog-gamma)]
+
+    ;; TODO: known to be incorrect
     [round round]
-    ;; TODO: known to be inaccurate or incorrect
-    [fma (lambda (a b c) (+ (* a b) c))]
-    [cbrt (lambda (x) (expt x 1/3))]
-    [expm1 (lambda (x) (- (exp x) 1.0))]
-    [log1p (lambda (x) (log (+ 1.0 x)))]
+
     [isnormal (lambda (x) (not (or (nan? x) (infinite? x) (<= (abs x) 0.0))))]
-    ;; TODO: not known to be correct
-    [nearbyint round]
+
     [fmod (lambda (x y) (let ([n (truncate (/ (abs x) (abs y)))])
                           (* (- (abs x) (* (abs y) n)) (sgn x))))]
+
     [remainder (lambda (x y) (let ([n (round (/ x y))])
                                (- x (* y n))))]
     )))

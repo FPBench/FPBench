@@ -1,10 +1,12 @@
 #lang racket
 
+(require math/flonum)
 (require "test-common.rkt" "../tools/common.rkt" "../tools/core2c.rkt" "../tools/fpcore.rkt")
 
 (define tests-to-run (make-parameter 10))
 (define test-file (make-parameter "/tmp/test.c"))
 (define fuel (make-parameter 100))
+(define ulps (make-parameter 0))
 
 (define (compile->c prog test-file #:type [type 'binary64])
   (call-with-output-file test-file #:exists 'replace
@@ -37,7 +39,14 @@
    (string->number out*)))
 
 (define (=* a b)
-  (or (equal? a b) (= a b) (and (nan? a) (nan? b))))
+  (match (list a b)
+    ['(timeout timeout) true]
+    [else
+     ;; test ranges (e1, e2) (e2, e1) to include negative inputs
+     (or (= a b)
+         (and (nan? a) (nan? b))
+         ;; can only use flonums-between for doubles...
+         (and (double-flonum? a) (double-flonum? b) (<= (abs (flonums-between a b)) (ulps))))]))
 
 (module+ main
   (command-line
@@ -47,6 +56,8 @@
     (fuel (string->number fuel_))]
    ["--repeat" repeat_ "Number of times to test each program"
     (tests-to-run (string->number repeat_))]
+   ["--error" ulps_ "Error, in ULPs, allowed for libc inaccuracies (probably use a value around 3)"
+    (ulps (string->number ulps_))]
    ["-o" name_ "Name for generated C file"
     (test-file name_)]
    #:args ()

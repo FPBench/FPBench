@@ -6,7 +6,7 @@ node_js:
 env:
   global:
     - RACKET_DIR=~/racket
-    - RACKET_VERSION="7.0"
+    - RACKET_VERSION="7.2"
     - Z3_VERSION="4.7.1"
     - Z3_DISTRIB="z3-4.7.1-x64-ubuntu-14.04"
 before_install:

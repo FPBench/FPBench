@@ -5,8 +5,14 @@
 
 (define (~pp value)
   (let ([p (open-output-string)])
+    (when (and (number? value) (number-round-trips? value))
+      (set! value (exact->inexact value)))
     (pretty-print value p 1 #:newline? #f)
     (get-output-string p)))
+
+(define (number-round-trips? n)
+   (parameterize ([read-decimal-as-inexact #f])
+     (= n (string->number (number->string (exact->inexact n))))))
 
 (define/contract (core->json core)
   (-> fpcore? jsexpr?)
@@ -18,6 +24,9 @@
       (values prop
               (match prop
                 [':cite (map ~pp value)]
+                [':example
+                 (for/hash ([(k v) (in-dict value)])
+                   (values k (~pp (car v))))]
                 [_ (if (string? value) value (~pp value))]))))
   (hash-set*
    prop-hash

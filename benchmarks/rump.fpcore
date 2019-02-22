@@ -1,0 +1,25 @@
+(FPCore (a b)
+ :name "Rump's example, with pow"
+
+ (+ (+ (+
+        (* 333.75 (pow b 6))
+        (* (pow a 2) (- (- (-
+                            (* (* 11 (pow a 2)) (pow b 2))
+                            (pow b 6))
+                           (* 121 (pow b 4)))
+                        2)))
+       (* 5.5 (pow b 8)))
+    (/ a (* 2 b))))
+
+(FPCore (a b)
+ :name "Rump's example, from C program"
+
+ (let ([b2 (* b b)])
+   (let ([b4 (* b2 b2)])
+     (let ([b6 (* b4 b2)]
+           [b8 (* b4 b4)]
+           [a2 (* a a)])
+       ;; 11*a2*b2 - b6 - 121*b4 - 2
+       (let ([firstexpr (- (- (- (* (* 11 a2) b2) b6) (* 121 b4)) 2)])
+         ;; 333.75*b6 + a2 * firstexpr + 5.5*b8 + (a/(2.0*b))
+         (+ (+ (+ (* 333.75 b6) (* a2 firstexpr)) (* 5.5 b8)) (/ a (* 2 b))))))))

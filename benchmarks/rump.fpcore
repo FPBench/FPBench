@@ -1,5 +1,6 @@
 (FPCore (a b)
  :name "Rump's example, with pow"
+ :example ([a 77617] [b 33096])
 
  (+ (+ (+
         (* 333.75 (pow b 6))
@@ -13,6 +14,7 @@
 
 (FPCore (a b)
  :name "Rump's example, from C program"
+ :example ([a 77617] [b 33096])
 
  (let ([b2 (* b b)])
    (let ([b4 (* b2 b2)])

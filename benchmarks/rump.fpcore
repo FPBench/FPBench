@@ -25,3 +25,17 @@
        (let ([firstexpr (- (- (- (* (* 11 a2) b2) b6) (* 121 b4)) 2)])
          ;; 333.75*b6 + a2 * firstexpr + 5.5*b8 + (a/(2.0*b))
          (+ (+ (+ (* 333.75 b6) (* a2 firstexpr)) (* 5.5 b8)) (/ a (* 2 b))))))))
+
+(FPCore (a b)
+ :name "Rump's example revisited for floating point"
+ :example ([a 77617] [b 33096])
+
+ (let ([b2 (* b b)])
+   (let ([b4 (* b2 b2)])
+     (let ([b6 (* b4 b2)]
+           [b8 (* b4 b4)]
+           [a2 (* a a)])
+       ;; 11*a2*b2 - 121*b4 - 2
+       (let ([firstexpr (- (- (* (* 11 a2) b2) (* 121 b4)) 2)])
+         ;; (333.75-a^2)*b6 + a2 * firstexpr + 5.5*b8 + (a/(2.0*b))
+         (+ (+ (+ (* (- 333.75 a2) b6) (* a2 firstexpr)) (* 5.5 b8)) (/ a (* 2 b))))))))

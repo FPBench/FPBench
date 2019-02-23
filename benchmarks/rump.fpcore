@@ -29,6 +29,7 @@
 (FPCore (a b)
  :name "Rump's example revisited for floating point"
  :example ([a 77617] [b 33096])
+ :cite (rump-revisited-2002)
 
  (let ([b2 (* b b)])
    (let ([b4 (* b2 b2)])

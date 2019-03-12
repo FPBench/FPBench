@@ -1,7 +1,8 @@
 #lang racket
 
 (require "common.rkt" "fpcore.rkt")
-(provide (struct-out interval) make-interval nonempty-bounded? condition->range-table)
+(provide (struct-out interval) make-interval nonempty-bounded?
+         condition->range-table range-table-ref)
 
 ;; Range analysis is based on https://github.com/uwplse/herbie/blob/master/src/range-analysis.rkt
 
@@ -160,6 +161,11 @@
     [`(not ,cond1) (range-table-invert (condition->range-table cond1))]
     [_
      (make-empty-range-table)]))
+ 
+(define (range-table-ref rt x)
+  (if rt
+      (hash-ref rt x (list (interval -inf.0 +inf.0 #f #f)))
+      '()))
 
 (define (get-all-equal-value lst)
   (let ([nums (filter number? lst)])

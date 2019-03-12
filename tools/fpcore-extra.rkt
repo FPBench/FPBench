@@ -299,7 +299,7 @@
                  (define properties* (dict-set* properties ':pre pre* ':name name*))
                  `((FPCore ,args ,@(unparse-properties properties*) ,body))]
                 [else
-                 (match-define (cons var (interval a b)) (car vars))
+                 (match-define (cons var (interval a b #t #t)) (car vars))
                  (define step (/ (- b a) splits))
                  (for/fold [(progs '())] [(i (in-range splits))]
                    (define new-pre `(<= ,(+ a (* i step)) ,var ,(+ a (* (+ i 1) step))))

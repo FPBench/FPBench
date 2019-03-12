@@ -183,7 +183,7 @@
             [else (make-interval -inf.0 +inf.0)]))
         (unless (nonempty-bounded? range)
           (error 'core->fptaylor "Bad range for ~a in ~a (~a)" var name* range))
-        (match-define (interval l u) range)
+        (match-define (interval l u l? u?) range)
         (format "~a~a ~a in [~a, ~a];" indent (type->fptaylor var-type) (fix-name var)
                 (format-number l) (format-number u))))
     ; Other constraints

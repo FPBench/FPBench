@@ -161,11 +161,6 @@
     [`(not ,cond1) (range-table-invert (condition->range-table cond1))]
     [_
      (make-empty-range-table)]))
- 
-(define (range-table-ref rt x)
-  (if rt
-      (hash-ref rt x (list (interval -inf.0 +inf.0 #f #f)))
-      '()))
 
 (define (get-all-equal-value lst)
   (let ([nums (filter number? lst)])

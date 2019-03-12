@@ -9,7 +9,7 @@
         ("Exponents" . (exp expm1 exp2 expm1 pow log log10 log2 log1p))
         ("Trigonometry" . (sin cos tan cotan asin acos atan atan2))
         ("Special functions" . (erf erfc tgamma lgamma cbrt))
-        ("Rounding" . (ceil floor trunc round nearbyint))
+        ("Rounding" . (ceil floor trunc round nearbyint cast))
         ("Remainder" . (fmod remainder))
         ("Hyperbolic" . (sinh cosh tanh asinh acosh atanh))
         ("Conditionals" . (if))

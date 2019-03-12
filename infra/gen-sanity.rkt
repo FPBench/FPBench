@@ -111,10 +111,10 @@
     ))
 
 
-(number-suite->tests sanity-numbers '() "tests/sanity-numbers.fpcore")
-(constant-suite->tests sanity-constants '() "tests/sanity-constants.fpcore")
-(op-suite->tests sanity-ops '() "tests/sanity-ops.fpcore")
-(bool-op-suite->tests sanity-bool-ops '() "tests/sanity-bool-ops.fpcore")
+(number-suite->tests sanity-numbers '() "../tests/sanity-numbers.fpcore")
+(constant-suite->tests sanity-constants '() "../tests/sanity-constants.fpcore")
+(op-suite->tests sanity-ops '() "../tests/sanity-ops.fpcore")
+(bool-op-suite->tests sanity-bool-ops '() "../tests/sanity-bool-ops.fpcore")
 
-(op-suite->arg-tests sanity-ops '() "tests/test-ops.fpcore")
-(bool-op-suite->arg-tests sanity-bool-ops '() "tests/test-bool-ops.fpcore")
+(op-suite->arg-tests sanity-ops '() "../tests/test-ops.fpcore")
+(bool-op-suite->arg-tests sanity-bool-ops '() "../tests/test-bool-ops.fpcore")

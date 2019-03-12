@@ -215,7 +215,7 @@
      (define new-range-table (make-hash))
      (for ([key1 (hash-keys table1)])
        (if (hash-has-key? table2 key1)
-           (hash-set! new-range-table key1 (interval-intersect (hash-ref table1 key1) (hash-ref table2 key1)))
+           (hash-set! new-range-table key1 (intervals-intersect (hash-ref table1 key1) (hash-ref table2 key1)))
            (hash-set! new-range-table key1 (hash-ref table1 key1))))
      (for ([key2 (hash-keys table2)] #:unless (hash-has-key? new-range-table key2))
        (hash-set! new-range-table key2 (hash-ref table2 key2)))
@@ -237,7 +237,7 @@
     [else
      (define new-range-table (make-hash))
      (for ([key1 (hash-keys table1)] #:when (hash-has-key? table2 key1))
-       (hash-set! new-range-table key1 (interval-union (hash-ref table1 key1) (hash-ref table2 key1))))
+       (hash-set! new-range-table key1 (intervals-union (hash-ref table1 key1) (hash-ref table2 key1))))
      new-range-table]))
 
 (module+ test

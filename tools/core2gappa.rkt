@@ -203,11 +203,13 @@
                 (cond
                   [(and var-ranges (hash-has-key? var-ranges var)) (dict-ref var-ranges var)]
                   [else (make-interval -inf.0 +inf.0)]))
+              (unless (= (length range) 1)
+                (error 'core->gappa "Gappa only accpets one sampling range"))
               (if (nonempty-bounded? range)
                   (format "~a in [~a, ~a]" (fix-name (dict-ref real-vars var))
                           ; Round down and up if necessary
-                          (format-number (interval-l range) #:direction 'down)
-                          (format-number (interval-u range) #:direction 'up))
+                          (format-number (interval-l (car range)) #:direction 'down)
+                          (format-number (interval-u (car range)) #:direction 'up))
                   "")))
 
           ; Combine preconditions and ranges

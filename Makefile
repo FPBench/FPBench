@@ -36,6 +36,7 @@ endif
 
 
 test:
+	raco test .
 	racket infra/test-imp2core.rkt benchmarks/*.fpimp
 
 	cat benchmarks/*.fpcore tests/test*.fpcore | $(FILTER) precision $(core2c_prec) \

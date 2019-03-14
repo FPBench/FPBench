@@ -32,6 +32,7 @@
 
 (define (nonempty-bounded? intvl)
   (match intvl
+    [(list intvls ...) (for/or ([i intvls]) (nonempty-bounded? i))]
     [(interval l u l? u?) (and (rational? l) (rational? u) (<= l u))]
     [else #f]))
 

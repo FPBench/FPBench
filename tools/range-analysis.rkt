@@ -191,7 +191,9 @@
   #f)
 
 (define (range-table-ref rt x)
-  (and rt (hash-ref rt x (interval -inf.0 +inf.0 #f #f))))
+  (if rt
+      (hash-ref rt x (list (interval -inf.0 +inf.0 #f #f)))
+      '()))
 
 (module+ test
   (define rt-x1 (make-range-table 'x (interval 1 3 #t #t)))
@@ -249,7 +251,7 @@
   (cond
     [(and table (= (count identity (hash-values table)) 1))
      (match-define (list (cons var itvl)) (filter cdr (hash->list table)))
-     (make-range-table var (interval-invert itvl))]
+     (apply make-range-table var (intervals-invert itvl))]
     [else
      (make-empty-range-table)]))
 
@@ -278,18 +280,30 @@
          (make-null-range-table))]
     ['TRUE (make-empty-range-table)]
     ['FALSE (make-null-range-table)]
-    [`(== ,(? symbol? var) ,(? number? num))
-     (make-range-table var (make-interval num num))]
-    [(list (or '< '<=) (? symbol? var) (? number? num))
-     (make-range-table var (make-interval -inf.0 num))]
-    [`(,(or '< '<= '==) (fabs ,(? symbol? var)) ,(? number? num))
-     (make-range-table var (make-interval (- num) num))]
-    [`(,(or '> '>=) ,(? symbol? var) ,(? number? num))
-     (make-range-table var (make-interval num +inf.0))]
-    [`(,(or '> '>=) (fabs ,(? symbol? var)) ,(? number? num))
-     (make-empty-range-table)]
+    [`(== ,(? variable? var) ,(? number? num))
+     (make-range-table var (make-interval num num #t #t))]
+    [`(< ,(? variable? var) ,(? number? num))
+     (make-range-table var (make-interval -inf.0 num #f #f))]
+    [`(< (fabs ,(? variable? var)) ,(? number? num))
+     (make-range-table var (make-interval (- num) num #f #f))]
+    [`(<= ,(? variable? var) ,(? number? num))
+     (make-range-table var (make-interval -inf.0 num #f #t))]
+    [`(<= (fabs ,(? variable? var)) ,(? number? num))
+     (make-range-table var (make-interval (- num) num #t #t))]
+    [`(== (fabs ,(? variable? var)) ,(? number? num))
+     (make-range-table var (make-interval (- num) (- num) #t #t) (make-interval num num #t #t))]
+    [`(> ,(? variable? var) ,(? number? num))
+     (make-range-table var (make-interval num +inf.0 #f #f))]
+    [`(> (fabs ,(? variable? var)) ,(? number? num))
+     (make-range-table var (make-interval num +inf.0 #f #f) (make-interval -inf.0 (- num) #f #f))]
+    [`(>= ,(? variable? var) ,(? number? num))
+     (make-range-table var (make-interval num +inf.0 #t #f))]
+    [`(>= (fabs ,(? variable? var)) ,(? number? num))
+     (make-range-table var (make-interval num +inf.0 #t #f) (make-interval -inf.0 (- num) #f #t))]
     [(list (and (or '< '<= '== '>= '>) cmp) (? number? num) var) ; don't check for variable? here b/c fabs
      (condition->range-table (list (flip-cmp cmp) var num))]
+    [(list (and (or '< '<= '== '>= '>) cmp) _ _) ; handle case of complex expressions
+     (make-empty-range-table)]
     [(list (and (or '< '<= '> '>=) cmp) exprs ...)
      (if (not (equal? (filter number? exprs) (sort (filter number? exprs) (parse-cmp cmp))))
        #f
@@ -299,7 +313,7 @@
          (foldl range-table-intersect
                 (make-empty-range-table)
                 (for/list ([left from-left] [expr exprs] [right from-right]
-                          #:when (symbol? expr) #:unless (number? expr))
+                          #:unless (number? expr))
                   (range-table-intersect
                    (if left
                        (condition->range-table (list cmp left expr))
@@ -312,10 +326,12 @@
      (if num
          (foldl range-table-intersect
                 (make-empty-range-table)
-                (map (lambda (x) (make-range-table x (make-interval num num)))
-                     (filter symbol? exprs)))
+                (map (lambda (x) (make-range-table x (make-interval num num #t #t)))
+                     (filter variable? exprs)))
          (make-null-range-table))]
-
+    [(list '!= expr1 expr2) ; == and != are not inverses for more than two arguments
+     (range-table-invert (condition->range-table `(== ,expr1 ,expr2)))]
+     
     [`(and ,conds ...)
      (foldl range-table-intersect (make-empty-range-table) (map condition->range-table conds))]
     [`(or ,conds ...)

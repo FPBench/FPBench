@@ -5,11 +5,19 @@ node_js:
   - "10.15.1"
 env:
   global:
+    - FPLLL_VERSION="5.2.1"
+    - SOLLYA_VERSION="sollya-7.0"
     - RACKET_DIR=~/racket
     - RACKET_VERSION="7.2"
     - Z3_VERSION="4.7.1"
     - Z3_DISTRIB="z3-4.7.1-x64-ubuntu-14.04"
 before_install:
+  - sudo apt-get install -y gcc g++ gnuplot libgmp-dev libmpfr-dev libmpfi-dev libxml2-dev libtool autoconf automake flex bison
+  - git clone https://github.com/fplll/fplll.git ../fplll
+  - (cd ../fplll && git checkout ${FPLLL_VERSION} && ./autogen.sh && ./configure && make && sudo make install && sudo ldconfig)
+  - git clone https://scm.gforge.inria.fr/anonscm/git/sollya/sollya.git ../sollya
+  - (cd ../sollya && git checkout ${SOLLYA_VERSION} && ./autogen.sh && ./configure && make && sudo make install && sudo ldconfig)
+  - which sollya
   - git clone https://github.com/greghendershott/travis-racket.git ../travis-racket
   - cat ../travis-racket/install-racket.sh | bash
   - curl -L -O https://github.com/Z3Prover/z3/releases/download/z3-${Z3_VERSION}/${Z3_DISTRIB}.zip

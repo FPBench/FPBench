@@ -181,8 +181,12 @@
       (match var
         [(list '! props ... name) (format "~a" (fix-name name))]
         [name (format "~a" (fix-name name))])))
+
+  ;; put defaults of binary64 precision and round nearestEven first,
+  ;; so that if other values are given explicitly in props,
+  ;; they will overwrite these
   (define ctx
-    (apply hash-set* #hash() props))
+    (apply hash-set* #hash() (append '(:precision binary64 :round nearestEven) props)))
 
   (define arg-rounding
     (filter (compose not void?)

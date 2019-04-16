@@ -12,7 +12,7 @@ core2smtlib2_unsupported_ops = "while" "!=" "exp" "exp2" "expm1" "log" "log10" "
 core2smtlib2_unsupported_consts = "LOG2E" "LOG10E" "M_1_PI" "M_2_PI" "M_2_SQRTPI"
 
 core2sollya_prec = binary32 binary64
-core2sollya_unsupported_ops = "isinf" "isnan" "isfinite" "isnormal" "signbit" "fabs" "fma" "exp2" "cbrt" "hypot" "atan2" "tgamma" "lgamma" "fmod" "remainder" "fmax" "fmin" "fdim" "copysign" "trunc" "round" "nearbyint"
+core2sollya_unsupported_ops = "isnormal" "tgamma" "lgamma" "remainder" "fmod" "round" "cbrt" "atan2"
 
 core2wls_prec = binary32 binary64
 

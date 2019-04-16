@@ -36,9 +36,13 @@
 
 (define (run<-sollya exec-name #:type type)
   (let
-      ([out (string-trim (with-output-to-string
-                           (lambda ()
-                             (system (format "sollya ~a" exec-name)))))])
+      ([out (last
+             (string-split
+              (string-trim
+               (with-output-to-string
+                 (lambda ()
+                   (system (format "sollya ~a" exec-name)))))
+              "\n"))])
     (cond
       [(regexp-match #rx"(?i:error)" out)
        (begin

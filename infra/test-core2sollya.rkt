@@ -15,12 +15,10 @@
                (string-join
                 (for/list ([arg ctx])
                   (match-define (cons var value) arg)
-                  (format "~a" (cond
-                                 [(nan? value) "nan"]
-                                 [(infinite? value) (if (>= value 0)
-                                                        "infty"
-                                                        "-infty")]
-                                 [else (inexact->exact value)])))
+                  (cond
+                    [(nan? value) "nan"]
+                    [(infinite? value) (if (>= value 0) "infty" "-infty")]
+                    [else (format "~a" (inexact->exact value))]))
                 ", "))))
   test-file)
 

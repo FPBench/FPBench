@@ -21,12 +21,10 @@
   (cond 
     [(list? expr)
      (match-define (list op args ...) expr)
-     (if (eq? op '!)
-       (count-common-subexpr (last args))
-       (let ([cs-hash (make-hash (list (cons expr #f)))])
-         (for ([e args])
-           (combine-common-subexpr-hash cs-hash (count-common-subexpr e)))
-         cs-hash))]
+     (let ([cs-hash (make-hash (list (cons expr #f)))])
+       (for ([e args])
+         (combine-common-subexpr-hash cs-hash (count-common-subexpr e)))
+       cs-hash)]
     [else (make-hash)]))
 
 (define (common-subexpr-elim cs-hash expr)
@@ -37,24 +35,20 @@
     (cond
       [(list? expr)
        (match-define (list op args ...) expr)
-       (if (eq? op '!)
-         (list op (take args (sub1 (length args)))
-                  (common-subexpr-body (last args)))
-         ;; returns #f if subexpr doesn't appear more than once
-         (let ([elimed-exprs (for/list ([arg args])
-                               (common-subexpr-body arg))])
-           (if (hash-ref cs-hash expr #f)
-             (if (hash-has-key? name-hash expr)
-               (hash-ref name-hash expr)
-               (let* ([expr-name (string->symbol
-                                   (format "i~a" (hash-count name-hash)))]
-                      [fixed-expr (cons op elimed-exprs)])
-                 (hash-set! name-hash expr expr-name)
-                 (set! intermediates (cons (list expr-name fixed-expr)
-                                           intermediates))
-                 expr-name))
-             `(,op ,@(for/list ([arg args])
-                       (common-subexpr-body arg))))))]
+       (let ([elimed-exprs (for/list ([arg args])
+                             (common-subexpr-body arg))])
+         (if (hash-ref cs-hash expr #f)
+           (if (hash-has-key? name-hash expr)
+             (hash-ref name-hash expr)
+             (let* ([expr-name (string->symbol
+                                 (format "i~a" (hash-count name-hash)))]
+                    [fixed-expr (cons op elimed-exprs)])
+               (hash-set! name-hash expr expr-name)
+               (set! intermediates (cons (list expr-name fixed-expr)
+                                         intermediates))
+               expr-name))
+           `(,op ,@(for/list ([arg args])
+                     (common-subexpr-body arg)))))]
       [else expr]))
 
   (define final-expr (common-subexpr-body expr))

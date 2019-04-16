@@ -32,7 +32,6 @@
 (define (common-subexpr-elim cs-hash expr)
   (define intermediates '())
   (define name-hash (make-hash))
-  (println cs-hash)
 
   (define (common-subexpr-body expr)
     (cond

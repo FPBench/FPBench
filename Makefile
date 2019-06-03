@@ -73,7 +73,7 @@ ifneq (, $(shell which wolframscript))
 endif
 
 
-%.fpcore: %.fpimp
+%.compiled.fpcore: %.fpimp
 	printf ";; -*- mode: scheme -*-\n\n" > $@
 	racket tools/imp2core.rkt --canonicalize < $^ >> $@
 

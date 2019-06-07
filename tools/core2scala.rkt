@@ -1,7 +1,7 @@
 #lang racket
 
 (require "common.rkt" "fpcore.rkt")
-(provide core->scala)
+(provide core->scala scala-header scala-footer export-scala)
 
 (define (fix-name name)
   (string-join
@@ -162,6 +162,17 @@
     [(? constant?) expr]
     [(? number?) expr]
     [(? symbol?) expr]))
+
+(define scala-header "import daisy.lang._\nimport Real._\n\nobject fpcore {\n")
+(define scala-footer "}\n")
+
+(define (export-scala input-port output-port
+                  #:fname [fname "stdin"])
+  (port-count-lines! input-port)
+  (fprintf output-port scala-header)
+  (for ([expr (in-port (curry read-fpcore fname) input-port)] [n (in-naturals)])
+    (fprintf output-port "~a\n" (core->scala expr n)))
+  (fprintf output-port scala-footer))
 
 (module+ main
   (require racket/cmdline)

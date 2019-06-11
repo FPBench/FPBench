@@ -1,7 +1,7 @@
 #lang racket
 
 (require "common.rkt" "fpcore.rkt" "fpcore-extra.rkt" "range-analysis.rkt")
-(provide core->fptaylor)
+(provide core->fptaylor export-fptaylor)
 
 (define (fix-name name)
   (string-join
@@ -84,7 +84,7 @@
   name*)
 
 (define *defs* (make-parameter (box '())))
-                               
+
 (define (add-def def)
   (set-box! (*defs*) (cons def (unbox (*defs*)))))
 
@@ -153,7 +153,7 @@
 (define (core->fptaylor prog
                          #:name [name "expr"]
                          #:precision [precision #f]
-                         #:var-precision [var-precision #f] 
+                         #:var-precision [var-precision #f]
                          #:inexact-scale [inexact-scale 1]
                          #:indent [indent "\t"])
   (match-define (list 'FPCore (list args ...) props ... body) prog)
@@ -219,6 +219,13 @@
       (printf "{\n~a}\n\n" r)))
 )
 
+(define (export-fptaylor input-port output-port
+                      #:fname [fname "stdin"]
+                      #:scale [scale 1])
+  (port-count-lines! input-port)
+  (for ([expr (in-port (curry read-fpcore fname) input-port)] [n (in-naturals)])
+    (fprintf output-port "~a\n\n" (core->fptaylor expr #:name (format "ex~a" n) #:inexact-scale scale))))
+
 (module+ main
   (require racket/cmdline)
   (define files (make-parameter #f))
@@ -232,7 +239,7 @@
   (define split (make-parameter #f))
   (define unroll (make-parameter #f))
   (define inexact-scale (make-parameter 1))
-  
+
   (command-line
    #:program "core2fptaylor.rkt"
    #:once-each

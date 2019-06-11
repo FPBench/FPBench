@@ -22,9 +22,8 @@
   ;; used for pkg in core2go
   (define *namespace* (make-parameter "main"))
 
-  (define *gappa-rel-error* (make-parameter #f))
-  (define *gappa-split-or* (make-parameter #f))
-  (define *gappa-subexprs* (make-parameter #f))
+  (define *rel-error* (make-parameter #f))
+  (define *scale* (make-parameter 1))
 
   (define (determine-lang out-file)
     (if (false? (*lang*))
@@ -44,11 +43,9 @@
    ["--namespace" namespace_ "Name of namespace or package to export benchmarks into"
                   (*namespace* namespace_)]
    ["--rel-error" "For Gappa export, produce expressions for relative instead of absolute error"
-                  (*gappa-rel-error* #t)]
-   ["--split-or" "For Gappa export, convert preconditions to DNF and create separate expressions for all conjunctions"
-                 (*gappa-split-or* #t)]
-   ["--subexprs" "For Gappa export, create Gappa expressions for all subexpressions"
-                 (*gappa-subexprs* #t)]
+                  (*rel-error* #t)]
+   ["--scale" scale_ "For FPTaylor export, the scale factor for operations which are not correctly rounded"
+              (*scale* (string->number scale_))]
    #:args (in-file out-file)
 
    (determine-lang out-file)
@@ -62,12 +59,18 @@
                            (open-output-file out-file #:mode 'text #:exists 'truncate)))
 
 
-   (fprintf (current-error-port) "in-file: ~a, out-file: ~a\noptions:\n  lang: ~a\n  runtime: ~a\n  namespace:~a\n  rel-error: ~a\n  split-or: ~a\n  subexprs: ~a\n"
-            in-file out-file (*lang*) (*runtime*) (*namespace*) (*gappa-rel-error*) (*gappa-split-or*) (*gappa-subexprs*))
+   (fprintf (current-error-port) "in-file: ~a, out-file: ~a\noptions:\n  lang: ~a\n  runtime: ~a\n  namespace:~a\n  rel-error: ~a\n  scale: ~a\n"
+            in-file out-file (*lang*) (*runtime*) (*namespace*) (*rel-error*) (*scale*))
 
    (match (*lang*)
      ["c" (export-c input-port output-port
                     #:fname fname)]
+     ["fptaylor" (export-fptaylor input-port output-port
+                                  #:fname fname
+                                  #:scale (*scale*))]
+     [(or "gappa" "g") (export-gappa input-port output-port
+                                  #:fname fname
+                                  #:rel-error (*rel-error*))]
      ["go" (export-go input-port output-port
                       #:fname fname
                       #:pkg (*namespace*))]

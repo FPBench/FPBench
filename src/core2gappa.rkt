@@ -1,7 +1,7 @@
 #lang racket
 
 (require "common.rkt" "fpcore.rkt" "fpcore-extra.rkt" "range-analysis.rkt")
-(provide core->gappa)
+(provide core->gappa export-gappa)
 
 (define (fix-name name)
   (string-join
@@ -221,7 +221,7 @@
                   ; range expression. Otherwise Gappa complains that expressions are not bounded.
                   (format "~a~a(~a)" pre* sep ranges)
                   pre*)))
-          
+
           (when (equal? cond-body "")
             (set! cond-body "0 <= 1"))
           (define goal
@@ -231,7 +231,7 @@
           (printf "{ ~a\n  -> ~a }\n" cond-body goal)
 
           ; TODO: subdivision hints
-          
+
           ))))
 
 (module+ test
@@ -242,6 +242,13 @@
     (for ([r results])
       (printf "~a\n\n" r)))
 )
+
+(define (export-gappa input-port output-port
+                      #:fname [fname "stdin"]
+                      #:rel-error [rel-error #f])
+  (port-count-lines! input-port)
+  (for ([expr (in-port (curry read-fpcore fname) input-port)] [n (in-naturals)])
+    (fprintf output-port "~a\n\n" (core->gappa expr #:name (format "ex~a" n) #:rel-error rel-error))))
 
 (module+ main
   (require racket/cmdline)
@@ -255,7 +262,7 @@
   (define subexprs (make-parameter #f))
   (define split (make-parameter #f))
   (define unroll (make-parameter #f))
-  
+
   (command-line
    #:program "core2gappa.rkt"
    #:once-each
@@ -309,4 +316,3 @@
                   (call-with-output-file (build-path (out-path) fname) #:exists 'replace
                     (λ (p) (fprintf p "~a" r))))))))))
    ))
-

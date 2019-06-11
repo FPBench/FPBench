@@ -1,6 +1,6 @@
 #lang racket
 
-(require  "../tools/fpcore.rkt" "../tools/fpimp.rkt")
+(require  "../src/fpcore.rkt" "../tools/fpimp.rkt")
 
 (provide eval-fuel-expr eval-fuel-stmt sample-double sample-single)
 

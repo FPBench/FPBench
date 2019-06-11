@@ -1,7 +1,7 @@
 #lang racket
 
 (require json)
-(require "common.rkt" "fpcore.rkt" "filter.rkt")
+(require "common.rkt" "fpcore.rkt" "../infra/filter.rkt")
 
 (define (~pp value)
   (let ([p (open-output-string)])

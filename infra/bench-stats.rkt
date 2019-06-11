@@ -1,6 +1,6 @@
 #lang racket
 (require xml)
-(require "../tools/common.rkt" "../tools/fpcore.rkt")
+(require "../src/common.rkt" "../src/fpcore.rkt")
 
 (define/contract operator-groups (dictof string? (listof symbol?))
   #hash(("Arithmetic" . (+ - * / fabs fma sqrt hypot fmin fmax fdim))

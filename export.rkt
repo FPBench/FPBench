@@ -1,15 +1,15 @@
 #lang racket
 
-(require "tools/core2c.rkt"
-         "tools/core2fptaylor.rkt"
-         "tools/core2gappa.rkt"
-         "tools/core2go.rkt"
-         "tools/core2json.rkt"
-         "tools/core2js.rkt"
-         "tools/core2scala.rkt"
-         "tools/core2smtlib2.rkt"
-         "tools/core2sollya.rkt"
-         "tools/core2wls.rkt")
+(require "src/core2c.rkt"
+         "src/core2fptaylor.rkt"
+         "src/core2gappa.rkt"
+         "src/core2go.rkt"
+         "src/core2json.rkt"
+         "src/core2js.rkt"
+         "src/core2scala.rkt"
+         "src/core2smtlib2.rkt"
+         "src/core2sollya.rkt"
+         "src/core2wls.rkt")
 
 (module+ main
   (require racket/cmdline)

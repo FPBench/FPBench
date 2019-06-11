@@ -1,6 +1,6 @@
 #lang racket
 
-(require "common.rkt" "fpcore.rkt")
+(require "../src/common.rkt" "../src/fpcore.rkt")
 (provide operators-in constants-in)
 
 (define/contract (operators-in expr)

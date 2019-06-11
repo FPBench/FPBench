@@ -1,6 +1,6 @@
 #lang racket
 
-(require "test-common.rkt" "../tools/common.rkt" "../tools/imp2core.rkt" "../tools/fpcore.rkt" "../tools/fpimp.rkt")
+(require "test-common.rkt" "../src/common.rkt" "../tools/imp2core.rkt" "../src/fpcore.rkt" "../tools/fpimp.rkt")
 
 (define tests-to-run (make-parameter 10))
 (define fuel (make-parameter 100))

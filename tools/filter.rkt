@@ -14,8 +14,16 @@
                     (append-map operators-in inits)
                     (append-map operators-in updates)
                     (operators-in res)))]
+     [`(while* ,test ([,vars ,inits ,updates] ...) ,res)
+      (cons 'while*
+            (append (operators-in test)
+                    (append-map operators-in inits)
+                    (append-map operators-in updates)
+                    (operators-in res)))]
      [`(let ([,vars ,vals] ...) ,body)
       (cons 'let (append (append-map operators-in vals) (operators-in body)))]
+     [`(let* ([,vars ,vals] ...) ,body)
+      (cons 'let* (append (append-map operators-in vals) (operators-in body)))]
      [`(if ,cond ,ift ,iff)
       (cons 'if (append (operators-in cond) (operators-in ift) (operators-in iff)))]
      [`(! ,props ... ,body)
@@ -29,12 +37,12 @@
 
   (remove-duplicates
    (match expr
-     [`(while ,test ([,vars ,inits ,updates] ...) ,res)
+     [`(,(or 'while 'while*) ,test ([,vars ,inits ,updates] ...) ,res)
             (append (constants-in test)
                     (append-map constants-in inits)
                     (append-map constants-in updates)
                     (constants-in res))]
-     [`(let ([,vars ,vals] ...) ,body)
+     [`(,(or 'let 'let*) ([,vars ,vals] ...) ,body)
       (append (append-map constants-in vals) (constants-in body))]
      [`(if ,cond ,ift ,iff)
       (append (constants-in cond) (constants-in ift) (constants-in iff))]
@@ -58,9 +66,9 @@
 
   (let loop ([expr expr])
     (match expr
-      [`(while ,test ([,vars ,inits ,updates] ...) ,res)
+      [`(,(or 'while 'while*) ,test ([,vars ,inits ,updates] ...) ,res)
        (loop test) (for-each loop inits) (for-each loop updates) (loop res)]
-      [`(let ([,vars ,vals] ...) ,body)
+      [`(,(or 'let 'let*) ([,vars ,vals] ...) ,body)
        (for-each loop vals) (loop body)]
       [`(if ,cond ,ift ,iff)
        (loop cond) (loop ift) (loop iff)]

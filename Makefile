@@ -16,7 +16,7 @@ core2sollya_unsupported_ops = "isnormal" "tgamma" "lgamma" "remainder" "fmod" "r
 
 core2wls_prec = binary32 binary64
 
-known_inaccurate = "round" "isnormal" "fmod" "remainder"
+known_inaccurate = "while*" "let*" "round" "isnormal" "fmod" "remainder"
 
 
 sanity:

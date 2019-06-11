@@ -28,7 +28,7 @@ Inputs: Speed `sl`, `sr` of the left and right wheel, in rad/s."
       [tmp sl* sl]
       [sl sl* (if (== j 50) sr sl)]
       [sr sr* (if (== j 50) tmp sr)]
-      [j (if (== j 50) 0 (+ j 1))])
+      [j 0 (if (== j 50) 0 (+ j 1))])
      x))) ;; `y` is also an output but is skipped for now
 
 (FPCore (m kp ki kd c)

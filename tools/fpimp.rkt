@@ -1,6 +1,6 @@
 #lang racket
 
-(require "common.rkt" "fpcore.rkt")
+(require "../src/common.rkt" "../src/fpcore.rkt")
 
 (provide fpimp? statement? eval-stmts* eval-stmts racket-run-fpimp)
 

@@ -2,7 +2,7 @@
 
 (require math/bigfloat)
 (require "common.rkt" "fpcore.rkt")
-(provide core->smtlib2 rm->smt number->smt)
+(provide rm->smt number->smt core->smtlib2 export-smtlib2)
 
 ;; Extremely simple html-inspired escapes. The understanding is that the
 ;; only difference between symbols is that FPCore allows : in names,
@@ -233,6 +233,12 @@
           (string-join arg-strings " ")
           (fptype w p)
           (expr->smt body w p rm)))
+
+(define (export-smtlib2 input-port output-port
+                  #:fname [fname "stdin"])
+  (port-count-lines! input-port)
+  (for ([expr (in-port (curry read-fpcore fname) input-port)] [n (in-naturals)])
+    (fprintf output-port "~a\n" (core->smtlib2 expr #:name (format "ex~a" n)))))
 
 (module+ main
   (require racket/cmdline)

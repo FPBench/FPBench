@@ -1,6 +1,6 @@
 #lang racket
 
-(require "test-common.rkt" "../tools/common.rkt" "../tools/core2smtlib2.rkt" "../tools/fpcore.rkt")
+(require "test-common.rkt" "../src/common.rkt" "../src/core2smtlib2.rkt" "../src/fpcore.rkt")
 
 (define tests-to-run (make-parameter 10))
 (define test-file (make-parameter "/tmp/test.smtlib2"))

@@ -1,7 +1,7 @@
 #lang racket
 
 (require "common.rkt" "fpcore.rkt")
-(provide core->go)
+(provide core->go go-header export-go)
 
 (define (fix-name name)
   (string-join
@@ -24,7 +24,7 @@
   [('M_2_PI) "(2/math.Pi)"]
   [('M_2_SQRTPI) "(2/math.Sqrt(math.Pi))"]
   [('SQRT2) "math.Sqrt2"]
-  [('SQRT1_2) "(1/math.Sqrt2)"] 
+  [('SQRT1_2) "(1/math.Sqrt2)"]
   [('MAXFLOAT) "math.MaxFloat64"]
   [('TRUE) "true"]
   [('FALSE) "false"]
@@ -36,13 +36,13 @@
   [((or '== '+ '- '* '/  '< '> '<= '>=)) op]
   [('fabs) 'math.Abs]
   [('exp) 'math.Exp]
-  [('exp2) 'math.Exp2] 
-  [('expm1) 'math.Expm1] 
-  [('log) 'math.Log] 
-  [('log10) 'math.Log10] 
-  [('log2) 'math.Log2] 
+  [('exp2) 'math.Exp2]
+  [('expm1) 'math.Expm1]
+  [('log) 'math.Log]
+  [('log10) 'math.Log10]
+  [('log2) 'math.Log2]
   [('log1p) 'math.Log1p]
-  [('pow) 'math.Pow] 
+  [('pow) 'math.Pow]
   [('sqrt) 'math.Sqrt]
   [('cbrt) 'math.Cbrt]
   [('hypot) 'math.Hypot]
@@ -59,18 +59,18 @@
   [('asinh) 'math.Asinh]
   [('acosh) 'math.Acosh]
   [('atanh) 'math.Atanh]
-  [('erf) 'math.Erf] 
-  [('erfc) 'math.Erfc] 
-  [('tgamma) 'math.Tgamma] 
-  [('lgamma) 'math.Lgamma] 
-  [('ceil) 'math.Ceil] 
-  [('floor) 'math.Floor] 
-  [('remainder) 'math.Remainder] 
-  [('fmax) 'math.Max] 
-  [('fmin) 'math.Min] 
-  [('fdim) 'math.Dim] 
-  [('copysign) 'math.Copysign] 
-  [('trunc) 'math.Trunc] 
+  [('erf) 'math.Erf]
+  [('erfc) 'math.Erfc]
+  [('tgamma) 'math.Tgamma]
+  [('lgamma) 'math.Lgamma]
+  [('ceil) 'math.Ceil]
+  [('floor) 'math.Floor]
+  [('remainder) 'math.Remainder]
+  [('fmax) 'math.Max]
+  [('fmin) 'math.Min]
+  [('fdim) 'math.Dim]
+  [('copysign) 'math.Copysign]
+  [('trunc) 'math.Trunc]
   [('round) 'math.Round]
   [('isinf)  'math.IsInf]
   [('isnan) 'math.IsNaN]
@@ -198,6 +198,16 @@
         (parameterize ([*names* (apply mutable-set args)])
           (printf "\treturn ~a\n" (expr->go body #:type type))))))
   (format "func ~a(~a) ~a {\n~a}\n" (fix-name (if (dict-has-key? properties ':name) (dict-ref properties ':name) name)) (string-join arg-strings ", ") (type->go type) c-body))
+
+(define go-header "package ~a\n\nimport \"math\"\n\nvar _ = math.Pi\n\n")
+
+(define (export-go input-port output-port
+                   #:fname [fname "stdin"]
+                   #:pkg pkg)
+  (port-count-lines! input-port)
+  (fprintf output-port go-header pkg)
+  (for ([expr (in-port (curry read-fpcore fname) input-port)] [n (in-naturals)])
+    (fprintf output-port "~a\n" (core->go expr #:name (format "ex~a" n)))))
 
 (module+ main
   (require racket/cmdline)

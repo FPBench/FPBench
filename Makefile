@@ -1,6 +1,6 @@
 .PHONY: sanity test
 
-FILTER = racket tools/filter.rkt
+FILTER = racket infra/filter.rkt
 
 core2c_prec = binary32 binary64
 
@@ -80,4 +80,4 @@ endif
 
 c/%.c: benchmarks/%.fpcore
 	printf "#include <tgmath.h>\n\n" > $@
-	racket tools/core2c.rkt < $^ >> $@
+	racket export.rkt --lang c - - < $^ >> $@

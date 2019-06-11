@@ -1,7 +1,7 @@
 #lang racket
 
 (require "common.rkt" "fpcore.rkt")
-(provide core->c)
+(provide core->c c-header export-c)
 
 (define (fix-name name)
   (string-join
@@ -143,6 +143,15 @@
         (parameterize ([*names* (apply mutable-set args)])
           (printf "\treturn ~a;\n" (expr->c body #:type type))))))
   (format "~a ~a(~a) {\n~a}\n" (type->c type) (fix-name name) (string-join arg-strings ", ") c-body))
+
+(define c-header "#include <math.h>\n#define TRUE 1\n#define FALSE 0\n\n")
+
+(define (export-c input-port output-port
+                  #:fname [fname "stdin"])
+  (port-count-lines! input-port)
+  (fprintf output-port c-header)
+  (for ([expr (in-port (curry read-fpcore fname) input-port)] [n (in-naturals)])
+    (fprintf output-port "~a\n" (core->c expr #:name (format "ex~a" n)))))
 
 (module+ main
   (require racket/cmdline)

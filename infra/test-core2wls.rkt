@@ -1,7 +1,7 @@
 #lang racket
 
 (require math/flonum)
-(require "test-common.rkt" "../tools/common.rkt" "../tools/core2wls.rkt" "../tools/fpcore.rkt")
+(require "test-common.rkt" "../src/common.rkt" "../src/core2wls.rkt" "../src/fpcore.rkt")
 
 (define tests-to-run (make-parameter 10))
 (define test-file (make-parameter "/tmp/test.wls"))

@@ -1,7 +1,7 @@
 #lang racket
 
 (require "common.rkt" "fpcore.rkt")
-(provide core->wls number->wls)
+(provide number->wls core->wls export-wls)
 
 (define bad-chars (regexp "^[0-9]+|[^a-z0-9]+"))
 
@@ -232,6 +232,12 @@
           progname
           (string-join argnames ", ")
           (expr->wls body names)))
+
+(define (export-wls input-port output-port
+                  #:fname [fname "stdin"])
+  (port-count-lines! input-port)
+  (for ([expr (in-port (curry read-fpcore fname) input-port)] [n (in-naturals)])
+    (fprintf output-port "~a\n" (core->wls expr #:name (format "ex~a" n)))))
 
 (module+ main
   (require racket/cmdline)

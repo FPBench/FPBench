@@ -1,5 +1,5 @@
 #lang racket
-(require "common.rkt" "fpcore.rkt" "fpimp.rkt")
+(require "../src/common.rkt" "../src/fpcore.rkt" "fpimp.rkt")
 (provide imp->core)
 
 (define canonicalize? (make-parameter false))

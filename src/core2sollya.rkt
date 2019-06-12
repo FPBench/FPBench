@@ -1,7 +1,7 @@
 #lang racket
 
 (require "common.rkt" "fpcore.rkt")
-(provide core->sollya export-sollya)
+(provide export-sollya)
 
 ;; sollya identifiers have the same rules as in C
 (define (fix-name name)
@@ -313,7 +313,7 @@
         (format "\n~a" (string-join arg-rounding "\n"))
         ""))
 
-  (format "procedure ~a(~a) {~a~a\n~a};\n"
+  (format "procedure ~a(~a) {~a~a\n~a};\n\n"
           (fix-name name)
           (string-join arg-strings ", ")
           var-string

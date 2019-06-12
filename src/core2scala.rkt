@@ -1,7 +1,7 @@
 #lang racket
 
 (require "common.rkt" "fpcore.rkt")
-(provide core->scala scala-header scala-footer export-scala)
+(provide scala-header scala-footer export-scala)
 
 (define (fix-name name)
   (string-join

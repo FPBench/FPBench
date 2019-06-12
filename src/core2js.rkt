@@ -1,7 +1,7 @@
 #lang racket
 
 (require "common.rkt" "fpcore.rkt")
-(provide core->js export-js)
+(provide export-js)
 
 (define *runtime* (make-parameter #f))
 

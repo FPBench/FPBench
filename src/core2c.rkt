@@ -1,7 +1,7 @@
 #lang racket
 
 (require "common.rkt" "fpcore.rkt")
-(provide core->c c-header export-c)
+(provide c-header export-c)
 
 (define (fix-name name)
   (string-join

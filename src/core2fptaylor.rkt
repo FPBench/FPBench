@@ -1,7 +1,7 @@
 #lang racket
 
 (require "common.rkt" "fpcore.rkt" "fpcore-extra.rkt" "range-analysis.rkt")
-(provide core->fptaylor export-fptaylor)
+(provide export-fptaylor)
 
 (define (fix-name name)
   (string-join
@@ -217,7 +217,7 @@
     (map (curry core->fptaylor #:name "test") progs)))
 
 (define (export-fptaylor expr name #:scale [scale 1])
-  (format "{\n~a\n\}\n" (core->fptaylor expr #:name name #:inexact-scale scale)))
+  (format "{\n~a\n}\n" (core->fptaylor expr #:name name #:inexact-scale scale)))
 
 (module+ main
   (require racket/cmdline)

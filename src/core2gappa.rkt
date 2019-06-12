@@ -1,7 +1,7 @@
 #lang racket
 
 (require "common.rkt" "fpcore.rkt" "fpcore-extra.rkt" "range-analysis.rkt")
-(provide core->gappa export-gappa)
+(provide export-gappa)
 
 (define (fix-name name)
   (string-join

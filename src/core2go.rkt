@@ -1,7 +1,7 @@
 #lang racket
 
 (require "common.rkt" "fpcore.rkt")
-(provide core->go go-header export-go)
+(provide go-header export-go)
 
 (define (fix-name name)
   (string-join

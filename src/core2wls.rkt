@@ -1,7 +1,7 @@
 #lang racket
 
 (require "common.rkt" "fpcore.rkt")
-(provide number->wls export-wls)
+(provide export-wls)
 
 (define bad-chars (regexp "^[0-9]+|[^a-z0-9]+"))
 
@@ -228,7 +228,7 @@
     (for/list ([var args])
       (format "~a_" (fix-name (symbol->string (if (list? var) (car var) var)) names))))
 
-  (format "~a[~a] :=\n~a"
+  (format "~a[~a] :=\n~a\n"
           progname
           (string-join argnames ", ")
           (expr->wls body names)))

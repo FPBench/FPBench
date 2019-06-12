@@ -52,7 +52,7 @@
    (define-values (header export footer)
      (match (determine-lang (*lang*) out-file)
        ["c" (values c-header core->c "")]
-       ["fptaylor" (values "" (curry core->fptaylor #:scale (*scale*)) "")]
+       ["fptaylor" (values "" (curry core->fptaylor #:inexact-scale (*scale*)) "")]
        [(or "gappa" "g") (values "" (curry core->gappa #:rel-error (*rel-error*)) "")]
        ["go" (values (format go-header (*namespace*)) core->go "")]
        ["js" (values "" (curry core->js #:runtime (*runtime*)) "")]

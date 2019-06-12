@@ -11,27 +11,28 @@
          "src/core2sollya.rkt"
          "src/core2wls.rkt")
 
+
+(define (determine-lang preset file-name)
+  (string-downcase
+   (or preset
+       (match (string-split file-name "." #:trim #f)
+         [(list) ""]
+         [(list _) ""]
+         [(list _ ... extension) extension]))))
+
 (module+ main
   (require racket/cmdline)
 
   (define *lang* (make-parameter #f))
 
   ;; only used by js, but could be used for other converters
-  (define *runtime* (make-parameter "Math"))
+  (define *runtime* (make-parameter #f))
 
   ;; used for pkg in core2go
   (define *namespace* (make-parameter "main"))
 
   (define *rel-error* (make-parameter #f))
   (define *scale* (make-parameter 1))
-
-  (define (determine-lang out-file)
-    (if (false? (*lang*))
-        (let* ([fname (string-downcase out-file)]
-               [suffix-match (regexp-match #rx"[.]([^.]*)$" fname)])
-          (when suffix-match
-            (*lang* (last suffix-match))))
-        (*lang* (string-downcase (*lang*)))))
 
   (command-line
    #:program "export.rkt"
@@ -48,8 +49,6 @@
               (*scale* (string->number scale_))]
    #:args (in-file out-file)
 
-   (determine-lang out-file)
-
    (define fname (if (equal? in-file "-") "stdin" in-file))
    (define input-port (if (equal? in-file "-")
                           (current-input-port)
@@ -57,36 +56,26 @@
    (define output-port (if (equal? out-file "-")
                            (current-output-port)
                            (open-output-file out-file #:mode 'text #:exists 'truncate)))
+   (port-count-lines! input-port)
 
 
-   (fprintf (current-error-port) "in-file: ~a, out-file: ~a\noptions:\n  lang: ~a\n  runtime: ~a\n  namespace:~a\n  rel-error: ~a\n  scale: ~a\n"
-            in-file out-file (*lang*) (*runtime*) (*namespace*) (*rel-error*) (*scale*))
-
-   (match (*lang*)
-     ["c" (export-c input-port output-port
-                    #:fname fname)]
-     ["fptaylor" (export-fptaylor input-port output-port
-                                  #:fname fname
-                                  #:scale (*scale*))]
-     [(or "gappa" "g") (export-gappa input-port output-port
-                                  #:fname fname
-                                  #:rel-error (*rel-error*))]
-     ["go" (export-go input-port output-port
-                      #:fname fname
-                      #:pkg (*namespace*))]
-     ["js" (export-js input-port output-port
-                      #:fname fname
-                      #:runtime (*runtime*))]
-     ["scala" (export-scala input-port output-port
-                            #:fname fname)]
-     [(or "smt" "smt2" "smtlib" "smtlib2") (export-smtlib2 input-port output-port
-                                                           #:fname fname)]
-     ["sollya" (export-sollya input-port output-port
-                              #:fname fname)]
-     ["wls" (export-wls input-port output-port
-                        #:fname fname)]
-     [_ (error 'export.rkt "Unsupported output language ~a" (*lang*))])
-
-   (fprintf (current-error-port) "Done.\n")
-
-   ))
+   (match (determine-lang (*lang*) out-file)
+     ["c"
+      (export-c input-port output-port #:fname fname)]
+     ["fptaylor"
+      (export-fptaylor input-port output-port #:fname fname #:scale (*scale*))]
+     [(or "gappa" "g")
+      (export-gappa input-port output-port #:fname fname #:rel-error (*rel-error*))]
+     ["go"
+      (export-go input-port output-port #:fname fname #:pkg (*namespace*))]
+     ["js"
+      (export-js input-port output-port #:fname fname #:runtime (*runtime*))]
+     ["scala"
+      (export-scala input-port output-port #:fname fname)]
+     [(or "smt" "smt2" "smtlib" "smtlib2")
+      (export-smtlib2 input-port output-port #:fname fname)]
+     ["sollya"
+      (export-sollya input-port output-port #:fname fname)]
+     ["wls"
+      (export-wls input-port output-port #:fname fname)]
+     [_ (raise-user-error "Unsupported output language" (*lang*))])))

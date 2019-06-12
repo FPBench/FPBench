@@ -177,9 +177,6 @@
           (string-join arg-strings ", ")
           func-body))
 
-(define (export-js input-port output-port
-                   #:fname [fname "stdin"]
-                   #:runtime [runtime #f])
-  (when runtime (*runtime* runtime))
-  (for ([expr (in-port (curry read-fpcore fname) input-port)] [n (in-naturals)])
-    (fprintf output-port "~a\n" (core->js expr #:name (format "ex~a" n)))))
+(define (export-js expr name #:runtime [runtime #f])
+  (*runtime* runtime)
+  (core->js expr #:name name))

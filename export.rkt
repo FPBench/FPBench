@@ -1,16 +1,8 @@
 #lang racket
 
-(require "src/core2c.rkt"
-         "src/core2fptaylor.rkt"
-         "src/core2gappa.rkt"
-         "src/core2go.rkt"
-         "src/core2json.rkt"
-         "src/core2js.rkt"
-         "src/core2scala.rkt"
-         "src/core2smtlib2.rkt"
-         "src/core2sollya.rkt"
-         "src/core2wls.rkt")
-
+(require "src/core2c.rkt" "src/core2fptaylor.rkt" "src/core2gappa.rkt"
+         "src/core2go.rkt" "src/core2js.rkt" "src/core2scala.rkt"
+         "src/core2smtlib2.rkt" "src/core2sollya.rkt" "src/core2wls.rkt")
 
 (define (determine-lang preset file-name)
   (string-downcase
@@ -21,8 +13,6 @@
          [(list _ ... extension) extension]))))
 
 (module+ main
-  (require racket/cmdline)
-
   (define *lang* (make-parameter #f))
 
   ;; only used by js, but could be used for other converters
@@ -49,33 +39,30 @@
     (*scale* (string->number scale_))]
    #:args (in-file out-file)
 
-   (define fname (if (equal? in-file "-") "stdin" in-file))
-   (define input-port (if (equal? in-file "-")
-                          (current-input-port)
-                          (open-input-file in-file #:mode 'text)))
-   (define output-port (if (equal? out-file "-")
-                           (current-output-port)
-                           (open-output-file out-file #:mode 'text #:exists 'truncate)))
+   (define input-port
+     (if (equal? in-file "-")
+         (current-input-port)
+         (open-input-file in-file #:mode 'text)))
+   (define output-port
+     (if (equal? out-file "-")
+         (current-output-port)
+         (open-output-file out-file #:mode 'text #:exists 'truncate)))
+
+   (define-values (header export footer)
+     (match (determine-lang (*lang*) out-file)
+       ["c" (values c-header export-c "")]
+       ["fptaylor" (values "" (curry export-fptaylor #:scale (*scale*)) "")]
+       [(or "gappa" "g") (values "" (curry export-gappa #:rel-error rel-error))]
+       ["go" (values (format go-header (*namespace*)) export-go "")]
+       ["js" (values "" (curry export-js #:runtime (*runtime*)) "")]
+       ["scala" (values (format scala-header (*namespace*)) export-scala scala-footer)]
+       [(or "smt" "smt2" "smtlib" "smtlib2") (values "" export-smtlib2 "")]
+       ["sollya" (values "" export-sollya "")]
+       ["wls" (values "" export-wls "")]
+       [_ (raise-user-error "Unsupported output language" (*lang*))]))
+
    (port-count-lines! input-port)
-
-
-   (match (determine-lang (*lang*) out-file)
-     ["c"
-      (export-c input-port output-port #:fname fname)]
-     ["fptaylor"
-      (export-fptaylor input-port output-port #:fname fname #:scale (*scale*))]
-     [(or "gappa" "g")
-      (export-gappa input-port output-port #:fname fname #:rel-error (*rel-error*))]
-     ["go"
-      (export-go input-port output-port #:fname fname #:pkg (*namespace*))]
-     ["js"
-      (export-js input-port output-port #:fname fname #:runtime (*runtime*))]
-     ["scala"
-      (export-scala input-port output-port #:fname fname)]
-     [(or "smt" "smt2" "smtlib" "smtlib2")
-      (export-smtlib2 input-port output-port #:fname fname)]
-     ["sollya"
-      (export-sollya input-port output-port #:fname fname)]
-     ["wls"
-      (export-wls input-port output-port #:fname fname)]
-     [_ (raise-user-error "Unsupported output language" (*lang*))])))
+   (fprintf output-port header)
+   (for ([expr (in-port (curry read-fpcore (if (equal? in-file "-") "stdin" in-file)) input-port)] [n (in-naturals)])
+     (fprintf output-port "~a\n" (export expr (format "ex~a" n))))
+   (fprintf output-port footer)))

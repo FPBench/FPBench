@@ -184,7 +184,9 @@
     [(? number?)
      (format "~a" (real->double-flonum expr) )]))
 
-(define (core->go prog #:name name)
+(define go-header "package ~a\n\nimport \"math\"\n\nvar _ = math.Pi\n\n")
+
+(define (export-go prog name)
   (match-define (list 'FPCore (list args ...) props ... body) prog)
   (define-values (_ properties) (parse-properties props))
   (define type (dict-ref properties ':precision 'binary64))
@@ -198,12 +200,3 @@
         (parameterize ([*names* (apply mutable-set args)])
           (printf "\treturn ~a\n" (expr->go body #:type type))))))
   (format "func ~a(~a) ~a {\n~a}\n" (fix-name (if (dict-has-key? properties ':name) (dict-ref properties ':name) name)) (string-join arg-strings ", ") (type->go type) c-body))
-
-(define go-header "package ~a\n\nimport \"math\"\n\nvar _ = math.Pi\n\n")
-
-(define (export-go input-port output-port
-                   #:fname [fname "stdin"]
-                   #:pkg pkg)
-  (fprintf output-port go-header pkg)
-  (for ([expr (in-port (curry read-fpcore fname) input-port)] [n (in-naturals)])
-    (fprintf output-port "~a\n" (core->go expr #:name (format "ex~a" n)))))

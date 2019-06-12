@@ -216,11 +216,8 @@
     (define progs (fpcore-transform prog #:split-or #t))
     (map (curry core->fptaylor #:name "test") progs)))
 
-(define (export-fptaylor input-port output-port
-                      #:fname [fname "stdin"]
-                      #:scale [scale 1])
-  (for ([expr (in-port (curry read-fpcore fname) input-port)] [n (in-naturals)])
-    (fprintf output-port "{\n~a\n\}\n\n" (core->fptaylor expr #:name (format "ex~a" n) #:inexact-scale scale))))
+(define (export-fptaylor expr name #:scale [scale 1])
+  (format "{\n~a\n\}\n" (core->fptaylor expr #:name name #:inexact-scale scale)))
 
 (module+ main
   (require racket/cmdline)

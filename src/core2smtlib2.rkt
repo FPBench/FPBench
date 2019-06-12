@@ -210,7 +210,7 @@
      (number->smt expr w p rm)]
     [_ (error 'expr->smt "Unsupported expr ~a" expr)]))
 
-(define (core->smtlib2 prog #:name name)
+(define (export-smtlib2 prog name)
   (match-define (list 'FPCore (list args ...) props ... body) prog)
   (define-values (_ properties) (parse-properties props))
   (define type (dict-ref properties ':precision 'binary64))
@@ -233,8 +233,3 @@
           (string-join arg-strings " ")
           (fptype w p)
           (expr->smt body w p rm)))
-
-(define (export-smtlib2 input-port output-port
-                  #:fname [fname "stdin"])
-  (for ([expr (in-port (curry read-fpcore fname) input-port)] [n (in-naturals)])
-    (fprintf output-port "~a\n" (core->smtlib2 expr #:name (format "ex~a" n)))))

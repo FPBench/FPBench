@@ -240,11 +240,8 @@
     (define progs (fpcore-transform prog #:split-or #t))
     (map (curry core->gappa #:name "test") progs)))
 
-(define (export-gappa input-port output-port
-                      #:fname [fname "stdin"]
-                      #:rel-error [rel-error #f])
-  (for ([expr (in-port (curry read-fpcore fname) input-port)] [n (in-naturals)])
-    (fprintf output-port "~a\n\n" (core->gappa expr #:name (format "ex~a" n) #:rel-error rel-error))))
+(define (export-gappa expr name #:rel-error [rel-error #f])
+  (core->gappa expr #:name name #:rel-error rel-error))
 
 (module+ main
   (require racket/cmdline)

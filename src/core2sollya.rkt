@@ -263,7 +263,7 @@
     [(? number?)
      (rounded (format "~a" expr) ctx)]))
 
-(define (core->sollya prog #:name name)
+(define (export-sollya prog name)
   (match-define (list 'FPCore (list args ...) props ... body) prog)
 
   (define arg-strings
@@ -319,8 +319,3 @@
           var-string
           rounding-string
           sollya-body))
-
-(define (export-sollya input-port output-port
-                  #:fname [fname "stdin"])
-  (for ([expr (in-port (curry read-fpcore fname) input-port)] [n (in-naturals)])
-    (fprintf output-port "~a\n" (core->sollya expr #:name (format "ex~a" n)))))

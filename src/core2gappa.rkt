@@ -138,8 +138,7 @@
     [(list (or '== '!=) args ...) expr]
     [_ (error 'remove-unsupported-inequalities "Unsupported operation ~a" expr)]))
 
-(define (core->gappa prog
-                         #:name [name "expr"]
+(define (core->gappa prog name
                          #:precision [precision #f]
                          #:var-precision [var-precision #f]
                          #:rel-error [rel-error #f])
@@ -238,10 +237,7 @@
   (for ([prog (in-port (curry read-fpcore "test")
                        (open-input-file "../benchmarks/fptaylor-tests.fpcore"))])
     (define progs (fpcore-transform prog #:split-or #t))
-    (map (curry core->gappa #:name "test") progs)))
-
-(define (core->gappa expr name #:rel-error [rel-error #f])
-  (core->gappa expr #:name name #:rel-error rel-error))
+    (map (curryr core->gappa "test") progs)))
 
 (module+ main
   (require racket/cmdline)
@@ -294,8 +290,7 @@
                                           #:split (split)
                                           #:subexprs (subexprs)
                                           #:split-or (split-or)))
-          (define results (map (curry core->gappa
-                                      #:name def-name
+          (define results (map (curry core->gappa def-name
                                       #:precision (precision)
                                       #:var-precision (var-precision)
                                       #:rel-error (rel-error))

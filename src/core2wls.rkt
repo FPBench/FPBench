@@ -1,7 +1,7 @@
 #lang racket
 
 (require "common.rkt" "fpcore.rkt")
-(provide core->wls)
+(provide number->wls core->wls)
 
 (define bad-chars (regexp "^[0-9]+|[^a-z0-9]+"))
 

@@ -11,7 +11,7 @@
 (define (translate->wls prog ctx test-file)
   (call-with-output-file test-file #:exists 'replace
     (lambda (port)
-      (fprintf port "~a\n" (core->wls prog #:name "f"))
+      (fprintf port "~a\n" (core->wls prog "f"))
       (fprintf port
                (format "TimeConstrained[MemoryConstrained[Print[f[~a] // N], 2^32], 5]\n"
                        (string-join (map number->wls (map cdr ctx)) ", ")))))

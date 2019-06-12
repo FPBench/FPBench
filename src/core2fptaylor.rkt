@@ -1,7 +1,7 @@
 #lang racket
 
 (require "common.rkt" "fpcore.rkt" "fpcore-extra.rkt" "range-analysis.rkt")
-(provide core->fptaylor export-fptaylor)
+(provide core->fptaylor)
 
 (define (fix-name name)
   (string-join
@@ -214,17 +214,10 @@
   (for ([prog (in-port (curry read-fpcore "test")
                        (open-input-file "../benchmarks/fptaylor-tests.fpcore"))])
     (define progs (fpcore-transform prog #:split-or #t))
-    (define results (map (curry core->fptaylor #:name "test") progs))
-    (for ([r results])
-      (printf "{\n~a}\n\n" r)))
-)
+    (map (curry core->fptaylor #:name "test") progs)))
 
-(define (export-fptaylor input-port output-port
-                      #:fname [fname "stdin"]
-                      #:scale [scale 1])
-  (port-count-lines! input-port)
-  (for ([expr (in-port (curry read-fpcore fname) input-port)] [n (in-naturals)])
-    (fprintf output-port "~a\n\n" (core->fptaylor expr #:name (format "ex~a" n) #:inexact-scale scale))))
+(define (core->fptaylor expr name #:scale [scale 1])
+  (format "{\n~a\n}\n" (core->fptaylor expr #:name name #:inexact-scale scale)))
 
 (module+ main
   (require racket/cmdline)

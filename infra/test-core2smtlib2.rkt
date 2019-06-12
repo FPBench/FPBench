@@ -13,7 +13,7 @@
         (match type
           ['binary32 (values 8 24)]
           ['binary64 (values 11 53)]))
-      (fprintf port "~a\n\n" (core->smtlib2 prog #:name "f"))
+      (fprintf port "~a\n\n" (core->smtlib2 prog "f"))
       (for ([arg ctx] [i (in-naturals)])
         (match-define (cons var value) arg)
         (fprintf port "(define-const arg~a (_ FloatingPoint ~a ~a) ~a)\n"

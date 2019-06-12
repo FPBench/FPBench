@@ -1,7 +1,7 @@
 #lang racket
 
 (require "common.rkt" "fpcore.rkt")
-(provide core->scala scala-header scala-footer export-scala)
+(provide scala-header scala-footer core->scala)
 
 (define (fix-name name)
   (string-join
@@ -124,26 +124,6 @@
          (format "~a" (round expr))
          (format "~a" (real->double-flonum expr)))]))
 
-(define (core->scala prog index)
-  (match-define (list 'FPCore (list args ...) props ... body) prog)
-  (define-values (_ properties) (parse-properties props))
-
-  (define arg-strings
-    (for/list ([var args])
-      (format "~a: Real" (fix-name (if (list? var) (car var) var)))))
-  (with-output-to-string
-    (λ ()
-      (printf "\tdef ~a(~a): Real = {\n"
-        (if (dict-has-key? properties ':name)
-            (format "`~a`" (string-replace (string-replace (dict-ref properties ':name) "\\" "\\\\") "`" "'"))
-            (format "ex~a" index))
-        (string-join arg-strings ", "))
-      (parameterize ([*names* (apply mutable-set args)])
-        (when (dict-has-key? properties ':pre)
-          (printf "\t\trequire(~a)\n" (expr->scala (dict-ref properties ':pre) #:indent "\t\t")))
-        (printf "\t\t~a;\n" (expr->scala body #:indent "\t\t")))
-      (printf "\t}\n"))))
-
 (define (unroll-loops expr n)
   (match expr
     [`(let ([,vars ,vals] ...) ,body)
@@ -163,32 +143,25 @@
     [(? number?) expr]
     [(? symbol?) expr]))
 
-(define scala-header "import daisy.lang._\nimport Real._\n\nobject fpcore {\n")
+(define scala-header "import daisy.lang._\nimport Real._\n\nobject ~a {\n")
 (define scala-footer "}\n")
 
-(define (export-scala input-port output-port
-                  #:fname [fname "stdin"])
-  (port-count-lines! input-port)
-  (fprintf output-port scala-header)
-  (for ([expr (in-port (curry read-fpcore fname) input-port)] [n (in-naturals)])
-    (fprintf output-port "~a\n" (core->scala expr n)))
-  (fprintf output-port scala-footer))
+(define (core->scala prog name)
+  (match-define (list 'FPCore (list args ...) props ... body) prog)
+  (define-values (_ properties) (parse-properties props))
 
-(module+ main
-  (require racket/cmdline)
-  (define unroll #f)
-
-  (command-line
-   #:program "compile.rkt"
-   #:once-each
-   ["--unroll" n "How many iterations to unroll any loops to"
-    (set! unroll (string->number n))]
-   #:args ()
-   (printf "import daisy.lang._\nimport Real._\n\n")
-   (printf "object fpcore {\n")
-   (for ([prog (in-port read (current-input-port))] [n (in-naturals)])
-     (when unroll
-       (match-define (list 'FPCore (list args ...) props ... body) prog)
-       (set! prog `(FPCore ,args ,@props ,(unroll-loops body unroll))))
-     (printf "~a\n" (core->scala prog n)))
-   (printf "}\n")))
+  (define arg-strings
+    (for/list ([var args])
+      (format "~a: Real" (fix-name (if (list? var) (car var) var)))))
+  (with-output-to-string
+    (λ ()
+      (printf "\tdef ~a(~a): Real = {\n"
+        (if (dict-has-key? properties ':name)
+            (format "`~a`" (string-replace (string-replace (dict-ref properties ':name) "\\" "\\\\") "`" "'"))
+            name)
+        (string-join arg-strings ", "))
+      (parameterize ([*names* (apply mutable-set args)])
+        (when (dict-has-key? properties ':pre)
+          (printf "\t\trequire(~a)\n" (expr->scala (dict-ref properties ':pre) #:indent "\t\t")))
+        (printf "\t\t~a;\n" (expr->scala body #:indent "\t\t")))
+      (printf "\t}\n"))))

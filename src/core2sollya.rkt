@@ -1,7 +1,7 @@
 #lang racket
 
 (require "common.rkt" "fpcore.rkt")
-(provide core->sollya export-sollya)
+(provide core->sollya)
 
 ;; sollya identifiers have the same rules as in C
 (define (fix-name name)
@@ -263,7 +263,7 @@
     [(? number?)
      (rounded (format "~a" expr) ctx)]))
 
-(define (core->sollya prog #:name name)
+(define (core->sollya prog name)
   (match-define (list 'FPCore (list args ...) props ... body) prog)
 
   (define arg-strings
@@ -313,25 +313,9 @@
         (format "\n~a" (string-join arg-rounding "\n"))
         ""))
 
-  (format "procedure ~a(~a) {~a~a\n~a};\n"
+  (format "procedure ~a(~a) {~a~a\n~a};\n\n"
           (fix-name name)
           (string-join arg-strings ", ")
           var-string
           rounding-string
           sollya-body))
-
-(define (export-sollya input-port output-port
-                  #:fname [fname "stdin"])
-  (port-count-lines! input-port)
-  (for ([expr (in-port (curry read-fpcore fname) input-port)] [n (in-naturals)])
-    (fprintf output-port "~a\n" (core->sollya expr #:name (format "ex~a" n)))))
-
-(module+ main
-  (require racket/cmdline)
-
-  (command-line
-   #:program "compile.rkt"
-   #:args ()
-   (port-count-lines! (current-input-port))
-   (for ([expr (in-port (curry read-fpcore "stdin"))] [n (in-naturals)])
-     (printf "~a\n" (core->sollya expr #:name (format "ex~a" n))))))

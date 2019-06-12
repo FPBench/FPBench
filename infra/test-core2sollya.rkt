@@ -9,7 +9,7 @@
 (define (translate->sollya prog ctx test-file #:type type)
   (call-with-output-file test-file #:exists 'replace
     (lambda (port)
-      (fprintf port "~a\n\n" (core->sollya prog #:name "f"))
+      (fprintf port "~a\n\n" (core->sollya prog "f"))
       (fprintf port "prec=4096!;\ndisplay=dyadic!;\n\n")
       (fprintf port "f(~a);\n"
                (string-join

@@ -1,7 +1,7 @@
 #lang racket
 
 (require "common.rkt" "fpcore.rkt")
-(provide core->c c-header export-c)
+(provide c-header core->c)
 
 (define (fix-name name)
   (string-join
@@ -129,7 +129,9 @@
     [(? number?)
      (format "~a~a" (real->double-flonum expr) (type->suffix type))]))
 
-(define (core->c prog #:name name)
+(define c-header "#include <math.h>\n#define TRUE 1\n#define FALSE 0\n\n")
+
+(define (core->c prog name)
   (match-define (list 'FPCore (list args ...) props ... body) prog)
   (define-values (_ properties) (parse-properties props))
   (define type (dict-ref properties ':precision 'binary64))
@@ -143,23 +145,3 @@
         (parameterize ([*names* (apply mutable-set args)])
           (printf "\treturn ~a;\n" (expr->c body #:type type))))))
   (format "~a ~a(~a) {\n~a}\n" (type->c type) (fix-name name) (string-join arg-strings ", ") c-body))
-
-(define c-header "#include <math.h>\n#define TRUE 1\n#define FALSE 0\n\n")
-
-(define (export-c input-port output-port
-                  #:fname [fname "stdin"])
-  (port-count-lines! input-port)
-  (fprintf output-port c-header)
-  (for ([expr (in-port (curry read-fpcore fname) input-port)] [n (in-naturals)])
-    (fprintf output-port "~a\n" (core->c expr #:name (format "ex~a" n)))))
-
-(module+ main
-  (require racket/cmdline)
-
-  (command-line
-   #:program "compile.rkt"
-   #:args ()
-   (port-count-lines! (current-input-port))
-   (printf "#include <math.h>\n#define TRUE 1\n#define FALSE 0\n\n")
-   (for ([expr (in-port (curry read-fpcore "stdin"))] [n (in-naturals)])
-     (printf "~a\n" (core->c expr #:name (format "ex~a" n))))))

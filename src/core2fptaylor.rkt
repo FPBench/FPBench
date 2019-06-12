@@ -220,7 +220,7 @@
                       #:fname [fname "stdin"]
                       #:scale [scale 1])
   (for ([expr (in-port (curry read-fpcore fname) input-port)] [n (in-naturals)])
-    (fprintf output-port "~a\n\n" (core->fptaylor expr #:name (format "ex~a" n) #:inexact-scale scale))))
+    (fprintf output-port "{\n~a\n\}\n\n" (core->fptaylor expr #:name (format "ex~a" n) #:inexact-scale scale))))
 
 (module+ main
   (require racket/cmdline)

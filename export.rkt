@@ -15,7 +15,7 @@
 (define (determine-lang preset file-name)
   (string-downcase
    (or preset
-       (match (string-split file-name "." #:trim #f)
+       (match (string-split file-name "." #:trim? #f)
          [(list) ""]
          [(list _) ""]
          [(list _ ... extension) extension]))))

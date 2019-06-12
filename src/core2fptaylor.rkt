@@ -150,8 +150,7 @@
             [(list (or '!= '== '< '> '<= '>=) (? number?) (? symbol?)) #f]
             [_ #t]) conjs))
 
-(define (core->fptaylor prog
-                         #:name [name "expr"]
+(define (core->fptaylor prog name
                          #:precision [precision #f]
                          #:var-precision [var-precision #f]
                          #:inexact-scale [inexact-scale 1]
@@ -194,6 +193,7 @@
       (map (curry expr->fptaylor #:type 'real) (select-constraints pre)))
     (with-output-to-string
         (λ ()
+          (printf "{\n")
           (unless (empty? arg-strings)
             (printf "Variables\n~a\n\n" (string-join arg-strings "\n")))
           (unless (empty? constraints)
@@ -208,16 +208,14 @@
               (printf "~a~a;\n" indent def))
             (printf "\n"))
           (printf "Expressions\n~a~a ~a= ~a;\n"
-                  indent (fix-name expr-name) (type->rnd type) expr-body)))))
+                  indent (fix-name expr-name) (type->rnd type) expr-body)
+          (printf "}\n")))))
 
 (module+ test
   (for ([prog (in-port (curry read-fpcore "test")
                        (open-input-file "../benchmarks/fptaylor-tests.fpcore"))])
     (define progs (fpcore-transform prog #:split-or #t))
-    (map (curry core->fptaylor #:name "test") progs)))
-
-(define (core->fptaylor expr name #:scale [scale 1])
-  (format "{\n~a\n}\n" (core->fptaylor expr #:name name #:inexact-scale scale)))
+    (map (curryr core->fptaylor "test") progs)))
 
 (module+ main
   (require racket/cmdline)
@@ -273,8 +271,7 @@
                                           #:split (split)
                                           #:subexprs (subexprs)
                                           #:split-or (split-or)))
-          (define results (map (curry core->fptaylor
-                                      #:name def-name
+          (define results (map (curry core->fptaylor def-name
                                       #:precision (precision)
                                       #:var-precision (var-precision)
                                       #:inexact-scale (inexact-scale)

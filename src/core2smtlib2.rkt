@@ -2,7 +2,7 @@
 
 (require math/bigfloat)
 (require "common.rkt" "fpcore.rkt")
-(provide rm->smt number->smt export-smtlib2)
+(provide rm->smt number->smt core->smtlib2)
 
 ;; Extremely simple html-inspired escapes. The understanding is that the
 ;; only difference between symbols is that FPCore allows : in names,
@@ -210,7 +210,7 @@
      (number->smt expr w p rm)]
     [_ (error 'expr->smt "Unsupported expr ~a" expr)]))
 
-(define (export-smtlib2 prog name)
+(define (core->smtlib2 prog name)
   (match-define (list 'FPCore (list args ...) props ... body) prog)
   (define-values (_ properties) (parse-properties props))
   (define type (dict-ref properties ':precision 'binary64))

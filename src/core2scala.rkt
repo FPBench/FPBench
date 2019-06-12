@@ -1,7 +1,7 @@
 #lang racket
 
 (require "common.rkt" "fpcore.rkt")
-(provide scala-header scala-footer export-scala)
+(provide scala-header scala-footer core->scala)
 
 (define (fix-name name)
   (string-join
@@ -146,7 +146,7 @@
 (define scala-header "import daisy.lang._\nimport Real._\n\nobject ~a {\n")
 (define scala-footer "}\n")
 
-(define (export-scala prog name)
+(define (core->scala prog name)
   (match-define (list 'FPCore (list args ...) props ... body) prog)
   (define-values (_ properties) (parse-properties props))
 

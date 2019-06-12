@@ -1,7 +1,7 @@
 #lang racket
 
 (require "common.rkt" "fpcore.rkt")
-(provide export-js)
+(provide core->js)
 
 (define *runtime* (make-parameter #f))
 
@@ -177,6 +177,6 @@
           (string-join arg-strings ", ")
           func-body))
 
-(define (export-js expr name #:runtime [runtime #f])
+(define (core->js expr name #:runtime [runtime #f])
   (*runtime* runtime)
   (core->js expr #:name name))

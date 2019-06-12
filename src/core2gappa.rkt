@@ -1,7 +1,7 @@
 #lang racket
 
 (require "common.rkt" "fpcore.rkt" "fpcore-extra.rkt" "range-analysis.rkt")
-(provide export-gappa)
+(provide core->gappa)
 
 (define (fix-name name)
   (string-join
@@ -240,7 +240,7 @@
     (define progs (fpcore-transform prog #:split-or #t))
     (map (curry core->gappa #:name "test") progs)))
 
-(define (export-gappa expr name #:rel-error [rel-error #f])
+(define (core->gappa expr name #:rel-error [rel-error #f])
   (core->gappa expr #:name name #:rel-error rel-error))
 
 (module+ main

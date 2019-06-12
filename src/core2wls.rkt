@@ -1,7 +1,7 @@
 #lang racket
 
 (require "common.rkt" "fpcore.rkt")
-(provide export-wls)
+(provide core->wls)
 
 (define bad-chars (regexp "^[0-9]+|[^a-z0-9]+"))
 
@@ -217,7 +217,7 @@
              (number->wls b))]
     [_ (error 'expr->wls "Unsupported expr ~a" expr)]))
 
-(define (export-wls prog name)
+(define (core->wls prog name)
   (match-define (list 'FPCore (list args ...) props ... body) prog)
 
   (define names (make-hash))

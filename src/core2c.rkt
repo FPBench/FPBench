@@ -1,7 +1,7 @@
 #lang racket
 
 (require "common.rkt" "fpcore.rkt")
-(provide c-header export-c)
+(provide c-header core->c)
 
 (define (fix-name name)
   (string-join
@@ -131,7 +131,7 @@
 
 (define c-header "#include <math.h>\n#define TRUE 1\n#define FALSE 0\n\n")
 
-(define (export-c prog name)
+(define (core->c prog name)
   (match-define (list 'FPCore (list args ...) props ... body) prog)
   (define-values (_ properties) (parse-properties props))
   (define type (dict-ref properties ':precision 'binary64))

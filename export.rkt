@@ -51,15 +51,15 @@
 
    (define-values (header export footer)
      (match (determine-lang (*lang*) out-file)
-       ["c" (values c-header export-c "")]
-       ["fptaylor" (values "" (curry export-fptaylor #:scale (*scale*)) "")]
-       [(or "gappa" "g") (values "" (curry export-gappa #:rel-error (*rel-error*)) "")]
-       ["go" (values (format go-header (*namespace*)) export-go "")]
-       ["js" (values "" (curry export-js #:runtime (*runtime*)) "")]
-       ["scala" (values (format scala-header (*namespace*)) export-scala scala-footer)]
-       [(or "smt" "smt2" "smtlib" "smtlib2") (values "" export-smtlib2 "")]
-       ["sollya" (values "" export-sollya "")]
-       ["wls" (values "" export-wls "")]
+       ["c" (values c-header core->c "")]
+       ["fptaylor" (values "" (curry core->fptaylor #:scale (*scale*)) "")]
+       [(or "gappa" "g") (values "" (curry core->gappa #:rel-error (*rel-error*)) "")]
+       ["go" (values (format go-header (*namespace*)) core->go "")]
+       ["js" (values "" (curry core->js #:runtime (*runtime*)) "")]
+       ["scala" (values (format scala-header (*namespace*)) core->scala scala-footer)]
+       [(or "smt" "smt2" "smtlib" "smtlib2") (values "" core->smtlib2 "")]
+       ["sollya" (values "" core->sollya "")]
+       ["wls" (values "" core->wls "")]
        [#f (raise-user-error "Please specify an output language (using the --lang flag)")]
        [_ (raise-user-error "Unsupported output language" (*lang*))]))
 

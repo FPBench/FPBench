@@ -227,10 +227,10 @@
      `(if ,(unroll-loops cond n) ,(unroll-loops ift n) ,(unroll-loops iff n))]
     [`(while ,cond ([,vars ,inits ,updates] ...) ,retexpr)
      `(let (,@(map list vars inits))
-        ,(if (= n 0)
-             retexpr
-             (unroll-loops `(while ,cond (,@(map list vars updates updates)) ,retexpr)
-                           (- n 1))))]
+        ,(let ([new-loop `(while ,cond (,@(map list vars updates updates)) ,retexpr)])
+           (if (= n 0)
+               new-loop
+               (unroll-loops new-loop (- n 1)))))]
     [`(,(? operator? op) ,args ...)
      (cons op (map (curryr unroll-loops n) args))]
     [(? constant?) expr]

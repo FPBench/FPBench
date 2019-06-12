@@ -1,7 +1,7 @@
 #lang racket
 
 (require "common.rkt" "fpcore.rkt")
-(provide go-header export-go)
+(provide go-header core->go)
 
 (define (fix-name name)
   (string-join
@@ -186,7 +186,7 @@
 
 (define go-header "package ~a\n\nimport \"math\"\n\nvar _ = math.Pi\n\n")
 
-(define (export-go prog name)
+(define (core->go prog name)
   (match-define (list 'FPCore (list args ...) props ... body) prog)
   (define-values (_ properties) (parse-properties props))
   (define type (dict-ref properties ':precision 'binary64))

@@ -1,7 +1,7 @@
 #lang racket
 
 (require "common.rkt" "fpcore.rkt")
-(provide export-sollya)
+(provide core->sollya)
 
 ;; sollya identifiers have the same rules as in C
 (define (fix-name name)
@@ -263,7 +263,7 @@
     [(? number?)
      (rounded (format "~a" expr) ctx)]))
 
-(define (export-sollya prog name)
+(define (core->sollya prog name)
   (match-define (list 'FPCore (list args ...) props ... body) prog)
 
   (define arg-strings

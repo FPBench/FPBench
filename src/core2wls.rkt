@@ -234,17 +234,6 @@
           (expr->wls body names)))
 
 (define (export-wls input-port output-port
-                  #:fname [fname "stdin"])
-  (port-count-lines! input-port)
+                    #:fname [fname "stdin"])
   (for ([expr (in-port (curry read-fpcore fname) input-port)] [n (in-naturals)])
     (fprintf output-port "~a\n" (core->wls expr #:name (format "ex~a" n)))))
-
-(module+ main
-  (require racket/cmdline)
-
-  (command-line
-   #:program "compile.rkt"
-   #:args ()
-   (port-count-lines! (current-input-port))
-   (for ([expr (in-port (curry read-fpcore "stdin"))] [n (in-naturals)])
-     (printf "~a\n" (core->wls expr #:name (format "ex~a" n))))))

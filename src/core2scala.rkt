@@ -168,27 +168,7 @@
 
 (define (export-scala input-port output-port
                   #:fname [fname "stdin"])
-  (port-count-lines! input-port)
   (fprintf output-port scala-header)
   (for ([expr (in-port (curry read-fpcore fname) input-port)] [n (in-naturals)])
     (fprintf output-port "~a\n" (core->scala expr n)))
   (fprintf output-port scala-footer))
-
-(module+ main
-  (require racket/cmdline)
-  (define unroll #f)
-
-  (command-line
-   #:program "compile.rkt"
-   #:once-each
-   ["--unroll" n "How many iterations to unroll any loops to"
-    (set! unroll (string->number n))]
-   #:args ()
-   (printf "import daisy.lang._\nimport Real._\n\n")
-   (printf "object fpcore {\n")
-   (for ([prog (in-port read (current-input-port))] [n (in-naturals)])
-     (when unroll
-       (match-define (list 'FPCore (list args ...) props ... body) prog)
-       (set! prog `(FPCore ,args ,@props ,(unroll-loops body unroll))))
-     (printf "~a\n" (core->scala prog n)))
-   (printf "}\n")))

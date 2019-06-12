@@ -214,15 +214,11 @@
   (for ([prog (in-port (curry read-fpcore "test")
                        (open-input-file "../benchmarks/fptaylor-tests.fpcore"))])
     (define progs (fpcore-transform prog #:split-or #t))
-    (define results (map (curry core->fptaylor #:name "test") progs))
-    (for ([r results])
-      (printf "{\n~a}\n\n" r)))
-)
+    (map (curry core->fptaylor #:name "test") progs)))
 
 (define (export-fptaylor input-port output-port
                       #:fname [fname "stdin"]
                       #:scale [scale 1])
-  (port-count-lines! input-port)
   (for ([expr (in-port (curry read-fpcore fname) input-port)] [n (in-naturals)])
     (fprintf output-port "~a\n\n" (core->fptaylor expr #:name (format "ex~a" n) #:inexact-scale scale))))
 

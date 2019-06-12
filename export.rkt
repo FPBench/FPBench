@@ -38,15 +38,15 @@
    #:program "export.rkt"
    #:once-each
    ["--lang" lang_ "Output language to compile FPCore to"
-             (*lang* lang_)]
+    (*lang* lang_)]
    ["--runtime" runtime_ "Name of library to invoke mathematical operations on"
-                (*runtime* runtime_)]
+    (*runtime* runtime_)]
    ["--namespace" namespace_ "Name of namespace or package to export benchmarks into"
-                  (*namespace* namespace_)]
+    (*namespace* namespace_)]
    ["--rel-error" "For Gappa export, produce expressions for relative instead of absolute error"
-                  (*rel-error* #t)]
+    (*rel-error* #t)]
    ["--scale" scale_ "For FPTaylor export, the scale factor for operations which are not correctly rounded"
-              (*scale* (string->number scale_))]
+    (*scale* (string->number scale_))]
    #:args (in-file out-file)
 
    (define fname (if (equal? in-file "-") "stdin" in-file))

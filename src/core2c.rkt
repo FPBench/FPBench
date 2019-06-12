@@ -148,18 +148,6 @@
 
 (define (export-c input-port output-port
                   #:fname [fname "stdin"])
-  (port-count-lines! input-port)
   (fprintf output-port c-header)
   (for ([expr (in-port (curry read-fpcore fname) input-port)] [n (in-naturals)])
     (fprintf output-port "~a\n" (core->c expr #:name (format "ex~a" n)))))
-
-(module+ main
-  (require racket/cmdline)
-
-  (command-line
-   #:program "compile.rkt"
-   #:args ()
-   (port-count-lines! (current-input-port))
-   (printf "#include <math.h>\n#define TRUE 1\n#define FALSE 0\n\n")
-   (for ([expr (in-port (curry read-fpcore "stdin"))] [n (in-naturals)])
-     (printf "~a\n" (core->c expr #:name (format "ex~a" n))))))

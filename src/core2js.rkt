@@ -159,7 +159,8 @@
     [(? number?)
      (format "~a" (real->double-flonum expr) )]))
 
-(define (core->js prog #:name name)
+(define (core->js prog name #:runtime [runtime #f])
+  (*runtime* runtime)
   (match-define (list 'FPCore (list args ...) props ... body) prog)
   (define-values (_ properties) (parse-properties props))
   (define type (dict-ref properties ':precision 'binary64))
@@ -176,7 +177,3 @@
           (fix-name name)
           (string-join arg-strings ", ")
           func-body))
-
-(define (core->js expr name #:runtime [runtime #f])
-  (*runtime* runtime)
-  (core->js expr #:name name))

@@ -3,8 +3,8 @@
 (require "common.rkt" "fpcore.rkt" "range-analysis.rkt")
 (provide fix-file-name round-decimal format-number
          free-variables remove-let canonicalize
-         split-expr to-dnf all-subexprs unroll-loops
-         fpcore-split-or fpcore-all-subexprs fpcore-split-intervals fpcore-unroll-loops
+         split-expr to-dnf all-subexprs unroll-loops skip-loops
+         fpcore-split-or fpcore-all-subexprs fpcore-split-intervals fpcore-unroll-loops fpcore-skip-loops
          fpcore-transform
          fpcore-name)
 
@@ -38,7 +38,7 @@
             [r (exact-floor t2)])
        (if (= r t2) t
            (/ (if (eq? direction 'up) (add1 r) r) p)))]))
-  
+
 ; TODO: use (order-of-magnitude n) from racket/math to get normalized results
 (define/contract (format-number n #:digits [digits 16] #:direction [direction #f])
   (->* (rational?)
@@ -156,7 +156,7 @@
     [_ (define lists* (all-combinations (cdr lists)))
        (for*/list ([h (car lists)] [t lists*])
          (list* h t))]))
-  
+
 (define/contract (to-dnf expr)
   ; Converts the given logical expression into an equivalent DNF
   (-> expr? expr?)
@@ -212,27 +212,35 @@
                (loop body)))
         (append body-subexprs val-subexprs)]
        [`(if ,cond ,t ,f)
-        `(,expr ,@(loop t) ,@(loop f))] 
+        `(,expr ,@(loop t) ,@(loop f))]
        [(list op args ...)
         (cons expr (append-map loop args))]))))
 
-;; from core2scala.rkt
-(define/contract (unroll-loops expr n)
-  (-> expr? exact-nonnegative-integer? expr?)
+(define/contract (unroll-loops n expr)
+  (-> exact-nonnegative-integer? expr? expr?)
   (match expr
-    [`(let ([,vars ,vals] ...) ,body)
-     `(let (,@(for/list ([var vars] [val vals]) (list var (unroll-loops val n))))
-        ,(unroll-loops body n))]
+    [`(,(and (or 'let 'let*) let_) ([,vars ,vals] ...) ,body)
+     `(,let_ (,@(for/list ([var vars] [val vals]) (list var (unroll-loops n val))))
+             ,(unroll-loops n body))]
     [`(if ,cond ,ift ,iff)
-     `(if ,(unroll-loops cond n) ,(unroll-loops ift n) ,(unroll-loops iff n))]
-    [`(while ,cond ([,vars ,inits ,updates] ...) ,retexpr)
-     `(let (,@(map list vars inits))
-        ,(let ([new-loop `(while ,cond (,@(map list vars updates updates)) ,retexpr)])
-           (if (= n 0)
-               new-loop
-               (unroll-loops new-loop (- n 1)))))]
+     `(if ,(unroll-loops n cond) ,(unroll-loops n ift) ,(unroll-loops n iff))]
+    [`(,(and (or 'while 'while*) while_) ,cond ([,vars ,inits ,updates] ...) ,retexpr)
+     (let ([let_ (match while_ ['while 'let] ['while* 'let*])]
+           [new-cond (unroll-loops n cond)]
+           [new-inits (map (curry unroll-loops n) inits)]
+           [new-updates (map (curry unroll-loops n) updates)]
+           [new-retexpr (unroll-loops n retexpr)])
+       (let loop ([n n] [loop-inits new-inits] [loop-updates new-updates])
+         (if (<= n 0)
+             `(,while_ ,new-cond (,@(map list vars loop-inits loop-updates)) ,new-retexpr)
+             `(,let_ (,@(map list vars loop-inits))
+                (if ,new-cond
+                    ,(loop (- n 1) loop-updates loop-updates)
+                    ,new-retexpr)))))]
+    [`(! ,props ... ,body)
+     `(! ,@props ,(unroll-loops n body))]
     [`(,(? operator? op) ,args ...)
-     (cons op (map (curryr unroll-loops n) args))]
+     (cons op (map (curry unroll-loops n) args))]
     [(? constant?) expr]
     [(? number?) expr]
     [(? symbol?) expr]))
@@ -241,7 +249,34 @@
   ; Unrolls loops in the given FPCore program
   (-> exact-nonnegative-integer? fpcore? fpcore?)
   (match-define (list 'FPCore (list args ...) props ... body) prog)
-  `(FPCore ,args ,@props ,(unroll-loops body n))) 
+  `(FPCore ,args ,@props ,(unroll-loops n body)))
+
+(define/contract (skip-loops expr)
+  (-> expr? expr?)
+  (match expr
+    [`(,(and (or 'let 'let*) let_) ([,vars ,vals] ...) ,body)
+     `(,let_ (,@(for/list ([var vars] [val vals]) (list var (skip-loops val))))
+        ,(skip-loops body))]
+    [`(if ,cond ,ift ,iff)
+     `(if ,(skip-loops cond) ,(skip-loops ift) ,(skip-loops iff))]
+    [`(,(and (or 'while 'while*) while_) ,cond ([,vars ,inits ,updates] ...) ,retexpr)
+     (let ([let_ (match while_ ['while 'let] ['while* 'let*])])
+       `(,let_ (,@(for/list ([var vars] [init inits]) (list var (skip-loops init))))
+               ,retexpr))]
+    [`(! ,props ... ,body)
+     `(! ,@props ,(skip-loops body))]
+    [`(,(? operator? op) ,args ...)
+     (cons op (map skip-loops args))]
+    [(? constant?) expr]
+    [(? number?) expr]
+    [(? symbol?) expr]))
+
+(define/contract (fpcore-skip-loops prog)
+  ; SKips loops in the given FPCore program
+  (-> fpcore? fpcore?)
+  (match-define (list 'FPCore (list args ...) props ... body) prog)
+  `(FPCore ,args ,@props ,(skip-loops body)))
+
 
 (define/contract (fpcore-split-or prog)
   ; Transforms preconditions into DNF and returns FPCore programs for all conjunctions
@@ -347,11 +382,11 @@
       (check-equal?
        (string->number (string-trim (format-number n) #px"[()]"))
        (inexact->exact n))))
-        
+
   (check-equal?
    (remove-let '(let ([x (+ a b)]) (+ x a)))
    '(+ (+ a b) a))
-  
+
   (check-equal?
    (remove-let '(let ([x (+ a b)] [y (* a 2)])
                   (let ([x (+ y x)] [a b])

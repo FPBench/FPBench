@@ -25,10 +25,12 @@
                     (register-pass 'expand-let* 'one-to-one)]
    ["--expand-while*" "Expand each while* to a while loop with nested let* expressions"
                       (register-pass 'expand-while* 'one-to-one)]
-   ["--cse" "Lift each common subexpression to an intermediate variable bound by a let* expression"
-            (register-pass 'cse 'one-to-one)]
    ["--rational-constants" "Convert every number to a rational"
                            (register-pass 'rational-constants 'one-to-one)]
+   ["--cse" "Lift each common subexpression to an intermediate variable bound by a let* expression"
+            (register-pass 'cse 'one-to-one)]
+   ["--subexprs" "Break an FPCore down into separate cores for each subexpression"
+                 (register-pass fpcore-all-subexprs 'one-to-many)]
    #:args (in-file out-file)
 
    (define input-port
@@ -62,6 +64,6 @@
        (apply apply-pass pass-shape))
 
      (for ([expr (unbox working-exprs)])
-       (pretty-print expr output-port 1))
+       (pretty-print expr output-port 1)))
 
-     (printf "Done\n"))))
+   (printf "Done\n")))

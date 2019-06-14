@@ -194,11 +194,11 @@
   (remove-duplicates #:key remove-let
    (let loop ([expr expr])
      (match expr
-       [(list (or '< '> '<= '>= '== '!= 'and 'or 'not 'while) args ...)
+       [(list (or '< '> '<= '>= '== '!= 'and 'or 'not 'while 'while* '!) args ...)
         (error 'all-subexprs "Unsupported operation: ~a" expr)]
        [(? symbol?) (if no-vars '() (list expr))]
        [(or (? number?) (? constant?)) (if no-consts '() (list expr))]
-       [`(let ([,vars ,vals] ...) ,body)
+       [`(,(and (or 'let 'let*) let_) ([,vars ,vals] ...) ,body)
         (define val-subexprs (append-map loop vals))
         (define body-subexprs
           (map (λ (e)
@@ -208,13 +208,25 @@
                      (list var val)))
                  (cond
                    [(null? bindings) e]
-                   [else `(let (,@bindings) ,e)]))
+                   [else `(,let_ (,@bindings) ,e)]))
                (loop body)))
         (append body-subexprs val-subexprs)]
        [`(if ,cond ,t ,f)
         `(,expr ,@(loop t) ,@(loop f))]
        [(list op args ...)
         (cons expr (append-map loop args))]))))
+
+(define/contract (fpcore-all-subexprs prog #:no-vars [no-vars #f] #:no-consts [no-consts #f])
+  ; Returns FPCore programs for all subexpressions
+  (->* (fpcore?) (#:no-vars boolean? #:no-consts boolean?) (listof fpcore?))
+  (match-define (list 'FPCore (list args ...) props ... body) prog)
+  (define-values (_ properties) (parse-properties props))
+  (define name (dict-ref properties ':name "ex"))
+  (define exprs (all-subexprs body #:no-vars no-vars #:no-consts no-consts))
+  (for/list ([expr exprs] [k (in-naturals)])
+    (define name* (if (>= k 1) (format "~a_expr~a" name k) name))
+    (define props* (dict-set properties ':name name*))
+    `(FPCore ,args ,@(unparse-properties props*) ,expr)))
 
 (define/contract (unroll-loops n expr)
   (-> exact-nonnegative-integer? expr? expr?)
@@ -294,17 +306,6 @@
           (define props* (dict-set* properties ':name name* ':pre pre))
           `(FPCore ,args ,@(unparse-properties props*) ,body)))))
 
-(define/contract (fpcore-all-subexprs prog #:no-vars [no-vars #f] #:no-consts [no-consts #f])
-  ; Returns FPCore programs for all subexpressions
-  (->* (fpcore?) (#:no-vars boolean? #:no-consts boolean?) (listof fpcore?))
-  (match-define (list 'FPCore (list args ...) props ... body) prog)
-  (define-values (_ properties) (parse-properties props))
-  (define name (dict-ref properties ':name "ex"))
-  (define exprs (all-subexprs body #:no-vars no-vars #:no-consts no-consts))
-  (for/list ([expr exprs] [k (in-naturals)])
-    (define name* (if (>= k 1) (format "~a_expr~a" name k) name))
-    (define props* (dict-set properties ':name name*))
-    `(FPCore ,args ,@(unparse-properties props*) ,expr)))
 
 (define/contract (fpcore-split-intervals n prog #:max [max 10000])
   ; Uniformly splits input intervals of all bounded variables into n parts.

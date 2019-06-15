@@ -3,8 +3,9 @@
 (require "common.rkt" "fpcore.rkt" "range-analysis.rkt")
 (provide fix-file-name round-decimal format-number
          free-variables remove-let canonicalize
-         split-expr to-dnf all-subexprs unroll-loops skip-loops
-         fpcore-split-or fpcore-all-subexprs fpcore-split-intervals fpcore-unroll-loops fpcore-skip-loops
+         split-expr to-dnf all-subexprs unroll-loops skip-loops precondition-ranges
+         fpcore-split-or fpcore-all-subexprs fpcore-split-intervals
+         fpcore-unroll-loops fpcore-skip-loops fpcore-precondition-ranges
          fpcore-transform
          fpcore-name)
 
@@ -284,11 +285,37 @@
     [(? symbol?) expr]))
 
 (define/contract (fpcore-skip-loops prog)
-  ; SKips loops in the given FPCore program
+  ; Skips loops in the given FPCore program
   (-> fpcore? fpcore?)
   (match-define (list 'FPCore (list args ...) props ... body) prog)
   `(FPCore ,args ,@props ,(skip-loops body)))
 
+(define/contract (precondition-ranges pre #:single-range [single-range #f])
+  (->* (expr?) (#:single-range boolean?) expr?)
+  (let* ([ranges ((compose condition->range-table canonicalize remove-let) pre)]
+         [bounded-vars (for/list ([var-interval (in-dict-pairs ranges)]
+                                  #:when (nonempty-bounded? (cdr var-interval)))
+                         var-interval)])
+    `(and
+      ,@(for/list ([var-interval bounded-vars])
+          (match-let ([(cons var intervals) var-interval])
+            (if single-range
+                (match-let ([(interval a _ a? _) (first intervals)]
+                            [(interval _ b _ b?) (last intervals)])
+                  (interval->condition (interval a b a? b?) var))
+                `(or ,@(for/list ([int intervals])
+                         (interval->condition int var)))))))))
+
+(define/contract (fpcore-precondition-ranges prog #:single-range [single-range #f])
+  ; Converts preconditions to ranges in the given FPCore program
+  (->* (fpcore?) (#:single-range boolean?) fpcore?)
+  (match-define (list 'FPCore (list args ...) props ... body) prog)
+  (define-values (_ properties) (parse-properties props))
+  (if (not (dict-has-key? properties ':pre))
+      prog
+      (let* ([new-pre (precondition-ranges (dict-ref properties ':pre) #:single-range single-range)]
+             [new-properties (dict-set properties ':pre new-pre)])
+        `(FPCore ,args ,@(unparse-properties new-properties) ,body))))
 
 (define/contract (fpcore-split-or prog)
   ; Transforms preconditions into DNF and returns FPCore programs for all conjunctions

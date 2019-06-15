@@ -18,9 +18,9 @@
    ["--skip-loops" "Replace loops with their bodies, as if the were executed zerotimes"
                    (register-pass fpcore-skip-loops 'one-to-one)]
    ["--precondition-ranges" "Weaken preconditions to a conjunction (one per argument) of a disjunction of ranges"
-                            (register-pass 'precondition-ranges 'one-to-one)]
+                            (register-pass (curry fpcore-precondition-ranges #:single-range #f) 'one-to-one)]
    ["--precondition-range" "Weaken preconditions to a conjunction of single ranges for each variable"
-                           (register-pass 'precondition-range 'one-to-one)]
+                           (register-pass (curry fpcore-precondition-ranges #:single-range #t) 'one-to-one)]
    ["--expand-let*" "Expand each let* to a series of nested let expressions"
                     (register-pass 'expand-let* 'one-to-one)]
    ["--expand-while*" "Expand each while* to a while loop with nested let* expressions"

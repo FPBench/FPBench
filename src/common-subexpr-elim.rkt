@@ -113,10 +113,7 @@
 
   (check-equal?
     (core-common-subexpr-elim '(FPCore (a) (let ((x (- a a))) (let ((x (+ a a))) x))))
-    '(FPCore (a) (let ((x (- a a))) (let ((x (+ a a))) x))))
-  
-  
-)
+    '(FPCore (a) (let ((x (- a a))) (let ((x (+ a a))) x)))))
 
 (module+ main
   (require racket/cmdline)

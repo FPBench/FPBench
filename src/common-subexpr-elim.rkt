@@ -74,13 +74,13 @@
 
   (check-equal?
     (core-common-subexpr-elim '(FPCore (a) (+ (+ a a) (+ a a))))
-    '(FPCore (a) (let* ((i0 (+ a a))) (+ i0 i0))))
+    '(FPCore (a) (let* ((i (+ a a))) (+ i i))))
 
   (check-equal?
     (core-common-subexpr-elim '(FPCore (a x) (+
                                                (- (+ a x) a)
                                                (- (+ a x) a))))
-    '(FPCore (a x) (let* ((i0 (+ a x)) (i1 (- i0 a))) (+ i1 i1))))
+    '(FPCore (a x) (let* ((i (+ a x)) (i1 (- i a))) (+ i1 i1))))
   
   (check-equal?
     (core-common-subexpr-elim '(FPCore (a) (let ((j0 (+ a a))) j0)))
@@ -88,11 +88,11 @@
 
   (check-equal?
     (core-common-subexpr-elim '(FPCore (a) (let ((j0 (+ a a))) (+ (+ a a) j0))))
-    '(FPCore (a) (let* ((i0 (+ a a))) (+ i0 i0))))
+    '(FPCore (a) (let* ((i (+ a a))) (+ i i))))
 
   (check-equal?
     (core-common-subexpr-elim '(FPCore (a) (let ((i0) (- a a)) (- (+ (+ a a) (+ a a)) i0))))
-    '(FPCore (a) (let* ((i0 (- a a)) (i1 (+ a a))) (- (+ i1 i1) i0))))
+    '(FPCore (a) (let* ((i (- a a)) (i1 (+ a a))) (- (+ i1 i1) i))))
 
   
 )

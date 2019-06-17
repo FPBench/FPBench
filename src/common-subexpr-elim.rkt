@@ -32,7 +32,6 @@
   h1)
 
 (define (add-binding-names expr)
-  (println expr)
   (when (list? expr)
     (match-define (list op bindings bind-body) expr)
     (when (set-member? '(let let* while while*) op)

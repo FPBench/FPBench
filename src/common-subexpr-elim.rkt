@@ -55,7 +55,7 @@
   (define final-expr (common-subexpr-body expr))
   (if (empty? intermediates)
     final-expr
-    `(let (,@(reverse intermediates)) ,final-expr)))
+    `(let* (,@(reverse intermediates)) ,final-expr)))
 
 (module+ test
   (check-equal?

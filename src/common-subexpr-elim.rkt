@@ -110,6 +110,10 @@
   (check-equal?
     (core-common-subexpr-elim '(FPCore (a) (let ((i0 (- a a))) (- (+ (+ a a) (+ a a)) i0))))
     '(FPCore (a) (let ((i0 (- a a))) (- (+ (+ a a) (+ a a)) i0))))
+
+  (check-equal?
+    (core-common-subexpr-elim '(FPCore (a) (let ((x (- a a))) (let ((x (+ a a))) x))))
+    '(FPCore (a) (let ((x (- a a))) (let ((x (+ a a))) x))))
   
   
 )

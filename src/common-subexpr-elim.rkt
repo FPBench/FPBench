@@ -1,5 +1,8 @@
 #lang racket
 
+;; TODO: Once the let unroller is implemented we can eliminate more subexpressions.
+;; Right now we don't look inside any let or while statements for eliminating, but once
+;; the unroller is implemented, we can just expand everything for MAXIMUM elimination.
 (require "common.rkt" "fpcore.rkt")
 (module+ test (require rackunit))
 

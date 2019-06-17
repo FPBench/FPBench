@@ -1,6 +1,7 @@
 #lang racket
 
 (require "common.rkt" "fpcore.rkt")
+(module+ test (require rackunit))
 
 (provide core-common-subexpr-elim)
 
@@ -55,6 +56,35 @@
   (if (empty? intermediates)
     final-expr
     `(let (,@(reverse intermediates)) ,final-expr)))
+
+(module+ test
+  (check-equal?
+    (core-common-subexpr-elim '(FPCore (a) a))
+    '(FPCore (a) a))
+
+  (check-equal?
+    (core-common-subexpr-elim '(FPCore (a) (+ (+ a a) (+ a a))))
+    '(FPCore (a) (let* ((i0 (+ a a))) (+ i0 i0))))
+
+  (check-equal?
+    (core-common-subexpr-elim '(FPCore (a x) (+
+                                               (- (+ a x) a)
+                                               (- (+ a x) a))))
+    '(FPCore (a x) (let* ((i0 (+ a x)) (i1 (- i0 a))) (+ i1 i1))))
+  
+  (check-equal?
+    (core-common-subexpr-elim '(FPCore (a) (let ((j0 (+ a a))) j0)))
+    '(FPCore (a) (let* ((j0 (+ a a))) j0)))
+
+  (check-equal?
+    (core-common-subexpr-elim '(FPCore (a) (let ((j0 (+ a a))) (+ (+ a a) j0))))
+    '(FPCore (a) (let* ((i0 (+ a a))) (+ i0 i0))))
+
+  (check-equal?
+    (core-common-subexpr-elim '(FPCore (a) (let ((i0) (- a a)) (- (+ (+ a a) (+ a a)) i0))))
+    '(FPCore (a) (let* ((i0 (- a a)) (i1 (+ a a))) (- (+ i1 i1) i0))))
+  
+)
 
 (module+ main
   (require racket/cmdline)

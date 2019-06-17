@@ -1,4 +1,4 @@
-.PHONY: sanity test
+.PHONY: sanity test setup
 
 FILTER = racket infra/filter.rkt
 
@@ -76,3 +76,6 @@ endif
 %.compiled.fpcore: %.fpimp
 	printf ";; -*- mode: scheme -*-\n\n" > $@
 	racket tools/imp2core.rkt --canonicalize < $^ >> $@
+
+setup:
+	raco make export.rkt transport.rkt

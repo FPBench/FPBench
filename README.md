@@ -1,59 +1,49 @@
 ![FPBench](logo.png)
 
-FPBench makes it easier to compare and combine tools from the
-floating-point research community by developing common standards and
-benchmark suites.
+FPBench provides benchmarks, compilers, and standards for the floating-point research community. 
 
 [![Build Status](https://travis-ci.org/FPBench/FPBench.svg?branch=master)](https://travis-ci.org/FPBench/FPBench)
-
-Standards
----------
-
-The FPBench standards are documented in `www/spec/`. FPBench currently
-contains three standards:
-
- - *FPCore* describes floating-point computations. FPCore is a simple
-   S-expression functional programming language and can represent
-   arithmetic, transcendental operators, loops, and conditionals.
- - *Metadata* describe the provenance and interpretation of FPCore
-   computations.
- - *Measures* describe accuracy measurements for FPCore computations.
-   Several measures are standardized.
-
-Each standard has achieved 1.0 status and can be used by implementations.
 
 Benchmarks
 ----------
 
 The FPBench benchmarks are located in `benchmarks/` in FPCore format.
 
-FPBench contains 72 benchmarks from four sources (FPTaylor, Herbie,
+FPBench contains 98 benchmarks from four sources (FPTaylor, Herbie,
 Salsa, and Rosa) covering a variety of application domains and the
 full complement of FPCore features.
 
-Tools
------
+Compilers
+---------
 
-The FPBench tools are located in `tools/`, and make it easier to
-write, test, and use FPCore computations. These tools include:
+FPBench develops two compiler tools for FPCore programs:
 
- - `fpcore.rkt` runs FPCore computations and can be used as a
-   reference for FPCore implementation work.
- - `core2c.rkt` exports FPCore computations to C
- 
-These tools are documented in `www/tools.html`.
+ - `export.rkt`, which exports FPCore computations to languages
+   like C or JavaScript and to input formats for tools like Daisy,
+   Gappa, and FPTaylor.
+ - `transform.rkt`, which applies transformations FPCore computations,
+   such as sipmlifying preconditions, unrolling loops, or expanding
+   syntax sugar.
 
-FPBench also ships with a set of tools based on the FPImp intermediate
-language. FPImp is an imperative extension to FPCore which makes
-translating C, Fortran, Matlab, or other imperative languages to
-FPCore simpler. FPImp is documented in `www/fpimp.html`, and FPBench
-ships with tools for manipulating FPImp programs:
+These tools are documented [online](http://fpbench.org/tools.html).
 
- - `fpimp.rkt` runs FPImp programs
- - `imp2core.rkt` compiles FPImp to FPCore
+Standards
+---------
 
-We recommend using FPImp only for writing FPCore computations; FPImp
-is not a standard and we do not recommend using it in other tools.
+The FPBench standards are located [online](http://fpbench.org/spec/).
+FPBench contains standards for:
+
+ - The *FPCore format* for floating-point computations. FPCore is a
+   simple S-expression functional programming language and can
+   represent arithmetic, transcendental operators, loops, and
+   conditionals.
+ - *Metadata* to describe the provenance and interpretation of FPCore
+   computations.
+ - *Measures* to describe accuracy measurements for FPCore computations.
+   Several measures are standardized.
+
+Each standard has achieved 1.1 status and can be used by implementations.
+The standards are maintained in [another repository on Github](https://github.com/FPBench/FPBench.github.io/).
 
 Papers
 ------

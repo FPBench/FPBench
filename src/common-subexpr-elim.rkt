@@ -28,11 +28,12 @@
        cs-hash)]
     [else (make-hash)]))
 
-(define (common-subexpr-elim cs-hash expr)
+(define (common-subexpr-elim cs-hash start-expr)
   (define intermediates '())
   (define name-hash (make-hash))
 
-  (define (common-subexpr-body expr)
+
+  (define final-expr (let common-subexpr-body ([expr start-expr])
     (cond
       [(list? expr)
        (match-define (list op args ...) expr)
@@ -50,9 +51,7 @@
                expr-name))
            `(,op ,@(for/list ([arg args])
                      (common-subexpr-body arg)))))]
-      [else expr]))
-
-  (define final-expr (common-subexpr-body expr))
+      [else expr])))
   (if (empty? intermediates)
     final-expr
     `(let* (,@(reverse intermediates)) ,final-expr)))
@@ -83,6 +82,7 @@
   (check-equal?
     (core-common-subexpr-elim '(FPCore (a) (let ((i0) (- a a)) (- (+ (+ a a) (+ a a)) i0))))
     '(FPCore (a) (let* ((i0 (- a a)) (i1 (+ a a))) (- (+ i1 i1) i0))))
+
   
 )
 

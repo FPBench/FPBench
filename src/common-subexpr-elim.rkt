@@ -6,6 +6,7 @@
 (provide core-common-subexpr-elim)
 
 (define (core-common-subexpr-elim prog)
+  (*names* (mutable-set))
   (match-define (list 'FPCore (list args ...) props ... body) prog)
   (define cs-hash (count-common-subexpr body))
   (define cse-body (common-subexpr-elim cs-hash body))
@@ -28,10 +29,21 @@
        cs-hash)]
     [else (make-hash)]))
 
+(define *names* (make-parameter (mutable-set)))
+
+(define (gensym name)
+  (define prefixed
+    (filter (λ (x) (string-prefix? (~a x) (~a name))) (set->list (*names*))))
+  (define options
+    (cons name (for/list ([_ prefixed] [i (in-naturals)]) (string->symbol (format "~a~a" name (+ i 1))))))
+  (define name*
+    (car (set-subtract options prefixed)))
+  (set-add! (*names*) name*)
+  name*)
+
 (define (common-subexpr-elim cs-hash start-expr)
   (define intermediates '())
   (define name-hash (make-hash))
-
 
   (define final-expr (let common-subexpr-body ([expr start-expr])
     (cond
@@ -42,8 +54,7 @@
          (if (hash-ref cs-hash expr #f)
            (if (hash-has-key? name-hash expr)
              (hash-ref name-hash expr)
-             (let* ([expr-name (string->symbol
-                                 (format "i~a" (hash-count name-hash)))]
+             (let* ([expr-name (gensym 'i)]
                     [fixed-expr (cons op elimed-exprs)])
                (hash-set! name-hash expr expr-name)
                (set! intermediates (cons (list expr-name fixed-expr)

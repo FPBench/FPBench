@@ -31,14 +31,29 @@
       (hash-set! h1 k v)))
   h1)
 
+(define (add-binding-names expr)
+  (println expr)
+  (when (list? expr)
+    (match-define (list op bindings bind-body) expr)
+    (when (set-member? '(let let* while while*) op)
+      (for ([bind bindings])
+        (match-define (list name bind-expr) bind)
+        (set-add! (*names*) name)
+        (add-binding-names bind-expr)))
+    (add-binding-names bind-body)))
+
 (define (count-common-subexpr expr)
   (cond 
     [(list? expr)
      (match-define (list op args ...) expr)
-     (let ([cs-hash (make-hash (list (cons expr #f)))])
-       (for ([e args])
-         (combine-common-subexpr-hash cs-hash (count-common-subexpr e)))
-       cs-hash)]
+     (if (set-member? '(let let* while while*) op)
+       (begin
+         (add-binding-names expr)
+         (make-hash))
+       (let ([cs-hash (make-hash (list (cons expr #f)))])
+         (for ([e args])
+           (combine-common-subexpr-hash cs-hash (count-common-subexpr e)))
+         cs-hash))]
     [else (make-hash)]))
 
 (define (common-subexpr-elim cs-hash start-expr)
@@ -91,7 +106,7 @@
     '(FPCore (a) (let* ((i (+ a a))) (+ i i))))
 
   (check-equal?
-    (core-common-subexpr-elim '(FPCore (a) (let ((i0) (- a a)) (- (+ (+ a a) (+ a a)) i0))))
+    (core-common-subexpr-elim '(FPCore (a) (let ((i0 (- a a))) (- (+ (+ a a) (+ a a)) i0))))
     '(FPCore (a) (let* ((i (- a a)) (i1 (+ a a))) (- (+ i1 i1) i))))
   
   

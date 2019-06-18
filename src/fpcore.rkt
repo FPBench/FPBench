@@ -85,8 +85,7 @@
      (cons `(if ,(car test*) ,(car ift*) ,(car iff*)) (cdr ift*))]
     [(cons (app syntax-e 'if) _)
      (raise-syntax-error #f "Invalid conditional statement" stx)]
-    [(list (app syntax-e (and (or 'let 'let*) let_))
-           (app syntax-e (list (app syntax-e (list vars vals)) ...)) body)
+    [(list (app syntax-e 'let) (app syntax-e (list (app syntax-e (list vars vals)) ...)) body)
      (define vars*
        (for/list ([var vars])
          (unless (symbol? (syntax-e var))
@@ -95,7 +94,20 @@
      (define vals* (map (curryr check-expr ctx) vals))
      (define ctx* (apply dict-set* ctx (append-map list vars* (map cdr vals*))))
      (define body* (check-expr body ctx*))
-     (cons `(,let_ (,@(map list vars* (map car vals*))) ,(car body*)) (cdr body*))]
+     (cons `(let (,@(map list vars* (map car vals*))) ,(car body*)) (cdr body*))]
+    [(list (app syntax-e 'let*) (app syntax-e (list (app syntax-e (list vars vals)) ...)) body)
+     (define vars*
+       (for/list ([var vars])
+         (unless (symbol? (syntax-e var))
+           (raise-syntax-error #f "Only variables may be bound by let binding" stx var))
+         (syntax-e var)))
+     (define-values (ctx* vals*)
+       (for/fold ([ctx ctx] [vals '()]) ([var vars*] [val vals])
+         (define val* (check-expr val ctx))
+         (define ctx* (dict-set ctx var (cdr val*)))
+         (values ctx* (cons val* vals))))
+     (define body* (check-expr body ctx*))
+     (cons `(let* (,@(map list vars* (map car vals*))) ,(car body*)) (cdr body*))]
     [(cons (app syntax-e (or 'let 'let*)) _)
      (raise-syntax-error #f "Invalid let bindings" stx)]
     [(list (app syntax-e (and (or 'while 'while*) while_)) test

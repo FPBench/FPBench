@@ -1,18 +1,42 @@
 #lang racket/base
 
-(require "tools/canonicalizer.rkt" "tools/common.rkt" "tools/core2c.rkt"
-  "tools/core2fptaylor.rkt" "tools/core2gappa.rkt" "tools/core2go.rkt"
-  "tools/core2js.rkt" "tools/core2json.rkt" "tools/core2scala.rkt"
-  "tools/core2smtlib2.rkt" "tools/core2wls.rkt" "tools/filter.rkt"
-  "tools/fpimp.rkt" "tools/imp2core.rkt" "tools/range-analysis.rkt"
-  "tools/sample-accuracy.rkt" "tools/common-subexpr-elim.rkt")
+(require
+ "src/canonicalizer.rkt"
+ "src/common.rkt"
+ "src/core2c.rkt"
+ "src/core2fptaylor.rkt"
+ "src/core2gappa.rkt"
+ "src/core2go.rkt"
+ "src/core2js.rkt"
+ "src/core2scala.rkt"
+ "src/core2smtlib2.rkt"
+ "src/core2wls.rkt"
+ "infra/core2json.rkt"
+ "infra/filter.rkt"
+ "tools/fpimp.rkt"
+ "tools/imp2core.rkt"
+ "src/range-analysis.rkt"
+ "src/sample-accuracy.rkt"
+ "src/common-subexr-elim.rkt")
 
-(provide (all-from-out "tools/canonicalizer.rkt" "tools/common.rkt"
-  "tools/core2c.rkt" "tools/core2fptaylor.rkt" "tools/core2gappa.rkt"
-  "tools/core2go.rkt" "tools/core2js.rkt" "tools/core2json.rkt"
-  "tools/core2scala.rkt" "tools/core2smtlib2.rkt" "tools/core2wls.rkt"
-  "tools/filter.rkt" "tools/fpimp.rkt" "tools/imp2core.rkt"
-  "tools/range-analysis.rkt" "tools/sample-accuracy.rkt"
-  "tools/common-subexpr-elim.rkt"))
+(provide
+ (all-from-out
+  "src/canonicalizer.rkt"
+  "src/common.rkt"
+  "src/core2c.rkt"
+  "src/core2fptaylor.rkt"
+  "src/core2gappa.rkt"
+  "src/core2go.rkt"
+  "src/core2js.rkt"
+  "src/core2scala.rkt"
+  "src/core2smtlib2.rkt"
+  "src/core2wls.rkt"
+  "infra/core2json.rkt"
+  "infra/filter.rkt"
+  "tools/fpimp.rkt"
+  "tools/imp2core.rkt"
+  "src/range-analysis.rkt"
+  "src/sample-accuracy.rkt"
+  "src/common-subexpr-elim.rkt"))
 
 (module+ main)

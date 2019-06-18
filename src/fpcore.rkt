@@ -107,7 +107,7 @@
          (define ctx* (dict-set ctx var (cdr val*)))
          (values ctx* (cons val* vals))))
      (define body* (check-expr body ctx*))
-     (cons `(let* (,@(map list vars* (map car vals*))) ,(car body*)) (cdr body*))]
+     (cons `(let* (,@(map list vars* (map car (reverse vals*)))) ,(car body*)) (cdr body*))]
     [(cons (app syntax-e (or 'let 'let*)) _)
      (raise-syntax-error #f "Invalid let bindings" stx)]
     [(list (app syntax-e (and (or 'while 'while*) while_)) test

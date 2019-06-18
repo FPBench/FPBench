@@ -3,9 +3,11 @@
 (require "common.rkt" "fpcore.rkt" "range-analysis.rkt")
 (provide fix-file-name round-decimal format-number
          free-variables remove-let canonicalize
-         split-expr to-dnf all-subexprs unroll-loops skip-loops precondition-ranges
+         split-expr to-dnf all-subexprs unroll-loops skip-loops
+         expand-let* expand-while* precondition-ranges
          fpcore-split-or fpcore-all-subexprs fpcore-split-intervals
-         fpcore-unroll-loops fpcore-skip-loops fpcore-precondition-ranges
+         fpcore-unroll-loops fpcore-skip-loops
+         fpcore-expand-let* fpcore-expand-while* fpcore-precondition-ranges
          fpcore-transform
          fpcore-name)
 
@@ -289,6 +291,78 @@
   (-> fpcore? fpcore?)
   (match-define (list 'FPCore (list args ...) props ... body) prog)
   `(FPCore ,args ,@props ,(skip-loops body)))
+
+(define/contract (expand-let* expr)
+  (-> expr? expr?)
+  (match expr
+    [`(let ([,vars ,vals] ...) ,body)
+     `(let (,@(for/list ([var vars] [val vals]) (list var (expand-let* val))))
+        ,(expand-let* body))]
+    [`(let* ([,vars ,vals] ...) ,body)
+     (let loop ([vars vars] [vals vals])
+       (match (list vars vals)
+         [(list '() '()) (expand-let* body)]
+         [(list (cons var rest-vars) (cons val rest-vals))
+          `(let ((,var ,(expand-let* val)))
+             ,(loop rest-vars rest-vals))]))]
+    [`(if ,cond ,ift ,iff)
+     `(if ,(expand-let* cond) ,(expand-let* ift) ,(expand-let* iff))]
+    [`(,(and (or 'while 'while*) while_) ,cond ([,vars ,inits ,updates] ...) ,retexpr)
+     `(,while_ ,(expand-let* cond)
+               (,@(for/list ([var vars] [init inits] [update updates])
+                    (list var (expand-let* init) (expand-let* update))))
+               ,(expand-let* retexpr))]
+    [`(! ,props ... ,body)
+     `(! ,@props ,(expand-let* body))]
+    [`(,(? operator? op) ,args ...)
+     (cons op (map expand-let* args))]
+    [(? constant?) expr]
+    [(? number?) expr]
+    [(? symbol?) expr]))
+
+(define/contract (fpcore-expand-let* prog)
+  ; Expand let* in the body of the given FPCore program
+  (-> fpcore? fpcore?)
+  (match-define (list 'FPCore (list args ...) props ... body) prog)
+  `(FPCore ,args ,@props ,(expand-let* body)))
+
+(define/contract (expand-while* expr)
+  (-> expr? expr?)
+  (match expr
+    [`(,(and (or 'let 'let*) let_) ([,vars ,vals] ...) ,body)
+     `(,let_ (,@(for/list ([var vars] [val vals]) (list var (expand-while* val))))
+        ,(expand-while* body))]
+    [`(if ,cond ,ift ,iff)
+     `(if ,(expand-while* cond) ,(expand-while* ift) ,(expand-while* iff))]
+    [`(while ,cond ([,vars ,inits ,updates] ...) ,retexpr)
+     `(while ,(expand-while* cond)
+             (,@(for/list ([var vars] [init inits] [update updates])
+                  (list var (expand-while* init) (expand-while* update))))
+             ,(expand-while* retexpr))]
+    [`(while* ,cond ([,vars ,inits ,updates] ...) ,retexpr)
+     `(while ,(expand-while* cond)
+             (,@(for/list ([var vars])
+                  (list var
+                        `(let* (,@(for/list ([var* vars] [init* inits])
+                                    (list var* init*)))
+                               ,var)
+                        `(let* (,@(for/list ([var* vars] [update* updates])
+                                    (list var* update*)))
+                               ,var))))
+             ,(expand-while* retexpr))]
+    [`(! ,props ... ,body)
+     `(! ,@props ,(expand-while* body))]
+    [`(,(? operator? op) ,args ...)
+     (cons op (map expand-while* args))]
+    [(? constant?) expr]
+    [(? number?) expr]
+    [(? symbol?) expr]))
+
+(define/contract (fpcore-expand-while* prog)
+  ; Expand let* in the body of the given FPCore program
+  (-> fpcore? fpcore?)
+  (match-define (list 'FPCore (list args ...) props ... body) prog)
+  `(FPCore ,args ,@props ,(expand-while* body)))
 
 (define/contract (precondition-ranges pre #:single-range [single-range #f])
   (->* (expr?) (#:single-range boolean?) expr?)

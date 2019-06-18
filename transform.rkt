@@ -23,9 +23,9 @@
    ["--precondition-range" "Weaken preconditions to a conjunction of single ranges for each variable"
                            (register-pass (curry fpcore-precondition-ranges #:single-range #t) 'one-to-one)]
    ["--expand-let*" "Expand each let* to a series of nested let expressions"
-                    (register-pass 'expand-let* 'one-to-one)]
+                    (register-pass fpcore-expand-let* 'one-to-one)]
    ["--expand-while*" "Expand each while* to a while loop with nested let* expressions"
-                      (register-pass 'expand-while* 'one-to-one)]
+                      (register-pass fpcore-expand-while* 'one-to-one)]
    ["--rational-constants" "Convert every number to a rational"
                            (register-pass 'rational-constants 'one-to-one)]
    ["--cse" "Lift each common subexpression to an intermediate variable bound by a let* expression"

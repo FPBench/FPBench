@@ -230,7 +230,7 @@
          (define val (rec init ctx))
          (values (cons val vals) (dict-set ctx var val))))
      (if (rec test ctx*)
-         (rec `(let* ,(for/list ([var vars] [val vals*]) (cons var val))
+         (rec `(let* ,(for/list ([var vars] [val (reverse vals*)]) (list var val))
                  (while* ,test ,(for/list ([var vars] [init inits] [update updates])
                                   (list var update update)) ,res))
               ctx*)

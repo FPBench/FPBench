@@ -16,7 +16,8 @@
  "tools/fpimp.rkt"
  "tools/imp2core.rkt"
  "src/range-analysis.rkt"
- "src/sample-accuracy.rkt")
+ "src/sample-accuracy.rkt"
+ "src/common-subexpr-elim.rkt")
 
 (provide
  (all-from-out
@@ -35,6 +36,7 @@
   "tools/fpimp.rkt"
   "tools/imp2core.rkt"
   "src/range-analysis.rkt"
-  "src/sample-accuracy.rkt"))
+  "src/sample-accuracy.rkt"
+  "src/common-subexpr-elim.rkt"))
 
 (module+ main)

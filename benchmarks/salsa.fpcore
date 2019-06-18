@@ -110,3 +110,170 @@ Inputs: Initial position `y`; desired position `yd`"
          (+ r (* (* (+ gxa gxb) 0.5) h)))]
       [xa  0.25 (+ xa h)])
      r)))
+
+;; TODO: rewrite from while* to while
+(FPCore (Mf A)
+ :name "Rocket Trajectory"
+ :description "Compute the trajectory of a rocket around the earth.
+Inputs: Mass `Mf`; acceleration `A`"
+ :cite (damouche-martel-chapoutot-cf15)
+ :fpbench-domain controls
+ :precision binary32
+ :example ([Mf 150000.0] [A 140.0])
+ (let* ([R 6400.0e3]
+        [G 6.67428e-11]
+        [Mt 5.9736e24]
+        [dt 0.1]
+        [T (* 24.0 3600.0)]
+        [nombrepas (/ T dt)]
+        [r0 (+ (* 400.0 10e3) R)]
+        [vr0 0.0]
+        [teta0 0.0]
+        [viss (sqrt (/ (* G Mt) r0))]
+        [vteta0 (/ viss r0)]
+        [rf R]
+        [vrf 0.0]
+        [tetaf 0.0]
+        [vl (sqrt (/ (* G Mt) R))]
+        [vlrad (/ vl r0)]
+        [vtetaf (* 1.1 vlrad)])
+   (while* (< i 2000000.0)
+     ([t_i 0.0 (+ t_im1 dt)]
+      [mf_i 0 (- mf_im1 (* A t_im1))]
+      [u1_i 0 (+ (* u2_im1 dt) u1_im1)]
+      [u3_i 0 (+ (* u4_im1 dt) u3_im1)]
+      [w1_i 0 (+ (* w2_im1 dt) w1_im1)]
+      [w3_i 0 (+ (* w4_im1 dt) w3_im1)]
+      [u2_i 0 (+ (* (- G) (/ Mt (* u1_im1 u1_im1)) dt) (* u1_im1 u4_im1 u4_im1 dt))]
+      [u4_i 0 (+ (+ (* -2.0 (* u2_im1 (/ u4_im1 u1_im1)) dt) u4_im1))]
+      [w2_i 0 (+ (* (- G) (/ Mt (* w1_im1 w1_im1)) dt) (* w1_im1 w4_im1 w4_im1 dt)
+                 (if (> mf_im1 0.0) (* (/ (* A w2_im1) (- Mf (* A t_im1))) dt) 0.0)
+                 w2_im1)]
+      [w4_i 0 (+ (* -2.0 (* w2_im1 (/ w4_im1 w1_im1)) dt)
+                 (+ (if (> mf_im1 0.0) (* A (* (/ w4_im1 (- Mf (* A t_im1))) dt)) 0.0)
+                    w4_im1))]
+      [x 0 (* u1_i (cos u3_i))]
+      [y 0 (* u1_i (sin u3_i))]
+      [i 1.0 (+ i 1.0)]
+      [u1_im1 r0 u1_i]
+      [u2_im1 vr0 u2_i]
+      [u3_im1 teta0 u3_i]
+      [u4_im1 vteta0 u4_i]
+      [w1_im1 rf w1_i]
+      [w2_im1 vrf w2_i]
+      [w3_im1 tetaf w3_i]
+      [w4_im1 vtetaf w4_i]
+      [t_im1 _ t_i]
+      [mf_im1 Mf mf_i])
+     x))) ;; `y` is also an output but is skipped for now
+
+(FPCore (a11 a22 a33 a44 b1 b2 b3 b4)
+ :name "Jacobi's Method"
+ :description "Solve a linear system `Ax = b`.
+Inputs: Array entries `aij`; vector entries `bi`"
+ :cite (atkinson-1989)
+ :fpbench-domain mathematics
+ :precision binary32
+ :example ([a11 0.61] [a22 0.62] [a33 0.6006] [a44 0.601]
+           [b1 0.5] [b2 (/ 1.0 3.0)] [b3 0.25] [b4 (/ 1.0 5.0)])
+ (let ([eps 0.00000000000000001])
+   (while* (> e eps)
+     ([x_n1 0.0 (+ (- (- (/ b1 a11) (* (/ 0.1 a11) x2)) (* (/ 0.2 a11) x3)) (* (/ 0.3 a11) x4))]
+      [x_n2 0.0 (- (+ (- (/ b2 a22) (* (/ 0.3 a22) x1)) (* (/ 0.1 a22) x3)) (* (/ 0.2 a22) x4))]
+      [x_n3 0.0 (- (+ (- (/ b3 a33) (* (/ 0.2 a33) x1)) (* (/ 0.3 a33) x2)) (* (/ 0.1 a33) x4))]
+      [x_n4 0.0 (- (- (+ (/ b4 a44) (* (/ 0.1 a44) x1)) (* (/ 0.2 a44) x2)) (* (/ 0.3 a44) x3))]
+      [i 0.0 (+ i 1.0)]
+      [e 1.0 (fabs (0 x_n4 x4))]
+      [x1 0.0 x_n1]
+      [x2 0.0 x_n2]
+      [x3 0.0 x_n3]
+      [x4 0.0 x_n4])
+     x2))) ;; `i`, `x_n2`, and `e` are also outputs but are skipped for now
+
+(FPCore (x0)
+ :name "Newton-Raphson's Method"
+ :description "Find the zeros of a function `f = (x - 2)**5`.
+Inputs: Initial guess `x0`"
+ :cite (atkinson-1989)
+ :fpbench-domain mathematics
+ :precision binary32
+ :pre (< 0 x0 3)
+ :example ([x0 0.0])
+ (let ([eps 0.0005])
+   (while* (and (> e eps) (< i 100000))
+     ([x_n 0.0
+           (let ([f (- (+ (- (+ (- (* x x x x x) (* 10.0 x x x x)) (* 40.0 x x x))
+                             (* 80.0 x x)) (* 80.0 x)) 32.0)]
+                 [ff (+ (- (+ (- (* 5.0 x x x x) (* 40.0 x x x)) (* 120.0 x x)) (* 160.0 x)) 80.0)])
+             (- x (/ f ff)))]
+      [e 1.0 (fabs (- x x_n))]
+      [x 0.0 x_n]
+      [i 0.0 (+ i 1.0)])
+     x))) ;; `i`, `x_n`, and `e` are also outputs but are skipped for now
+
+(FPCore (a11 a12 a13 a14 a21 a22 a23 a24 a31 a32 a33 a34 a41 a42 a43 a44 v1 v2 v3 v4)
+ :name "Eigenvalue Computation"
+ :description "Compute the largest eigenvalue of a matrix and return its vector.
+Inputs: Matrix `aij`; initial guess `vi` with one nonzero element"
+ :cite (golub-vanloan-1996)
+ :fpbench-domain mathematics
+ :precision binary32
+ ;; Inlined formula for determinant of 4x4 matrix
+ :pre (< 150 (- (+ (* a11 a22 a33 a44) (* a12 a23 a34 a41) (* a13 a24 a31 a42) (* a14 a21 a32 a43)
+                   (* a11 a23 a34 a42) (* a12 a21 a33 a44) (* a13 a21 a32 a44) (* a14 a22 a33 a41)
+                   (* a11 a24 a32 a43) (* a12 a24 a31 a43) (* a13 a22 a34 a41) (* a14 a23 a31 a42))
+                (+ (* a11 a22 a34 a43) (* a12 a23 a31 a44) (* a13 a24 a32 a41) (* a14 a21 a33 a42)
+                   (* a11 a23 a32 a44) (* a12 a21 a34 a43) (* a13 a21 a34 a42) (* a14 a22 a31 a43)
+                   (* a11 a24 a33 a42) (* a12 a24 a33 a41) (* a13 a22 a31 a44) (* a14 a23 a32 a41))) 200)
+ :example ([a11 150.0] [a12  0.01] [a13  0.01] [a14  0.01]
+           [a21  0.01] [a22 150.0] [a23  0.01] [a24  0.01]
+           [a31  0.01] [a32  0.01] [a33 150.0] [a34  0.01]
+           [a41  0.01] [a42  0.01] [a43  0.01] [a44 150.0]
+           [v1 0.0] [v2 0.0] [v3 0.0] [v4 1.0])
+ (let ([eps 0.0005])
+   (while* (> e eps)
+     ([vx 0 (+ (* a11 v1) (* a12 v2) (* a13 v3) (* a14 v4))]
+      [vy 0 (+ (* a21 v1) (* a22 v2) (* a23 v3) (* a24 v4))]
+      [vz 0 (+ (* a31 v1) (* a32 v2) (* a33 v3) (* a34 v4))]
+      [vw 0 (+ (* a41 v1) (* a42 v2) (* a43 v3) (* a44 v4))]
+      [i 0.0 (+ i 1.0)]
+      [v1 v1 (/ vx vw)]
+      [v2 v2 (/ vy vw)]
+      [v3 v3 (/ vz vw)]
+      [v4 v4 1.0]
+      [e (fabs (- 1.0 v1))])
+     v1))) ;; `i`, `vz`, and `e` are also outputs but are skipped for now
+
+(FPCore (Q11 Q12 Q13 Q21 Q22 Q23 Q31 Q32 Q33)
+ :name "Iterative Gram-Schmidt Method"
+ :description "Orthogonalize a set of non-zero vectors in a Euclidian or Hermitian space.
+Inputs: Vectors `Qij`"
+ :cite (abdelmalek-bit71 golub-vanloan-1996 hernandez-roman-tomas-vidal-tr07)
+ :fpbench-domain mathematics
+ :precision binary32
+ :pre (and (< 1.0 Q11 (/ 1 7)) (< 1 Q22 (/ 1 25)))
+ :example ([Q11 (/ 1 63)] [Q12 0] [Q13 0]
+           [Q21 0] [Q22 (/ 1 225)] [Q23 0]
+           [Q31 (/ 1 2592)] [Q32 (/ 1 2601)] [Q33 (/ 1 2583)])
+ (let ([eps .000005])
+   (while* (> e eps)
+     (;; h = Qj - 1T qj
+      [h1 (+ (* Q11 qj1) (* Q21 qj2) (* Q31 qj3))]
+      [h2 (+ (* Q12 qj1) (* Q22 qj2) (* Q32 qj3))]
+      [h3 (+ (* Q13 qj1) (* Q23 qj2) (* Q33 qj3))]
+      ;; qj = qj - Qjm1 h
+      [qj1 O31 (- qj1 (+ (* Q11 h1) (* Q12 h2) (* Q13 h3)))]
+      [qj2 O32 (- qj2 (+ (* Q21 h1) (* Q22 h2) (* Q23 h3)))]
+      [qj3 O33 (- qj3 (+ (* Q31 h1) (* Q32 h2) (* Q33 h3)))]
+      ;; rj = rj + h
+      [r1 0.0 (+ r1 h1)]
+      [r2 0.0 (+ r2 h2)]
+      [r3 0.0 (+ r3 h3)]
+      ;; rjj = ||qj||_2
+      [r (+ (* qj1 qj1) (* qj2 qj2) (* qj3 qj3))
+         (+ (* qj1 qj1) (* qj2 qj2) (* qj3 qj3))]
+      [rjj _ (sqrt r)]
+      [e 10.0 (fabs (- 1.0 (/ rjj rold)))]
+      [i 1.0 (+ i 1.0)]
+      [rold (sqrt r) rjj])
+     qj1))) ;; `i`, `qj2`, `qj3`, and `e` are also outputs but are skipped for now

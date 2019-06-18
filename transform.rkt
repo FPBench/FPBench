@@ -1,7 +1,8 @@
 #lang racket
 
-(require "src/fpcore.rkt")
-(require "src/fpcore-extra.rkt")
+(require "src/fpcore.rkt"
+         "src/fpcore-extra.rkt"
+         "src/common-subexpr-elim.rkt")
 
 (module+ main
   (define passes (box '()))
@@ -28,7 +29,7 @@
    ["--rational-constants" "Convert every number to a rational"
                            (register-pass 'rational-constants 'one-to-one)]
    ["--cse" "Lift each common subexpression to an intermediate variable bound by a let* expression"
-            (register-pass 'cse 'one-to-one)]
+            (register-pass core-common-subexpr-elim 'one-to-one)]
    ["--subexprs" "Break an FPCore down into separate cores for each subexpression"
                  (register-pass fpcore-all-subexprs 'one-to-many)]
    #:args (in-file out-file)

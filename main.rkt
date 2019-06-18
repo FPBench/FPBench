@@ -17,7 +17,7 @@
  "tools/imp2core.rkt"
  "src/range-analysis.rkt"
  "src/sample-accuracy.rkt"
- "src/common-subexr-elim.rkt")
+ "src/common-subexpr-elim.rkt")
 
 (provide
  (all-from-out

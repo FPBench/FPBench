@@ -1,7 +1,7 @@
 #lang racket
 
 (require "common.rkt" "fpcore.rkt")
-(provide (struct-out interval) make-interval nonempty-bounded? condition->range-table
+(provide (struct-out interval) make-interval nonempty-bounded? condition->range-table interval->condition
          range-table-ref)
 
 (module+ test
@@ -388,3 +388,11 @@
   (check-equal? (condition->range-table '(> (fabs x) 3)) (make-hash (list (list 'x (interval -inf.0 -3 #f #f) (interval 3 +inf.0 #f #f)))))
   (check-equal? (condition->range-table '(>= 3 (fabs x))) (make-hash (list (list 'x (interval -3 3 #t #t)))))
   (check-equal? (condition->range-table '(<= 3 (fabs x))) (make-hash (list (list 'x (interval -inf.0 -3 #f #t) (interval 3 +inf.0 #t #f))))))
+
+(define (interval->condition int var)
+  (match-let ([(interval a b a? b?) int])
+    (match (list a? b?)
+      [(list #f #f) `(< ,a ,var ,b)]
+      [(list #t #t) `(<= ,a ,var ,b)]
+      [(list #f #t) `(and (< ,a ,var) (<= ,var ,b))]
+      [(list #t #f) `(and (<= ,a ,var) (< ,var ,b))])))

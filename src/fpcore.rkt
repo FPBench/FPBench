@@ -85,8 +85,7 @@
      (cons `(if ,(car test*) ,(car ift*) ,(car iff*)) (cdr ift*))]
     [(cons (app syntax-e 'if) _)
      (raise-syntax-error #f "Invalid conditional statement" stx)]
-    [(list (app syntax-e (or 'let 'let*))
-           (app syntax-e (list (app syntax-e (list vars vals)) ...)) body)
+    [(list (app syntax-e 'let) (app syntax-e (list (app syntax-e (list vars vals)) ...)) body)
      (define vars*
        (for/list ([var vars])
          (unless (symbol? (syntax-e var))
@@ -96,9 +95,22 @@
      (define ctx* (apply dict-set* ctx (append-map list vars* (map cdr vals*))))
      (define body* (check-expr body ctx*))
      (cons `(let (,@(map list vars* (map car vals*))) ,(car body*)) (cdr body*))]
+    [(list (app syntax-e 'let*) (app syntax-e (list (app syntax-e (list vars vals)) ...)) body)
+     (define vars*
+       (for/list ([var vars])
+         (unless (symbol? (syntax-e var))
+           (raise-syntax-error #f "Only variables may be bound by let binding" stx var))
+         (syntax-e var)))
+     (define-values (ctx* vals*)
+       (for/fold ([ctx ctx] [vals '()]) ([var vars*] [val vals])
+         (define val* (check-expr val ctx))
+         (define ctx* (dict-set ctx var (cdr val*)))
+         (values ctx* (cons val* vals))))
+     (define body* (check-expr body ctx*))
+     (cons `(let* (,@(map list vars* (map car (reverse vals*)))) ,(car body*)) (cdr body*))]
     [(cons (app syntax-e (or 'let 'let*)) _)
      (raise-syntax-error #f "Invalid let bindings" stx)]
-    [(list (app syntax-e (or 'while 'while*)) test
+    [(list (app syntax-e (and (or 'while 'while*) while_)) test
            (app syntax-e (list (app syntax-e (list vars inits updates)) ...)) body)
      (define vars*
        (for/list ([var vars])
@@ -115,7 +127,7 @@
        (unless (equal? (cdr init) (cdr update))
          (raise-syntax-error #f "Initialization and update must have the same type in while loop" stx var)))
      (define body* (check-expr body ctx*))
-     (cons `(while ,(car test*) (,@(map list vars* (map car inits*) (map car updates*))) ,(car body*)) (cdr body*))]
+     (cons `(,while_ ,(car test*) (,@(map list vars* (map car inits*) (map car updates*))) ,(car body*)) (cdr body*))]
     [(cons (app syntax-e (or 'while 'while*)) _)
      (raise-syntax-error #f "Invalid while loop" stx)]
     [(list (app syntax-e '!) props ... expr)
@@ -218,7 +230,7 @@
          (define val (rec init ctx))
          (values (cons val vals) (dict-set ctx var val))))
      (if (rec test ctx*)
-         (rec `(let* ,(for/list ([var vars] [val vals*]) (cons var val))
+         (rec `(let* ,(for/list ([var vars] [val (reverse vals*)]) (list var val))
                  (while* ,test ,(for/list ([var vars] [init inits] [update updates])
                                   (list var update update)) ,res))
               ctx*)

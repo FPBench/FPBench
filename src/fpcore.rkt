@@ -110,8 +110,7 @@
      (cons `(let* (,@(map list vars* (map car (reverse vals*)))) ,(car body*)) (cdr body*))]
     [(cons (app syntax-e (or 'let 'let*)) _)
      (raise-syntax-error #f "Invalid let bindings" stx)]
-    [(list (app syntax-e (and (or 'while 'while*) while_)) test
-           (app syntax-e (list (app syntax-e (list vars inits updates)) ...)) body)
+    [(list (app syntax-e 'while) test (app syntax-e (list (app syntax-e (list vars inits updates)) ...)) body)
      (define vars*
        (for/list ([var vars])
          (unless (symbol? (syntax-e var))
@@ -127,7 +126,27 @@
        (unless (equal? (cdr init) (cdr update))
          (raise-syntax-error #f "Initialization and update must have the same type in while loop" stx var)))
      (define body* (check-expr body ctx*))
-     (cons `(,while_ ,(car test*) (,@(map list vars* (map car inits*) (map car updates*))) ,(car body*)) (cdr body*))]
+     (cons `(while ,(car test*) (,@(map list vars* (map car inits*) (map car updates*))) ,(car body*)) (cdr body*))]
+    [(list (app syntax-e 'while*) test (app syntax-e (list (app syntax-e (list vars inits updates)) ...)) body)
+     (define vars*
+       (for/list ([var vars])
+         (unless (symbol? (syntax-e var))
+           (raise-syntax-error #f "Only variables may be bound by while loop" stx var))
+         (syntax-e var)))
+     (define-values (ctx* inits*)
+       (for/fold ([ctx ctx] [inits* '()]) ([var vars*] [init inits])
+         (define init* (check-expr init ctx))
+         (define ctx* (dict-set ctx var (cdr init*)))
+         (values ctx* (cons init* inits*))))
+     (define test* (check-expr test ctx*))
+     (unless (equal? (cdr test*) 'boolean)
+       (raise-syntax-error #f "While loop conditions must return a boolean" test))
+     (define updates* (map (curryr check-expr ctx*) updates))
+     (for ([var vars] [init inits*] [update updates*])
+       (unless (equal? (cdr init) (cdr update))
+         (raise-syntax-error #f "Initialization and update must have the same type in while loop" stx var)))
+     (define body* (check-expr body ctx*))
+     (cons `(while* ,(car test*) (,@(map list vars* (map car inits*) (map car updates*))) ,(car body*)) (cdr body*))]
     [(cons (app syntax-e (or 'while 'while*)) _)
      (raise-syntax-error #f "Invalid while loop" stx)]
     [(list (app syntax-e '!) props ... expr)

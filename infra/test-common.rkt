@@ -11,16 +11,6 @@
           (k default)
           ((eval-expr* evaltor (λ (expr ctx) (eval expr ctx (- fuel 1)))) expr ctx)))))
 
-(define ((eval-fuel-stmt evaltor fuel [default #f]) stmts ctx)
-  (let/ec k
-    (define (eval expr ctx fuel)
-      (if (<= fuel 0)
-          (k default)
-          ((eval-expr* evaltor (curryr eval (- fuel 1))) expr ctx)))
-    
-    (let loop ([stmts stmts] [ctx ctx] [fuel fuel])
-      ((eval-stmts* (curryr eval fuel) (curryr loop (- fuel 1))) stmts ctx))))
-
 (define (random-exp k)
   "Like (random (expt 2 k)), but k is allowed to be arbitrarily large"
   (if (< k 31) ; Racket generates random numbers in the range [0, 2^32-2]; I think it's a bug

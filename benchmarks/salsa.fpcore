@@ -115,7 +115,7 @@ Inputs: Initial position `y`; desired position `yd`"
 (FPCore (Mf A)
  :name "Rocket Trajectory"
  :description "Compute the trajectory of a rocket around the earth.
- :Inputs Mass `Mf`; acceleration `A`"
+Inputs: Mass `Mf`; acceleration `A`"
  :cite (damouche-martel-chapoutot-cf15)
  :fpbench-domain controls
  :precision binary32
@@ -264,7 +264,7 @@ Inputs: Matrix `aij`; initial guess `vi` with one nonzero element"
       [v2 v2 (/ vy vw)]
       [v3 v3 (/ vz vw)]
       [v4 v4 1.0]
-      [e 0 (fabs (- 1.0 v1))])
+      [e 1.0 (fabs (- 1.0 v1))])
      v1))) ;; `i`, `vz`, and `e` are also outputs but are skipped for now
 
 (FPCore (Q11 Q12 Q13 Q21 Q22 Q23 Q31 Q32 Q33)
@@ -281,20 +281,20 @@ Inputs: Vectors `Qij`"
  (let ([eps .000005])
    (while* (> e eps)
      (;; h = Qj - 1T qj
-      [h1 0 (+ (* Q11 qj1) (* Q21 qj2) (* Q31 qj3))]
-      [h2 0 (+ (* Q12 qj1) (* Q22 qj2) (* Q32 qj3))]
-      [h3 0 (+ (* Q13 qj1) (* Q23 qj2) (* Q33 qj3))]
+      [h1 0 (+ (+ (* Q11 qj1) (* Q21 qj2)) (* Q31 qj3))]
+      [h2 0 (+ (+ (* Q12 qj1) (* Q22 qj2)) (* Q32 qj3))]
+      [h3 0 (+ (+ (* Q13 qj1) (* Q23 qj2)) (* Q33 qj3))]
       ;; qj = qj - Qjm1 h
-      [qj1 Q31 (- qj1 (+ (* Q11 h1) (* Q12 h2) (* Q13 h3)))]
-      [qj2 Q32 (- qj2 (+ (* Q21 h1) (* Q22 h2) (* Q23 h3)))]
-      [qj3 Q33 (- qj3 (+ (* Q31 h1) (* Q32 h2) (* Q33 h3)))]
+      [qj1 Q31 (- qj1 (+ (+ (* Q11 h1) (* Q12 h2)) (* Q13 h3)))]
+      [qj2 Q32 (- qj2 (+ (+ (* Q21 h1) (* Q22 h2)) (* Q23 h3)))]
+      [qj3 Q33 (- qj3 (+ (+ (* Q31 h1) (* Q32 h2)) (* Q33 h3)))]
       ;; rj = rj + h
       [r1 0.0 (+ r1 h1)]
       [r2 0.0 (+ r2 h2)]
       [r3 0.0 (+ r3 h3)]
       ;; rjj = ||qj||_2
-      [r (+ (* qj1 qj1) (* qj2 qj2) (* qj3 qj3))
-         (+ (* qj1 qj1) (* qj2 qj2) (* qj3 qj3))]
+      [r (+ (+ (* qj1 qj1) (* qj2 qj2)) (* qj3 qj3))
+         (+ (+ (* qj1 qj1) (* qj2 qj2)) (* qj3 qj3))]
       [rjj 0 (sqrt r)]
       [e 10.0 (fabs (- 1.0 (/ rjj rold)))]
       [i 1.0 (+ i 1.0)]

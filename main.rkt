@@ -13,7 +13,6 @@
  "src/core2wls.rkt"
  "infra/core2json.rkt"
  "infra/filter.rkt"
- "tools/imp2core.rkt"
  "src/range-analysis.rkt"
  "src/sample-accuracy.rkt"
  "src/common-subexpr-elim.rkt")
@@ -32,7 +31,6 @@
   "src/core2wls.rkt"
   "infra/core2json.rkt"
   "infra/filter.rkt"
-  "tools/imp2core.rkt"
   "src/range-analysis.rkt"
   "src/sample-accuracy.rkt"
   "src/common-subexpr-elim.rkt"))

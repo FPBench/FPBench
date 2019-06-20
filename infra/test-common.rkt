@@ -2,7 +2,7 @@
 
 (require  "../src/fpcore.rkt")
 
-(provide eval-fuel-expr eval-fuel-stmt sample-double sample-single)
+(provide eval-fuel-expr sample-double sample-single)
 
 (define ((eval-fuel-expr evaltor fuel [default #f]) expr ctx)
   (let/ec k

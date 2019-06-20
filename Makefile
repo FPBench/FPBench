@@ -46,7 +46,6 @@ endif
 
 test:
 	raco test .
-	racket infra/test-imp2core.rkt benchmarks/*.fpimp
 
 	cat benchmarks/*.fpcore tests/test*.fpcore | $(FILTER) precision $(core2c_prec) \
 	| $(FILTER) not-operators $(known_inaccurate) \
@@ -71,11 +70,6 @@ ifneq (, $(shell which wolframscript))
 	cat benchmarks/*.fpcore tests/test*.fpcore | $(FILTER) precision $(core2wls_prec) \
 	| racket infra/test-core2wls.rkt
 endif
-
-
-%.compiled.fpcore: %.fpimp
-	printf ";; -*- mode: scheme -*-\n\n" > $@
-	racket tools/imp2core.rkt --canonicalize < $^ >> $@
 
 setup:
 	raco make export.rkt transport.rkt

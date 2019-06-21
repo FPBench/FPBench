@@ -14,7 +14,6 @@
  "infra/core2json.rkt"
  "infra/filter.rkt"
  "src/range-analysis.rkt"
- "src/sample-accuracy.rkt"
  "src/common-subexpr-elim.rkt")
 
 (provide
@@ -32,7 +31,10 @@
   "infra/core2json.rkt"
   "infra/filter.rkt"
   "src/range-analysis.rkt"
-  "src/sample-accuracy.rkt"
   "src/common-subexpr-elim.rkt"))
 
-(module+ main)
+(module+ main
+  (eprintf "FPBench provides with two tools:\n")
+  (eprintf "  export.rkt - export FPCore to other languages\n")
+  (eprintf "  transform.rkt - apply program transformations to FPCores\n")
+  (eprintf "Run those tools with --help for more information.\n"))

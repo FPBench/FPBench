@@ -23,14 +23,18 @@ sanity:
 	cat tests/sanity*.fpcore | $(FILTER) precision $(core2c_prec) \
 	| racket infra/test-core2c.rkt --repeat 1
 
+ifneq (, $(shell which node))
 	cat tests/sanity*.fpcore | $(FILTER) precision $(core2js_prec) \
 	| $(FILTER) not-operators $(core2js_unsupported_ops) \
 	| racket infra/test-core2js.rkt --repeat 1
+endif
 
+ifneq (, $(shell which z3))
 	cat tests/sanity*.fpcore | $(FILTER) precision $(core2smtlib2_prec) \
 	| $(FILTER) not-operators $(core2smtlib2_unsupported_ops) \
 	| $(FILTER) not-constants $(core2smtlib2_unsupported_consts) \
 	| racket infra/test-core2smtlib2.rkt --repeat 1
+endif
 
 ifneq (, $(shell which sollya))
 	cat tests/sanity*.fpcore | $(FILTER) precision $(core2sollya_prec) \
@@ -51,14 +55,18 @@ test:
 	| $(FILTER) not-operators $(known_inaccurate) \
 	| racket infra/test-core2c.rkt --error 3
 
+ifneq (, $(shell which node))
 	cat benchmarks/*.fpcore tests/test*.fpcore | $(FILTER) precision $(core2js_prec) \
 	| $(FILTER) not-operators $(core2js_unsupported_ops) $(known_inaccurate) \
 	| racket infra/test-core2js.rkt --error 150
+endif
 
+ifneq (, $(shell which z3))
 	cat benchmarks/*.fpcore tests/test*.fpcore | $(FILTER) precision $(core2smtlib2_prec) \
 	| $(FILTER) not-operators $(core2smtlib2_unsupported_ops) $(known_inaccurate) \
 	| $(FILTER) not-constants $(core2smtlib2_unsupported_consts) \
 	| racket infra/test-core2smtlib2.rkt
+endif
 
 ifneq (, $(shell which sollya))
 	cat benchmarks/*.fpcore tests/test*.fpcore | $(FILTER) precision $(core2sollya_prec) \

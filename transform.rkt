@@ -4,7 +4,9 @@
          "src/fpcore-extra.rkt"
          "src/common-subexpr-elim.rkt")
 
-(module+ main
+(provide transform-main)
+
+(define (transform-main argv stdin-port stdout-port)
   (define passes (box '()))
   (define (register-pass pass shape)
     (set-box! passes (cons (list pass shape) (unbox passes))))
@@ -13,6 +15,7 @@
 
   (command-line
    #:program "transform.rkt"
+   #:argv argv
    #:multi
    ["--unroll" unroll_ "Unroll the first N iterations of each loop"
                (register-pass (curry fpcore-unroll-loops (string->number unroll_)) 'one-to-one)]
@@ -36,24 +39,19 @@
 
    (define input-port
      (if (equal? in-file "-")
-         (current-input-port)
+         stdin-port
          (open-input-file in-file #:mode 'text)))
    (define output-port
      (if (equal? out-file "-")
-         (current-output-port)
+         stdout-port
          (open-output-file out-file #:mode 'text #:exists 'truncate)))
-
-   ;; temporary
-   (printf "in file: ~a, out file: ~a\n\n" in-file out-file)
-   (for ([pass (transform-passes)] [n (in-naturals)])
-     (printf "  pass ~a: ~a\n" (+ n 1) pass))
 
    (port-count-lines! input-port)
    (for ([expr (in-port (curry read-fpcore (if (equal? in-file "-") "stdin" in-file)) input-port)] [n (in-naturals)])
 
      (define working-exprs (box (list expr)))
      (define (apply-pass pass shape)
-       (match shape
+       (case shape
          ['one-to-one (set-box! working-exprs
                                 (for/list ([expr (unbox working-exprs)])
                                   (pass expr)))]
@@ -65,6 +63,7 @@
        (apply apply-pass pass-shape))
 
      (for ([expr (unbox working-exprs)])
-       (pretty-print expr output-port 1)))
+       (pretty-print expr output-port 1)))))
 
-   (printf "Done\n")))
+(module+ main
+  (transform-main (current-command-line-arguments) (current-input-port) (current-output-port)))

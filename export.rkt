@@ -5,15 +5,17 @@
          "src/core2go.rkt" "src/core2js.rkt" "src/core2scala.rkt"
          "src/core2smtlib2.rkt" "src/core2sollya.rkt" "src/core2wls.rkt")
 
+(provide export-main)
+
 (define (file-extension file-name)
   (define ext (path-get-extension file-name))
-  (and ext (bytes->string/locale ext)))
+  (and ext (last (string-split (bytes->string/locale ext) "."))))
 
 (define (determine-lang preset file-name)
   (define lang (or preset (file-extension file-name)))
   (and lang (string-downcase lang)))
 
-(module+ main
+(define (export-main argv stdin-port stdout-port)
   (define *lang* (make-parameter #f))
 
   (define *runtime* (make-parameter #f))
@@ -25,6 +27,7 @@
 
   (command-line
    #:program "export.rkt"
+   #:argv argv
    #:once-each
    ["--lang" lang_ "Output language to compile FPCore to"
     (*lang* lang_)]
@@ -42,11 +45,11 @@
 
    (define input-port
      (if (equal? in-file "-")
-         (current-input-port)
+         stdin-port
          (open-input-file in-file #:mode 'text)))
    (define output-port
      (if (equal? out-file "-")
-         (current-output-port)
+         stdout-port
          (open-output-file out-file #:mode 'text #:exists 'truncate)))
 
    (define-values (header export footer)
@@ -68,3 +71,6 @@
    (for ([expr (in-port (curry read-fpcore (if (equal? in-file "-") "stdin" in-file)) input-port)] [n (in-naturals)])
      (fprintf output-port "~a\n" (export expr (format "ex~a" n))))
    (unless (*bare*) (fprintf output-port footer))))
+
+(module+ main
+  (export-main (current-command-line-arguments) (current-input-port) (current-output-port)))

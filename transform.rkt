@@ -38,9 +38,11 @@
    #:args (in-file out-file)
 
    (define input-port
-     (if (equal? in-file "-")
-         stdin-port
-         (open-input-file in-file #:mode 'text)))
+     (cond
+       [(equal? in-file "-") stdin-port]
+       [else (sequence-for-each void stdin-port) ; need to consume the stdin-port
+             (open-input-file in-file #:mode 'text)]))
+
    (define output-port
      (if (equal? out-file "-")
          stdout-port

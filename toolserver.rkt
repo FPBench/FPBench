@@ -1,6 +1,6 @@
 #lang racket
 
-(require "export.rkt" "transform.rkt")
+(require "export.rkt" "transform.rkt" "utils/byte-sequence.rkt")
 (provide toolserver-main)
 
 ;; try to get a platform-independent newline
@@ -17,15 +17,14 @@
               (loop (read-line batch-port))
               argv)))))
 
-;; for simplicity, this is a fully buffered implementation using strings
-(define (read-one-input batch-port)
-  (define reverse-lines '())
-  (let loop ([line (read-line batch-port)])
-    (unless (or (eof-object? line) (equal? (string-trim line) "."))
-      (set! reverse-lines (cons line reverse-lines))
-      (loop (read-line batch-port))))
-  (define input-string (string-join (reverse reverse-lines) newline-string))
-  (open-input-string input-string 'stdin))
+;; read one input without buffering
+(define (read-one-input port)
+  (byte-sequence->input-port
+   (for*/stream ([line (in-lines port)]
+                 #:break (equal? (string-trim line) ".")
+                 [c (in-bytes (string->bytes/utf-8 (string-append line newline-string)))])
+     c)
+   #:name 'stdin))
 
 (define (serve-batch batch-port default-output-port)
   (let loop ([command (read-one-command batch-port)])

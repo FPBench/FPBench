@@ -31,9 +31,15 @@
     (unless (empty? command)
       (match command
         [(list "transform" argv ...)
-         (transform-main argv (read-one-input batch-port) default-output-port)]
+         (define port (read-one-input batch-port))
+         (transform-main argv port default-output-port)
+         ;; force an input to be read in case port is unused
+         (sequence-for-each void port)]
         [(list "export" argv ...)
-         (export-main argv (read-one-input batch-port) default-output-port)]
+         (define port (read-one-input batch-port))
+         (export-main argv port default-output-port)
+         ;; force an input to be read in case port is unused
+         (sequence-for-each void port)]
         [_
          (fprintf (current-error-port)
                   "Invalid command sequence ~a: (should start with 'export' or 'transform')"

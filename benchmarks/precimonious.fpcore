@@ -1,7 +1,41 @@
 ;; -*- mode: scheme -*-
 
+(FPCore ((! :precision integer n))
+ :name "arclength of a wiggly function"
+ :cite (precimonious-2013)
+ :precision binary64
+ :pre (>= n 0)
+
+ (let* ([dppi PI]
+        [h (/ dppi n)]
+        [t1 0])
+
+  (while* (<= i n)
+
+   ([t2 0
+     (let ([x (* i h)])
+      (while* (<= k 5)
+       ([d1 (! :precision binary32 1)
+         (! :precision binary32 (* d1 2))]
+        [t1 x
+         (+ t1 (/ (sin (* d1 x)) d1))]
+        [k (! :precision integer 1)
+           (! :precision integer (+ k 1))])
+       t1))]
+
+    [s1 0
+     (let ([s0 (sqrt (+ (* h h) (* (- t2 t1) (- t2 t1))))])
+      (! :precision binary80 (+ s1 s0)))]
+
+    [t1 t1 t2]
+
+    [i (! :precision integer 1)
+       (! :precision integer (+ i 1))])
+
+    s1)))
+
 (FPCore (n)
- :name "arclength"
+ :name "aclength of a wiggly function (old version)"
  :cite (precimonious-2013)
  :precision binary64
  :pre (>= n 0)
@@ -22,7 +56,7 @@
                       [k 1 (+ k 1)])
                      t0))])
           (let ([s0 (sqrt (+ (* h h) (* (- t2 t1) (- t2 t1))))])
-            (! :precision binary128 (+ s1 s0))))]
+            (! :precision binary80 (+ s1 s0))))]
        [t1
         0.0
         (let ([t2 (let ([x (* i h)])

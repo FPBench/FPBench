@@ -23,7 +23,7 @@ ifneq (, $(shell which $(CC)))
 	cat tests/sanity*.fpcore | $(FILTER) precision $(core2c_prec) \
 	| racket infra/test-core2c.rkt --repeat 1
 else
-	$(warning skipping C tests; unable to find C compiler $(CC))
+	$(warning skipping C sanity tests; unable to find C compiler $(CC))
 endif
 
 ifneq (, $(shell which node))
@@ -31,7 +31,7 @@ ifneq (, $(shell which node))
 	| $(FILTER) not-operators $(core2js_unsupported_ops) \
 	| racket infra/test-core2js.rkt --repeat 1
 else
-	$(warning skipping javascript tests; unable to find node)
+	$(warning skipping javascript sanity tests; unable to find node)
 endif
 
 ifneq (, $(shell which z3))
@@ -40,7 +40,7 @@ ifneq (, $(shell which z3))
 	| $(FILTER) not-constants $(core2smtlib2_unsupported_consts) \
 	| racket infra/test-core2smtlib2.rkt --repeat 1
 else
-	$(warning skipping smtlib2 tests; unable to find z3)
+	$(warning skipping smtlib2 sanity tests; unable to find z3)
 endif
 
 ifneq (, $(shell which sollya))
@@ -48,14 +48,14 @@ ifneq (, $(shell which sollya))
 	| $(FILTER) not-operators $(core2sollya_unsupported_ops) \
 	| racket infra/test-core2sollya.rkt --repeat 1
 else
-	$(warning skipping sollya tests; unable to sollya interpreter)
+	$(warning skipping sollya sanity tests; unable to sollya interpreter)
 endif
 
 ifneq (, $(shell which wolframscript))
 	cat tests/sanity*.fpcore | $(FILTER) precision $(core2wls_prec) \
 	| racket infra/test-core2wls.rkt --repeat 1
 else
-	$(warning skipping wolframscript tests; unable to find wolframscript interpreter)
+	$(warning skipping wolframscript sanity tests; unable to find wolframscript interpreter)
 endif
 
 

@@ -1,3 +1,5 @@
+; -*- mode: scheme -*-
+
 (FPCore ()
         :name "Test let (1/5)"
         :spec 1.0
@@ -30,17 +32,47 @@
               b))))
 
 (FPCore ()
-        :name "Test while (1/X)"
+        :name "Test let* (1/5)"
+        :spec 1.0
+        (let* ([a 1.0]) a))
+
+(FPCore ()
+        :name "Test let* (2/5)"
+        :spec 0.0
+        (let* ([a 1.0] [b -1.0]) (+ a b)))
+
+(FPCore ()
+        :name "Test let* (3/5)"
+        :spec -1.0
+        (let* ([a 1.0] [b 0.0] [c -1.0] [d 0])
+          (if (> a b) c d)))
+
+(FPCore ()
+        :name "Test let* (4/5)"
+        :spec 1.0
+        (let* ([a 1.0] [b a])
+          b))
+
+(FPCore ()
+        :name "Test let* (5/5)"
+        :spec 5.0
+        (let* ([a 3.0] [b 1.0] [c -1.0])
+          (let* ([b a] [c (+ c (+ b a))])
+            (let* ([a c] [b a])
+              b))))
+
+(FPCore ()
+        :name "Test while (1/7)"
         :spec 0.0
         (while FALSE ([a 0.0 (+ a 1.0)]) a))
 
 (FPCore ()
-        :name "Test while (1/X)"
+        :name "Test while (2/7)"
         :spec 4.0
         (while (< a 4) ([a 0.0 (+ a 1.0)]) a))
 
 (FPCore ()
-        :name "Test while (1/X)"
+        :name "Test while (3/7)"
         :spec 8.0
         (while (< a 3)
                ([a 0.0 (+ a 1.0)]
@@ -48,7 +80,7 @@
                b))
 
 (FPCore ()
-        :name "Test while (1/X)"
+        :name "Test while (4/7)"
         :spec -6.0
         (while (<= a 3)
                ([a 0.0 (+ a 1.0)]
@@ -56,19 +88,85 @@
                b))
 
 (FPCore ()
-        :name "Test while (1/X)"
+        :name "Test while (5/7)"
         :spec 1.0
         (while (< i 3)
-               ([i 0.0 (+ i 1)]
+               ([i 0 (+ i 1)]
                 [a 0.0 b]
                 [b 1.0 a])
                a))
 
 (FPCore ()
-        :name "Test while (1/X)"
+        :name "Test while (6/7)"
         :spec 0.0
         (while (< i 4)
-               ([i 0.0 (+ i 1)]
+               ([i 0 (+ i 1)]
                 [a 0.0 b]
                 [b 1.0 a])
                a))
+
+(FPCore ()
+        :name "Test while (7/7)"
+        :spec 6.0
+        (while (<= a 3)
+               ([a 0.0 (+ a 1.0)]
+                [b 0.0 (while (<= i a)
+                              ([i 0 (+ i 1)]
+                               [x 0.0 (+ x i)])
+                              x)])
+               b))
+
+(FPCore ()
+        :name "Test while* (1/7)"
+        :spec 0.0
+        (while* FALSE ([a 0.0 (+ a 1.0)]) a))
+
+(FPCore ()
+        :name "Test while* (2/7)"
+        :spec 4.0
+        (while* (< a 4) ([a 0.0 (+ a 1.0)]) a))
+
+(FPCore ()
+        :name "Test while* (3/7)"
+        :spec 8.0
+        (while* (< a 3)
+                ([a 0.0 (+ a 1.0)]
+                 [b 1.0 (* b 2.0)])
+                b))
+
+(FPCore ()
+        :name "Test while* (4/7)"
+        :spec -10.0
+        (while* (<= a 3)
+                ([a 0.0 (+ a 1.0)]
+                 [b 0.0 (- b a)])
+                b))
+
+(FPCore ()
+        :name "Test while* (5/7)"
+        :spec 1.0
+        (while* (< i 3)
+                ([i 0.0 (+ i 1)]
+                 [a 0.0 b]
+                 [b 1.0 a])
+                a))
+
+(FPCore ()
+        :name "Test while* (6/7)"
+        :spec 1.0
+        (while* (< i 4)
+                ([i 0.0 (+ i 1)]
+                 [a 0.0 b]
+                 [b 1.0 a])
+                a))
+
+(FPCore ()
+        :name "Test while* (7/7)"
+        :spec 15.0
+        (while* (<= a 3)
+                ([a 0.0 (+ a 1.0)]
+                 [b 0.0 (while* (<= i a)
+                                ([i 0 (+ i 1)]
+                                 [x 0.0 (+ x i)])
+                                x)])
+                b))

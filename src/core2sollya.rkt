@@ -20,7 +20,7 @@
     ['binary80 "doubleextended"]
     ['binary128 "quad"]
     ;; this will round to the right amount of precision, but not limit the exponent
-    [(list 'float w p) (~a p)]
+    [(list 'float es nbits) (~a (- nbits es))]
     ;; real is just a keyword that tells us to omit rounding
     ['real "real"]
     ;; hopefully integers have been selected to behave like reals
@@ -143,12 +143,20 @@
   (match expr
     [`(let ([,vars ,vals] ...) ,body)
      (define vars* (map gensym vars))
-     (for ([var vars] [var* vars*] [val vals])
+     (for ([var* vars*] [val vals])
        (printf "~a~a = ~a;\n" indent (fix-name var*)
                (expr->sollya val #:names names #:ctx ctx #:indent indent)))
      (define names*
        (for/fold ([names* names]) ([var vars] [var* vars*])
          (dict-set names* var var*)))
+     (expr->sollya body #:names names* #:ctx ctx #:indent indent)]
+    [`(let* ([,vars ,vals] ...) ,body)
+     (define vars* (map gensym vars))
+     (define names* names)
+     (for ([var* vars*] [var vars] [val vals])
+       (printf "~a~a = ~a;\n" indent (fix-name var*)
+               (expr->sollya val #:names names* #:ctx ctx #:indent indent))
+       (set! names* (dict-set names* var var*)))
      (expr->sollya body #:names names* #:ctx ctx #:indent indent)]
     [`(if ,cond ,ift ,iff)
      (define test (expr->sollya cond #:names names #:ctx ctx #:indent indent))
@@ -163,7 +171,7 @@
      (fix-name outvar)]
     [`(while ,cond ([,vars ,inits ,updates] ...) ,retexpr)
      (define vars* (map gensym vars))
-     (for ([var vars] [var* vars*] [val inits])
+     (for ([var* vars*] [val inits])
        (printf "~a~a = ~a;\n" indent (fix-name var*)
                (expr->sollya val #:names names #:ctx ctx #:indent indent)))
      (define names*
@@ -179,6 +187,24 @@
                (expr->sollya update #:names names* #:ctx ctx #:indent (format "~a\t" indent))))
      (for ([var* vars*] [temp-var temp-vars])
        (printf "~a\t~a = ~a;\n" indent (fix-name var*) (fix-name temp-var)))
+     (printf "~a\t~a = ~a;" indent (fix-name test-var)
+             (expr->sollya cond #:names names* #:ctx ctx #:indent (format "~a\t" indent)))
+     (printf "\n~a};\n" indent)
+     (expr->sollya retexpr #:names names* #:ctx ctx #:indent indent)]
+    [`(while* ,cond ([,vars ,inits ,updates] ...) ,retexpr)
+     (define vars* (map gensym vars))
+     (define names* names)
+     (for ([var* vars*] [var vars] [val inits])
+       (printf "~a~a = ~a;\n" indent (fix-name var*)
+               (expr->sollya val #:names names* #:ctx ctx #:indent indent))
+       (set! names* (dict-set names* var var*)))
+     (define test-var (gensym 'test))
+     (printf "~a~a = ~a;\n" indent (fix-name test-var)
+             (expr->sollya cond #:names names* #:ctx ctx #:indent indent))
+     (printf "~awhile (~a) do {\n" indent test-var)
+     (for ([var* vars*] [update updates])
+       (printf "~a\t~a = ~a;\n" indent (fix-name var*)
+               (expr->sollya update #:names names* #:ctx ctx #:indent (format "~a\t" indent))))
      (printf "~a\t~a = ~a;" indent (fix-name test-var)
              (expr->sollya cond #:names names* #:ctx ctx #:indent (format "~a\t" indent)))
      (printf "\n~a};\n" indent)

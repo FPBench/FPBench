@@ -31,7 +31,7 @@ before_install:
   - cat ../travis-racket/install-racket.sh | bash
   - curl -L -O https://github.com/Z3Prover/z3/releases/download/z3-${Z3_VERSION}/${Z3_DISTRIB}.zip
   - unzip ${Z3_DISTRIB}.zip
-  - export PATH="${RACKET_DIR}/bin:${PWD}/${Z3_DISTRIB}/bin:${PWD}/FPTaylor:${PATH}"
+  - export PATH="${RACKET_DIR}/bin:${PWD}/${Z3_DISTRIB}/bin:${PWD}/../FPTaylor:${PATH}"
 script:
   - raco pkg install --auto $TRAVIS_BUILD_DIR/
   - make sanity test

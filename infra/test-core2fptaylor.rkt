@@ -14,6 +14,13 @@
 (define ulps (make-parameter 0))
 
 
+(define (string->double string)
+  (cond
+    [(regexp-match #rx"[-]inf"    string) -inf.0]
+    [(regexp-match #rx"inf"     string) +inf.0]
+    [(regexp-match #rx"[-]?nan" string) +nan.0]
+    [else (real->double-flonum (string->number string))]))
+
 
 ; compile->X
 ; This invokes the core2x compiler being tested to produce an executable test
@@ -44,7 +51,15 @@
     (cond [(regexp-match #rx"ERROR" out)
            (begin
              ;(printf "~a\n" out) ;; Dump raw output
-             (cons 1.0 -1.0))] ;; This will fail all comparison tests
+             (define conservative_bounds_line (regexp-match
+                                               #rx"Bounds [(]without rounding[)]: [^\n]*"
+                                               out))
+             (define conservative_bounds (regexp-match*
+                                          #rx"([+-]?[0-9]+[.][0-9]+[eE][+-]?[0-9]+)|([-]?inf)|([-]?nan)"
+                                          (car conservative_bounds_line)))
+             (define conservative_lower (string->double (car conservative_bounds)))
+             (define conservative_upper (string->double (cadr conservative_bounds)))
+             (cons conservative_lower conservative_upper))]
           [else
            (begin
              (define bounds_line (regexp-match
@@ -53,8 +68,8 @@
              (define bounds (regexp-match*
                              #rx"[+-]?[0-9]+[.][0-9]+[eE][+-]?[0-9]+"
                              (car bounds_line)))
-             (define lower (string->number (car bounds)))
-             (define upper (string->number (cadr bounds)))
+             (define lower (string->double (car bounds)))
+             (define upper (string->double (cadr bounds)))
              (cons lower upper))])))
 
 
@@ -111,7 +126,7 @@
       (set! err (+ err (count (lambda (x) (not (=* (second x) (third x)))) results)))
       (for ([x (in-list results)] #:unless (=* (second x) (third x)))
         (printf "\t~a ∉ [~a, ~a]\n" (second x) (car (third x)) (cdr (third x))))))
-  0) ;; Always return pass until FPTaylor is changed to pass all sanity tests
+  err)
 
 
 

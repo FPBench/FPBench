@@ -35,7 +35,7 @@
   [((or '+ '- '* '/ 'sqrt '< '> '<= '>=)) op]
   [((or 'exp 'log 'sin 'cos 'tan 'asin 'acos 'atan)) op]
   [((or 'sinh 'cosh 'tanh 'asinh 'acosh 'atanh)) op]
-  [('fmax) 'max] [('fmin) 'min] [('fabs) 'abs]
+  [('fmax) 'max] [('fmin) 'min] [('fabs) 'abs] [('fma) 'fma]
   [(_) (error 'operator->fptaylor "Unsupported operation ~a" op)])
 
 (define (application->fptaylor type operator args)
@@ -138,7 +138,8 @@
      (error 'conjuncts "Logical disjunction is not supported")]
     [`(not ,arg)
      (error 'conjuncts "Logical negation is not supported")]
-    [`(,op ,args ...) (list expr)]))
+    [`(,op ,args ...) (list expr)]
+    ['TRUE (list expr)]))
 
 ; Removes inequalities in the form (cmp var number) and (cmp number var)
 (define (select-constraints expr)

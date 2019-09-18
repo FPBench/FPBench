@@ -5,6 +5,9 @@ FILTER = racket infra/filter.rkt
 core2c_prec = binary32 binary64
 core2c_unsupported_ops = "while*" "let*"
 
+core2fptaylor_prec = binary16 binary32 binary64 binary128
+core2fptaylor_unsupported_ops = "atan2" "cbrt" "ceil" "copysign" "erf" "erfc" "exp2" "expm1" "fdim" "floor" "fmod" "hypot" "if" "let*" "lgamma" "log10" "log1p" "log2" "nearbyint" "pow" "remainder" "round" "tgamma" "trunc" "while" "while*"
+
 core2js_prec = binary64
 core2js_unsupported_ops = "while*" "let*" "fma" "!=" "isfinite" "isnormal" "signbit" "exp2" "erf" "erfc" "tgamma" "lgamma" "fmod" "remainder" "fdim" "copysign" "nearbyint"
 
@@ -27,6 +30,16 @@ ifneq (, $(shell which $(CC)))
 	| racket infra/test-core2c.rkt --repeat 1
 else
 	$(warning skipping C sanity tests; unable to find C compiler $(CC))
+endif
+
+fptaylor-sanity:
+ifneq (, $(shell which fptaylor))
+	cat tests/sanity*.fpcore | $(FILTER) precision $(core2fptaylor_prec) \
+	| $(FILTER) not-operators $(core2fptaylor_unsupported_ops) \
+	| racket infra/test-core2fptaylor.rkt --repeat 1
+	$(RM) -r log tmp
+else
+	$(warning skipping fptaylor sanity tests; unable to find fptaylor)
 endif
 
 js-sanity:
@@ -66,7 +79,7 @@ else
 	$(warning skipping wolframscript sanity tests; unable to find wolframscript interpreter)
 endif
 
-sanity: c-sanity js-sanity smtlib2-sanity sollya-sanity wls-sanity
+sanity: c-sanity fptaylor-sanity js-sanity smtlib2-sanity sollya-sanity wls-sanity
 
 raco-test:
 	raco test .
@@ -79,6 +92,17 @@ ifneq (, $(shell which $(CC)))
 else
 	$(warning skipping C tests; unable to find C compiler $(CC))
 endif
+
+fptaylor-test:
+ifneq (, $(shell which fptaylor))
+	cat benchmarks/*.fpcore tests/test*.fpcore | $(FILTER) precision $(core2fptaylor_prec) \
+	| $(FILTER) not-operators $(core2fptaylor_unsupported_ops) $(known_inaccurate) \
+	| racket infra/test-core2c.rkt --error 3
+	$(RM) -r log tmp
+else
+	$(warning skipping fptaylor tests; unable to find fptaylor)
+endif
+
 
 js-test:
 ifneq (, $(shell which node))
@@ -117,12 +141,12 @@ else
 	$(warning skipping wolframscript tests; unable to find wolframscript interpreter)
 endif
 
-test: c-test js-test smtlib2-test sollya-test wls-test raco-test
+test: c-test fptaylor-test js-test smtlib2-test sollya-test wls-test raco-test
 
 testsetup:
-	raco make infra/filter.rkt infra/test-core2c.rkt infra/test-core2js.rkt infra/test-core2smtlib2.rkt infra/test-core2sollya.rkt infra/test-core2wls.rkt
+	raco make infra/filter.rkt infra/test-core2c.rkt infra/test-core2fptaylor.rkt infra/test-core2js.rkt infra/test-core2smtlib2.rkt infra/test-core2sollya.rkt infra/test-core2wls.rkt
 
 setup:
 	raco make export.rkt transform.rkt
 
-.PHONY: c-sanity c-test js-sanity js-test smtlib2-sanity smtlib2-test sollya-sanity sollya-test wls-sanity wls-test raco-test sanity test testsetup setup
+.PHONY: c-sanity c-test fptaylor-sanity fptaylor-test js-sanity js-test smtlib2-sanity smtlib2-test sollya-sanity sollya-test wls-sanity wls-test raco-test sanity test testsetup setup

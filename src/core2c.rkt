@@ -147,4 +147,5 @@
   (format "~a ~a(~a) {\n~a}\n" (type->c type) (fix-name name) (string-join arg-strings ", ") c-body))
 
 (define-compiler '("c")
-  c-header core->c "")
+  c-header core->c ""
+  '(let* while* !))

@@ -1,6 +1,6 @@
 #lang racket
 
-(require "src/fpcore.rkt" "src/compilers.rkt")
+(require "src/fpcore.rkt" "src/compilers.rkt" "src/supported.rkt")
 (require "src/core2c.rkt" "src/core2fptaylor.rkt" "src/core2gappa.rkt"
          "src/core2go.rkt" "src/core2js.rkt" "src/core2scala.rkt"
          "src/core2smtlib2.rkt" "src/core2sollya.rkt" "src/core2wls.rkt")
@@ -54,16 +54,16 @@
 
    (define extension (determine-lang (*lang*) out-file))
 
-   (define-values (header export footer)
+   (define-values (header export footer unsupported)
      (match extension
-       ["fptaylor" (values "" (curry core->fptaylor #:inexact-scale (*scale*)) "")]
-       [(or "gappa" "g") (values "" (curry core->gappa #:rel-error (*rel-error*)) "")]
-       ["go" (values (format go-header (*namespace*)) core->go "")]
-       ["js" (values "" (curry core->js #:runtime (*runtime*)) "")]
-       ["scala" (values (format scala-header (*namespace*)) core->scala scala-footer)]
-       [(or "smt" "smt2" "smtlib" "smtlib2") (values "" core->smtlib2 "")]
-       ["sollya" (values "" core->sollya "")]
-       ["wls" (values "" core->wls "")]
+       ["fptaylor" (values "" (curry core->fptaylor #:inexact-scale (*scale*)) "" '())]
+       [(or "gappa" "g") (values "" (curry core->gappa #:rel-error (*rel-error*)) "" '())]
+       ["go" (values (format go-header (*namespace*)) core->go "" '())]
+       ["js" (values "" (curry core->js #:runtime (*runtime*)) "" '())]
+       ["scala" (values (format scala-header (*namespace*)) core->scala scala-footer '())]
+       [(or "smt" "smt2" "smtlib" "smtlib2") (values "" core->smtlib2 "" '())]
+       ["sollya" (values "" core->sollya "" '())]
+       ["wls" (values "" core->wls "" '())]
        [#f (raise-user-error "Please specify an output language (using the --lang flag)")]
        [_
         (apply values
@@ -72,12 +72,17 @@
                        #:when (set-member? (compiler-extensions compiler) extension))
              (list (compiler-header compiler)
                    (compiler-export compiler)
-                   (compiler-footer compiler)))
+                   (compiler-footer compiler)
+                   (compiler-unsupported compiler)))
            (raise-user-error "Unsupported output language" (*lang*))))]))
 
    (port-count-lines! input-port)
    (unless (*bare*) (fprintf output-port header))
    (for ([core (in-port (curry read-fpcore (if (equal? in-file "-") "stdin" in-file)) input-port)] [n (in-naturals)])
+     (match-define `(FPCore (,_ ...) ,_ ... ,expr) core)
+     (unless (set-empty? (set-intersect (operators-in expr) unsupported))
+       (raise-user-error (format "Sorry, the *.~a exporter does not support ~a" extension
+                                 (string-join (map ~a (set-intersect (operators-in expr) unsupported)) ", "))))
      (fprintf output-port "~a\n" (export core (format "ex~a" n))))
    (unless (*bare*) (fprintf output-port footer))))
 

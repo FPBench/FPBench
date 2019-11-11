@@ -1,6 +1,6 @@
 #lang racket
 
-(require "common.rkt" "fpcore.rkt")
+(require "common.rkt" "fpcore.rkt" "compilers.rkt")
 (provide c-header core->c)
 
 (define (fix-name name)
@@ -145,3 +145,6 @@
         (parameterize ([*names* (apply mutable-set args)])
           (printf "\treturn ~a;\n" (expr->c body #:type type))))))
   (format "~a ~a(~a) {\n~a}\n" (type->c type) (fix-name name) (string-join arg-strings ", ") c-body))
+
+(define-compiler '("c")
+  c-header core->c "")

@@ -79,8 +79,7 @@
    (port-count-lines! input-port)
    (unless (*bare*) (fprintf output-port header))
    (for ([core (in-port (curry read-fpcore (if (equal? in-file "-") "stdin" in-file)) input-port)] [n (in-naturals)])
-     (match-define `(FPCore (,_ ...) ,_ ... ,expr) core)
-     (unless (set-empty? (set-intersect (operators-in expr) unsupported))
+     (unless (set-empty? (set-intersect (operators-in core) unsupported))
        (raise-user-error (format "Sorry, the *.~a exporter does not support ~a" extension
                                  (string-join (map ~a (set-intersect (operators-in expr) unsupported)) ", "))))
      (fprintf output-port "~a\n" (export core (format "ex~a" n))))

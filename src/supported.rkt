@@ -2,7 +2,7 @@
 (require "common.rkt" "fpcore.rkt")
 (provide operators-in constants-in property-values)
 
-(define/contract (operators-in expr)
+(define/contract (operators-in-expr expr)
   (-> expr? (listof symbol?))
 
   (remove-duplicates
@@ -31,7 +31,12 @@
      [(? symbol?) '()]
      [(? number?) '()])))
 
-(define/contract (constants-in expr)
+(define/contract (operators-in core)
+  (-> fpcore? (listof symbol?))
+  (match-define (list 'FPCore (list args ...) props ... body) prog)
+  (operators-in-expr body))
+
+(define/contract (constants-in-expr expr)
   (-> expr? (listof symbol?))
 
   (remove-duplicates
@@ -52,13 +57,18 @@
      [(? symbol?) '()]
      [(? number?) '()])))
 
+(define/contract (constants-in core)
+  (-> fpcore? (listof symbol?))
+  (match-define (list 'FPCore (list args ...) props ... body) prog)
+  (constants-in-expr body))
+
 (define property-hash? (hash/c symbol? (set/c any/c)))
 (define (property-hash-add! hash props)
   (define-values (_ properties) (parse-properties props))
   (for ([(k v) (in-dict properties)])
     (hash-update! hash k (curryr set-add v) (set))))
 
-(define/contract (property-values expr)
+(define/contract (property-values-expr expr)
   (-> expr? property-hash?)
 
   (define out (make-hash))
@@ -79,3 +89,9 @@
       [(? number?) (void)]))
 
   out)
+
+(define/contract (property-values core)
+  (match-define (list 'FPCore (list args ...) props ... body) prog)
+  (define prop-hash (property-values body))
+  (property-hash-add! prop-hash props)
+  prop-hash)

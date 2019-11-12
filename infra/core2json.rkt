@@ -1,7 +1,7 @@
 #lang racket
 
 (require json)
-(require "../src/common.rkt" "../src/fpcore.rkt" "filter.rkt")
+(require "../src/common.rkt" "../src/fpcore.rkt" "../src/supported.rkt")
 
 (define (~pp value)
   (let ([p (open-output-string)])
@@ -32,7 +32,7 @@
    prop-hash
    'arguments (map ~pp args)
    'body (~pp body)
-   'operators (map ~pp (operators-in body))
+   'operators (map ~pp (operators-in core))
    'core (~pp core)))
 
 (module+ main

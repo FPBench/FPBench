@@ -3,6 +3,8 @@
 (require
  "src/canonicalizer.rkt"
  "src/common.rkt"
+ "src/supported.rkt"
+ "src/compilers.rkt"
  "src/core2c.rkt"
  "src/core2fptaylor.rkt"
  "src/core2gappa.rkt"
@@ -20,6 +22,8 @@
  (all-from-out
   "src/canonicalizer.rkt"
   "src/common.rkt"
+  "src/supported.rkt"
+  "src/compilers.rkt"
   "src/core2c.rkt"
   "src/core2fptaylor.rkt"
   "src/core2gappa.rkt"

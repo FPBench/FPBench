@@ -9,25 +9,25 @@
    (match expr
      [`(while ,test ([,vars ,inits ,updates] ...) ,res)
       (cons 'while
-            (append (operators-in test)
-                    (append-map operators-in inits)
-                    (append-map operators-in updates)
-                    (operators-in res)))]
+            (append (operators-in-expr test)
+                    (append-map operators-in-expr inits)
+                    (append-map operators-in-expr updates)
+                    (operators-in-expr res)))]
      [`(while* ,test ([,vars ,inits ,updates] ...) ,res)
       (cons 'while*
-            (append (operators-in test)
-                    (append-map operators-in inits)
-                    (append-map operators-in updates)
-                    (operators-in res)))]
+            (append (operators-in-expr test)
+                    (append-map operators-in-expr inits)
+                    (append-map operators-in-expr updates)
+                    (operators-in-expr res)))]
      [`(let ([,vars ,vals] ...) ,body)
-      (cons 'let (append (append-map operators-in vals) (operators-in body)))]
+      (cons 'let (append (append-map operators-in-expr vals) (operators-in-expr body)))]
      [`(let* ([,vars ,vals] ...) ,body)
-      (cons 'let* (append (append-map operators-in vals) (operators-in body)))]
+      (cons 'let* (append (append-map operators-in-expr vals) (operators-in-expr body)))]
      [`(if ,cond ,ift ,iff)
-      (cons 'if (append (operators-in cond) (operators-in ift) (operators-in iff)))]
+      (cons 'if (append (operators-in-expr cond) (operators-in-expr ift) (operators-in-expr iff)))]
      [`(! ,props ... ,body)
-      (cons '! (operators-in body))]
-     [(list op args ...) (cons op (append-map operators-in args))]
+      (cons '! (operators-in-expr body))]
+     [(list op args ...) (cons op (append-map operators-in-expr args))]
      [(? symbol?) '()]
      [(? number?) '()])))
 
@@ -42,17 +42,17 @@
   (remove-duplicates
    (match expr
      [`(,(or 'while 'while*) ,test ([,vars ,inits ,updates] ...) ,res)
-            (append (constants-in test)
-                    (append-map constants-in inits)
-                    (append-map constants-in updates)
-                    (constants-in res))]
+            (append (constants-in-expr test)
+                    (append-map constants-in-expr inits)
+                    (append-map constants-in-expr updates)
+                    (constants-in-expr res))]
      [`(,(or 'let 'let*) ([,vars ,vals] ...) ,body)
-      (append (append-map constants-in vals) (constants-in body))]
+      (append (append-map constants-in-expr vals) (constants-in-expr body))]
      [`(if ,cond ,ift ,iff)
-      (append (constants-in cond) (constants-in ift) (constants-in iff))]
+      (append (constants-in-expr cond) (constants-in-expr ift) (constants-in-expr iff))]
      [`(! ,props ... ,body)
-      (constants-in body)]
-     [(list op args ...) (append-map constants-in args)]
+      (constants-in-expr body)]
+     [(list op args ...) (append-map constants-in-expr args)]
      [(? constant?) (list expr)]
      [(? symbol?) '()]
      [(? number?) '()])))
@@ -93,6 +93,6 @@
 (define/contract (property-values core)
   (-> fpcore? property-hash?)
   (match-define (list 'FPCore (list args ...) props ... body) core)
-  (define prop-hash (property-values body))
+  (define prop-hash (property-values-expr body))
   (property-hash-add! prop-hash props)
   prop-hash)

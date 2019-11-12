@@ -3,7 +3,7 @@ all: testsetup sanity test setup
 FILTER = racket infra/filter.rkt
 
 core2c_prec = binary32 binary64
-core2c_unsupported_ops = "while*" "let*"
+core2c_unsupported_ops =
 
 core2fptaylor_prec = binary16 binary32 binary64 binary128
 core2fptaylor_unsupported_ops = "atan2" "cbrt" "ceil" "copysign" "erf" "erfc" "exp2" "expm1" "fdim" "floor" "fmod" "hypot" "if" "let*" "lgamma" "log10" "log1p" "log2" "nearbyint" "pow" "remainder" "round" "tgamma" "trunc" "while" "while*"

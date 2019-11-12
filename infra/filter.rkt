@@ -2,9 +2,8 @@
 
 (require "../src/common.rkt" "../src/fpcore.rkt" "../src/supported.rkt")
 
-(define/contract ((filter type values) prog)
+(define/contract ((filter type values) core)
   (-> symbol? (listof string?) (-> fpcore? boolean?))
-  (match-define (list 'FPCore (list args ...) props ... body) prog)
 
   (match* (type values)
     [((or 'operator 'operation) (list value))
@@ -47,8 +46,7 @@
     (set! invert? #t)]
    #:args (type . values)
    (define test
-     (compose
-      (if invert? not identity)
+     ((if invert? negate identity)
       (filter (string->symbol type) values)))
    (port-count-lines! (current-input-port))
    (for ([expr (in-port read (current-input-port))])

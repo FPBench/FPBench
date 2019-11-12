@@ -33,7 +33,7 @@
 
 (define/contract (operators-in core)
   (-> fpcore? (listof symbol?))
-  (match-define (list 'FPCore (list args ...) props ... body) prog)
+  (match-define (list 'FPCore (list args ...) props ... body) core)
   (operators-in-expr body))
 
 (define/contract (constants-in-expr expr)
@@ -59,7 +59,7 @@
 
 (define/contract (constants-in core)
   (-> fpcore? (listof symbol?))
-  (match-define (list 'FPCore (list args ...) props ... body) prog)
+  (match-define (list 'FPCore (list args ...) props ... body) core)
   (constants-in-expr body))
 
 (define property-hash? (hash/c symbol? (set/c any/c)))
@@ -91,7 +91,8 @@
   out)
 
 (define/contract (property-values core)
-  (match-define (list 'FPCore (list args ...) props ... body) prog)
+  (-> fpcore? property-hash?)
+  (match-define (list 'FPCore (list args ...) props ... body) core)
   (define prop-hash (property-values body))
   (property-hash-add! prop-hash props)
   prop-hash)

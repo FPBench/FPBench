@@ -181,7 +181,7 @@
     [(list 'or a ...)
      (format "(~a)" (string-join (map ~a a) " || "))]
     [(list (? operator? f) args ...)
-     (format "~a(~a)" (convert-operator (convert-type) operator) (string-join args ", "))]))
+     (format "~a(~a)" (convert-operator (convert-type type) operator) (string-join args ", "))]))
 
 (define (convert-expr expr #:names [names #hash()] #:type [type 'binary64] #:indent [indent "\t"])
   ;; Takes in an expression. Returns an expression and a new set of names

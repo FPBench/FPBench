@@ -23,8 +23,8 @@
 (define (convert-assignment var val)
   ((language-assignment (*lang*)) var val))
 
-(define (convert-function var val)
-  ((language-function (*lang*)) var val))
+(define (convert-function type name args body return)
+  ((language-function (*lang*)) type name args body return))
 
 (define (while-name) ; Go is weird
   (if (equal? (*lang*) go-language) "for" "while"))

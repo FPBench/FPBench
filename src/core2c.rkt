@@ -5,7 +5,7 @@
 
 ;;; Abstraction for different languages
 
-(struct language (header type operator constant declaration assignment))
+(struct language (header type operator constant declaration assignment function))
 (define *lang* (make-parameter #f))
 
 (define (convert-operator type operator)
@@ -322,8 +322,8 @@
 
 ;;; Exports
 
-(define (core->c  prog name) (parameters ([*lang*  c-language]) (convert-core prog name)))
-(define (core->go prog name) (parameters ([*lang* go-language]) (convert-core prog name)))
+(define (core->c  prog name) (parameterize ([*lang*  c-language]) (convert-core prog name)))
+(define (core->go prog name) (parameterize ([*lang* go-language]) (convert-core prog name)))
 
 (define-compiler '("c")
   c-header core->c ""

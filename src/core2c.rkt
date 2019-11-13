@@ -34,9 +34,9 @@
 (define c-header (const "#include <math.h>\n#define TRUE 1\n#define FALSE 0\n\n"))
 
 (define/match (type->c-suffix type)
-  [('binary64) ""]
-  [('binary32) "f"]
-  [('binary80) "l"])
+  [("double") ""]
+  [("float") "f"]
+  [("long double") "l"])
 
 (define/match (type->c type)
   [('binary64) "double"]
@@ -105,7 +105,7 @@
          ['PI "Pi"] ['PI_2 "Pi/2"] ['PI_4 "Pi/4"] ['SQRT2 "Sqrt2"]
          ['MAXFLOAT "MaxFloat64"] ['INFINITY "Inf(1)"] ['NAN "Nan()"]
          [_ (error 'constant->go "Unsupported constant ~a" expr)]))
-     (format "((~a) Math.~a)" (type->go type) name)]
+     (format "((~a) Math.~a)" type name)]
     [(? number?) (~a (real->double-flonum expr))]))
 
 (define (declaration->go type var [val #f])
@@ -181,7 +181,7 @@
     [(list 'or a ...)
      (format "(~a)" (string-join (map ~a a) " || "))]
     [(list (? operator? f) args ...)
-     (format "~a(~a)" (convert-operator type operator) (string-join args ", "))]))
+     (format "~a(~a)" (convert-operator (convert-type) operator) (string-join args ", "))]))
 
 (define (convert-expr expr #:names [names #hash()] #:type [type 'binary64] #:indent [indent "\t"])
   ;; Takes in an expression. Returns an expression and a new set of names
@@ -296,9 +296,9 @@
        (map (λ (arg) (convert-expr arg #:names names #:type type #:indent indent)) args))
      (convert-application type operator args_c)]
     [(? constant?)
-     (convert-constant type expr)]
+     (convert-constant (convert-type type) expr)]
     [(? number?)
-     (convert-constant type expr)]
+     (convert-constant (convert-type type) expr)]
     [(? symbol?)
      (fix-name (dict-ref names expr expr))]))
 

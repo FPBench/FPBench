@@ -2,7 +2,7 @@
 
 (require "src/fpcore.rkt" "src/compilers.rkt" "src/supported.rkt")
 (require "src/core2c.rkt" "src/core2fptaylor.rkt" "src/core2gappa.rkt"
-         "src/core2go.rkt" "src/core2js.rkt" "src/core2scala.rkt"
+         "src/core2js.rkt" "src/core2scala.rkt"
          "src/core2smtlib2.rkt" "src/core2sollya.rkt" "src/core2wls.rkt")
 
 (provide export-main)

@@ -75,7 +75,7 @@
 
 ;; Go
 
-(define go-header (curry format "package ~a\n\nimport \"math\"\n\nvar _ = math.Pi\n\n"))
+(define go-header (curry format "package ~a\n\nimport \"math\"\n\n"))
 
 (define/match (type->go type)
   [('binary64) "float64"]
@@ -326,9 +326,9 @@
 (define (core->go prog name) (parameterize ([*lang* go-language]) (convert-core prog name)))
 
 (define-compiler '("c")
-  c-header core->c ""
+  c-header core->c (const "")
   '(!))
 
 (define-compiler '("go")
-  go-header core->go ""
+  go-header core->go (const "")
   '(!))

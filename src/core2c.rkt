@@ -189,7 +189,7 @@
     [`(let ([,vars ,vals] ...) ,body)
      (define vars* (map gensym vars))
      (for ([var vars] [var* vars*] [val vals])
-       (printf "~a~a\n" indent 
+       (printf "~a~a\n" indent
                (convert-declaration
                 (convert-type type)
                 (fix-name var*)
@@ -204,7 +204,7 @@
        (for/fold ([names* names]) ([var vars] [val vals])
          (define var* (gensym var))
          (printf "~a~a\n" indent
-                 (convert-declaration 
+                 (convert-declaration
                   (convert-type type)
                   (fix-name var*)
                   (convert-expr val #:names names* #:type type #:indent indent)))

@@ -32,7 +32,7 @@
   [('FALSE) "false"]
   [('INFINITY) "Infinity"]
   [('NAN) "NaN"]
-  [(_) (error 'constant->js "Unsupported constant ~a" c)])
+  [(_) (error 'constant->js "UAnsupported constant ~a" c)])
 
 (define/match (operator->js op)
   [((or '== '+ '- '* '/  '< '> '<= '>=)) (format "(~a ~a ~a)" "~a" op "~a")]
@@ -105,7 +105,7 @@
 (define (expr->js expr #:names [names #hash()] #:type [type 'binary64] #:indent [indent "\t"])
   ;; Takes in an expression. Returns an expression and a new set of names
   (match expr
-    [`(let ([,vars ,vals] ...) ,body)
+    [`(let ([,vars ,vals] ...) ,body)                           ; let
      (define vars* (map gensym vars))
      (for ([var vars] [var* vars*] [val vals])
        (printf "~avar ~a = ~a;\n" indent (fix-name var*)
@@ -114,7 +114,12 @@
        (for/fold ([names* names]) ([var vars] [var* vars*])
          (dict-set names* var var*)))
      (expr->js body #:names names* #:type type #:indent indent)]
-    [`(if ,cond ,ift ,iff)
+    [`(let* ([,vars ,vals] ...) ,body)                             ;let*
+     (for ([var vars] [val vals])
+       (printf "~avar ~a = ~a;\n" indent var
+            (expr->js val #:names names #:type type #:indent indent)))
+     (expr->js body #:names names #:type type #:indent indent)]
+    [`(if ,cond ,ift ,iff)                                          ; if
      (define test (expr->js cond #:names names #:type type #:indent indent))
      (define outvar (gensym 'temp))
      (printf "~avar ~a;\n" indent (fix-name outvar))
@@ -126,7 +131,7 @@
              (expr->js iff #:names names #:type type #:indent (format "~a\t" indent)))
      (printf "~a}\n" indent)
      (fix-name outvar)]
-    [`(while ,cond ([,vars ,inits ,updates] ...) ,retexpr)
+    [`(while ,cond ([,vars ,inits ,updates] ...) ,retexpr)      ; while
      (define vars* (map gensym vars))
      (for ([var vars] [var* vars*] [val inits])
        (printf "~avar ~a = ~a;\n" indent (fix-name var*)
@@ -134,20 +139,35 @@
      (define names*
        (for/fold ([names* names]) ([var vars] [var* vars*])
          (dict-set names* var var*)))
-     (define test-var (fix-name (gensym 'test)))
-     (printf "~avar ~a = ~a\n" indent test-var
-             (expr->js cond #:names names* #:type type #:indent (format "~a\t" indent)))
-     (printf "~awhile (~a) {\n" indent test-var)
+     (define cond_eval
+         (expr->js cond #:names names #:type type #:indent indent))
+     (printf "~awhile (~a) {\n" indent
+        (if (char=? (string-ref cond_eval 0) #\u0028)
+            (substring cond_eval 1 (sub1 (string-length cond_eval)))
+            (cond_eval)))
      (define temp-vars (map gensym vars))
      (for ([temp-var temp-vars] [update updates])
        (printf "~a\tvar ~a = ~a;\n" indent (fix-name temp-var)
-               (expr->js update #:names names* #:type type #:indent (format "~a\t" indent))))
+             (expr->js update #:names names* #:type type #:indent (format "~a\t" indent))))
      (for ([var* vars*] [temp-var temp-vars])
        (printf "~a\t~a = ~a;\n" indent (fix-name var*) (fix-name temp-var)))
-     (printf "~a\t~a = ~a;" indent test-var
-             (expr->js cond #:names names* #:type type #:indent (format "~a\t" indent)))
      (printf "~a}\n" indent)
      (expr->js retexpr #:names names* #:type type #:indent indent)]
+    [`(while* ,cond ([,vars ,inits ,updates] ...) ,retexpr)     ; while*
+     (for([var vars] [val inits])
+       (printf "~avar ~a = ~a;\n" indent var
+            (expr->js val #:names names #:type type #:indent indent)))
+     (define cond_eval
+         (expr->js cond #:names names #:type type #:indent indent))
+     (printf "~awhile (~a) {\n" indent
+        (if (char=? (string-ref cond_eval 0) #\u0028)
+            (substring cond_eval 1 (sub1 (string-length cond_eval)))
+            (cond_eval)))
+     (for([var vars] [val updates])
+       (printf "~a\t ~a = ~a;\n" indent var
+            (expr->js val #:names names #:type type #:indent indent)))
+      (printf "~a}\n" indent)
+      (expr->js retexpr #:names names #:type type #:indent indent)]
     [(list (? operator? operator) args ...)
      (define args_c
        (map (λ (arg) (expr->js arg #:names names #:type type #:indent indent)) args))

@@ -1,6 +1,6 @@
 #lang racket
 
-(require "src/fpcore.rkt" "src/compilers.rkt" "src/supported.rkt")
+(require "src/fpcore.rkt" "src/compilers.rkt" "src/supported.rkt" "src/imperative.rkt")
 (require "src/core2c.rkt" "src/core2fptaylor.rkt" "src/core2gappa.rkt"
          "src/core2js.rkt" "src/core2scala.rkt"
          "src/core2smtlib2.rkt" "src/core2sollya.rkt" "src/core2wls.rkt")
@@ -58,7 +58,6 @@
      (match extension
        ["fptaylor" (values "" (curry core->fptaylor #:inexact-scale (*scale*)) "" '())]
        [(or "gappa" "g") (values "" (curry core->gappa #:rel-error (*rel-error*)) "" '())]
-       ["js" (values "" (curry core->js #:runtime (*runtime*)) "" '())]
        ["scala" (values (format scala-header (*namespace*)) core->scala scala-footer '())]
        [(or "smt" "smt2" "smtlib" "smtlib2") (values "" core->smtlib2 "" '())]
        ["sollya" (values "" core->sollya "" '())]

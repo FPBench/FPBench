@@ -5,6 +5,7 @@
 
 ;; Go
 
+(define go-name (const "go"))
 (define go-header (curry format "package ~a\n\nimport \"math\"\n\n"))
 
 (define/match (type->go type)
@@ -15,14 +16,14 @@
 (define (operator->go type operator)
   (match operator
     [(or 'fabs 'fmax 'fmin 'fdim)
-     (format "math.~a" (string-titlecase (substring (~a operator) 1)))]
+     (format "math.~a(~a)" (string-titlecase (substring (~a operator) 1)) "~a")]
     [(or 'isinf 'isnan)
-     (format "math.Is~a" (string-titlecase (substring (~a operator) 2)))]
+     (format "math.Is~a(~a)" (string-titlecase (substring (~a operator) 2)) "~a")]
     [(or 'exp 'exp2 'expm1 'log 'log10 'log2 'log1p 'pow 'sqrt 'cbrt 'hypot
          'sin 'cos 'tan 'asin 'cos 'atan 'atan2 'sinh 'cosh 'tanh
          'asinh 'acosh 'atanh 'erf 'erfc 'tgamma 'lgamma 'ceil 'floor
          'remainder 'copysign 'trunc 'round)
-     (format "math.~a" (string-titlecase (~a operator)))]))
+     (format "math.~a(~a)" (string-titlecase (~a operator)) "~a")]))
 
 (define (constant->go type expr)
   (match expr
@@ -55,7 +56,7 @@
           type
           body return))
 
-(define go-language (language go-header type->go operator->go constant->go declaration->go assignment->go function->go))
+(define go-language (language go-name go-header type->go operator->go constant->go declaration->go assignment->go function->go))
 
 ;;; Exports
 

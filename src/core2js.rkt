@@ -5,84 +5,76 @@
 
 ;; JS
 
+(define js-name (const "js"))
 (define js-header (const "")) ; empty
-
 (define (type->js type) "var")
 
-(define (operator->js type operator)
-  (operator->js-notype operator))
-
-(define/match (operator->js-notype op)
-  [((or '== '+ '- '* '/  '< '> '<= '>=))
-    (format "(~a ~a ~a)" "~a" op "~a")]
-  [('and) "~a && ~a"]
-  [('or) "~a || ~a"]
-  [('not) "!~a"]
-  [('fabs) "Math.abs(~a)"]
-  [('exp) "Math.exp(~a)"]
+(define/match (operator->js type op)
+  [(_ 'fabs) "Math.abs(~a)"]
+  [(_ 'exp) "Math.exp(~a)"]
   ;[('exp2) "math.pow(2, ~a)"]
-  [('expm1) "Math.expm1(~a)"]
-  [('log) "Math.log(~a)"]
-  [('log10) "Math.log10(~a)"]
-  [('log2) "Math.log2(~a)"]
-  [('log1p) "Math.log1p(~a)"]
+  [(_ 'expm1) "Math.expm1(~a)"]
+  [(_ 'log) "Math.log(~a)"]
+  [(_ 'log10) "Math.log10(~a)"]
+  [(_ 'log2) "Math.log2(~a)"]
+  [(_ 'log1p) "Math.log1p(~a)"]
   ;[('logb) "math.floor(math.log2(math.abs(~a)))"]
-  [('pow) "Math.pow(~a, ~a)"]
-  [('sqrt) "Math.sqrt(~a)"]
-  [('cbrt) "Math.cbrt(~a)"]
-  [('hypot) "Math.hypot(~a, ~a)"]
-  [('sin) "Math.sin(~a)"]
-  [('cos) "Math.cos(~a)"]
-  [('tan) "Math.tan(~a)"]
-  [('asin) "Math.asin(~a)"]
-  [('acos) "Math.acos(~a)"]
-  [('atan) "Math.atan(~a)"]
-  [('atan2) "Math.atan2(~a, ~a)"]
-  [('sinh) "Math.sinh(~a)"]
-  [('cosh) "Math.cosh(~a)"]
-  [('tanh) "Math.tanh(~a)"]
-  [('asinh) "Math.asinh(~a)"]
-  [('acosh) "Math.acosh(~a)"]
-  [('atanh) "Math.atanh(~a)"]
+  [(_ 'pow) "Math.pow(~a, ~a)"]
+  [(_ 'sqrt) "Math.sqrt(~a)"]
+  [(_ 'cbrt) "Math.cbrt(~a)"]
+  [(_ 'hypot) "Math.hypot(~a, ~a)"]
+  [(_ 'sin) "Math.sin(~a)"]
+  [(_ 'cos) "Math.cos(~a)"]
+  [(_ 'tan) "Math.tan(~a)"]
+  [(_ 'asin) "Math.asin(~a)"]
+  [(_ 'acos) "Math.acos(~a)"]
+  [(_ 'atan) "Math.atan(~a)"]
+  [(_ 'atan2) "Math.atan2(~a, ~a)"]
+  [(_ 'sinh) "Math.sinh(~a)"]
+  [(_ 'cosh) "Math.cosh(~a)"]
+  [(_ 'tanh) "Math.tanh(~a)"]
+  [(_ 'asinh) "Math.asinh(~a)"]
+  [(_ 'acosh) "Math.acosh(~a)"]
+  [(_ 'atanh) "Math.atanh(~a)"]
   ;[('erf) "math.erf(~a)"]
   ;[('erfc) "1 - math.erf(~a)"] ;; TODO: This implementation has large error for large inputs
   ;[('tgamma) "math.gamma(~a)"]
   ;[('lgamma) "math.log(math.gamma(~a))"]
-  [('ceil) "Math.ceil(~a)"]
-  [('floor) "Math.floor(~a)"]
+  [(_ 'ceil) "Math.ceil(~a)"]
+  [(_ 'floor) "Math.floor(~a)"]
   ;[('remainder) "math.mod(~a, ~a)"]
-  [('fmax) "Math.max(~a, ~a)"]
-  [('fmin) "Math.min(~a, ~a)"]
+  [(_ 'fmax) "Math.max(~a, ~a)"]
+  [(_ 'fmin) "Math.min(~a, ~a)"]
   ;[('fdim) "math.max(0, ~a - ~a)"]
   ;[('copysign) "math.abs(~a) * math.sign(~a)"]
-  [('trunc) "Math.trunc(~a)"]
-  [('round) "Math.round(~a)"]
-  [('isinf)  "(Math.abs(~a) === Infinity)"]
-  [('isnan) "isNaN(~a)"]
-  [(_) (error 'operator->js-notype "Unsupported operator ~a" op)])
+  [(_ 'trunc) "Math.trunc(~a)"]
+  [(_ 'round) "Math.round(~a)"]
+  [(_ 'isinf) "(Math.abs(~a) === Infinity)"]
+  [(_ 'isnan) "isNaN(~a)"]
+  [(_ _) (error 'operator->js "Unsupported operator ~a" op)])
 
 (define/match (constant->js type expr)
-  [(? 'E) "Math.E"]
-  [(? 'LOG2E) "Math.LOG2E"]
-  [(? 'LOG10E) "Math.LOG10E"]
-  [(? 'LN2) "Math.LN2"]
-  [(? 'LN10) "Math.LN10"]
-  [(? 'PI) "Math.PI"]
-  [(? 'PI_2) "(Math.PI/2)"]
-  [(? 'PI_4) "(Math.PI/4)"]
-  [(? 'M_1_PI) "(1/Math.PI)"]
-  [(? 'M_2_PI) "(2/Math.PI)"]
-  [(? 'M_2_SQRTPI) "(2/Math.sqrt(Math.PI))"]
-  [(? 'SQRT2) "Math.SQRT2"]
-  [(? 'SQRT1_2) "(Math.SQRT1_2)"]
-  [(? 'MAXFLOAT) "Number.MAX_VALUE"]
-  [(? 'TRUE) "true"]
-  [(? 'FALSE) "false"]
-  [(? 'INFINITY) "Infinity"]
-  [(? 'NAN) "NaN"]
-  [(? symbol?) expr]
-  [(? number?) expr]
-  [(? _) (error 'constant->js "Unsupported constant ~a" expr)])
+  [(_ 'E) "Math.E"]
+  [(_ 'LOG2E) "Math.LOG2E"]
+  [(_ 'LOG10E) "Math.LOG10E"]
+  [(_ 'LN2) "Math.LN2"]
+  [(_ 'LN10) "Math.LN10"]
+  [(_ 'PI) "Math.PI"]
+  [(_ 'PI_2) "(Math.PI/2)"]
+  [(_ 'PI_4) "(Math.PI/4)"]
+  [(_ 'M_1_PI) "(1/Math.PI)"]
+  [(_ 'M_2_PI) "(2/Math.PI)"]
+  [(_ 'M_2_SQRTPI) "(2/Math.sqrt(Math.PI))"]
+  [(_ 'SQRT2) "Math.SQRT2"]
+  [(_ 'SQRT1_2) "(Math.SQRT1_2)"]
+  [(_ 'MAXFLOAT) "Number.MAX_VALUE"]
+  [(_ 'TRUE) "true"]
+  [(_ 'FALSE) "false"]
+  [(_ 'INFINITY) "Infinity"]
+  [(_ 'NAN) "NaN"]
+  [(_ symbol?) expr]
+  [(_ number?) expr]
+  [(_ _) (error 'constant->js "Unsupported constant ~a" expr)])
 
 (define (decleration->js type var [val #f])
   (if val
@@ -94,13 +86,12 @@
 
 (define (function->js type name args body return)
   (format "function ~a(~a) {\n~a\treturn ~a;\n}\n"
-          name
-          (string-join
-           (map (λ (arg) (format "~a" arg)) args)
-           ", ")
-          body return))
+          name 
+          (string-join args ", ") 
+          body 
+          return))
 
-(define js-language (language js-header type->js operator->js constant->js decleration->js assignment->js function->js))
+(define js-language (language js-name js-header type->js operator->js constant->js decleration->js assignment->js function->js))
 
 ;;; Exports
 

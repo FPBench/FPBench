@@ -3,11 +3,9 @@
 (require "common.rkt")
 (provide language convert-core *lang*)
 
-(define go-language 0) ;; forward decleration, declared in core2go.rkt
-
 ;;; Abstraction for different languages
 
-(struct language (header type operator constant declaration assignment function))
+(struct language (name header type operator constant declaration assignment function))
 (define *lang* (make-parameter #f))
 
 (define (convert-operator type operator)
@@ -29,7 +27,12 @@
   ((language-function (*lang*)) type name args body return))
 
 (define (while-name) ; Go is weird
-  (if (equal? (*lang*) go-language) "for" "while"))
+  (if (equal? ((language-name (*lang*))) "go") "for" "while"))
+
+(define (operator-args type operator args) ; JS is also weird (isinf)
+  (if (equal? ((language-name (*lang*))) "js")
+    (apply format (convert-operator "" operator) args)
+    (format (convert-operator (convert-type type) operator) (string-join args ", "))))
 
 ;;; Compiler for imperative languages (C, Go, etc.)
 
@@ -55,14 +58,10 @@
 
 (define (convert-application type operator args)
   (match (cons operator args)
-    [(list '- a)
-     (format "-~a" a)]
-    [(list 'not a)
-     (format "!~a" a)]
-    [(list (or '+ '- '* '/) a b)
-     (format "(~a ~a ~a)" a operator b)]
-    [(list (or '== '!= '< '> '<= '>=))
-     "TRUE"]
+    [(list '- a) (format "-~a" a)]
+    [(list 'not a) (format "!~a" a)]
+    [(list (or '== '!= '< '> '<= '>=)) "TRUE"]
+    [(list (or '+ '- '* '/) a b) (format "(~a ~a ~a)" a operator b)]
     [(list (or '== '< '> '<= '>=) head args ...)
      (format "(~a)"
              (string-join
@@ -85,7 +84,7 @@
     [(list 'or a ...)
      (format "(~a)" (string-join (map ~a a) " || "))]
     [(list (? operator? f) args ...)
-     (format "~a(~a)" (convert-operator (convert-type type) operator) (string-join args ", "))]))
+     (operator-args type operator args)]))
 
 (define (convert-expr expr #:names [names #hash()] #:type [type 'binary64] #:indent [indent "\t"])
   ;; Takes in an expression. Returns an expression and a new set of names

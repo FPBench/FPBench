@@ -5,6 +5,7 @@
 
 ;; C
 
+(define c-name (const "c"))
 (define c-header (const "#include <math.h>\n#define TRUE 1\n#define FALSE 0\n\n"))
 
 (define/match (type->c-suffix type)
@@ -19,7 +20,7 @@
   [('boolean) "int"])
 
 (define (operator->c type operator)
-  (format "~a~a" operator (type->c-suffix type)))
+  (format "~a~a(~a)" operator (type->c-suffix type) "~a"))
 
 (define (constant->c type expr)
   (match expr
@@ -45,7 +46,7 @@
            ", ")
           body return))
 
-(define c-language (language c-header type->c operator->c constant->c declaration->c assignment->c function->c))
+(define c-language (language c-name c-header type->c operator->c constant->c declaration->c assignment->c function->c))
 
 ;;; Exports
 

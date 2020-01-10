@@ -51,7 +51,4 @@
 ;;; Exports
 
 (define (core->c  prog name) (parameterize ([*lang*  c-language]) (convert-core prog name)))
-
-(define-compiler '("c")
-  c-header core->c (const "")
-  '(!))
+(define-compiler '("c") c-header core->c (const "") '(!))

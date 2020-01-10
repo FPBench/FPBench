@@ -29,11 +29,6 @@
 (define (while-name) ; Go is weird
   (if (equal? ((language-name (*lang*))) "go") "for" "while"))
 
-(define (operator-args type operator args) ; JS is also weird (isinf)
-  (if (equal? ((language-name (*lang*))) "js")
-    (apply format (convert-operator "" operator) args)
-    (format (convert-operator (convert-type type) operator) (string-join args ", "))))
-
 ;;; Compiler for imperative languages (C, Go, etc.)
 
 (define *names* (make-parameter (mutable-set)))
@@ -84,7 +79,9 @@
     [(list 'or a ...)
      (format "(~a)" (string-join (map ~a a) " || "))]
     [(list (? operator? f) args ...)
-     (operator-args type operator args)]))
+     (if (equal? ((language-name (*lang*))) "js") ; JS is also weird: isinf(x)
+       (apply format (convert-operator "" operator) args)
+       (format (convert-operator (convert-type type) operator) (string-join args ", ")))]))
 
 (define (convert-expr expr #:names [names #hash()] #:type [type 'binary64] #:indent [indent "\t"])
   ;; Takes in an expression. Returns an expression and a new set of names

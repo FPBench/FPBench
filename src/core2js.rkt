@@ -96,7 +96,4 @@
 ;;; Exports
 
 (define (core->js prog name) (parameterize ([*lang* js-language]) (convert-core prog name)))
-
-(define-compiler '("js")
-  js-header core->js (const "")
-  '(!))
+(define-compiler '("js") js-header core->js (const "") '(!))

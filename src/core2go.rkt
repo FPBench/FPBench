@@ -61,7 +61,4 @@
 ;;; Exports
 
 (define (core->go prog name) (parameterize ([*lang* go-language]) (convert-core prog name)))
-
-(define-compiler '("go")
-  go-header core->go (const "")
-  '(!))
+(define-compiler '("go") go-header core->go (const "") '(!))

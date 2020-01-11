@@ -16,14 +16,14 @@
 (define (operator->go type operator)
   (match operator
     [(or 'fabs 'fmax 'fmin 'fdim)
-     (format "math.~a(~a)" (string-titlecase (substring (~a operator) 1)) "~a")]
+     (format "math.~a" (string-titlecase (substring (~a operator) 1)))]
     [(or 'isinf 'isnan)
-     (format "math.Is~a(~a)" (string-titlecase (substring (~a operator) 2)) "~a")]
+     (format "math.Is~a" (string-titlecase (substring (~a operator) 2)))]
     [(or 'exp 'exp2 'expm1 'log 'log10 'log2 'log1p 'pow 'sqrt 'cbrt 'hypot
          'sin 'cos 'tan 'asin 'cos 'atan 'atan2 'sinh 'cosh 'tanh
          'asinh 'acosh 'atanh 'erf 'erfc 'tgamma 'lgamma 'ceil 'floor
          'remainder 'copysign 'trunc 'round)
-     (format "math.~a(~a)" (string-titlecase (~a operator)) "~a")]))
+     (format "math.~a" (string-titlecase (~a operator)))]))
 
 (define (constant->go type expr)
   (match expr

@@ -17,4 +17,3 @@
 (FPCore (a)
  :pre (< 1 a 1000)
  (while* (< c a) ([c 0 (+ 1 c)] [d 0 (+ d c)]) d))
-

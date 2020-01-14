@@ -6,9 +6,9 @@
  (contract-out
   [struct compiler
     ([extensions (listof string?)]
-     [header (or/c #f string?)]
+     [header (-> string? string?)]
      [export (-> fpcore? string? string?)]
-     [footer (or/c #f string?)]
+     [footer (-> string?)]
      [unsupported (listof symbol?)])]
   [compilers (parameter/c (listof compiler?))])
  define-compiler)

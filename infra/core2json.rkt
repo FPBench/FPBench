@@ -1,7 +1,7 @@
 #lang racket
 
 (require json)
-(require "../src/common.rkt" "../src/fpcore.rkt" "../src/supported.rkt")
+(require "../src/common.rkt" "../src/fpcore.rkt" "../src/supported.rkt" "../src/core2fptaylor.rkt")
 
 (define (~pp value)
   (let ([p (open-output-string)])
@@ -28,12 +28,18 @@
                  (for/hash ([(k v) (in-dict value)])
                    (values k (~pp (car v))))]
                 [_ (if (string? value) value (~pp value))]))))
+
+  (define core-fptaylor
+    (with-handlers ([(const true) (const false)])
+      (core->fptaylor core 'foo)))
+
   (hash-set*
    prop-hash
    'arguments (map ~pp args)
    'body (~pp body)
    'operators (map ~pp (operators-in core))
-   'core (~pp core)))
+   'core (~pp core)
+   'core_fptaylor core-fptaylor))
 
 (module+ main
   (define padding-function #f)

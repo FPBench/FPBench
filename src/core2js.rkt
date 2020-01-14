@@ -19,17 +19,17 @@
   [(_ 'log2) "Math.log2(~a)"]
   [(_ 'log1p) "Math.log1p(~a)"]
   ;[('logb) "math.floor(math.log2(math.abs(~a)))"]
-  [(_ 'pow) "Math.pow(~a, ~a)"]
+  [(_ 'pow) "Math.pow(~a)"]
   [(_ 'sqrt) "Math.sqrt(~a)"]
   [(_ 'cbrt) "Math.cbrt(~a)"]
-  [(_ 'hypot) "Math.hypot(~a, ~a)"]
+  [(_ 'hypot) "Math.hypot(~a)"]
   [(_ 'sin) "Math.sin(~a)"]
   [(_ 'cos) "Math.cos(~a)"]
   [(_ 'tan) "Math.tan(~a)"]
   [(_ 'asin) "Math.asin(~a)"]
   [(_ 'acos) "Math.acos(~a)"]
   [(_ 'atan) "Math.atan(~a)"]
-  [(_ 'atan2) "Math.atan2(~a, ~a)"]
+  [(_ 'atan2) "Math.atan2(~a)"]
   [(_ 'sinh) "Math.sinh(~a)"]
   [(_ 'cosh) "Math.cosh(~a)"]
   [(_ 'tanh) "Math.tanh(~a)"]
@@ -43,15 +43,14 @@
   [(_ 'ceil) "Math.ceil(~a)"]
   [(_ 'floor) "Math.floor(~a)"]
   ;[('remainder) "math.mod(~a, ~a)"]
-  [(_ 'fmax) "Math.max(~a, ~a)"]
-  [(_ 'fmin) "Math.min(~a, ~a)"]
+  [(_ 'fmax) "Math.max(~a)"]
+  [(_ 'fmin) "Math.min(~a)"]
   ;[('fdim) "math.max(0, ~a - ~a)"]
   ;[('copysign) "math.abs(~a) * math.sign(~a)"]
   [(_ 'trunc) "Math.trunc(~a)"]
   [(_ 'round) "Math.round(~a)"]
   [(_ 'isinf) "(Math.abs(~a) === Infinity)"]
-  [(_ 'isnan) "isNaN(~a)"]
-  [(_ _) (error 'operator->js "Unsupported operator ~a" op)])
+  [(_ 'isnan) "isNaN(~a)"])
 
 (define/match (constant->js type expr)
   [(_ 'E) "Math.E"]
@@ -72,9 +71,8 @@
   [(_ 'FALSE) "false"]
   [(_ 'INFINITY) "Infinity"]
   [(_ 'NAN) "NaN"]
-  [(_ symbol?) expr]
-  [(_ number?) expr]
-  [(_ _) (error 'constant->js "Unsupported constant ~a" expr)])
+  [(_ symbol?) (format "~a" expr)]
+  [(_ number?) (format "~a" expr)])
 
 (define (decleration->js type var [val #f])
   (if val

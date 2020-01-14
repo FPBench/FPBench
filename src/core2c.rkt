@@ -20,7 +20,7 @@
   [('boolean) "int"])
 
 (define (operator->c type operator)
-  (format "~a~a" operator (type->c-suffix type)))
+  (format "~a~a(~a)" operator (type->c-suffix type) "~a"))
 
 (define (constant->c type expr)
   (match expr

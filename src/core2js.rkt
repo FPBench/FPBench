@@ -71,8 +71,8 @@
   [(_ 'FALSE) "false"]
   [(_ 'INFINITY) "Infinity"]
   [(_ 'NAN) "NaN"]
-  [(_ symbol?) (format "~a" expr)]
-  [(_ number?) (format "~a" expr)])
+  [(_ (? symbol?)) expr]
+  [(_ (? number?)) (format "~a" (real->double-flonum expr))])
 
 (define (decleration->js type var [val #f])
   (if val

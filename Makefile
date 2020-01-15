@@ -9,7 +9,6 @@ core2fptaylor_prec = binary16 binary32 binary64 binary128
 core2fptaylor_unsupported_ops = "atan2" "cbrt" "ceil" "copysign" "erf" "erfc" "exp2" "expm1" "fdim" "floor" "fmod" "hypot" "if" "let*" "lgamma" "log10" "log1p" "log2" "nearbyint" "pow" "remainder" "round" "tgamma" "trunc" "while" "while*"
 
 core2js_prec = binary64
-core2js_unsupported_ops = "fma" "isfinite" "isnormal" "signbit" "exp2" "erf" "erfc" "tgamma" "lgamma" "fmod" "remainder" "fdim" "copysign" "nearbyint"
 
 core2smtlib2_prec = binary32 binary64
 core2smtlib2_unsupported_ops = "while*" "let*" "while" "!=" "exp" "exp2" "expm1" "log" "log10" "log2" "log1p" "pow" "cbrt" "hypot" "sin" "cos" "tan" "asin" "acos" "atan" "atan2" "sinh" "cosh" "tanh" "asinh" "acosh" "atanh" "erf" "erfc" "tgamma" "lgamma" "ceil" "floor" "fmod" "fdim" "copysign" "isfinite"
@@ -42,7 +41,6 @@ else
 	$(warning skipping fptaylor sanity tests; unable to find fptaylor)
 endif
 
-#	| $(FILTER) not-operators $(core2js_unsupported_ops)
 js-sanity:
 ifneq (, $(shell which node))
 	cat tests/sanity*.fpcore | $(FILTER) precision $(core2js_prec) \
@@ -107,7 +105,7 @@ endif
 js-test:
 ifneq (, $(shell which node))
 	cat benchmarks/*.fpcore tests/test*.fpcore | $(FILTER) precision $(core2js_prec) \
-	| $(FILTER) not-operators $(core2js_unsupported_ops) $(known_inaccurate) \
+	| $(FILTER) not-operators $(known_inaccurate) \
 	| racket infra/test-core2js.rkt --error 150
 else
 	$(warning skipping javascript tests; unable to find node)

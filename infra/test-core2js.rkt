@@ -1,7 +1,9 @@
 #lang racket
 
 (require math/flonum)
-(require "test-common.rkt" "../src/common.rkt" "../src/core2js.rkt" "../src/fpcore.rkt")
+(require "test-common.rkt" "../src/common.rkt" "../src/compilers.rkt" "../src/core2js.rkt" 
+         "../src/fpcore.rkt" "../src/supported.rkt") 
+
 
 (define tests-to-run (make-parameter 10))
 (define test-file (make-parameter "/tmp/test.js"))
@@ -59,8 +61,14 @@
    ["-o" name_ "Name for generated js file"
     (test-file name_)]
    #:args ()
-   (let ([error 0])
-     (for ([prog (in-port (curry read-fpcore "stdin") (current-input-port))])
+   (define unsupported    ; get list of unsupported for compiler
+     (for/first ([compiler (compilers)]
+        #:when (equal? (compiler-export compiler) core->js))
+        (compiler-unsupported compiler)))
+
+   (let ([error 0])       ; loop through tests
+     (for ([prog (in-port (curry read-fpcore "stdin") (current-input-port))]
+        #:when (set-empty? (set-intersect (operators-in prog) unsupported))) ; verify valid operators
        (match-define (list 'FPCore (list vars ...) props* ... body) prog)
        (define-values (_ props) (parse-properties props*))
        (define exec-file (compile->js prog (test-file)))

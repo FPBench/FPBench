@@ -46,9 +46,10 @@
            ", ")
           body return))
 
-(define c-language (language c-name c-header type->c operator->c constant->c declaration->c assignment->c function->c))
+(define c-language (language c-name type->c operator->c constant->c declaration->c assignment->c function->c))
 
 ;;; Exports
 
 (define (core->c  prog name) (parameterize ([*lang*  c-language]) (convert-core prog name)))
-(define-compiler '("c") c-header core->c (const "") '(!))
+
+(define-compiler '("c") c-header core->c (const "") '())

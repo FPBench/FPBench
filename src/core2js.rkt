@@ -89,9 +89,11 @@
           body 
           return))
 
-(define js-language (language js-name js-header type->js operator->js constant->js decleration->js assignment->js function->js))
+(define js-language (language js-name type->js operator->js constant->js decleration->js assignment->js function->js))
 
 ;;; Exports
 
 (define (core->js prog name) (parameterize ([*lang* js-language]) (convert-core prog name)))
-(define-compiler '("js") js-header core->js (const "") '(!))
+
+(define-compiler '("js") js-header core->js (const "")
+  '(!= copysign exp2 erf erfc fdim fma fmod isfinite isnormal lgamma nearbyint remainder signbit tgamma))

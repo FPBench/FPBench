@@ -5,7 +5,7 @@
 
 ;;; Abstraction for different languages
 
-(struct language (name header type operator constant declaration assignment function))
+(struct language (name type operator constant declaration assignment function))
 (define *lang* (make-parameter #f))
 
 (define (convert-operator type operator)

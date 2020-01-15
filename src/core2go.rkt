@@ -56,9 +56,10 @@
           type
           body return))
 
-(define go-language (language go-name go-header type->go operator->go constant->go declaration->go assignment->go function->go))
+(define go-language (language go-name type->go operator->go constant->go declaration->go assignment->go function->go))
 
 ;;; Exports
 
 (define (core->go prog name) (parameterize ([*lang* go-language]) (convert-core prog name)))
-(define-compiler '("go") go-header core->go (const "") '(!))
+
+(define-compiler '("go") go-header core->go (const "") '())

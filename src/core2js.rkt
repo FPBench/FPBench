@@ -1,12 +1,15 @@
 #lang racket
 
 (require "common.rkt" "imperative.rkt" "compilers.rkt")
-(provide js-header core->js)
+(provide core->js js-unsupported)
 
 ;; JS
 
 (define js-name (const "js"))
 (define js-header (const "")) ; empty
+(define js-unsupported '(!= copysign exp2 erf erfc fdim fma fmod isfinite
+                            isnormal lgamma nearbyint remainder signbit tgamma))
+
 (define (type->js type) "var")
 
 (define/match (operator->js type op)
@@ -95,5 +98,4 @@
 
 (define (core->js prog name) (parameterize ([*lang* js-language]) (convert-core prog name)))
 
-(define-compiler '("js") js-header core->js (const "")
-  '(!= copysign exp2 erf erfc fdim fma fmod isfinite isnormal lgamma nearbyint remainder signbit tgamma))
+(define-compiler '("js") js-header core->js (const "") js-unsupported)

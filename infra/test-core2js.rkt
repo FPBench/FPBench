@@ -4,7 +4,6 @@
 (require "test-common.rkt" "../src/common.rkt" "../src/compilers.rkt" "../src/core2js.rkt" 
          "../src/fpcore.rkt" "../src/supported.rkt") 
 
-
 (define tests-to-run (make-parameter 10))
 (define test-file (make-parameter "/tmp/test.js"))
 (define fuel (make-parameter 100))
@@ -44,13 +43,13 @@
     [else
      ;; test ranges (e1, e2) (e2, e1) to include negative inputs
      (or (= a b)
-         (<= (abs (flonums-between a b)) (ulps))
+         (and (double-flonum? a) (double-flonum? b)(<= (abs (flonums-between a b)) (ulps)))
          (and (nan? a) (nan? b)))]))
 
 ;; TODO: Add types
 (module+ main
   (command-line
-   #:program "test/compiler.rkt"
+   #:program "JS export tester"
    #:once-each
    ["--fuel" fuel_ "Number of computation steps to allow"
     (fuel (string->number fuel_))]
@@ -61,14 +60,9 @@
    ["-o" name_ "Name for generated js file"
     (test-file name_)]
    #:args ()
-   (define unsupported    ; get list of unsupported for compiler
-     (for/first ([compiler (compilers)]
-        #:when (equal? (compiler-export compiler) core->js))
-        (compiler-unsupported compiler)))
-
    (let ([error 0])       ; loop through tests
      (for ([prog (in-port (curry read-fpcore "stdin") (current-input-port))]
-        #:when (set-empty? (set-intersect (operators-in prog) unsupported))) ; verify valid operators
+        #:when (set-empty? (set-intersect (operators-in prog) js-unsupported))) ; verify valid operators
        (match-define (list 'FPCore (list vars ...) props* ... body) prog)
        (define-values (_ props) (parse-properties props*))
        (define exec-file (compile->js prog (test-file)))

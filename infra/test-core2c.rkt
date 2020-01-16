@@ -33,13 +33,9 @@
      ['binary32 real->single-flonum])
    (string->number out*)))
 
-(define c-tester (tester compile->c run<-c))
+(define c-tester (tester compile->c run<-c c-unsupported))
 
-; cCmmand line
+; Command line
 (module+ main
   (parameterize ([*tester* c-tester])
-    (let ([error (test-imperative (current-command-line-arguments) (current-input-port) "stdin" "/tmp/test.c")])
-      (if (not (equal? error 0))
-        (printf "Error: ~a" error)
-        (exit 0)))))
-  
+    (test-imperative (current-command-line-arguments) (current-input-port) "stdin" "/tmp/test.c")))

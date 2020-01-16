@@ -1,12 +1,13 @@
 #lang racket
 
 (require "common.rkt" "imperative.rkt" "compilers.rkt")
-(provide c-header core->c)
+(provide c-header core->c c-unsupported)
 
 ;; C
 
 (define c-name (const "c"))
 (define c-header (const "#include <math.h>\n#define TRUE 1\n#define FALSE 0\n\n"))
+(define c-unsupported '()) 
 
 (define/match (type->c-suffix type)
   [("double") ""]
@@ -52,4 +53,4 @@
 
 (define (core->c  prog name) (parameterize ([*lang*  c-language]) (convert-core prog name)))
 
-(define-compiler '("c") c-header core->c (const "") '())
+(define-compiler '("c") c-header core->c (const "") c-unsupported)

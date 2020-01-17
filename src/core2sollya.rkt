@@ -70,7 +70,7 @@
     [(list 'fmax a b)
      (rounded (format "max(~a, ~a)" a b) ctx)]
     [(list 'fmin a b)
-     (rounded (format "min(~a, ~a)" a b) ctx)]
+     (rounded (format "max(~a, ~a)" a b) ctx)]
     [(list 'nearbyint a)
      (let ([rm (round->sollya (dict-ref ctx ':round 'nearestEven))])
        (if (equal? rm "RN")

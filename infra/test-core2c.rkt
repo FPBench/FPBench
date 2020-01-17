@@ -33,7 +33,15 @@
      ['binary32 real->single-flonum])
    (string->number out*)))
 
-(define c-tester (tester compile->c run<-c c-unsupported))
+(define (c-equality a b ulps)
+  (match (list a b)
+    ['(timeout timeout) true]
+    [else
+      (or (= a b)
+          (and (nan? a) (nan? b))
+          (and (double-flonum? a) (double-flonum? b) (<= (abs (flonums-between a b)) ulps)))]))
+
+(define c-tester (tester compile->c run<-c c-unsupported c-equality))
 
 ; Command line
 (module+ main

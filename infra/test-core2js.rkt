@@ -30,7 +30,15 @@
       [(? string->number x) x]))
   (real->double-flonum (string->number out*)))
 
-(define js-tester (tester compile->js run<-js js-unsupported))
+(define (js-equality a b ulps)
+  (match (list a b)
+    ['(timeout timeout) true]
+    [else
+      (or (= a b)
+          (and (nan? a) (nan? b))
+          (<= (abs (flonums-between a b)) ulps))]))
+
+(define js-tester (tester compile->js run<-js js-unsupported js-equality))
 
 ;; TODO: Add types
 (module+ main

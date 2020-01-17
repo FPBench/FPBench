@@ -4,8 +4,12 @@
 (require "test-common.rkt" "../src/common.rkt" "../src/fpcore.rkt" "../src/supported.rkt")
 (provide tester *tester* test-imperative)
 
+(define fuel (make-parameter 100))
+(define tests-to-run (make-parameter 10))
+(define ulps (make-parameter 0))
+
 ; Common test structure
-(struct tester (compile run unsupported))
+(struct tester (compile run unsupported equality))
 (define *tester* (make-parameter #f))
 
 (define (compile-test prog type test-file)
@@ -18,21 +22,7 @@
   (tester-unsupported (*tester*)))
 
 (define (=* a b)
-  ;m(if (equal? (list a b) '(timeout timeout)))
-  (match (list a b)
-    ['(timeout timeout) true]
-    [else
-     ;; test ranges (e1, e2) (e2, e1) to include negative inputs
-     (or (= a b)
-         (and (nan? a) (nan? b))
-         ;; can only use flonums-between for doubles...
-         (and (double-flonum? a) (double-flonum? b) (<= (abs (flonums-between a b)) (ulps))))]))
-  
-; Test parameters
-
-(define fuel (make-parameter 100))
-(define tests-to-run (make-parameter 10))
-(define ulps (make-parameter 0))
+  ((tester-equality (*tester*)) a b (ulps)))
 
 ;;; Tester core
 (define (test-imperative argv curr-in-port source test-file)

@@ -1,7 +1,9 @@
 #lang racket
 
 (require "common.rkt" "imperative.rkt" "compilers.rkt")
-(provide core->js js-unsupported)
+(provide core->js js-unsupported js-runtime)
+
+(define js-runtime (make-parameter "Math"))
 
 ;; JS
 
@@ -12,48 +14,14 @@
 
 (define (type->js type) "var")
 
-(define/match (operator->js type op)
-  [(_ 'fabs) "Math.abs(~a)"]
-  [(_ 'exp) "Math.exp(~a)"]
-  ;[('exp2) "math.pow(2, ~a)"]
-  [(_ 'expm1) "Math.expm1(~a)"]
-  [(_ 'log) "Math.log(~a)"]
-  [(_ 'log10) "Math.log10(~a)"]
-  [(_ 'log2) "Math.log2(~a)"]
-  [(_ 'log1p) "Math.log1p(~a)"]
-  ;[('logb) "math.floor(math.log2(math.abs(~a)))"]
-  [(_ 'pow) "Math.pow(~a)"]
-  [(_ 'sqrt) "Math.sqrt(~a)"]
-  [(_ 'cbrt) "Math.cbrt(~a)"]
-  [(_ 'hypot) "Math.hypot(~a)"]
-  [(_ 'sin) "Math.sin(~a)"]
-  [(_ 'cos) "Math.cos(~a)"]
-  [(_ 'tan) "Math.tan(~a)"]
-  [(_ 'asin) "Math.asin(~a)"]
-  [(_ 'acos) "Math.acos(~a)"]
-  [(_ 'atan) "Math.atan(~a)"]
-  [(_ 'atan2) "Math.atan2(~a)"]
-  [(_ 'sinh) "Math.sinh(~a)"]
-  [(_ 'cosh) "Math.cosh(~a)"]
-  [(_ 'tanh) "Math.tanh(~a)"]
-  [(_ 'asinh) "Math.asinh(~a)"]
-  [(_ 'acosh) "Math.acosh(~a)"]
-  [(_ 'atanh) "Math.atanh(~a)"]
-  ;[('erf) "math.erf(~a)"]
-  ;[('erfc) "1 - math.erf(~a)"] ;; TODO: This implementation has large error for large inputs
-  ;[('tgamma) "math.gamma(~a)"]
-  ;[('lgamma) "math.log(math.gamma(~a))"]
-  [(_ 'ceil) "Math.ceil(~a)"]
-  [(_ 'floor) "Math.floor(~a)"]
-  ;[('remainder) "math.mod(~a, ~a)"]
-  [(_ 'fmax) "Math.max(~a)"]
-  [(_ 'fmin) "Math.min(~a)"]
-  ;[('fdim) "math.max(0, ~a - ~a)"]
-  ;[('copysign) "math.abs(~a) * math.sign(~a)"]
-  [(_ 'trunc) "Math.trunc(~a)"]
-  [(_ 'round) "Math.round(~a)"]
-  [(_ 'isinf) "(Math.abs(~a) === Infinity)"]
-  [(_ 'isnan) "isNaN(~a)"])
+(define (operator->js type op)
+  (match op
+    ['fabs  (format "~a.abs(~a)" (js-runtime) "~a")]
+    ['fmax  (format "~a.max(~a)" (js-runtime) "~a")]
+    ['fmin  (format "~a.min(~a)" (js-runtime) "~a")]
+    ['isinf (format "(~a.abs(~a) === Infinity)" (js-runtime) "~a")]
+    ['isnan "isNaN(~a)"]
+    [_      (format "~a.~a(~a)" (js-runtime) op "~a")]))
 
 (define/match (constant->js type expr)
   [(_ 'E) "Math.E"]

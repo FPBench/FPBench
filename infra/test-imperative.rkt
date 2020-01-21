@@ -7,6 +7,8 @@
 (define fuel (make-parameter 100))
 (define tests-to-run (make-parameter 10))
 (define ulps (make-parameter 0))
+(define verbose (make-parameter #f))
+(define quiet (make-parameter #f))
 
 ; Common test structure
 (struct tester (compile run unsupported equality))
@@ -27,7 +29,7 @@
 ;;; Tester core
 (define (test-imperative argv curr-in-port source test-file)
   (command-line
-  #:program "C/Go/JS tester"
+  #:program "Tester"
   #:once-each
   ["--fuel" fuel_ "Number of computation steps to allow"
   (fuel (string->number fuel_))]
@@ -35,9 +37,11 @@
   (tests-to-run (string->number repeat_))]
   ["--error" ulps_ "Error, in ULPs, allowed for libc inaccuracies (probably use a value around 3)"
   (ulps (string->number ulps_))]
-  ["-o" name_ "Name for generated C file"
-  (test-file name_)]
+  ["-o" name_ "Name for generated C file" (test-file name_)]
+  ["-v" "Verbosity flag" (verbose #t)]
+  ["-q" "Quiet flag" (quiet #t)]
   #:args ()
+  (if (and (verbose) (quiet)) (error "Verbose and quiet flags cannot be both set")
   (let ([state 0] [unsupported (unsupported-test)])
     (for ([prog (in-port (curry read-fpcore source) curr-in-port)]
       #:when (set-empty? (set-intersect (operators-in prog) unsupported)))
@@ -49,7 +53,7 @@
       (define results  ; run test
         (for/list ([i (in-range (tests-to-run))])
           (define ctx (for/list ([var vars])
-          (cons var 
+          (cons var
             (match type
               ['binary64 (sample-double)]
               ['binary32 (sample-single)]))))
@@ -77,14 +81,17 @@
             (list ctx out out*)))
 
       (unless (null? results) ; display results
-      (printf "~a/~a: ~a~a\n" (count (λ (x) (=* (second x) (third x))) results) (length results)
-        (dict-ref props ':name body) 
-        (match timeout
-          [0 ""]
-          [1 " (1 timeout)"]
-          [_ (format " (~a timeouts)" timeout)]))
-      (set! state (+ state (count (λ (x) (not (=* (second x) (third x)))) results)))
-      (for ([x (in-list results)] #:unless (=* (second x) (third x)))
-        (printf "\t~a ≠ ~a @ ~a\n" (second x) (third x)
-          (string-join (map (λ (x) (format "~a = ~a" (car x) (cdr x))) (first x)) ", ")))))
-    (exit state))))
+        (define successful (count (λ (x) (=* (second x) (third x))) results))
+        (define result-len (length results))
+        (unless (and (quiet) (equal? successful result-len))
+          (printf "~a/~a: ~a~a\n" successful result-len
+            (dict-ref props ':name body) 
+            (match timeout
+              [0 ""]
+              [1 " (1 timeout)"]
+              [_ (format " (~a timeouts)" timeout)])))
+        (set! state (- result-len successful))
+        (for ([x (in-list results)] #:unless (and (not (verbose)) (=* (second x) (third x))))
+          (printf "\t(Expected) ~a ≠ (Output) ~a @ ~a\n" (second x) (third x)
+            (string-join (map (λ (x) (format "~a = ~a" (car x) (cdr x))) (first x)) ", ")))))
+    (exit state)))))

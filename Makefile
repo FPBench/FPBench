@@ -23,9 +23,7 @@ known_inaccurate = "round" "isnormal" "fmod" "remainder"
 
 c-sanity:
 ifneq (, $(shell which $(CC)))
-	cat tests/sanity*.fpcore | $(FILTER) precision $(core2c_prec) \
-	| $(FILTER) not-operators $(core2c_unsupported_ops) \
-	| racket infra/test-core2c.rkt --repeat 1
+	cat tests/sanity*.fpcore | racket infra/test-core2c.rkt --repeat 1
 else
 	$(warning skipping C sanity tests; unable to find C compiler $(CC))
 endif
@@ -42,8 +40,7 @@ endif
 
 js-sanity:
 ifneq (, $(shell which node))
-	cat tests/sanity*.fpcore | $(FILTER) precision $(core2js_prec) \
-	| racket infra/test-core2js.rkt --repeat 1
+	cat tests/sanity*.fpcore | racket infra/test-core2js.rkt --repeat 1
 else
 	$(warning skipping javascript sanity tests; unable to find node)
 endif
@@ -83,8 +80,7 @@ raco-test:
 
 c-test:
 ifneq (, $(shell which $(CC)))
-	cat benchmarks/*.fpcore tests/test*.fpcore | $(FILTER) precision $(core2c_prec) \
-	| $(FILTER) not-operators $(core2c_unsupported_ops) $(known_inaccurate) \
+	cat benchmarks/*.fpcore tests/test*.fpcore | $(FILTER) not-operators $(known_inaccurate) \
 	| racket infra/test-core2c.rkt --error 3
 else
 	$(warning skipping C tests; unable to find C compiler $(CC))
@@ -103,8 +99,7 @@ endif
 
 js-test:
 ifneq (, $(shell which node))
-	cat benchmarks/*.fpcore tests/test*.fpcore | $(FILTER) precision $(core2js_prec) \
-	| $(FILTER) not-operators $(known_inaccurate) \
+	cat benchmarks/*.fpcore tests/test*.fpcore | $(FILTER) not-operators $(known_inaccurate) \
 	| racket infra/test-core2js.rkt --error 150
 else
 	$(warning skipping javascript tests; unable to find node)

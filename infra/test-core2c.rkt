@@ -41,7 +41,7 @@
           (and (nan? a) (nan? b))
           (and (double-flonum? a) (double-flonum? b) (<= (abs (flonums-between a b)) ulps)))]))
 
-(define c-tester (tester compile->c run<-c c-unsupported c-equality))
+(define c-tester (tester compile->c run<-c c-supported c-equality))
 
 ; Command line
 (module+ main

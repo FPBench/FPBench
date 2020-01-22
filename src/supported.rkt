@@ -1,6 +1,45 @@
 #lang racket
 (require "common.rkt" "fpcore.rkt")
-(provide operators-in constants-in property-values)
+(provide valid-core operators-in constants-in property-values
+  unsupported-ops->supported supported-ops->unsupported
+  unsupported-const->supported supported-const->unsupported)
+
+(provide
+  (contract-out
+    [struct supported-list
+     ([ops (listof symbol?)]
+      [consts (listof symbol?)]
+      [precisions (listof symbol?)])]))  
+
+(struct supported-list (ops consts precisions))
+
+; Blacklist <==> Whitelist
+
+(define (unsupported-ops->supported list)
+  (-> (listof symbol?) (listof symbol?))
+  (set-subtract (append operators '(if let let* while while*)) list))
+
+(define (supported-ops->unsupported list)
+  (-> (listof symbol?) (listof symbol?))
+  (set-subtract (append operators '(if let let* while while*)) list))
+
+  (define (unsupported-const->supported list)
+  (-> (listof symbol?) (listof symbol?))
+  (set-subtract constants list))
+
+(define (supported-const->unsupported list)
+  (-> (listof symbol?) (listof symbol?))
+  (set-subtract constants list))
+
+; Core checking
+
+(define (valid-core core supp)
+  (let ([core-prec (dict-ref (property-values core) ':precision #f)])
+    (and (subset? (operators-in core) (supported-list-ops supp))
+         (subset? (constants-in core) (supported-list-consts supp))
+         (or 
+           (equal? core-prec #f)
+           (ormap (lambda (e) (set-member? core-prec e)) (supported-list-precisions supp))))))
 
 (define/contract (operators-in-expr expr)
   (-> expr? (listof symbol?))
@@ -38,7 +77,6 @@
 
 (define/contract (constants-in-expr expr)
   (-> expr? (listof symbol?))
-
   (remove-duplicates
    (match expr
      [`(,(or 'while 'while*) ,test ([,vars ,inits ,updates] ...) ,res)
@@ -70,9 +108,7 @@
 
 (define/contract (property-values-expr expr)
   (-> expr? property-hash?)
-
   (define out (make-hash))
-
   (let loop ([expr expr])
     (match expr
       [`(,(or 'while 'while*) ,test ([,vars ,inits ,updates] ...) ,res)
@@ -87,7 +123,6 @@
       [(list op args ...) (for-each loop args)]
       [(? symbol?) (void)]
       [(? number?) (void)]))
-
   out)
 
 (define/contract (property-values core)

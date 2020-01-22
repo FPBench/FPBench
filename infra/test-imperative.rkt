@@ -11,7 +11,7 @@
 (define quiet (make-parameter #f))
 
 ; Common test structure
-(struct tester (compile run unsupported equality))
+(struct tester (compile run supported equality))
 (define *tester* (make-parameter #f))
 
 (define (compile-test prog type test-file)
@@ -19,9 +19,6 @@
 
 (define (run-test exec-name ctx type)
   ((tester-run (*tester*)) exec-name ctx type))
-
-(define (unsupported-test)
-  (tester-unsupported (*tester*)))
 
 (define (=* a b)
   ((tester-equality (*tester*)) a b (ulps)))
@@ -41,10 +38,10 @@
   ["-v" "Verbosity flag" (verbose #t)]
   ["-q" "Quiet flag" (quiet #t)]
   #:args ()
-  (if (and (verbose) (quiet)) (error "Verbose and quiet flags cannot be both set")
-  (let ([state 0] [unsupported (unsupported-test)])
+  (if (and (verbose) (quiet)) (error "Verbose and quiet flags cannot be both set") (void))
+  (let ([state 0])
     (for ([prog (in-port (curry read-fpcore source) curr-in-port)]
-      #:when (set-empty? (set-intersect (operators-in prog) unsupported)))
+      #:when (valid-core prog (tester-supported (*tester*))))
       (match-define (list 'FPCore (list vars ...) props* ... body) prog)
       (define-values (_ props) (parse-properties props*))
       (define type (dict-ref props ':precision 'binary64))
@@ -94,4 +91,4 @@
         (for ([x (in-list results)] #:unless (and (not (verbose)) (=* (second x) (third x))))
           (printf "\t(Expected) ~a ≠ (Output) ~a @ ~a\n" (second x) (third x)
             (string-join (map (λ (x) (format "~a = ~a" (car x) (cdr x))) (first x)) ", ")))))
-    (exit state)))))
+    (exit state))))

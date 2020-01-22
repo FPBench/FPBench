@@ -1,7 +1,7 @@
 #lang racket
 
-(require "common.rkt" "imperative.rkt" "compilers.rkt")
-(provide core->js js-unsupported js-runtime)
+(require "common.rkt" "compilers.rkt" "imperative.rkt" "supported.rkt")
+(provide core->js js-runtime js-supported)
 
 (define js-runtime (make-parameter "Math"))
 
@@ -9,8 +9,10 @@
 
 (define js-name (const "js"))
 (define js-header (const "")) ; empty
-(define js-unsupported '(!= copysign exp2 erf erfc fdim fma fmod isfinite
-                            isnormal lgamma nearbyint remainder signbit tgamma))
+(define js-supported (supported-list
+   (unsupported-ops->supported '(!= copysign exp2 erf erfc fdim fma fmod isfinite isnormal lgamma nearbyint remainder signbit tgamma))
+   (unsupported-const->supported '())
+   '(binary64)))
 
 (define (type->js type) "var")
 
@@ -65,4 +67,4 @@
 ;;; Exports
 
 (define (core->js prog name) (parameterize ([*lang* js-language]) (convert-core prog name)))
-(define-compiler '("js") js-header core->js (const "") js-unsupported)
+(define-compiler '("js") js-header core->js (const "") js-supported)

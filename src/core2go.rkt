@@ -1,12 +1,16 @@
 #lang racket
 
-(require "common.rkt" "imperative.rkt" "compilers.rkt")
+(require "common.rkt" "compilers.rkt" "imperative.rkt" "supported.rkt")
 (provide go-header core->go)
 
 ;; Go
 
 (define go-name (const "go"))
 (define go-header (curry format "package ~a\n\nimport \"math\"\n\n"))
+(define go-supported (supported-list
+   (unsupported-ops->supported '())
+   (unsupported-const->supported '())
+   '(binary32 binary64)))
 
 (define/match (type->go type)
   [('binary64) "float64"]
@@ -62,4 +66,4 @@
 
 (define (core->go prog name) (parameterize ([*lang* go-language]) (convert-core prog name)))
 
-(define-compiler '("go") go-header core->go (const "") '())
+(define-compiler '("go") go-header core->go (const "") go-supported)

@@ -54,7 +54,7 @@
 
    (define extension (determine-lang (*lang*) out-file))
 
-   (define-values (header export footer unsupported)
+   (define-values (header export footer supported)
      (match extension
        ["fptaylor" (values "" (curry core->fptaylor #:inexact-scale (*scale*)) "" '())]
        [(or "gappa" "g") (values "" (curry core->gappa #:rel-error (*rel-error*)) "" '())]
@@ -71,17 +71,19 @@
              (list (compiler-header compiler)
                    (compiler-export compiler)
                    (compiler-footer compiler)
-                   (compiler-unsupported compiler)))
+                   (compiler-supported compiler)))
            (raise-user-error "Unsupported output language" (*lang*))))]))
 
    (if (and (equal? extension "js") (*runtime*)) (js-runtime (*runtime*)) (void))
-
    (port-count-lines! input-port)
    (unless (*bare*) (fprintf output-port (header (*namespace*))))
    (for ([core (in-port (curry read-fpcore (if (equal? in-file "-") "stdin" in-file)) input-port)] [n (in-naturals)])
-     (unless (set-empty? (set-intersect (operators-in core) unsupported))
+     (unless (valid-core core supported)
        (raise-user-error (format "Sorry, the *.~a exporter does not support ~a" extension
-                                 (string-join (map ~a (set-intersect (operators-in core) unsupported)) ", "))))
+                                 (string-join (map ~a (set-intersect 
+                                      (operators-in core) 
+                                      (supported-ops->unsupported(supported-list-ops supported))))
+                                       ", "))))
      (fprintf output-port "~a\n" (export core (format "ex~a" n))))
    (unless (*bare*) (fprintf output-port (footer)))))
 

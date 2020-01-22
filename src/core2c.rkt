@@ -1,13 +1,16 @@
 #lang racket
 
-(require "common.rkt" "imperative.rkt" "compilers.rkt")
-(provide c-header core->c c-unsupported)
+(require "common.rkt" "compilers.rkt" "imperative.rkt" "supported.rkt")
+(provide c-header core->c c-supported)
 
 ;; C
 
 (define c-name (const "c"))
 (define c-header (const "#include <math.h>\n#define TRUE 1\n#define FALSE 0\n\n"))
-(define c-unsupported '()) 
+(define c-supported (supported-list
+   (unsupported-ops->supported '())
+   (unsupported-const->supported '())
+   '(binary32 binary64)))
 
 (define/match (type->c-suffix type)
   [("double") ""]
@@ -52,5 +55,4 @@
 ;;; Exports
 
 (define (core->c  prog name) (parameterize ([*lang*  c-language]) (convert-core prog name)))
-
-(define-compiler '("c") c-header core->c (const "") c-unsupported)
+(define-compiler '("c") c-header core->c (const "") c-supported)

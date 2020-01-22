@@ -38,7 +38,7 @@
           (and (nan? a) (nan? b))
           (<= (abs (flonums-between a b)) ulps))]))
 
-(define js-tester (tester compile->js run<-js js-unsupported js-equality))
+(define js-tester (tester compile->js run<-js js-supported js-equality))
 
 ;; TODO: Add types
 (module+ main

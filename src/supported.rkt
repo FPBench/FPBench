@@ -2,7 +2,7 @@
 (require "common.rkt" "fpcore.rkt")
 (provide valid-core operators-in constants-in property-values
   unsupported-ops->supported supported-ops->unsupported
-  unsupported-const->supported supported-const->unsupported)
+  unsupported-consts->supported supported-consts->unsupported)
 
 (provide
   (contract-out
@@ -23,11 +23,11 @@
   (-> (listof symbol?) (listof symbol?))
   (set-subtract (append operators '(if let let* while while*)) list))
 
-  (define (unsupported-const->supported list)
+  (define (unsupported-consts->supported list)
   (-> (listof symbol?) (listof symbol?))
   (set-subtract constants list))
 
-(define (supported-const->unsupported list)
+(define (supported-consts->unsupported list)
   (-> (listof symbol?) (listof symbol?))
   (set-subtract constants list))
 

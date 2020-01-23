@@ -56,12 +56,16 @@
 
    (define-values (header export footer supported)
      (match extension
-       ["fptaylor" (values "" (curry core->fptaylor #:inexact-scale (*scale*)) "" '())]
-       [(or "gappa" "g") (values "" (curry core->gappa #:rel-error (*rel-error*)) "" '())]
-       ["scala" (values (format scala-header (*namespace*)) core->scala scala-footer '())]
-       [(or "smt" "smt2" "smtlib" "smtlib2") (values "" core->smtlib2 "" '())]
-       ["sollya" (values "" core->sollya "" '())]
-       ["wls" (values "" core->wls "" '())]
+       ["fptaylor" (values "" (curry core->fptaylor #:inexact-scale (*scale*)) "" 
+          (supported-list (unsupported-ops->supported '()) (unsupported-consts->supported '()) '(binary16 binary32 binary64 binary128)))]
+       [(or "gappa" "g") (values "" (curry core->gappa #:rel-error (*rel-error*)) "" 
+          (supported-list (unsupported-ops->supported '()) (unsupported-consts->supported '()) '(binary32 binary64 binary128)))]
+       ["scala" (values (format scala-header (*namespace*)) core->scala scala-footer
+          (supported-list (unsupported-ops->supported '()) (unsupported-consts->supported '()) '(binary32 binary64)))]
+       [(or "smt" "smt2" "smtlib" "smtlib2") (values "" core->smtlib2 "" 
+          (supported-list (unsupported-ops->supported '()) (unsupported-consts->supported '()) '(binary32 binary64)))]
+       ["sollya" (values "" core->sollya "" (supported-list (unsupported-ops->supported '()) (unsupported-consts->supported '()) '(binary32 binary64)))]
+       ["wls" (values "" core->wls "" (supported-list (unsupported-ops->supported '()) (unsupported-consts->supported '()) '(binary32 binary64)))]
        [#f (raise-user-error "Please specify an output language (using the --lang flag)")]
        [_
         (apply values
@@ -80,10 +84,8 @@
    (for ([core (in-port (curry read-fpcore (if (equal? in-file "-") "stdin" in-file)) input-port)] [n (in-naturals)])
      (unless (valid-core core supported)
        (raise-user-error (format "Sorry, the *.~a exporter does not support ~a" extension
-                                 (string-join (map ~a (set-intersect 
-                                      (operators-in core) 
-                                      (supported-ops->unsupported(supported-list-ops supported))))
-                                       ", "))))
+          (string-join (map ~a (set-intersect (operators-in core) (supported-ops->unsupported(supported-list-ops supported)))) 
+                        ", "))))
      (fprintf output-port "~a\n" (export core (format "ex~a" n))))
    (unless (*bare*) (fprintf output-port (footer)))))
 

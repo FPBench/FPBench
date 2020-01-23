@@ -9,7 +9,7 @@
 (define c-header (const "#include <math.h>\n#define TRUE 1\n#define FALSE 0\n\n"))
 (define c-supported (supported-list
    (unsupported-ops->supported '())
-   (unsupported-const->supported '())
+   (unsupported-consts->supported '())
    '(binary32 binary64)))
 
 (define/match (type->c-suffix type)

@@ -11,7 +11,7 @@
 (define js-header (const "")) ; empty
 (define js-supported (supported-list
    (unsupported-ops->supported '(!= copysign exp2 erf erfc fdim fma fmod isfinite isnormal lgamma nearbyint remainder signbit tgamma))
-   (unsupported-const->supported '())
+   (unsupported-consts->supported '())
    '(binary64)))
 
 (define (type->js type) "var")

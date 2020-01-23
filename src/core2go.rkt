@@ -9,7 +9,7 @@
 (define go-header (curry format "package ~a\n\nimport \"math\"\n\n"))
 (define go-supported (supported-list
    (unsupported-ops->supported '())
-   (unsupported-const->supported '())
+   (unsupported-consts->supported '())
    '(binary32 binary64)))
 
 (define/match (type->go type)

@@ -28,10 +28,11 @@
       ["inf" "+inf.0"]
       ["-inf" "-inf.0"]
       [x x]))
-  ((match type
-     ['binary64 real->double-flonum]
-     ['binary32 real->single-flonum])
-   (string->number out*)))
+  (cons
+    ((match type
+      ['binary64 real->double-flonum]
+      ['binary32 real->single-flonum])
+    (string->number out*)) out*))
 
 (define (c-equality a b ulps)
   (match (list a b)
@@ -44,6 +45,5 @@
 (define c-tester (tester compile->c run<-c c-supported c-equality))
 
 ; Command line
-(module+ main
-  (parameterize ([*tester* c-tester])
-    (test-imperative (current-command-line-arguments) (current-input-port) "stdin" "/tmp/test.c")))
+(module+ main (parameterize ([*tester* c-tester])
+  (test-imperative (current-command-line-arguments) (current-input-port) "stdin" "/tmp/test.c")))

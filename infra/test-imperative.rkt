@@ -2,13 +2,21 @@
 
 (require math/flonum)
 (require "test-common.rkt" "../src/common.rkt" "../src/fpcore.rkt" "../src/supported.rkt")
-(provide tester *tester* test-imperative)
+(provide *tester* test-imperative 
+  (contract-out
+    [struct tester
+     ([compile (-> fpcore? symbol? string? string?)]                ; args: fpcore, precision, filename           returns: exe name
+      [run (-> string? list? symbol? (cons/c number? string?))]     ; args: exe name, func args, precision        returns: output (approx number, actual string)
+      [supported supported-list?]                                   ; list
+      [equality (-> (or/c number? symbol?) (or/c number? symbol?)   ; args: number (timeout), number (timeout), ulps  returns: True/False
+                    number? boolean?)])]))
 
 (define fuel (make-parameter 100))
 (define tests-to-run (make-parameter 10))
 (define ulps (make-parameter 0))
 (define verbose (make-parameter #f))
 (define quiet (make-parameter #f))
+(define exact-out (make-parameter #f))
 
 ; Common test structure
 (struct tester (compile run supported equality))
@@ -28,17 +36,17 @@
   (command-line
   #:program "Tester"
   #:once-each
-  ["--fuel" fuel_ "Number of computation steps to allow"
-  (fuel (string->number fuel_))]
-  ["--repeat" repeat_ "Number of times to test each program"
-  (tests-to-run (string->number repeat_))]
-  ["--error" ulps_ "Error, in ULPs, allowed for libc inaccuracies (probably use a value around 3)"
-  (ulps (string->number ulps_))]
+  ["--fuel" fuel_ "Number of computation steps to allow" (fuel (string->number fuel_))]
+  ["--repeat" repeat_ "Number of times to test each program" (tests-to-run (string->number repeat_))]
+  ["--error" ulps_ "Error, in ULPs, allowed for libc inaccuracies (probably use a value around 3)" (ulps (string->number ulps_))]
+  ["--very-verbose" "Very verbose" (verbose #t) (exact-out #t)]
+  ["--exact-output" "Exact compiler output" (exact-out #t)]
   ["-o" name_ "Name for generated C file" (test-file name_)]
-  ["-v" "Verbosity flag" (verbose #t)]
-  ["-q" "Quiet flag" (quiet #t)]
+  ["-v" "Verbose" (verbose #t)]
+  ["-q" "Quiet" (quiet #t)]
   #:args ()
-  (if (and (verbose) (quiet)) (error "Verbose and quiet flags cannot be both set") (void))
+  (if (and (verbose) (quiet)) 
+      (error "Verbose and quiet flags cannot be both set") (void))
   (let ([state 0])
     (for ([prog (in-port (curry read-fpcore source) curr-in-port)]
       #:when (valid-core prog (tester-supported (*tester*))))
@@ -50,10 +58,10 @@
       (define results  ; run test
         (for/list ([i (in-range (tests-to-run))])
           (define ctx (for/list ([var vars])
-          (cons var
-            (match type
-              ['binary64 (sample-double)]
-              ['binary32 (sample-single)]))))
+            (cons var
+              (match type
+                ['binary64 (sample-double)]
+                ['binary32 (sample-single)]))))
           (define evaltor 
             (match type 
               ['binary64 racket-double-evaluator] 
@@ -74,11 +82,11 @@
                 result]))
           (when (equal? out 'timeout)
             (set! timeout (+ timeout 1)))
-            (define out* (if (equal? out 'timeout) 'timeout (run-test exec-file ctx type)))
-            (list ctx out out*)))
+          (define out* (if (equal? out 'timeout) (cons 'timeout "") (run-test exec-file ctx type)))
+          (list ctx out out*)))
 
       (unless (null? results) ; display results
-        (define successful (count (λ (x) (=* (second x) (third x))) results))
+        (define successful (count (λ (x) (=* (second x) (car (third x)))) results))
         (define result-len (length results))
         (unless (and (quiet) (equal? successful result-len))
           (printf "~a/~a: ~a~a\n" successful result-len
@@ -88,7 +96,7 @@
               [1 " (1 timeout)"]
               [_ (format " (~a timeouts)" timeout)])))
         (set! state (- result-len successful))
-        (for ([x (in-list results)] #:unless (and (not (verbose)) (=* (second x) (third x))))
-          (printf "\t(Expected) ~a ≠ (Output) ~a @ ~a\n" (second x) (third x)
+        (for ([x (in-list results)] #:unless (and (not (verbose)) (=* (second x) (car (third x)))))
+          (printf "\t(Expected) ~a ≠ (Output) ~a @ ~a\n" (second x) (if (exact-out) (cdr (third x)) (car (third x)))
             (string-join (map (λ (x) (format "~a = ~a" (car x) (cdr x))) (first x)) ", ")))))
     (exit state))))

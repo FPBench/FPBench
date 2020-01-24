@@ -8,8 +8,8 @@
 (define go-name (const "go"))
 (define go-header (curry format "package ~a\n\nimport \"math\"\n\n"))
 (define go-supported (supported-list
-   (unsupported-ops->supported '())
-   (unsupported-consts->supported '())
+   (invert-op-list '())
+   (invert-const-list '())
    '(binary32 binary64)))
 
 (define/match (type->go type)
@@ -17,17 +17,18 @@
   [('binary32) "float32"]
   [('boolean) "bool"])
 
-(define (operator->go type operator)
-  (match operator
-    [(or 'fabs 'fmax 'fmin 'fdim)
-     (format "math.~a(~a)" (string-titlecase (substring (~a operator) 1)) "~a")]
-    [(or 'isinf 'isnan)
-     (format "math.Is~a(~a)" (string-titlecase (substring (~a operator) 2)) "~a")]
-    [(or 'exp 'exp2 'expm1 'log 'log10 'log2 'log1p 'pow 'sqrt 'cbrt 'hypot
-         'sin 'cos 'tan 'asin 'cos 'atan 'atan2 'sinh 'cosh 'tanh
-         'asinh 'acosh 'atanh 'erf 'erfc 'tgamma 'lgamma 'ceil 'floor
-         'remainder 'copysign 'trunc 'round)
-     (format "math.~a(~a)" (string-titlecase (~a operator)) "~a")]))
+(define (operator->go type operator args)
+  (let ([arg-list (string-join args ", ")])
+    (match operator
+      [(or 'fabs 'fmax 'fmin 'fdim)
+       (format "math.~a(~a)" (string-titlecase (substring (~a operator) 1)) arg-list)]
+      [(or 'isinf 'isnan)
+       (format "math.Is~a(~a)" (string-titlecase (substring (~a operator) 2)) arg-list)]
+      [(or 'exp 'exp2 'expm1 'log 'log10 'log2 'log1p 'pow 'sqrt 'cbrt 'hypot
+           'sin 'cos 'tan 'asin 'cos 'atan 'atan2 'sinh 'cosh 'tanh
+           'asinh 'acosh 'atanh 'erf 'erfc 'tgamma 'lgamma 'ceil 'floor
+           'remainder 'copysign 'trunc 'round)
+       (format "math.~a(~a)" (string-titlecase (~a operator)) arg-list)])))
 
 (define (constant->go type expr)
   (match expr

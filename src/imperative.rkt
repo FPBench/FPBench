@@ -8,8 +8,8 @@
 (struct language (name type operator constant declaration assignment function))
 (define *lang* (make-parameter #f))
 
-(define (convert-operator type operator)
-  ((language-operator (*lang*)) type operator))
+(define (convert-operator type operator args)
+  ((language-operator (*lang*)) type operator args))
 
 (define (convert-constant type expr)
   ((language-constant (*lang*)) type expr))
@@ -79,7 +79,7 @@
     [(list 'or a ...)
      (format "(~a)" (string-join (map ~a a) " || "))]
     [(list (? operator? f) args ...)
-     (format (convert-operator (convert-type type) operator) (string-join args ", "))]))
+     (convert-operator (convert-type type) operator args)]))
 
 (define (convert-expr expr #:names [names #hash()] #:type [type 'binary64] #:indent [indent "\t"])
   ;; Takes in an expression. Returns an expression and a new set of names

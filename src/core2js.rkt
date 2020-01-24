@@ -10,20 +10,21 @@
 (define js-name (const "js"))
 (define js-header (const "")) ; empty
 (define js-supported (supported-list
-   (unsupported-ops->supported '(!= copysign exp2 erf erfc fdim fma fmod isfinite isnormal lgamma nearbyint remainder signbit tgamma))
-   (unsupported-consts->supported '())
+   (invert-op-list'(!= copysign exp2 erf erfc fdim fma fmod isfinite isnormal lgamma nearbyint remainder signbit tgamma))
+   (invert-const-list '())
    '(binary64)))
 
 (define (type->js type) "var")
 
-(define (operator->js type op)
-  (match op
-    ['fabs  (format "~a.abs(~a)" (js-runtime) "~a")]
-    ['fmax  (format "~a.max(~a)" (js-runtime) "~a")]
-    ['fmin  (format "~a.min(~a)" (js-runtime) "~a")]
-    ['isinf (format "(~a.abs(~a) === Infinity)" (js-runtime) "~a")]
-    ['isnan "isNaN(~a)"]
-    [_      (format "~a.~a(~a)" (js-runtime) op "~a")]))
+(define (operator->js type op args)
+  (let ([arg-list (string-join args ", ")])
+    (match op
+      ['fabs  (format "~a.abs(~a)" (js-runtime) arg-list)]
+      ['fmax  (format "~a.max(~a)" (js-runtime) arg-list)]
+      ['fmin  (format "~a.min(~a)" (js-runtime) arg-list)]
+      ['isinf (format "(~a.abs(~a) === Infinity)" (js-runtime) arg-list)]
+      ['isnan (format "isNaN(~a)" arg-list)]
+      [_      (format "~a.~a(~a)" (js-runtime) op arg-list)])))
 
 (define/match (constant->js type expr)
   [(_ 'E) "Math.E"]

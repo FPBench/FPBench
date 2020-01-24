@@ -18,17 +18,15 @@
   (define out
     (with-output-to-string
       (λ ()
-         (define file-command (format "node ~a" exec-name))
-         (system (string-join (cons file-command (map (compose ~a real->double-flonum)
-                                                      (dict-values ctx)))
-                              " ")))))
+        (define file-command (format "node ~a" exec-name))
+        (system (string-join (cons file-command (map (compose ~a real->double-flonum) (dict-values ctx))) " ")))))
   (define out*
     (match (string-trim out)
       ["NaN" "+nan.0"]
       ["Infinity" "+inf.0"]
       ["-Infinity" "-inf.0"]
       [(? string->number x) x]))
-  (real->double-flonum (string->number out*)))
+  (cons (real->double-flonum (string->number out*)) out*))
 
 (define (js-equality a b ulps)
   (match (list a b)
@@ -41,6 +39,5 @@
 (define js-tester (tester compile->js run<-js js-supported js-equality))
 
 ;; TODO: Add types
-(module+ main
-  (parameterize ([*tester* js-tester])
-    (test-imperative (current-command-line-arguments) (current-input-port) "stdin" "/tmp/test.js")))
+(module+ main (parameterize ([*tester* js-tester])
+  (test-imperative (current-command-line-arguments) (current-input-port) "stdin" "/tmp/test.js")))

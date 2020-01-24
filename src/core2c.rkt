@@ -8,8 +8,8 @@
 (define c-name (const "c"))
 (define c-header (const "#include <math.h>\n#define TRUE 1\n#define FALSE 0\n\n"))
 (define c-supported (supported-list
-   (unsupported-ops->supported '())
-   (unsupported-consts->supported '())
+   (invert-op-list '())
+   (invert-const-list '())
    '(binary32 binary64)))
 
 (define/match (type->c-suffix type)
@@ -23,8 +23,8 @@
   [('binary80) "long double"]
   [('boolean) "int"])
 
-(define (operator->c type operator)
-  (format "~a~a(~a)" operator (type->c-suffix type) "~a"))
+(define (operator->c type operator args)
+  (format "~a~a(~a)" operator (type->c-suffix type) (string-join args ", ")))
 
 (define (constant->c type expr)
   (match expr

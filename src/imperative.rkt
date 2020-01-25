@@ -1,7 +1,16 @@
 #lang racket
 
 (require "common.rkt")
-(provide language convert-core *lang*)
+(provide convert-core *lang*
+  (contract-out
+    [struct language
+     ([name (-> string?)]
+      [type (-> symbol? string?)]
+      [operator (-> string? symbol? list? string?)]
+      [constant (-> string? any/c string?)]
+      [declaration (-> string? string? any/c string?)]
+      [assignment (-> string? any/c string?)]
+      [function (-> string? string? any/c any/c string? string?)])]))
 
 ;;; Abstraction for different languages
 

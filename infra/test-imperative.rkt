@@ -41,9 +41,9 @@
   ["--error" ulps_ "Error, in ULPs, allowed for libc inaccuracies (probably use a value around 3)" (ulps (string->number ulps_))]
   ["--very-verbose" "Very verbose" (verbose #t) (exact-out #t)]
   ["--exact-output" "Exact compiler output" (exact-out #t)]
-  ["-o" name_ "Name for generated C file" (test-file name_)]
-  ["-v" "Verbose" (verbose #t)]
-  ["-q" "Quiet" (quiet #t)]
+  [("-o" "--output") name_ "Name for generated C file" (test-file name_)]
+  [("-v" "--verbose") "Verbose" (verbose #t)]
+  [("-q" "--quiet") "Quiet" (quiet #t)]
   #:args ()
   (if (and (verbose) (quiet)) 
       (error "Verbose and quiet flags cannot be both set") (void))
@@ -97,6 +97,9 @@
               [_ (format " (~a timeouts)" timeout)])))
         (set! state (- result-len successful))
         (for ([x (in-list results)] #:unless (and (not (verbose)) (=* (second x) (car (third x)))))
-          (printf "\t(Expected) ~a ≠ (Output) ~a @ ~a\n" (second x) (if (exact-out) (cdr (third x)) (car (third x)))
-            (string-join (map (λ (x) (format "~a = ~a" (car x) (cdr x))) (first x)) ", ")))))
+          (printf "\t(Expected) ~a ~a (Output) ~a @ ~a\n" 
+              (second x) 
+              (if (=* (second x) (car (third x))) "=" "≠")
+              (if (exact-out) (cdr (third x)) (car (third x)))
+              (string-join (map (λ (x) (format "~a = ~a" (car x) (cdr x))) (first x)) ", ")))))
     (exit state))))

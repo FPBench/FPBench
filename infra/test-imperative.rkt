@@ -96,10 +96,7 @@
               [1 " (1 timeout)"]
               [_ (format " (~a timeouts)" timeout)])))
         (set! state (- result-len successful))
-        (for ([x (in-list results)] #:unless (and (not (verbose)) (=* (second x) (car (third x)))))
-          (printf "\t(Expected) ~a ~a (Output) ~a @ ~a\n" 
-              (second x) 
-              (if (=* (second x) (car (third x))) "=" "≠")
-              (if (exact-out) (cdr (third x)) (car (third x)))
-              (string-join (map (λ (x) (format "~a = ~a" (car x) (cdr x))) (first x)) ", ")))))
-    (exit state))))
+        (for ([i (in-naturals 1)] [x (in-list results)] #:unless (and (not (verbose)) (=* (second x) (car (third x)))))
+          (printf "\t~a\t~a\t(Expected) ~a\t(Output) ~a\t(Args) ~a\n" i (if (=* (second x) (car (third x))) "Pass" "Fail") (second x)
+              (if (exact-out) (cdr (third x)) (car (third x))) (string-join (map (λ (x) (format "~a = ~a" (car x) (cdr x))) (first x)) ", ")))))
+    (exit state)))) 

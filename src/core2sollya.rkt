@@ -160,14 +160,15 @@
      (expr->sollya body #:names names* #:ctx ctx #:indent indent)]
     [`(if ,cond ,ift ,iff)
      (define test (expr->sollya cond #:names names #:ctx ctx #:indent indent))
-     (define outvar (fix-name (gensym 'temp)))
+     (define outvar (gensym 'temp))
      (printf "~aif (~a) then {\n" indent test)
-     (printf "~a\t~a = ~a;\n" indent outvar
+     (printf "~a\t~a = ~a;\n" indent (fix-name outvar)
              (expr->sollya ift #:names names #:ctx ctx #:indent (format "~a\t" indent)))
      (printf "\n~a} else {\n" indent)
-     (printf "~a\t~a = ~a;\n" indent outvar
+     (printf "~a\t~a = ~a;\n" indent (fix-name outvar)
              (expr->sollya iff #:names names #:ctx ctx #:indent (format "~a\t" indent)))
-     (printf "\n~a};\n" indent) outvar]
+     (printf "\n~a};\n" indent)
+     (fix-name outvar)]
     [`(while ,cond ([,vars ,inits ,updates] ...) ,retexpr)
      (define vars* (map gensym vars))
      (for ([var* vars*] [val inits])
@@ -176,8 +177,8 @@
      (define names*
        (for/fold ([names* names]) ([var vars] [var* vars*])
          (dict-set names* var var*)))
-     (define test-var (fix-name (gensym 'test)))
-     (printf "~a~a = ~a;\n" indent test-var
+     (define test-var (gensym 'test))
+     (printf "~a~a = ~a;\n" indent (fix-name test-var)
              (expr->sollya cond #:names names* #:ctx ctx #:indent indent))
      (printf "~awhile (~a) do {\n" indent test-var)
      (define temp-vars (map gensym vars))
@@ -186,7 +187,7 @@
                (expr->sollya update #:names names* #:ctx ctx #:indent (format "~a\t" indent))))
      (for ([var* vars*] [temp-var temp-vars])
        (printf "~a\t~a = ~a;\n" indent (fix-name var*) (fix-name temp-var)))
-     (printf "~a\t~a = ~a;" indent test-var
+     (printf "~a\t~a = ~a;" indent (fix-name test-var)
              (expr->sollya cond #:names names* #:ctx ctx #:indent (format "~a\t" indent)))
      (printf "\n~a};\n" indent)
      (expr->sollya retexpr #:names names* #:ctx ctx #:indent indent)]
@@ -197,14 +198,14 @@
        (printf "~a~a = ~a;\n" indent (fix-name var*)
                (expr->sollya val #:names names* #:ctx ctx #:indent indent))
        (set! names* (dict-set names* var var*)))
-     (define test-var (fix-name (gensym 'test)))
-     (printf "~a~a = ~a;\n" indent test-var
+     (define test-var (gensym 'test))
+     (printf "~a~a = ~a;\n" indent (fix-name test-var)
              (expr->sollya cond #:names names* #:ctx ctx #:indent indent))
      (printf "~awhile (~a) do {\n" indent test-var)
      (for ([var* vars*] [update updates])
        (printf "~a\t~a = ~a;\n" indent (fix-name var*)
                (expr->sollya update #:names names* #:ctx ctx #:indent (format "~a\t" indent))))
-     (printf "~a\t~a = ~a;" indent test-var
+     (printf "~a\t~a = ~a;" indent (fix-name test-var)
              (expr->sollya cond #:names names* #:ctx ctx #:indent (format "~a\t" indent)))
      (printf "\n~a};\n" indent)
      (expr->sollya retexpr #:names names* #:ctx ctx #:indent indent)]
@@ -212,67 +213,70 @@
      (expr->sollya body #:names names #:ctx (apply hash-set* ctx props) #:indent indent)]
     ;; some operations need special translations
     [`(isnan ,body)
-     (define tempvar (fix-name (gensym 'temp)))
-     (printf "~a~a = ~a;\n" indent tempvar
+     (define tempvar (gensym 'temp))
+     (printf "~a~a = ~a;\n" indent (fix-name tempvar)
              (expr->sollya body #:names names #:ctx ctx #:indent indent))
-     (format "(~a != ~a)" tempvar tempvar)]
+     (format "(~a != ~a)" (fix-name tempvar) (fix-name tempvar))]
     [`(isinf ,body)
-     (define tempvar (fix-name (gensym 'temp)))
-     (printf "~a~a = ~a;\n" indent tempvar
+     (define tempvar (gensym 'temp))
+     (printf "~a~a = ~a;\n" indent (fix-name tempvar)
              (expr->sollya body #:names names #:ctx ctx #:indent indent))
-     (format "(abs(~a) == infty)" tempvar)]
+     (format "(abs(~a) == infty)" (fix-name tempvar))]
     [`(isfinite ,body)
      (define tempvar (gensym 'temp))
-     (printf "~a~a = ~a;\n" indent tempvar
+     (printf "~a~a = ~a;\n" indent (fix-name tempvar)
              (expr->sollya body #:names names #:ctx ctx #:indent indent))
-     (format "(~a == ~a && abs(~a) != infty)" tempvar tempvar tempvar)]
+     (format "(~a == ~a && abs(~a) != infty)" (fix-name tempvar) (fix-name tempvar) (fix-name tempvar))]
     [`(fdim ,a ,b)
-     (define temp_a (fix-name (gensym 'temp_a)))
-     (define temp_b (fix-name (gensym 'temp_b)))
-     (define outvar (fix-name (gensym 'temp)))
-     (printf "~a~a = ~a;\n" indent temp_a
+     (define temp_a (gensym 'temp_a))
+     (define temp_b (gensym 'temp_b))
+     (define outvar (gensym 'temp))
+     (printf "~a~a = ~a;\n" indent (fix-name temp_a)
              (expr->sollya a #:names names #:ctx ctx #:indent indent))
-     (printf "~a~a = ~a;\n" indent temp_b
+     (printf "~a~a = ~a;\n" indent (fix-name temp_b)
              (expr->sollya b #:names names #:ctx ctx #:indent indent))
-     (printf "~aif (~a > ~a) then {\n" indent temp_a temp_b)
-     (printf "~a\t~a = ~a;\n" indent outvar
-             (rounded (format "~a - ~a" temp_a temp_b) ctx))
+     (printf "~aif (~a > ~a) then {\n" indent (fix-name temp_a) (fix-name temp_b))
+     (printf "~a\t~a = ~a;\n" indent (fix-name outvar)
+             (rounded (format "~a - ~a" (fix-name temp_a) (fix-name temp_b)) ctx))
      (printf "\n~a} else {\n" indent)
-     (printf "~a\t~a = ~a;\n" indent outvar (rounded "0" ctx))
-     (printf "\n~a};\n" indent) outvar]
+     (printf "~a\t~a = ~a;\n" indent (fix-name outvar) (rounded "0" ctx))
+     (printf "\n~a};\n" indent)
+     (fix-name outvar)]
     [`(copysign ,a ,b)
-     (define temp_a (fix-name (gensym 'temp_a)))
-     (define temp_b (fix-name (gensym 'temp_b)))
-     (define outvar (fix-name (gensym 'temp)))
-     (printf "~a~a = ~a;\n" indent temp_a
+     (define temp_a (gensym 'temp_a))
+     (define temp_b (gensym 'temp_b))
+     (define outvar (gensym 'temp))
+     (printf "~a~a = ~a;\n" indent (fix-name temp_a)
              (expr->sollya a #:names names #:ctx ctx #:indent indent))
-     (printf "~a~a = ~a;\n" indent temp_b
+     (printf "~a~a = ~a;\n" indent (fix-name temp_b)
              (expr->sollya b #:names names #:ctx ctx #:indent indent))
-     (printf "~aif (~a < 0) then {\n" indent temp_b)
-     (printf "~a\t~a = ~a;\n" indent outvar
-             (rounded (format "-abs(~a)" temp_a) ctx))
+     (printf "~aif (~a < 0) then {\n" indent (fix-name temp_b))
+     (printf "~a\t~a = ~a;\n" indent (fix-name outvar)
+             (rounded (format "-abs(~a)" (fix-name temp_a)) ctx))
      (printf "\n~a} else {\n" indent)
-     (printf "~a\t~a = ~a;\n" indent outvar
-             (rounded (format "abs(~a)" temp_a) ctx))
-     (printf "\n~a};\n" indent) outvar]
+     (printf "~a\t~a = ~a;\n" indent (fix-name outvar)
+             (rounded (format "abs(~a)" (fix-name temp_a)) ctx))
+     (printf "\n~a};\n" indent)
+     (fix-name outvar)]
     [`(trunc ,a)
-     (define temp_a (fix-name (gensym 'temp_a)))
-     (define outvar (fix-name (gensym 'temp)))
-     (printf "~a~a = ~a;\n" indent temp_a
+     (define temp_a (gensym 'temp_a))
+     (define outvar (gensym 'temp))
+     (printf "~a~a = ~a;\n" indent (fix-name temp_a)
              (expr->sollya a #:names names #:ctx ctx #:indent indent))
-     (printf "~aif (~a < 0) then {\n" indent temp_a)
-     (printf "~a\t~a = ~a;\n" indent outvar
-             (rounded (format "ceil(~a)" temp_a) ctx))
+     (printf "~aif (~a < 0) then {\n" indent (fix-name temp_a))
+     (printf "~a\t~a = ~a;\n" indent (fix-name outvar)
+             (rounded (format "ceil(~a)" (fix-name temp_a)) ctx))
      (printf "\n~a} else {\n" indent)
-     (printf "~a\t~a = ~a;\n" indent outvar
-             (rounded (format "floor(~a)" temp_a) ctx))
-     (printf "\n~a};\n" indent) outvar]
+     (printf "~a\t~a = ~a;\n" indent (fix-name outvar)
+             (rounded (format "floor(~a)" (fix-name temp_a)) ctx))
+     (printf "\n~a};\n" indent)
+     (fix-name outvar)]
     ;; this will do the wrong thing for negative zero, since sollya doesn't support it
     [`(signbit ,body)
-     (define tempvar (fix-name (gensym 'temp)))
-     (printf "~a~a = ~a;\n" indent tempvar
+     (define tempvar (gensym 'temp))
+     (printf "~a~a = ~a;\n" indent (fix-name tempvar)
              (expr->sollya body #:names names #:ctx ctx #:indent indent))
-     (format "(~a < 0)" tempvar)]
+     (format "(~a < 0)" (fix-name tempvar))]
     ;; most operators can go to application->sollya, which also fixes up a few that need different names
     [(list (? operator? operator) args ...)
      (define args_sollya

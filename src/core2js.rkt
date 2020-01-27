@@ -1,56 +1,30 @@
 #lang racket
 
-(require "common.rkt" "imperative.rkt" "compilers.rkt")
-(provide js-header core->js)
+(require "common.rkt" "compilers.rkt" "imperative.rkt" "supported.rkt")
+(provide core->js js-runtime js-supported)
+
+(define js-runtime (make-parameter "Math"))
 
 ;; JS
 
 (define js-name (const "js"))
 (define js-header (const "")) ; empty
+(define js-supported (supported-list
+   (invert-op-list'(!= copysign exp2 erf erfc fdim fma fmod isfinite isnormal lgamma nearbyint remainder signbit tgamma))
+   (invert-const-list '())
+   '(binary64)))
+
 (define (type->js type) "var")
 
-(define/match (operator->js type op)
-  [(_ 'fabs) "Math.abs(~a)"]
-  [(_ 'exp) "Math.exp(~a)"]
-  ;[('exp2) "math.pow(2, ~a)"]
-  [(_ 'expm1) "Math.expm1(~a)"]
-  [(_ 'log) "Math.log(~a)"]
-  [(_ 'log10) "Math.log10(~a)"]
-  [(_ 'log2) "Math.log2(~a)"]
-  [(_ 'log1p) "Math.log1p(~a)"]
-  ;[('logb) "math.floor(math.log2(math.abs(~a)))"]
-  [(_ 'pow) "Math.pow(~a)"]
-  [(_ 'sqrt) "Math.sqrt(~a)"]
-  [(_ 'cbrt) "Math.cbrt(~a)"]
-  [(_ 'hypot) "Math.hypot(~a)"]
-  [(_ 'sin) "Math.sin(~a)"]
-  [(_ 'cos) "Math.cos(~a)"]
-  [(_ 'tan) "Math.tan(~a)"]
-  [(_ 'asin) "Math.asin(~a)"]
-  [(_ 'acos) "Math.acos(~a)"]
-  [(_ 'atan) "Math.atan(~a)"]
-  [(_ 'atan2) "Math.atan2(~a)"]
-  [(_ 'sinh) "Math.sinh(~a)"]
-  [(_ 'cosh) "Math.cosh(~a)"]
-  [(_ 'tanh) "Math.tanh(~a)"]
-  [(_ 'asinh) "Math.asinh(~a)"]
-  [(_ 'acosh) "Math.acosh(~a)"]
-  [(_ 'atanh) "Math.atanh(~a)"]
-  ;[('erf) "math.erf(~a)"]
-  ;[('erfc) "1 - math.erf(~a)"] ;; TODO: This implementation has large error for large inputs
-  ;[('tgamma) "math.gamma(~a)"]
-  ;[('lgamma) "math.log(math.gamma(~a))"]
-  [(_ 'ceil) "Math.ceil(~a)"]
-  [(_ 'floor) "Math.floor(~a)"]
-  ;[('remainder) "math.mod(~a, ~a)"]
-  [(_ 'fmax) "Math.max(~a)"]
-  [(_ 'fmin) "Math.min(~a)"]
-  ;[('fdim) "math.max(0, ~a - ~a)"]
-  ;[('copysign) "math.abs(~a) * math.sign(~a)"]
-  [(_ 'trunc) "Math.trunc(~a)"]
-  [(_ 'round) "Math.round(~a)"]
-  [(_ 'isinf) "(Math.abs(~a) === Infinity)"]
-  [(_ 'isnan) "isNaN(~a)"])
+(define (operator->js type op args)
+  (let ([arg-list (string-join args ", ")])
+    (match op
+      ['fabs  (format "~a.abs(~a)" (js-runtime) arg-list)]
+      ['fmax  (format "~a.max(~a)" (js-runtime) arg-list)]
+      ['fmin  (format "~a.min(~a)" (js-runtime) arg-list)]
+      ['isinf (format "(~a.abs(~a) === Infinity)" (js-runtime) arg-list)]
+      ['isnan (format "isNaN(~a)" arg-list)]
+      [_      (format "~a.~a(~a)" (js-runtime) op arg-list)])))
 
 (define/match (constant->js type expr)
   [(_ 'E) "Math.E"]
@@ -89,9 +63,9 @@
           body 
           return))
 
-(define js-language (language js-name js-header type->js operator->js constant->js decleration->js assignment->js function->js))
+(define js-language (language js-name type->js operator->js constant->js decleration->js assignment->js function->js))
 
 ;;; Exports
 
 (define (core->js prog name) (parameterize ([*lang* js-language]) (convert-core prog name)))
-(define-compiler '("js") js-header core->js (const "") '(!))
+(define-compiler '("js") js-header core->js (const "") js-supported)

@@ -54,14 +54,14 @@
 
    (define extension (determine-lang (*lang*) out-file))
 
-   (define-values (header export footer unsupported)
+   (define-values (header export footer supported)
      (match extension
-       ["fptaylor" (values "" (curry core->fptaylor #:inexact-scale (*scale*)) "" '())]
-       [(or "gappa" "g") (values "" (curry core->gappa #:rel-error (*rel-error*)) "" '())]
-       ["scala" (values (format scala-header (*namespace*)) core->scala scala-footer '())]
-       [(or "smt" "smt2" "smtlib" "smtlib2") (values "" core->smtlib2 "" '())]
-       ["sollya" (values "" core->sollya "" '())]
-       ["wls" (values "" core->wls "" '())]
+       ["fptaylor" (values "" (curry core->fptaylor #:inexact-scale (*scale*)) "" (supported-list (invert-op-list '()) (invert-const-list '()) '(binary16 binary32 binary64 binary128)))]
+       [(or "gappa" "g") (values "" (curry core->gappa #:rel-error (*rel-error*)) "" (supported-list (invert-op-list '()) (invert-const-list '()) '(binary32 binary64 binary128)))]
+       ["scala" (values (format scala-header (*namespace*)) core->scala scala-footer (supported-list (invert-op-list '()) (invert-const-list '()) '(binary32 binary64)))]
+       [(or "smt" "smt2" "smtlib" "smtlib2") (values "" core->smtlib2 "" (supported-list (invert-op-list '()) (invert-const-list '()) '(binary32 binary64)))]
+       ["sollya" (values "" core->sollya "" (supported-list (invert-op-list '()) (invert-const-list '()) '(binary32 binary64)))]
+       ["wls" (values "" core->wls "" (supported-list (invert-op-list '()) (invert-const-list '()) '(binary32 binary64)))]
        [#f (raise-user-error "Please specify an output language (using the --lang flag)")]
        [_
         (apply values
@@ -71,15 +71,17 @@
              (list (compiler-header compiler)
                    (compiler-export compiler)
                    (compiler-footer compiler)
-                   (compiler-unsupported compiler)))
+                   (compiler-supported compiler)))
            (raise-user-error "Unsupported output language" (*lang*))))]))
 
+   (if (and (equal? extension "js") (*runtime*)) (js-runtime (*runtime*)) (void))
    (port-count-lines! input-port)
    (unless (*bare*) (fprintf output-port (header (*namespace*))))
    (for ([core (in-port (curry read-fpcore (if (equal? in-file "-") "stdin" in-file)) input-port)] [n (in-naturals)])
-     (unless (set-empty? (set-intersect (operators-in core) unsupported))
+     (unless (valid-core core supported)
        (raise-user-error (format "Sorry, the *.~a exporter does not support ~a" extension
-                                 (string-join (map ~a (set-intersect (operators-in core) unsupported)) ", "))))
+          (string-join (map ~a (set-intersect (operators-in core) (invert-op-list (supported-list-ops supported)))) 
+                        ", "))))
      (fprintf output-port "~a\n" (export core (format "ex~a" n))))
    (unless (*bare*) (fprintf output-port (footer)))))
 

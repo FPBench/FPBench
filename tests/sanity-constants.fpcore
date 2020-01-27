@@ -1,8 +1,9 @@
-(FPCore
- ()
- :name
- "Test E (1/1)"
- :spec 1.0
+(FPCore 
+ () 
+ :name 
+ "Test E (1/1)" 
+ :spec 
+ 1.0 
  (if (and (< 2.0 E) (< E 3.0)) 1 0))
 
 (FPCore
@@ -92,3 +93,4 @@
  :spec
  1.0
  (if (and (< 0.5 SQRT1_2) (< SQRT1_2 1.0)) 1 0))
+

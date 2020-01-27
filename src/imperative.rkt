@@ -1,15 +1,24 @@
 #lang racket
 
 (require "common.rkt")
-(provide language convert-core *lang*)
+(provide convert-core *lang*
+  (contract-out
+    [struct language
+     ([name (-> string?)]
+      [type (-> symbol? string?)]
+      [operator (-> string? symbol? list? string?)]
+      [constant (-> string? any/c string?)]
+      [declaration (-> string? string? any/c string?)]
+      [assignment (-> string? any/c string?)]
+      [function (-> string? string? any/c any/c string? string?)])]))
 
 ;;; Abstraction for different languages
 
-(struct language (name header type operator constant declaration assignment function))
+(struct language (name type operator constant declaration assignment function))
 (define *lang* (make-parameter #f))
 
-(define (convert-operator type operator)
-  ((language-operator (*lang*)) type operator))
+(define (convert-operator type operator args)
+  ((language-operator (*lang*)) type operator args))
 
 (define (convert-constant type expr)
   ((language-constant (*lang*)) type expr))
@@ -79,7 +88,7 @@
     [(list 'or a ...)
      (format "(~a)" (string-join (map ~a a) " || "))]
     [(list (? operator? f) args ...)
-     (format (convert-operator (convert-type type) operator) (string-join args ", "))]))
+     (convert-operator (convert-type type) operator args)]))
 
 (define (convert-expr expr #:names [names #hash()] #:type [type 'binary64] #:indent [indent "\t"])
   ;; Takes in an expression. Returns an expression and a new set of names

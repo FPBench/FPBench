@@ -1,19 +1,18 @@
 #lang racket
 
-(require "fpcore.rkt")
+(require "fpcore.rkt" "supported.rkt")
 
-(provide
- (contract-out
-  [struct compiler
-    ([extensions (listof string?)]
-     [header (-> string? string?)]
-     [export (-> fpcore? string? string?)]
-     [footer (-> string?)]
-     [unsupported (listof symbol?)])]
-  [compilers (parameter/c (listof compiler?))])
- define-compiler)
+(provide define-compiler
+  (contract-out
+    [struct compiler
+     ([extensions (listof string?)]
+      [header (-> string? string?)]
+      [export (-> fpcore? string? string?)]
+      [footer (-> string?)]
+      [supported supported-list?])]
+    [compilers (parameter/c (listof compiler?))]))
 
-(struct compiler (extensions header export footer unsupported))
+(struct compiler (extensions header export footer supported))
 
 (define compilers (make-parameter '()))
 

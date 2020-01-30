@@ -69,6 +69,13 @@ else
 	$(warning skipping wolframscript sanity tests; unable to find wolframscript interpreter)
 endif
 
+go-sanity:
+ifneq (, $(shell which go))
+	cat tests/sanity*.fpcore | racket infra/test-core2go.rkt --repeat 1
+else
+	$(warning skipping Go sanity tests; unable to find node)
+endif
+
 sanity: c-sanity fptaylor-sanity js-sanity smtlib2-sanity sollya-sanity wls-sanity
 
 raco-test:
@@ -127,6 +134,14 @@ ifneq (, $(shell which wolframscript))
 	| racket infra/test-core2wls.rkt
 else
 	$(warning skipping wolframscript tests; unable to find wolframscript interpreter)
+endif
+
+go-test:
+ifneq (, $(shell which go))
+	cat benchmarks/*.fpcore tests/test*.fpcore | $(FILTER) not-operators $(known_inaccurate) \
+	| racket infra/test-core2go.rkt --error 150
+else
+	$(warning skipping Go tests; unable to find Go compiler)
 endif
 
 test: c-test fptaylor-test js-test smtlib2-test sollya-test wls-test raco-test

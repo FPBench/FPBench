@@ -7,7 +7,6 @@
 
 ;; JS
 
-(define js-name (const "js"))
 (define js-header (const "")) ; empty
 (define js-supported (supported-list
    (invert-op-list'(!= copysign exp2 erf erfc fdim fma fmod isfinite isnormal lgamma nearbyint remainder signbit tgamma))
@@ -48,7 +47,7 @@
   [(_ (? symbol?)) expr]
   [(_ (? number?)) (format "~a" (real->double-flonum expr))])
 
-(define (decleration->js type var [val #f])
+(define (decleration->js type var indent [val #f])
   (if val
     (format "~a ~a = ~a;" type var val)
     (format "~a ~a;" type var)))
@@ -63,7 +62,7 @@
           body 
           return))
 
-(define js-language (language js-name type->js operator->js constant->js decleration->js assignment->js function->js))
+(define js-language (language "js" type->js operator->js constant->js decleration->js assignment->js function->js))
 
 ;;; Exports
 

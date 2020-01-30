@@ -2,14 +2,7 @@
 
 (require math/flonum)
 (require "test-common.rkt" "../src/common.rkt" "../src/fpcore.rkt" "../src/supported.rkt")
-(provide *tester* test-imperative 
-  (contract-out
-    [struct tester
-     ([compile (-> fpcore? symbol? string? string?)]                ; args: fpcore, precision, filename           returns: exe name
-      [run (-> string? list? symbol? (cons/c number? string?))]     ; args: exe name, func args, precision        returns: output (approx number, actual string)
-      [supported supported-list?]                                   ; list
-      [equality (-> (or/c number? symbol?) (or/c number? symbol?)   ; args: number (timeout), number (timeout), ulps  returns: True/False
-                    number? boolean?)])]))
+(provide tester *tester* test-imperative)
 
 (define fuel (make-parameter 100))
 (define tests-to-run (make-parameter 10))

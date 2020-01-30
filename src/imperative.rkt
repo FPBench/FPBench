@@ -1,16 +1,7 @@
 #lang racket
 
 (require "common.rkt")
-(provide convert-core *lang*
-  (contract-out
-    [struct language
-     ([name (-> string?)]
-      [type (-> symbol? string?)]
-      [operator (-> string? symbol? list? string?)]
-      [constant (-> string? any/c string?)]
-      [declaration (-> string? string? any/c string?)]
-      [assignment (-> string? any/c string?)]
-      [function (-> string? string? any/c any/c string? string?)])]))
+(provide convert-core language *lang*)
 
 ;;; Abstraction for different languages
 
@@ -26,8 +17,8 @@
 (define (convert-type type)
   ((language-type (*lang*)) type))
 
-(define (convert-declaration type var [val #f])
-  ((language-declaration (*lang*)) type var val))
+(define (convert-declaration type var indent [val #f])
+  ((language-declaration (*lang*)) type var indent val))
 
 (define (convert-assignment var val)
   ((language-assignment (*lang*)) var val))
@@ -36,7 +27,7 @@
   ((language-function (*lang*)) type name args body return))
 
 (define (while-name) ; Go is weird
-  (if (equal? ((language-name (*lang*))) "go") "for" "while"))
+  (if (equal? (language-name (*lang*)) "go") "for" "while"))
 
 ;;; Compiler for imperative languages (C, Go, etc.)
 
@@ -100,6 +91,7 @@
                (convert-declaration
                 (convert-type type)
                 (fix-name var*)
+                indent
                 (convert-expr val #:names names #:type type #:indent indent))))
      (define names*
        (for/fold ([names* names]) ([var vars] [var* vars*])
@@ -114,6 +106,7 @@
                  (convert-declaration
                   (convert-type type)
                   (fix-name var*)
+                  indent
                   (convert-expr val #:names names* #:type type #:indent indent)))
          (dict-set names* var var*)))
      (convert-expr body #:names names* #:type type #:indent indent)]
@@ -121,7 +114,7 @@
     [`(if ,cond ,ift ,iff)
      (define test (convert-expr cond #:names names #:type type #:indent indent))
      (define outvar (gensym 'temp))
-     (printf "~a~a\n" indent (convert-declaration (convert-type type) (fix-name outvar)))
+     (printf "~a~a\n" indent (convert-declaration (convert-type type) (fix-name outvar) indent))
      (printf "~aif (~a) {\n" indent test)
      (printf "~a\t~a\n" indent
              (convert-assignment
@@ -142,6 +135,7 @@
                (convert-declaration
                 (convert-type type)
                 (fix-name var*)
+                indent
                 (convert-expr val #:names names #:type type #:indent indent))))
      (define names*
        (for/fold ([names* names]) ([var vars] [var* vars*])
@@ -151,6 +145,7 @@
              (convert-declaration
               (convert-type 'boolean)
               (fix-name test-var)
+              indent
               (convert-expr cond #:names names* #:type type #:indent indent)))
      (printf "~a~a (~a) {\n" indent (while-name) (fix-name test-var)) ;; TODO need `for` in Go mode
      (define temp-vars (map gensym vars))
@@ -159,6 +154,7 @@
                (convert-declaration
                 (convert-type type)
                 (fix-name temp-var)
+                (format "~a\t" indent)
                 (convert-expr update #:names names* #:type type #:indent (format "~a\t" indent)))))
      (for ([var* vars*] [temp-var temp-vars])
        (printf "~a\t~a\n" indent (convert-assignment (fix-name var*) (fix-name temp-var))))
@@ -174,8 +170,10 @@
        (for/fold ([vars* '()] [names* names]) ([var vars] [val inits])
          (define var* (gensym var))
          (printf "~a~a\n" indent
-                 (convert-declaration
-                  (convert-type type) (fix-name var*)
+                 (convert-declaration       
+                  (convert-type type) 
+                  (fix-name var*)
+                  indent
                   (convert-expr val #:names names #:type type #:indent indent)))
          (values (cons var* vars*) (dict-set names* var var*))))
      (set! vars* (reverse vars*))
@@ -184,6 +182,7 @@
              (convert-declaration
               (convert-type 'boolean)
               (fix-name test-var)
+              indent
               (convert-expr cond #:names names* #:type type #:indent indent)))
      (printf "~a~a (~a) {\n" indent (while-name) (fix-name test-var))
      (for ([var* vars*] [update updates])

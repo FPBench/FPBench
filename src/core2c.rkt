@@ -5,7 +5,6 @@
 
 ;; C
 
-(define c-name (const "c"))
 (define c-header (const "#include <math.h>\n#define TRUE 1\n#define FALSE 0\n\n"))
 (define c-supported (supported-list
    (invert-op-list '())
@@ -34,7 +33,7 @@
     [(? number?)
      (format "~a~a" (real->double-flonum expr) (type->c-suffix type))]))
 
-(define (declaration->c type var [val #f])
+(define (declaration->c type var indent [val #f])
   (if val
       (format "~a ~a = ~a;" type var val)
       (format "~a ~a;" type var)))
@@ -50,7 +49,7 @@
            ", ")
           body return))
 
-(define c-language (language c-name type->c operator->c constant->c declaration->c assignment->c function->c))
+(define c-language (language "c" type->c operator->c constant->c declaration->c assignment->c function->c))
 
 ;;; Exports
 

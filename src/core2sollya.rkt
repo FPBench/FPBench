@@ -1,7 +1,12 @@
 #lang racket
 
-(require "common.rkt" "fpcore.rkt")
-(provide core->sollya)
+(require "common.rkt" "fpcore.rkt" "supported.rkt")
+(provide core->sollya sollya-supported)
+
+(define sollya-supported (supported-list
+  (invert-op-list '(isnormal tgamma lgamma remainder fmod round cbrt atan2 erf))
+  (invert-const-list '())
+  '(binary32 binary64)))
 
 ;; sollya identifiers have the same rules as in C
 (define (fix-name name)

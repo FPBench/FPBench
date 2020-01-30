@@ -3,7 +3,7 @@
 (require math/flonum)
 (require "test-common.rkt" "test-imperative.rkt" "../src/core2js.rkt")
 
-(define (compile->js prog type test-file)
+(define (compile->js prog ctx type test-file)
   (call-with-output-file test-file #:exists 'replace
     (λ (p)
        (define N (length (second prog)))
@@ -36,7 +36,10 @@
           (and (nan? a) (nan? b))
           (<= (abs (flonums-between a b)) ulps))]))
 
-(define js-tester (tester compile->js run<-js js-supported js-equality))
+(define (js-format-args var val)
+  (format "~a = ~a" var val))
+
+(define js-tester (tester compile->js run<-js js-supported js-equality js-format-args))
 
 ;; TODO: Add types
 (module+ main (parameterize ([*tester* js-tester])

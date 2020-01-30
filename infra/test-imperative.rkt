@@ -2,14 +2,7 @@
 
 (require math/flonum)
 (require "test-common.rkt" "../src/common.rkt" "../src/fpcore.rkt" "../src/supported.rkt")
-(provide *tester* test-imperative 
-  (contract-out
-    [struct tester
-     ([compile (-> fpcore? symbol? string? string?)]                ; args: fpcore, precision, filename           returns: exe name
-      [run (-> string? list? symbol? (cons/c number? string?))]     ; args: exe name, func args, precision        returns: output (approx number, actual string)
-      [supported supported-list?]                                   ; list
-      [equality (-> (or/c number? symbol?) (or/c number? symbol?)   ; args: number (timeout), number (timeout), ulps  returns: True/False
-                    number? boolean?)])]))
+(provide tester *tester* test-imperative)
 
 (define fuel (make-parameter 100))
 (define tests-to-run (make-parameter 10))
@@ -19,14 +12,17 @@
 (define exact-out (make-parameter #f))
 
 ; Common test structure
-(struct tester (compile run supported equality))
+(struct tester (compile run supported equality format-args))
 (define *tester* (make-parameter #f))
 
-(define (compile-test prog type test-file)
-  ((tester-compile (*tester*)) prog type test-file))
+(define (compile-test prog ctx type test-file)
+  ((tester-compile (*tester*)) prog ctx type test-file))
 
 (define (run-test exec-name ctx type)
   ((tester-run (*tester*)) exec-name ctx type))
+
+(define (format-args var val)
+  ((tester-format-args (*tester*)) var val))
 
 (define (=* a b)
   ((tester-equality (*tester*)) a b (ulps)))
@@ -53,7 +49,6 @@
       (match-define (list 'FPCore (list vars ...) props* ... body) prog)
       (define-values (_ props) (parse-properties props*))
       (define type (dict-ref props ':precision 'binary64))
-      (define exec-file (compile-test prog type test-file))
       (define timeout 0)
       (define results  ; run test
         (for/list ([i (in-range (tests-to-run))])
@@ -82,7 +77,9 @@
                 result]))
           (when (equal? out 'timeout)
             (set! timeout (+ timeout 1)))
-          (define out* (if (equal? out 'timeout) (cons 'timeout "") (run-test exec-file ctx type)))
+          (define out* (if (equal? out 'timeout) 
+                           (cons 'timeout "") 
+                           (run-test (compile-test prog ctx type test-file) ctx type)))
           (list ctx out out*)))
 
       (unless (null? results) ; display results
@@ -98,5 +95,5 @@
         (set! state (- result-len successful))
         (for ([i (in-naturals 1)] [x (in-list results)] #:unless (and (not (verbose)) (=* (second x) (car (third x)))))
           (printf "\t~a\t~a\t(Expected) ~a\t(Output) ~a\t(Args) ~a\n" i (if (=* (second x) (car (third x))) "Pass" "Fail") (second x)
-              (if (exact-out) (cdr (third x)) (car (third x))) (string-join (map (λ (x) (format "~a = ~a" (car x) (cdr x))) (first x)) ", ")))))
+              (if (exact-out) (cdr (third x)) (car (third x))) (string-join (map (λ (x) (format-args (car x) (cdr x))) (first x)) ", ")))))
     (exit state)))) 

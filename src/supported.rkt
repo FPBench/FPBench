@@ -1,14 +1,14 @@
 #lang racket
 (require "common.rkt" "fpcore.rkt")
 (provide valid-core operators-in constants-in property-values
-  invert-op-list invert-const-list)
+         invert-op-list invert-const-list) 
 
 (provide
   (contract-out
     [struct supported-list
      ([ops (listof symbol?)]
       [consts (listof symbol?)]
-      [precisions (listof symbol?)])]))  
+      [precisions (listof symbol?)])]))
 
 (struct supported-list (ops consts precisions))
 

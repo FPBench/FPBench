@@ -1,7 +1,7 @@
 #lang racket
 
 (require math/flonum)
-(require "test-common.rkt" "test-imperative.rkt" "../src/core2c.rkt")
+(require "test-common.rkt" "../src/core2c.rkt")
 
 (define (compile->c prog ctx type test-file)
   (call-with-output-file test-file #:exists 'replace
@@ -42,10 +42,13 @@
           (and (nan? a) (nan? b))
           (and (double-flonum? a) (double-flonum? b) (<= (abs (flonums-between a b)) ulps)))]))
 
-(define (c-format-args var val)
+(define (c-format-args var val type)
   (format "~a = ~a" var val))
 
-(define c-tester (tester compile->c run<-c c-supported c-equality c-format-args))
+(define (c-format-output result)
+  (format "~a" result))
+
+(define c-tester (tester "c" compile->c run<-c c-equality c-format-args c-format-output c-supported))
 
 ; Command line
 (module+ main (parameterize ([*tester* c-tester])

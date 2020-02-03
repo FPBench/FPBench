@@ -1,7 +1,13 @@
 #lang racket
 
-(require "common.rkt" "fpcore.rkt" "fpcore-extra.rkt" "range-analysis.rkt")
-(provide core->fptaylor)
+(require "common.rkt" "fpcore.rkt" "fpcore-extra.rkt" "range-analysis.rkt" "supported.rkt")
+(provide core->fptaylor fptaylor-supported)
+
+(define fptaylor-supported (supported-list
+  (invert-op-list '(atan2 cbrt ceil copysign erf erfc exp2 expm1 fdim floor fmod hypot if let* lgamma 
+                    log10 log1p log2 nearbyint pow remainder round tgamma trunc while while*))
+  (invert-const-list '())
+  '(binary16 binary32 binary64 binary128)))
 
 (define (fix-name name)
   (string-join

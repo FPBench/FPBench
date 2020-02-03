@@ -1,7 +1,6 @@
 #lang racket
 
-(require math/flonum)
-(require "test-common.rkt" "test-imperative.rkt" "../src/core2sollya.rkt")
+(require "test-common.rkt" "../src/core2sollya.rkt")
 
 (define (translate->sollya prog ctx type test-file)
   (call-with-output-file test-file #:exists 'replace
@@ -72,12 +71,15 @@
 (define (sollya-equality a b ulps)
   (or (equal? a b) (= a b) (and (or (= a 0) (infinite? a) (nan? a)) (or (nan? b)))))
 
-(define (sollya-format-args var val)
+(define (sollya-format-args var val type)
   (format "~a = ~a\n\t~a = ~a" var val var (if (or (nan? val) (infinite? val)) 
                                                val 
                                                (inexact->exact val))))
 
-(define sollya-tester (tester translate->sollya run<-sollya sollya-supported sollya-equality sollya-format-args))
+(define (sollya-format-output result)
+  (format "~a" result))
+
+(define sollya-tester (tester "sollya" translate->sollya run<-sollya sollya-equality sollya-format-args sollya-format-output sollya-supported))
 
 ; Command line
 (module+ main (parameterize ([*tester* sollya-tester])

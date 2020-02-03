@@ -1,7 +1,12 @@
 #lang racket
 
-(require "common.rkt" "fpcore.rkt")
-(provide number->wls core->wls)
+(require "common.rkt" "fpcore.rkt" "supported.rkt")
+(provide number->wls core->wls wls-supported)
+
+(define wls-supported (supported-list
+  (invert-op-list '(while* let*))
+  (invert-const-list '())
+  '(binary32 binary64)))
 
 (define bad-chars (regexp "^[0-9]+|[^a-z0-9]+"))
 

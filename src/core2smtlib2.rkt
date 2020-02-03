@@ -1,8 +1,15 @@
 #lang racket
 
 (require math/bigfloat)
-(require "common.rkt" "fpcore.rkt")
-(provide rm->smt number->smt core->smtlib2)
+(require "common.rkt" "fpcore.rkt" "supported.rkt")
+(provide rm->smt number->smt core->smtlib2 smt-supported)
+
+(define smt-supported (supported-list
+  (invert-op-list '(while* let* while != exp exp2 expm1 log log10 log2 log1p pow cbrt
+                    hypot sin cos tan asin acos atan atan2 sinh cosh tanh asinh acosh 
+                    atanh erf erfc tgamma lgamma ceil floor fmod fdim copysign isfinite))
+  (invert-const-list '(LOG2E LOG10E M_1_PI M_2_PI M_2_SQRTPI))
+  '(binary32 binary64)))
 
 ;; Extremely simple html-inspired escapes. The understanding is that the
 ;; only difference between symbols is that FPCore allows : in names,

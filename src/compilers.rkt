@@ -1,7 +1,6 @@
 #lang racket
 
 (require "fpcore.rkt" "supported.rkt")
-
 (provide define-compiler
   (contract-out
     [struct compiler

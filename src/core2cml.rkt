@@ -125,12 +125,7 @@
         (string-join
           (for/list ([var* vars*])
             (format "~a" var*))
-        " "))
-      (define arg-list* 
-        (string-join
-          (for/list ([var** vars**])
-            (format "~a" var**))
-        " "))
+          " "))
       (format "let\n~a\n~a\n~ain\n~a  ~a ~a\n~aend"
         (string-join
           (for/list ([var* vars*] [init inits])
@@ -144,7 +139,12 @@
                   (for/list ([var** vars**] [update updates])
                     (decleration->cml var** (expr->cml update #:names names* #:indent (format "        ~a" indent))))
                   (format "\n~a        " indent))
-                indent indent loop arg-list* indent)
+                indent indent loop 
+                (string-join
+                  (for/list ([var** vars**])
+                    (format "~a" var**))
+                  " ")
+                indent)
             indent (expr->cml retexpr #:names names #:indent (format "      ~a" indent)))
         indent indent loop arg-list indent)] 
 
@@ -167,7 +167,7 @@
                 indent indent
                 (string-join
                   (for/list ([var* vars*] [update updates])
-                    (decleration->cml var* (expr->cml update #:names names #:indent (format "    ~a" indent))))
+                    (decleration->cml var* (expr->cml update #:names names #:indent (format "        ~a" indent))))
                   (format "\n~a        " indent))
                 indent indent loop arg-list indent)
             indent (expr->cml retexpr #:names names #:indent (format "      ~a" indent)))

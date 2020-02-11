@@ -13,10 +13,10 @@
       (fprintf p "fun main () =\nlet\nval args = CommandLine.arguments()\n")
       (for ([i (range N)])
         (fprintf p "val arg~a = Double.fromString (List.nth args ~a)\n" i i))
-      (fprintf p "val res = f ~a\nval e = Word64.toInt (Word64.andb (Word64.fromInt 9218868437227405312) res)\nin\n"
+      (fprintf p "val res = f ~a\nin\n"
         (if (zero? N) "()"
           (string-join (map (curry format "arg~a") (range N)) " ")))
-      (fprintf p "if e = 9218868437227405312\nthen print (Double.toString res)\nelse print (Int.toString (Word64.toInt res))\nend;\n\nmain ();\n")))
+      (fprintf p "print_int (Word64.toInt res)\nend;\n\nmain ();")))
   (system (format "cake <~a >~a" test-file s-file))
   (system (format "cc $CAKEML_BASE/basis_ffi.o ~a -o ~a" s-file cake-file))
   cake-file)
@@ -26,13 +26,7 @@
     (with-output-to-string
      (λ ()
        (system (string-join (cons exec-name (map (compose ~a real->double-flonum) (dict-values ctx))) " ")))))
-  (define out*
-    (match out
-      ["nan"  (string->number "+nan.0")]
-      ["-nan" (string->number "+nan.0")]
-      ["inf"  (string->number "+inf.0")]
-      ["-inf" (string->number "-inf.0")]
-      [x (floating-point-bytes->real (integer->integer-bytes (string->number x) 8 #f))]))
+  (define out* (floating-point-bytes->real (integer->integer-bytes (string->number out) 8 #f)))
   (cons (real->double-flonum out*) (number->string out*)))
 
 (define (cml-equality a b ulps)

@@ -1,16 +1,7 @@
 #lang racket
 
 (require "common.rkt")
-(provide convert-core *lang*
-  (contract-out
-    [struct language
-     ([name (-> string?)]
-      [type (-> symbol? string?)]
-      [operator (-> string? symbol? list? string?)]
-      [constant (-> string? any/c string?)]
-      [declaration (-> string? string? any/c string?)]
-      [assignment (-> string? any/c string?)]
-      [function (-> string? string? any/c any/c string? string?)])]))
+(provide convert-core *lang* language)
 
 ;;; Abstraction for different languages
 
@@ -152,7 +143,7 @@
               (convert-type 'boolean)
               (fix-name test-var)
               (convert-expr cond #:names names* #:type type #:indent indent)))
-     (printf "~a~a (~a) {\n" indent (while-name) (fix-name test-var)) ;; TODO need `for` in Go mode
+     (printf "~a~a (~a) {\n" indent (while-name) (fix-name test-var))
      (define temp-vars (map gensym vars))
      (for ([temp-var temp-vars] [update updates])
        (printf "~a\t~a\n" indent

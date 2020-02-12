@@ -75,7 +75,7 @@
                    (compiler-supported compiler)))
            (raise-user-error "Unsupported output language" (*lang*))))]))
 
-   (if (and (equal? extension "js") (*runtime*)) (js-runtime (*runtime*)) (void))
+   (when (and (equal? extension "js") (*runtime*)) (js-runtime (*runtime*)))
    (port-count-lines! input-port)
    (unless (*bare*) (fprintf output-port (header (*namespace*))))
    (for ([core (in-port (curry read-fpcore (if (equal? in-file "-") "stdin" in-file)) input-port)] [n (in-naturals)])

@@ -81,7 +81,7 @@
 (define (expr->cml expr #:names [names #hash()] #:indent [indent "  "])
   (match expr
     [`(let ([,vars ,vals] ...) ,body)
-      (define vars* (map (λ (x) (fix-name (gensym x))) vars))
+      (define vars* (map gensym vars))
       (define names*
        (for/fold ([names* names]) ([var vars] [var* vars*])
          (dict-set names* var var*)))
@@ -128,8 +128,8 @@
           " "))
       (format "let\n~a\n~a\n~ain\n~a  ~a ~a\n~aend"
         (string-join
-          (for/list ([var* vars*] [init inits])
-            (format "  ~a~a" indent (decleration->cml var* (expr->cml init #:names names* #:indent (format "    ~a" indent)))))
+          (for/list ([var* vars*] [val inits])
+            (format "  ~a~a" indent (decleration->cml (fix-name var*) (expr->cml val #:names names* #:indent (format "    ~a" indent)))))
           "\n")
         (format "  ~afun ~a ~a =\n    ~aif ~a\n~a    then ~a\n~a    else ~a"
             indent loop arg-list indent (expr->cml cond #:names names* #:indent (format "  ~a" indent)) indent
@@ -158,8 +158,8 @@
         " "))
       (format "let\n~a\n~a\n~ain\n~a  ~a ~a\n~aend"
         (string-join
-          (for/list ([var* vars*] [init inits])
-            (format "  ~a~a" indent (decleration->cml var* (expr->cml init #:names names #:indent (format "    ~a" indent)))))
+          (for/list ([var* vars*] [val inits])
+            (format "  ~a~a" indent (decleration->cml var* (expr->cml val #:names names #:indent (format "    ~a" indent)))))
           "\n")
         (format "  ~afun ~a ~a =\n    ~aif ~a\n~a    then ~a\n~a    else ~a"
             indent loop arg-list indent (expr->cml cond #:names names #:indent (format "  ~a" indent)) indent

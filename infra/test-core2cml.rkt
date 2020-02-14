@@ -34,8 +34,7 @@
     ['(timeout timeout) true]
     [else
       (or (= a b)
-          (and (nan? a) (nan? b))
-          (<= (abs (flonums-between a b)) ulps))]))
+          (and (nan? a) (nan? b)))]))
 
 (define (cml-format-args var val type)
   (format "~a = ~a" var val))

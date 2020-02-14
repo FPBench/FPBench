@@ -70,7 +70,7 @@ endif
 fptaylor-test:
 ifneq (, $(shell which fptaylor))
 	cat benchmarks/*.fpcore tests/test*.fpcore | $(FILTER) not-operators $(known_inaccurate) \
-	| racket infra/test-core2c.rkt --error 3		
+	| racket infra/test-core2c.rkt --error 3
 	$(RM) -r log tmp
 else
 	$(warning skipping fptaylor tests; unable to find fptaylor)
@@ -103,7 +103,7 @@ endif
 cml-test:
 ifneq (, $(shell which cake))
 	cat benchmarks/*.fpcore tests/test*.fpcore | $(FILTER) not-operators $(known_inaccurate) \
-	| racket infra/test-core2cml.rkt --error 3 --repeat 5
+	| racket infra/test-core2cml.rkt --repeat 5
 else
 	$(warning skipping CakeML tests; unable to find CakeML compiler)
 endif

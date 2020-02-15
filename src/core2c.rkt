@@ -8,7 +8,7 @@
 (define c-name (const "c"))
 (define c-header (const "#include <math.h>\n#define TRUE 1\n#define FALSE 0\n\n"))
 (define c-supported (supported-list
-   (invert-op-list '())
+   (invert-op-list '(!))
    (invert-const-list '())
    '(binary32 binary64)))
 
@@ -23,10 +23,12 @@
   [('binary80) "long double"]
   [('boolean) "int"])
 
-(define (operator->c type operator args)
+(define (operator->c ctx operator args)
+  (define type (type->c (dict-ref ctx ':precision 'binary64)))
   (format "~a~a(~a)" operator (type->c-suffix type) (string-join args ", ")))
 
-(define (constant->c type expr)
+(define (constant->c ctx expr)
+  (define type (type->c (dict-ref ctx ':precision 'binary64)))
   (match expr
     [(or 'M_1_PI 'M_2_PI 'M_2_SQRTPI 'TRUE 'FALSE 'INFINITY 'NAN)
      (format "((~a) ~a)" type expr)]
@@ -34,7 +36,8 @@
     [(? number?)
      (format "~a~a" (real->double-flonum expr) (type->c-suffix type))]))
 
-(define (declaration->c type var [val #f])
+(define (declaration->c ctx var [val #f])
+  (define type (type->c (dict-ref ctx ':precision 'binary64)))
   (if val
       (format "~a ~a = ~a;" type var val)
       (format "~a ~a;" type var)))
@@ -42,7 +45,10 @@
 (define (assignment->c var val)
   (format "~a = ~a;" var val))
 
-(define (function->c type name args body return)
+(define (round->c val ctx) (format "~a" val)) ; round(val) = val
+
+(define (function->c name args arg-ctx body return ctx vars)
+  (define type (type->c (dict-ref ctx ':precision 'binary64)))
   (format "~a ~a(~a) {\n~a\treturn ~a;\n}\n"
           type name
           (string-join
@@ -50,7 +56,7 @@
            ", ")
           body return))
 
-(define c-language (language c-name type->c operator->c constant->c declaration->c assignment->c function->c))
+(define c-language (language c-name operator->c constant->c declaration->c assignment->c round->c function->c))
 
 ;;; Exports
 

@@ -1,6 +1,6 @@
 #lang racket
 (require "common.rkt" "fpcore.rkt")
-(provide valid-core operators-in constants-in property-values
+(provide valid-core unsupported-features operators-in constants-in property-values
          invert-op-list invert-const-list) 
 
 (provide
@@ -16,7 +16,7 @@
 
 (define (invert-op-list list)
   (-> (listof symbol?) (listof symbol?))
-  (set-subtract (append operators '(if let let* while while*)) list))
+  (set-subtract (append operators '(if let let* while while* !)) list))
 
 (define (invert-const-list list)
   (-> (listof symbol?) (listof symbol?))
@@ -25,12 +25,23 @@
 ; Core checking
 
 (define (valid-core core supp)
-  (let ([core-prec (dict-ref (property-values core) ':precision #f)])
-    (and (subset? (operators-in core) (supported-list-ops supp))
-         (subset? (constants-in core) (supported-list-consts supp))
-         (or 
-           (equal? core-prec #f)
-           (ormap (lambda (e) (set-member? core-prec e)) (supported-list-precisions supp))))))
+  (define core-prec (dict-ref (property-values core) ':precision #f))
+  (define supp-prec (supported-list-precisions supp))
+  (and (subset? (operators-in core) (supported-list-ops supp))
+        (subset? (constants-in core) (supported-list-consts supp))
+        (or 
+          (equal? core-prec #f)
+          (andmap (lambda (e) (set-member? supp-prec e)) (set->list core-prec)))))
+
+(define (unsupported-features core supp)
+  (define core-prec (dict-ref (property-values core) ':precision #f))
+  (set-union
+    (set-subtract (operators-in core) (supported-list-ops supp))
+    (set-subtract (constants-in core) (supported-list-consts supp))
+    (if (equal? core-prec #f) 
+        '()
+        (set-subtract (set->list core-prec) (supported-list-precisions supp)))))
+
 
 (define/contract (operators-in-expr expr)
   (-> expr? (listof symbol?))

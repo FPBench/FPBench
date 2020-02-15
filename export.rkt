@@ -79,10 +79,10 @@
    (port-count-lines! input-port)
    (unless (*bare*) (fprintf output-port (header (*namespace*))))
    (for ([core (in-port (curry read-fpcore (if (equal? in-file "-") "stdin" in-file)) input-port)] [n (in-naturals)])
-     (unless (valid-core core supported)
-       (raise-user-error (format "Sorry, the *.~a exporter does not support ~a" extension
-          (string-join (map ~a (set-intersect (operators-in core) (invert-op-list (supported-list-ops supported)))) 
-                        ", "))))
+     (let ([unsupported (unsupported-features core supported)])
+      (unless (set-empty? unsupported)
+        (raise-user-error (format "Sorry, the *.~a exporter does not support ~a" extension
+            (string-join (map ~a unsupported) ", ")))))
      (fprintf output-port "~a\n" (export core (format "ex~a" n))))
    (unless (*bare*) (fprintf output-port (footer)))))
 

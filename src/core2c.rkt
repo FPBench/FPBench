@@ -3,9 +3,6 @@
 (require "common.rkt" "compilers.rkt" "imperative.rkt" "supported.rkt")
 (provide c-header core->c c-supported)
 
-;; C
-
-(define c-name (const "c"))
 (define c-header (const "#include <math.h>\n#define TRUE 1\n#define FALSE 0\n\n"))
 (define c-supported (supported-list
    (invert-op-list '(!))
@@ -56,7 +53,7 @@
            ", ")
           body return))
 
-(define c-language (language c-name operator->c constant->c declaration->c assignment->c round->c function->c))
+(define c-language (language (const "c") operator->c constant->c declaration->c assignment->c round->c function->c))
 
 ;;; Exports
 

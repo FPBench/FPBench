@@ -60,7 +60,6 @@
        [(or "gappa" "g") (values (const "") (curry core->gappa #:rel-error (*rel-error*)) (const "") (supported-list (invert-op-list '()) (invert-const-list '()) '(binary32 binary64 binary128)))]
        ["scala" (values (format scala-header (*namespace*)) core->scala scala-footer (supported-list (invert-op-list '()) (invert-const-list '()) '(binary32 binary64)))]
        [(or "smt" "smt2" "smtlib" "smtlib2") (values (const "") core->smtlib2 (const "") smt-supported)]
-       ["sollya" (values (const "") core->sollya (const "") sollya-supported)]
        ["wls" (values (const "") core->wls (const "") wls-supported)]
        ["cml" (values (const "") core->cml (const "") cml-supported)]
        [#f (raise-user-error "Please specify an output language (using the --lang flag)")]

@@ -7,7 +7,6 @@
 
 ;; JS
 
-(define js-name (const "js"))
 (define js-header (const "")) ; empty
 (define js-supported (supported-list
    (invert-op-list'(! != copysign exp2 erf erfc fdim fma fmod isfinite isnormal lgamma nearbyint remainder signbit tgamma))
@@ -66,7 +65,7 @@
           body 
           return))
 
-(define js-language (language js-name operator->js constant->js decleration->js assignment->js round->js function->js))
+(define js-language (language (const "js") operator->js constant->js decleration->js assignment->js round->js function->js))
 
 ;;; Exports
 

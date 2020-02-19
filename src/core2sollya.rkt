@@ -1,13 +1,22 @@
 #lang racket
 
 (require "common.rkt" "compilers.rkt" "imperative.rkt" "supported.rkt")
-(provide core->sollya sollya-supported)
+(provide core->sollya sollya-supported sollya-header)
 
-(define sollya-name (const "sollya"))
 (define sollya-supported (supported-list
   (invert-op-list '(isnormal tgamma lgamma remainder fmod round cbrt atan2 erf))
   (invert-const-list '())
   '(binary32 binary64)))
+
+(define sollya-header (const
+  (string-append
+    "procedure copysign(x, y) { var res; if (y < 0) then res = -abs(x) else res = abs(x); return res; };\n"
+    "procedure fdim(x, y) { var res; if (x > y) then res = x - y else res = 0; return res; };\n"
+    "procedure isfinite(x) { return (x == x && abs(x) != infty); };\n"
+    "procedure isinf(x) { return (abs(x) == infty); };\n"
+    "procedure isnan(x) { return (x != x); };\n"
+    "procedure signbit(x) { return (x < 0); };\n"
+    "procedure trunc(x) { var res; if (x < 0) then res = ceil(x) else res = floor(x); return res; };\n\n")))
 
 (define (precision-str prec)
   (match prec
@@ -41,26 +50,25 @@
         (format "round(~a, ~a, ~a)" expr prec rm))))
 
 (define (operator->sollya ctx op args)
-  (round->sollya
-    (match (cons op args)
-      [(list 'fabs a)       (format "abs(~a)" a)]
-      [(list 'fmax a b)     (format "max(~a, ~a)" a b)]
-      [(list 'fmin a b)     (format "min(~a, ~a)" a b)]
-      [(list 'fma a b c)    (format "((~a * ~a) + ~a)" a b c)]
-      [(list 'exp2 a)       (format "(2 ^ ~a)" a)]
-      [(list 'pow a b)      (format "(~a ^ ~a)" a b)]
-      [(list 'cbrt a)       (format "(~a ^ (1/3))" a)]
-      [(list 'hypot a b)    (format "sqrt((~a ^ 2) + (~a ^ 2))" a b)]
-      [(list 'atan2 a b)    (format "atan(~a / ~a)" a b)]
-      [(list 'nearbyint a)  
-          (let ([rm (round-str (dict-ref ctx ':round 'nearestEven))])
-            (if (equal? rm "RN")
-                (format "nearestint(~a)" a)
-                (error 'application->sollya "Unsupported rounding mode ~a for nearbyint" rm))
-            )]
-      [(list (? operator? f) args ...)
-          (format "~a(~a)" f (string-join args ", "))])
-    ctx))
+  (match (cons op args)
+    [(list 'fabs a)       (round->sollya (format "abs(~a)" a) ctx)]
+    [(list 'fmax a b)     (round->sollya (format "max(~a, ~a)" a b) ctx)]
+    [(list 'fmin a b)     (round->sollya (format "min(~a, ~a)" a b) ctx)]
+    [(list 'fma a b c)    (round->sollya (format "((~a * ~a) + ~a)" a b c) ctx)]
+    [(list 'exp2 a)       (round->sollya (format "(2 ^ ~a)" a) ctx)]
+    [(list 'pow a b)      (round->sollya (format "(~a ^ ~a)" a b) ctx)]
+    [(list 'cbrt a)       (round->sollya (format "(~a ^ (1/3))" a) ctx)]
+    [(list 'hypot a b)    (round->sollya (format "sqrt((~a ^ 2) + (~a ^ 2))" a b) ctx)]
+    [(list 'atan2 a b)    (round->sollya (format "atan(~a / ~a)" a b) ctx)]
+    [(list 'nearbyint a)  
+        (let ([rm (round-str (dict-ref ctx ':round 'nearestEven))])
+          (if (equal? rm "RN")
+              (round->sollya (format "nearestint(~a)" a) ctx)
+              (error 'application->sollya "Unsupported rounding mode ~a for nearbyint" rm)))]
+    [(list (or 'isnan 'isinf 'isfinite 'signbit) a)
+        (format "~a(~a)" op a)]
+    [(list (? operator? f) args ...)
+        (round->sollya (format "~a(~a)" f (string-join args ", ")) ctx)]))
 
 (define (constant->sollya ctx expr)
   (match expr
@@ -117,9 +125,9 @@
         body
         return))
 
-(define sollya-language (language sollya-name operator->sollya constant->sollya declaration->sollya assignment->sollya round->sollya function->sollya))
+(define sollya-language (language (const "sollya") operator->sollya constant->sollya declaration->sollya assignment->sollya round->sollya function->sollya))
 
 ;;; Exports
 
 (define (core->sollya  prog name) (parameterize ([*lang* sollya-language]) (convert-core prog name)))
-(define-compiler '("sollya") (const "") core->sollya (const "") sollya-supported)
+(define-compiler '("sollya") sollya-header core->sollya (const "") sollya-supported)

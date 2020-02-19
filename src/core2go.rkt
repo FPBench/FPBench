@@ -5,7 +5,6 @@
 
 ;; Go
 
-(define go-name (const "go"))
 (define go-header (curry format "package ~a\n\nimport \"math\"\n\n"))
 (define go-supported (supported-list
    (invert-op-list '(!))
@@ -66,7 +65,7 @@
           type
           body return))
 
-(define go-language (language go-name operator->go constant->go declaration->go assignment->go round->go function->go))
+(define go-language (language (const "go") operator->go constant->go declaration->go assignment->go round->go function->go))
 
 ;;; Exports
 

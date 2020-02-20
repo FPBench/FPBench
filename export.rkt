@@ -1,9 +1,9 @@
 #lang racket
 
 (require "src/fpcore.rkt" "src/compilers.rkt" "src/supported.rkt" "src/imperative.rkt")
-(require "src/core2c.rkt" "src/core2fptaylor.rkt" "src/core2gappa.rkt"
-         "src/core2go.rkt" "src/core2js.rkt" "src/core2scala.rkt"
-         "src/core2smtlib2.rkt" "src/core2sollya.rkt" "src/core2wls.rkt")
+(require "src/core2c.rkt" "src/core2cml.rkt" "src/core2fptaylor.rkt" "src/core2gappa.rkt" 
+         "src/core2go.rkt" "src/core2js.rkt" "src/core2scala.rkt" "src/core2smtlib2.rkt"
+         "src/core2sollya.rkt" "src/core2wls.rkt")
 
 (provide export-main)
 
@@ -56,12 +56,13 @@
 
    (define-values (header export footer supported)
      (match extension
-       ["fptaylor" (values "" (curry core->fptaylor #:inexact-scale (*scale*)) "" (supported-list (invert-op-list '()) (invert-const-list '()) '(binary16 binary32 binary64 binary128)))]
-       [(or "gappa" "g") (values "" (curry core->gappa #:rel-error (*rel-error*)) "" (supported-list (invert-op-list '()) (invert-const-list '()) '(binary32 binary64 binary128)))]
+       ["fptaylor" (values (const "") (curry core->fptaylor #:inexact-scale (*scale*)) (const "") fptaylor-supported)]
+       [(or "gappa" "g") (values (const "") (curry core->gappa #:rel-error (*rel-error*)) (const "") (supported-list (invert-op-list '()) (invert-const-list '()) '(binary32 binary64 binary128)))]
        ["scala" (values (format scala-header (*namespace*)) core->scala scala-footer (supported-list (invert-op-list '()) (invert-const-list '()) '(binary32 binary64)))]
-       [(or "smt" "smt2" "smtlib" "smtlib2") (values "" core->smtlib2 "" (supported-list (invert-op-list '()) (invert-const-list '()) '(binary32 binary64)))]
-       ["sollya" (values "" core->sollya "" (supported-list (invert-op-list '()) (invert-const-list '()) '(binary32 binary64)))]
-       ["wls" (values "" core->wls "" (supported-list (invert-op-list '()) (invert-const-list '()) '(binary32 binary64)))]
+       [(or "smt" "smt2" "smtlib" "smtlib2") (values (const "") core->smtlib2 (const "") smt-supported)]
+       ["sollya" (values (const "") core->sollya (const "") sollya-supported)]
+       ["wls" (values (const "") core->wls (const "") wls-supported)]
+       ["cml" (values (const "") core->cml (const "") cml-supported)]
        [#f (raise-user-error "Please specify an output language (using the --lang flag)")]
        [_
         (apply values
@@ -74,7 +75,7 @@
                    (compiler-supported compiler)))
            (raise-user-error "Unsupported output language" (*lang*))))]))
 
-   (if (and (equal? extension "js") (*runtime*)) (js-runtime (*runtime*)) (void))
+   (when (and (equal? extension "js") (*runtime*)) (js-runtime (*runtime*)))
    (port-count-lines! input-port)
    (unless (*bare*) (fprintf output-port (header (*namespace*))))
    (for ([core (in-port (curry read-fpcore (if (equal? in-file "-") "stdin" in-file)) input-port)] [n (in-naturals)])

@@ -39,6 +39,13 @@ else
 	$(warning skipping sollya sanity tests; unable to sollya interpreter)
 endif
 
+cml-sanity:
+ifneq (, $(shell which cake))
+	cat tests/sanity*.fpcore | racket infra/test-core2cml.rkt --repeat 1
+else
+	$(warning skipping CakeML sanity tests; unable to find CakeML compiler)
+endif
+
 wls-sanity:
 ifneq (, $(shell which wolframscript))
 	cat tests/sanity*.fpcore | racket infra/test-core2wls.rkt --repeat 1
@@ -63,7 +70,7 @@ endif
 fptaylor-test:
 ifneq (, $(shell which fptaylor))
 	cat benchmarks/*.fpcore tests/test*.fpcore | $(FILTER) not-operators $(known_inaccurate) \
-	| racket infra/test-core2c.rkt --error 3		
+	| racket infra/test-core2c.rkt --error 3
 	$(RM) -r log tmp
 else
 	$(warning skipping fptaylor tests; unable to find fptaylor)
@@ -90,7 +97,15 @@ ifneq (, $(shell which sollya))
 	cat benchmarks/*.fpcore tests/test*.fpcore | $(FILTER) not-operators $(known_inaccurate) \
 	| racket infra/test-core2sollya.rkt
 else
-	$(warning skipping sollya tests; unable to sollya interpreter)
+	$(warning skipping sollya tests; unable to find sollya interpreter)
+endif
+
+cml-test:
+ifneq (, $(shell which cake))
+	cat benchmarks/*.fpcore tests/test*.fpcore | $(FILTER) not-operators $(known_inaccurate) \
+	| racket infra/test-core2cml.rkt --repeat 5
+else
+	$(warning skipping CakeML tests; unable to find CakeML compiler)
 endif
 
 wls-test:

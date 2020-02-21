@@ -1,7 +1,7 @@
 #lang racket
 
 (require "common.rkt")
-(provide convert-core *lang* language *names*)
+(provide convert-core *lang* language)
 
 ;;; Abstraction for different languages
 
@@ -31,9 +31,9 @@
 (define (while-name) ; Go is weird
   (if (equal? ((language-name (*lang*))) "go") "for" "while"))
 
-;;; Compiler for imperative languages (C, Go, etc.)
+;;; Compiler for imperative languages
 
-(define *names* (make-parameter (mutable-set))) ; exported for Sollya
+(define *names* (make-parameter (mutable-set)))
 
 (define (gensym name)
   (define prefixed
@@ -217,10 +217,6 @@
 (define (convert-core prog name)
   (match-define (list 'FPCore (list args ...) props ... body) prog)
   (define-values (_ properties) (parse-properties props))
-
-  ;; put defaults of binary64 precision and round nearestEven first,
-  ;; so that if other values are given explicitly in props,
-  ;; they will overwrite these
   (define ctx (apply hash-set* #hash() (append '(:precision binary64 :round nearestEven) props)))
 
   (define-values (arg-names arg-ctxs)

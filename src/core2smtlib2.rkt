@@ -5,7 +5,7 @@
 (provide core->smtlib2 smt-supported rm->smt number->smt)
 
 (define smt-supported (supported-list
-  (invert-op-list '(while* let* while != exp exp2 expm1 log log10 log2 log1p pow cbrt
+  (invert-op-list '(while* let* while exp exp2 expm1 log log10 log2 log1p pow cbrt
                     hypot sin cos tan asin acos atan atan2 sinh cosh tanh asinh acosh 
                     atanh erf erfc tgamma lgamma ceil floor fmod fdim copysign isfinite))
   (invert-const-list '(LOG2E LOG10E M_1_PI M_2_PI M_2_SQRTPI))
@@ -104,54 +104,77 @@
     [(? number?) (number->smt expr w p rm)]
     [(? symbol?) (format "~a" expr)]))
 
-(define (operator->smt op args ctx)
-  (define arg-list (string-join args " "))
-  (define rm (dict-ref ctx ':round 'nearestEven))
+(define (operator->smt op rm)
   (match op
-    ['neg (format "(fp.neg ~a)" arg-list)]
-    ['+ (format "(fp.add ~a ~a)" (rm->smt rm) arg-list)]
-    ['- (format "(fp.sub ~a ~a)" (rm->smt rm) arg-list)]
-    ['* (format "(fp.mul ~a ~a)" (rm->smt rm) arg-list)]
-    ['/ (format "(fp.div ~a ~a)" (rm->smt rm) arg-list)]
-    ['fabs (format "(fp.abs ~a)" arg-list)]
-    ['fma (format "(fp.fma ~a ~a)" (rm->smt rm) arg-list)]
-    ['sqrt (format "(fp.sqrt ~a ~a)" (rm->smt rm) arg-list)]
+    ['+ (format "(fp.add ~a ~~a ~~a)" (rm->smt rm))]
+    ['- (format "(fp.sub ~a ~~a ~~a)" (rm->smt rm))]
+    ['* (format "(fp.mul ~a ~~a ~~a)" (rm->smt rm))]
+    ['/ (format "(fp.div ~a ~~a ~~a)" (rm->smt rm))]
+    ['fabs "(fp.abs ~a)"]
+    ['fma (format "(fp.fma ~a ~~a ~~a ~~a)" (rm->smt rm))]
+    ['sqrt (format "(fp.sqrt ~a ~~a)" (rm->smt rm))]
     ;; The behavior of fp.rem may not be fully compliant with C11
     ;; remainder function, however based on the documentation things
     ;; seem promising.
-    ['remainder (format "(fp.rem ~a)" arg-list)]
-    ['fmax (format "(fp.max ~a)" arg-list)]
-    ['fmin (format "(fp.min ~a)" arg-list)]
-    ['trunc (format "(fp.roundToIntegral ~a ~a)" (rm->smt 'toZero) arg-list)]
-    ['round (format "(fp.roundToIntegral ~a ~a)" (rm->smt 'nearestAway) arg-list)]
-    ['nearbyint (format "(fp.roundToIntegral ~a ~a)" (rm->smt rm) arg-list)]
+    ['remainder "(fp.rem ~a ~a)"]
+    ['fmax "(fp.max ~a ~a)"]
+    ['fmin "(fp.min ~a ~a)"]
+    ['trunc (format "(fp.roundToIntegral ~a ~~a)" (rm->smt 'toZero))]
+    ['round (format "(fp.roundToIntegral ~a ~~a)" (rm->smt 'nearestAway))]
+    ['nearbyint (format "(fp.roundToIntegral ~a ~~a)" (rm->smt rm))]
     ;; Comparisons and logical ops take one format argument,
     ;; which is a pre-concatenated string of inputs.
-    ['< (format "(fp.lt ~a)" arg-list)]
-    ['> (format "(fp.gt ~a)" arg-list)]
-    ['<= (format "(fp.leq ~a)" arg-list)]
-    ['>= (format "(fp.geq ~a)" arg-list)]
-    ['== (format "(fp.eq ~a)" arg-list)]
+    ['< "(fp.lt ~a)"]
+    ['> "(fp.gt ~a)"]
+    ['<= "(fp.leq ~a)"]
+    ['>= "(fp.geq ~a)"]
+    ['== "(fp.eq ~a)"]
     ;['!= ""] ;; needs special logic
-    ['and (format "(and ~a)" arg-list)]
-    ['or (format "(or ~a)" arg-list)]
-    ['not (format "(not ~a)" arg-list)]
+    ['and "(and ~a)"]
+    ['or "(or ~a)"]
+    ['not "(not ~a)"]
     ;['isfinite ""] ;; needs special logic to avoid computing inner expression twice
-    ['isinf (format "(fp.isInfinite ~a)" arg-list)]
-    ['isnan (format "(fp.isNaN ~a)" arg-list)]
-    ['isnormal (format "(fp.isNormal ~a)" arg-list)]
-    ['signbit (format "(fp.isNegative ~a)" arg-list)]))
+    ['isinf "(fp.isInfinite ~a)"]
+    ['isnan "(fp.isNaN ~a)"]
+    ['isnormal "(fp.isNormal ~a)"]
+    ['signbit "(fp.isNegative ~a)"]))
+
+
+
+(define (application->smt operator args ctx)
+  (define rm (dict-ref ctx ':round 'nearestEven))
+  (match (cons operator args)
+    [(list (or '< '> '<= '>= '== 'and 'or) args ...)
+     (format (operator->smt operator rm)
+             (string-join
+              (for/list ([a args]) (format "~a" a))
+              " "))]
+    [(list '!= args ...)
+     (format "(and ~a)"
+             (string-join
+              (let loop ([args args])
+                (if (null? args)
+                    '()
+                    (append
+                     (for/list ([b (cdr args)])
+                       (format "(not (fp.eq ~a ~a))" (car args) b))
+                     (loop (cdr args)))))
+              " "))]
+    [(list '- a)
+     (format "(fp.neg ~a)" a)]
+    [(list (? operator? op) args ...)
+     (apply format (operator->smt op rm) args)]))
 
 (define (declaration->smt var val)
   (format "(~a ~a)" var val))
 
 (define (block->smt name indent)
   (match name
-    ['let   "(let (~a) ~a)"]
     ['if    "(ite ~a ~a ~a)"]
+    ['let   "(let (~a) ~a)"]
     [_ (error 'block->smt "Unsupported block ~a" name)]))
 
-(define (function->smt name args body ctx)
+(define (function->smt name args body ctx names)
   (define type-str (fptype (dict-ref ctx ':precision 'binary64)))
   (define arg-strings
     (for/list ([var args])
@@ -162,7 +185,7 @@
           type-str
           body))
 
-(define smt-language (functional "smt" smt-fix-name operator->smt constant->smt declaration->smt block->smt function->smt))
+(define smt-language (functional "smtlib2" smt-fix-name application->smt constant->smt declaration->smt block->smt function->smt))
 
 ;;; Exports
 

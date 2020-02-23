@@ -45,7 +45,7 @@
 (define (round->c val ctx) (format "~a" val)) ; round(val) = val
 
 (define (function->c name args arg-ctx body return ctx vars)
-  (define type (type->c ))
+  (define type (type->c (dict-ref ctx ':precision 'binary64)))
   (format "~a ~a(~a) {\n~a\treturn ~a;\n}\n"
           type name
           (string-join

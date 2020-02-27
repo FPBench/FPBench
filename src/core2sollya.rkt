@@ -106,11 +106,11 @@
         (for/list ([var args] [cx arg-ctx] #:unless (equal? (precision-str (dict-ref cx ':precision 'real)) "real"))
           (format "\t~a = ~a;" var (round->sollya var cx)))))
   (define decl-list
-    (set-subtract vars args))
+    (set-subtract vars (set-add args name)))
 
   (define var-string
     (if (> (length decl-list) 0)
-        (format "\n\tvar ~a;" (string-join decl-list ", "))
+        (format "\n\tvar ~a;" (string-join (map (λ (x) (format "~a" x)) decl-list) ", "))
         ""))
   (define rounding-string
     (if (> (length arg-rounding) 0)

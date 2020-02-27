@@ -8,23 +8,13 @@
   (invert-const-list '())
   '(binary32 binary64)))
 
-(define bad-chars (regexp "^[0-9]+|[^a-z0-9]+"))
-
-(define var-counter (box 1))
-(define (fix-name name names)
-  (define name* (if (symbol? name) (symbol->string name) name))
-  (if (dict-has-key? names name)
-      (dict-ref names name name*)
-      (let ([shortened (regexp-replace* bad-chars name* "")])
-        (if (string=? name* shortened)
-            (begin
-              (dict-set names name name*)
-              name*)
-            (let* ([counter (unbox var-counter)]
-                   [uniquified (string-append shortened "VAR" (number->string counter))])
-              (set-box! var-counter (+ counter 1))
-              (dict-set names name uniquified)
-              uniquified)))))
+(define (fix-name name)
+  (string-join
+   (for/list ([char (~a name)])
+     (if (regexp-match #rx"[a-zA-Z0-9]" (string char))
+         (string char)
+         (format "$~a$" (char->integer char))))
+   ""))
 
 (define (number->wls x)
   (match x
@@ -179,9 +169,9 @@
 (define (function->wls name args body ctx names)
   (define arg-strings
     (for/list ([var args])
-      (format "~a_" (fix-name (if (list? var) (car var) var) names))))
-  (format "~a[~a] :=\n~a\n"
-          (fix-name name names)
+      (format "~a_" (if (list? var) (car var) var))))
+  (format "~a[~a] := ~a\n"
+          name
           (string-join arg-strings ", ")
           body))
 
@@ -189,5 +179,5 @@
 
 ;;; Exports
 
-(define (core->wls prog name) (parameterize ([*func-lang*  wls-language]) (core->functional prog name)))
+(define (core->wls prog name) (parameterize ([*func-lang*  wls-language] [gensym-dividing-char #\$]) (core->functional prog name)))
 (define-compiler '("wl" "wls") (const "") core->wls (const "") wls-supported)

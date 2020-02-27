@@ -1,6 +1,6 @@
 #lang racket
 
-(require "common.rkt")
+(require "common.rkt" "compilers.rkt")
 (provide convert-core *lang* language)
 
 ;;; Abstraction for different languages
@@ -33,19 +33,7 @@
 
 ;;; Compiler for imperative languages
 
-(define *names* (make-parameter (mutable-set)))
-
-(define (gensym name)
-  (define prefixed
-    (filter (λ (x) (string-prefix? (~a x) (~a name))) (set->list (*names*))))
-  (define options
-    (cons name (for/list ([_ prefixed] [i (in-naturals)]) (string->symbol (format "~a_~a" name (+ i 1))))))
-  (define name*
-    (last (set-subtract options prefixed)))
-  (set-add! (*names*) name*)
-  name*)
-
-(define (fix-name name)
+(define (fix-name name) ;; Common fix-name
   (string-join
    (for/list ([char (~a name)])
      (if (regexp-match #rx"[a-zA-Z0-9_]" (string char))
@@ -87,12 +75,12 @@
   ;; Takes in an expression. Returns an expression and a new set of names
   (match expr
     [`(let ([,vars ,vals] ...) ,body)
-     (define vars* (map gensym vars))
+     (define vars* (map (λ (var) (gensym var fix-name)) vars))
      (for ([var vars] [var* vars*] [val vals])
        (printf "~a~a\n" indent
                (convert-declaration
                 ctx
-                (fix-name var*)
+                var*
                 (convert-expr val #:names names #:ctx ctx #:indent indent))))
      (define names*
        (for/fold ([names* names]) ([var vars] [var* vars*])
@@ -102,67 +90,67 @@
     [`(let* ([,vars ,vals] ...) ,body)
      (define names*
        (for/fold ([names* names]) ([var vars] [val vals])
-         (define var* (gensym var))
+         (define var* (gensym var fix-name))
          (printf "~a~a\n" indent
                  (convert-declaration
                   ctx
-                  (fix-name var*)
+                  var*
                   (convert-expr val #:names names* #:ctx ctx #:indent indent)))
          (dict-set names* var var*)))
      (convert-expr body #:names names* #:ctx ctx #:indent indent)]
 
     [`(if ,cond ,ift ,iff)
      (define test (convert-expr cond #:names names #:ctx ctx #:indent indent))
-     (define outvar (gensym 'temp))
+     (define outvar (gensym 'temp fix-name))
       ; Sollya has slightly different if
      (if (equal? ((language-name (*lang*))) "sollya")
          (printf "~aif (~a) then {\n" indent test)
-         (printf "~a~a\n~aif (~a) {\n" indent (convert-declaration ctx (fix-name outvar)) indent test))
+         (printf "~a~a\n~aif (~a) {\n" indent (convert-declaration ctx outvar) indent test))
      (printf "~a\t~a\n" indent
              (convert-assignment
-              (fix-name outvar)
+              outvar
               (convert-expr ift #:names names #:ctx ctx #:indent (format "~a\t" indent))))
      (printf "~a} else {\n" indent)
      (printf "~a\t~a\n" indent
              (convert-assignment
-              (fix-name outvar)
+              outvar
               (convert-expr iff #:names names #:ctx ctx #:indent (format "~a\t" indent))))
      (printf "~a}~a\n" indent (if (equal? ((language-name (*lang*))) "sollya") ";" ""))
-     (fix-name outvar)]
+     outvar]
 
     [`(while ,cond ([,vars ,inits ,updates] ...) ,retexpr)
-     (define vars* (map gensym vars))
+     (define vars* (map (λ (var) (gensym var fix-name)) vars))
      (for ([var vars] [var* vars*] [val inits])
        (printf "~a~a\n" indent
                (convert-declaration
                 ctx
-                (fix-name var*)
+                var*
                 (convert-expr val #:names names #:ctx ctx #:indent indent))))
      (define names*
        (for/fold ([names* names]) ([var vars] [var* vars*])
          (dict-set names* var var*)))
-     (define test-var (gensym 'test))
+     (define test-var (gensym 'test fix-name))
      (printf "~a~a\n" indent
              (convert-declaration
               (apply hash-set* ctx '(:precision boolean))
-              (fix-name test-var)
+              test-var
               (convert-expr cond #:names names* #:ctx ctx #:indent indent)))
      ; Sollya has slightly different while
      (if (equal? ((language-name (*lang*))) "sollya")
-         (printf "~awhile (~a) do {\n" indent (fix-name test-var))
-         (printf "~a~a (~a) {\n" indent (while-name) (fix-name test-var)))
-     (define temp-vars (map gensym vars))
+         (printf "~awhile (~a) do {\n" indent test-var)
+         (printf "~a~a (~a) {\n" indent (while-name) test-var))
+     (define temp-vars (map (λ (var) (gensym var fix-name)) vars))
      (for ([temp-var temp-vars] [update updates])
        (printf "~a\t~a\n" indent
                (convert-declaration
                 ctx
-                (fix-name temp-var)
+                temp-var
                 (convert-expr update #:names names* #:ctx ctx #:indent (format "~a\t" indent)))))
      (for ([var* vars*] [temp-var temp-vars])
-       (printf "~a\t~a\n" indent (convert-assignment (fix-name var*) (fix-name temp-var))))
+       (printf "~a\t~a\n" indent (convert-assignment var* temp-var)))
      (printf "~a\t~a\n" indent
              (convert-assignment
-              (fix-name test-var)
+             test-var
               (convert-expr cond #:names names* #:ctx ctx #:indent (format "~a\t" indent))))
      (printf "~a}~a\n" indent (if (equal? ((language-name (*lang*))) "sollya") ";" ""))
      (convert-expr retexpr #:names names* #:ctx ctx #:indent indent)]
@@ -170,32 +158,32 @@
     [`(while* ,cond ([,vars ,inits ,updates] ...) ,retexpr)
      (define-values (vars* names*)
        (for/fold ([vars* '()] [names* names]) ([var vars] [val inits])
-         (define var* (gensym var))
+         (define var* (gensym var fix-name))
          (printf "~a~a\n" indent
                  (convert-declaration
                   ctx
-                  (fix-name var*)
+                  var*
                   (convert-expr val #:names names #:ctx ctx #:indent indent)))
          (values (cons var* vars*) (dict-set names* var var*))))
      (set! vars* (reverse vars*))
-     (define test-var (gensym 'test))
+     (define testvar (gensym 'test fix-name))
      (printf "~a~a\n" indent
              (convert-declaration
               (apply hash-set* ctx '(:precision boolean))
-              (fix-name test-var)
+              testvar
               (convert-expr cond #:names names* #:ctx ctx #:indent indent)))
      ; Sollya has slightly different while*
      (if (equal? ((language-name (*lang*))) "sollya")
-         (printf "~awhile (~a) do {\n" indent (fix-name test-var))
-         (printf "~a~a (~a) {\n" indent (while-name) (fix-name test-var)))
+         (printf "~awhile (~a) do {\n" indent testvar)
+         (printf "~a~a (~a) {\n" indent (while-name) testvar))
      (for ([var* vars*] [update updates])
        (printf "~a\t~a\n" indent
                (convert-assignment
-                (fix-name var*)
+                var*
                 (convert-expr update #:names names* #:ctx ctx #:indent (format "~a\t" indent)))))
      (printf "~a\t~a\n" indent
              (convert-assignment
-              (fix-name test-var)
+              testvar
               (convert-expr cond #:names names* #:ctx ctx #:indent (format "~a\t" indent))))
      (printf "~a}~a\n" indent (if (equal? ((language-name (*lang*))) "sollya") ";" ""))
      (convert-expr retexpr #:names names* #:ctx ctx #:indent indent)]
@@ -212,7 +200,7 @@
     [(? number?)
      (convert-constant ctx expr)]
     [(? symbol?)
-     (fix-name (dict-ref names expr expr))]))
+     (dict-ref names expr expr)]))
 
 (define (convert-core prog name)
   (match-define (list 'FPCore (list args ...) props ... body) prog)
@@ -220,22 +208,16 @@
   (define ctx (apply hash-set* #hash() (append '(:precision binary64 :round nearestEven) props)))
 
   (define-values (arg-names arg-ctxs)
-    (for/lists (l1 l2) ([var args])
+    (for/lists (_ __) ([var args])
       (match var
-        [(list '! props ... name) (values name (apply hash-set* ctx props))]
-        [name (values name ctx)])))
+        [(list '! props ... name) (values (gensym name fix-name) (apply hash-set* ctx props))]
+        [name (values (gensym name fix-name) ctx)])))
 
-  (define-values (body-out return-out vars-used) 
+  (define-values (func-name body-out return-out vars-used) 
     (let ([p (open-output-string)])
       (parameterize ([current-output-port p] [*names* (apply mutable-set arg-names)])
+        (define name* (gensym name fix-name))
         (define out (convert-expr body #:ctx ctx))
-        (values (get-output-string p) out (set->list (*names*))))))
+        (values name* (get-output-string p) out (set->list (*names*))))))
 
-  (convert-function
-   (fix-name name)
-   (map fix-name arg-names)
-   arg-ctxs
-   body-out
-   return-out
-   ctx
-   (map fix-name vars-used)))
+  (convert-function func-name arg-names arg-ctxs body-out return-out ctx vars-used))

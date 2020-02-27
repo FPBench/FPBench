@@ -23,10 +23,6 @@
        [_ (string char)]))
    ""))
 
-; external use in functional.rkt
-(define (smt-fix-name name names)
-  (fix-name name))
-
 (define/match (fpbits type)
   [('binary16) (values 5 11)]
   [('binary32) (values 8 24)]
@@ -178,14 +174,14 @@
   (define type-str (fptype (dict-ref ctx ':precision 'binary64)))
   (define arg-strings
     (for/list ([var args])
-      (format "(~a ~a)" (fix-name (if (list? var) (car var) var)) type-str)))
+      (format "(~a ~a)" (if (list? var) (car var) var) type-str)))
   (format "(define-fun ~a (~a) ~a\n ~a)"
-          (fix-name name)
+          name
           (string-join arg-strings " ")
           type-str
           body))
 
-(define smt-language (functional "smtlib2" smt-fix-name application->smt constant->smt declaration->smt block->smt function->smt))
+(define smt-language (functional "smtlib2" fix-name application->smt constant->smt declaration->smt block->smt function->smt))
 
 ;;; Exports
 

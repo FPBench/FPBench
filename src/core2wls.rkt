@@ -159,12 +159,35 @@
 (define (declaration->wls var val)
   (format "~a = ~a" var val))
 
+(define (let->wls decls body indent)
+  (format "With[{~a}, ~a]" decls body))
+
+(define (if->wls cond ift iff indent)
+  (format "If[~a, ~a, ~a]" cond ift iff))
+
+(define (while->wls vars inits cond updates updatevars body loop indent)
+  (format "Block[{~a}, While[~a, With[{~a}, ~a]]; ~a]"
+          (string-join
+            (for/list ([var vars] [val inits])
+              (declaration->wls var val))
+            ", ")
+          cond
+          (string-join
+            (for/list ([var updatevars] [val updates])
+              (declaration->wls var val))
+            ", ")
+          (string-join
+            (for/list ([var vars] [val updatevars])
+              (declaration->wls var val))
+            ", ")
+          body))
+          
 (define (block->wls name indent)
   (match name
-    ['if "If[~a, ~a, ~a]"]
-    ['let "With[{~a}, ~a]"]
-    ['while "Block[{~a}, While[~a, With[{~a}, ~a]]; ~a]"]
-    [_ (error 'block->smt "Unsupported block ~a" name)]))
+    ['if ""]
+    ['let ""]
+    ['while ""]
+    [_ (error 'block->wls "Unsupported block ~a" name)]))
 
 (define (function->wls name args body ctx names)
   (define arg-strings
@@ -175,7 +198,7 @@
           (string-join arg-strings ", ")
           body))
 
-(define wls-language (functional "wls" fix-name application->wls constant->wls declaration->wls block->wls function->wls))
+(define wls-language (functional "wls" fix-name application->wls constant->wls declaration->wls let->wls if->wls while->wls function->wls))
 
 ;;; Exports
 

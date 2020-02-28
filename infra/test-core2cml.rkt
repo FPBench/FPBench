@@ -17,7 +17,7 @@
         (if (zero? N) "()"
           (string-join (map (curry format "arg~a") (range N)) " ")))
       (fprintf p "print_int (Word64.toInt res)\nend;\n\nmain ();")))
-  (system (format "cake <~a >~a" test-file s-file))
+  (system (format "cake <~a >~a --reg_alg=0" test-file s-file))
   (system (format "cc $CAKEML_BASE/basis_ffi.o ~a -o ~a" s-file cake-file))
   cake-file)
 

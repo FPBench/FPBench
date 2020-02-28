@@ -156,16 +156,16 @@
      (convert-expr retexpr #:names names* #:ctx ctx #:indent indent)]
 
     [`(while* ,cond ([,vars ,inits ,updates] ...) ,retexpr)
-     (define-values (vars* names*)
-       (for/fold ([vars* '()] [names* names]) ([var vars] [val inits])
-         (define var* (gensym var fix-name))
-         (printf "~a~a\n" indent
-                 (convert-declaration
-                  ctx
-                  var*
-                  (convert-expr val #:names names #:ctx ctx #:indent indent)))
-         (values (cons var* vars*) (dict-set names* var var*))))
-     (set! vars* (reverse vars*))
+     (define vars* (map (λ (var) (gensym var fix-name)) vars))
+     (for ([var vars] [var* vars*] [val inits])
+       (printf "~a~a\n" indent
+               (convert-declaration
+                ctx
+                var*
+                (convert-expr val #:names names #:ctx ctx #:indent indent))))
+     (define names*
+       (for/fold ([names* names]) ([var vars] [var* vars*])
+         (dict-set names* var var*)))
      (define testvar (gensym 'test fix-name))
      (printf "~a~a\n" indent
              (convert-declaration
@@ -200,24 +200,28 @@
     [(? number?)
      (convert-constant ctx expr)]
     [(? symbol?)
-     (dict-ref names expr expr)]))
+     (dict-ref names expr (symbol->string expr))]))
 
 (define (convert-core prog name)
   (match-define (list 'FPCore (list args ...) props ... body) prog)
   (define-values (_ properties) (parse-properties props))
   (define ctx (apply hash-set* #hash() (append '(:precision binary64 :round nearestEven) props)))
 
-  (define-values (arg-names arg-ctxs)
-    (for/lists (_ __) ([var args])
-      (match var
-        [(list '! props ... name) (values (gensym name fix-name) (apply hash-set* ctx props))]
-        [name (values (gensym name fix-name) ctx)])))
+  (parameterize ([*names* (mutable-set)])
+    (define-values (arg-names arg-ctxs)
+      (for/lists (_ __) ([var args])
+        (match var
+          [(list '! props ... name) (values (gensym name fix-name) (apply hash-set* ctx props))]
+          [name (values (gensym name fix-name) ctx)])))  
 
-  (define-values (func-name body-out return-out vars-used) 
-    (let ([p (open-output-string)])
-      (parameterize ([current-output-port p] [*names* (apply mutable-set arg-names)])
-        (define name* (gensym name fix-name))
-        (define out (convert-expr body #:ctx ctx))
-        (values name* (get-output-string p) out (set->list (*names*))))))
+    (define func-name (gensym name fix-name))
+    (define names
+      (for/fold ([names* (make-immutable-hash)]) ([arg args] [arg* arg-names])
+        (dict-set names* arg arg*)))     
 
-  (convert-function func-name arg-names arg-ctxs body-out return-out ctx vars-used))
+    (define-values (body-out return-out) 
+      (let ([p (open-output-string)])
+        (parameterize ([current-output-port p])    
+          (define out (convert-expr body #:ctx ctx #:names names))
+          (values (get-output-string p) out))))
+    (convert-function func-name arg-names arg-ctxs body-out return-out ctx (set->list (*names*)))))

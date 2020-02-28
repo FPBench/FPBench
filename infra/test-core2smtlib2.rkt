@@ -3,13 +3,17 @@
 (require "test-common.rkt" "../src/core2smtlib2.rkt")
 
 (define (translate->smt prog ctx type test-file)
-  (call-with-output-file test-file #:exists 'replace
+    (*prog* (core->smtlib2 prog "f"))
+    test-file)
+
+(define (run<-smt exec-name ctx type)
+  (call-with-output-file exec-name #:exists 'replace
     (lambda (port)
       (define-values (w p)
         (match type
           ['binary32 (values 8 24)]
           ['binary64 (values 11 53)]))
-      (fprintf port "~a\n\n" (core->smtlib2 prog "f"))
+      (fprintf port "~a\n\n" (*prog*))
       (for ([arg ctx] [i (in-naturals)])
         (match-define (cons var value) arg)
         (fprintf port "(define-const arg~a (_ FloatingPoint ~a ~a) ~a)\n"
@@ -22,9 +26,6 @@
                     (for/list ([i (in-range (length ctx))])
                       (format "arg~a" i))
                     " ")))))
-    test-file)
-
-(define (run<-smt exec-name ctx type)
   (define out 
     (with-output-to-string
       (lambda ()

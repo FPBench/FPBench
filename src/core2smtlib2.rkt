@@ -164,11 +164,14 @@
 (define (declaration->smt var val)
   (format "(~a ~a)" var val))
 
-(define (block->smt name indent)
-  (match name
-    ['if    "(ite ~a ~a ~a)"]
-    ['let   "(let (~a) ~a)"]
-    [_ (error 'block->smt "Unsupported block ~a" name)]))
+(define (let->smt decls body indent)
+  (format "(let (~a) ~a)" decls body))
+
+(define (if->smt cond ift iff indent)
+  (format "(ite ~a ~a ~a)" cond ift iff))
+
+(define (while->smt vars inits cond updates updatevars body loop indent)
+  (error 'while->smt "while statements unsupported"))
 
 (define (function->smt name args body ctx names)
   (define type-str (fptype (dict-ref ctx ':precision 'binary64)))
@@ -181,7 +184,7 @@
           type-str
           body))
 
-(define smt-language (functional "smtlib2" fix-name application->smt constant->smt declaration->smt block->smt function->smt))
+(define smt-language (functional "smtlib2" fix-name application->smt constant->smt declaration->smt let->smt if->smt while->smt function->smt))
 
 ;;; Exports
 

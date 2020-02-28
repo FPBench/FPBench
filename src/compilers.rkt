@@ -31,7 +31,7 @@
   (define prefixed
     (filter (λ (x) (string-prefix? (~a x) (~a fixed))) (set->list (*names*))))
   (define options
-    (cons fixed (for/list ([_ prefixed] [i (in-naturals)]) (string->symbol (format "~a~a~a" fixed (gensym-dividing-char) (+ i 1))))))
+    (cons fixed (for/list ([_ prefixed] [i (in-naturals)]) (format "~a~a~a" fixed (gensym-dividing-char) (+ i 1)))))
   (define name*
     (last (set-subtract options prefixed)))
   (set-add! (*names*) name*)

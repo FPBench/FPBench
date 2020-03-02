@@ -123,4 +123,7 @@ testsetup:
 setup:
 	raco make export.rkt transform.rkt
 
+www/benchmarks.jsonp: $(wildcards benchmarks/*.fpcore)
+	racket infra/core2json.rkt --padding load_benchmarks $^
+
 .PHONY: c-sanity c-test fptaylor-sanity fptaylor-test js-sanity js-test smtlib2-sanity smtlib2-test sollya-sanity sollya-test wls-sanity wls-test raco-test sanity test testsetup setup

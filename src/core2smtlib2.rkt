@@ -174,7 +174,7 @@
   (error 'while->smt "while statements unsupported"))
 
 (define (function->smt name args body ctx names)
-  (define type-str (fptype (dict-ref ctx ':precision 'binary64)))
+  (define type-str (fptype (ctx-lookup-prop ctx ':precision 'binary64)))
   (define arg-strings
     (for/list ([var args])
       (format "(~a ~a)" (if (list? var) (car var) var) type-str)))
@@ -188,5 +188,5 @@
 
 ;;; Exports
 
-(define (core->smtlib2 prog name) (parameterize ([*func-lang*  smt-language]) (core->functional prog name)))
+(define (core->smtlib2 prog name) (parameterize ([*func-lang*  smt-language] [*gensym-unique* #f]) (core->functional prog name)))
 (define-compiler '("smt" "smt2" "smtlib" "smtlib2") (const "") core->smtlib2 (const "") smt-supported)

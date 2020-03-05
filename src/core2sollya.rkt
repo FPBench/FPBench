@@ -42,57 +42,57 @@
     ['toZero "RZ"]
     [_ (error 'round->sollya "Unsupported rounding mode ~a" rm)]))
 
-(define (round->sollya expr ctx)
-  (let ([prec (precision-str (dict-ref ctx ':precision 'real))]
-        [rm (round-str (dict-ref ctx ':round 'nearestEven))])
+(define (round->sollya expr props)
+  (let ([prec (precision-str (dict-ref props ':precision 'real))]
+        [rm (round-str (dict-ref props ':round 'nearestEven))])
     (if (equal? prec "real")
         expr
         (format "round(~a, ~a, ~a)" expr prec rm))))
 
-(define (operator->sollya ctx op args)
+(define (operator->sollya props op args)
   (match (cons op args)
-    [(list 'fabs a)       (round->sollya (format "abs(~a)" a) ctx)]
-    [(list 'fmax a b)     (round->sollya (format "max(~a, ~a)" a b) ctx)]
-    [(list 'fmin a b)     (round->sollya (format "min(~a, ~a)" a b) ctx)]
-    [(list 'fma a b c)    (round->sollya (format "((~a * ~a) + ~a)" a b c) ctx)]
-    [(list 'exp2 a)       (round->sollya (format "(2 ^ ~a)" a) ctx)]
-    [(list 'pow a b)      (round->sollya (format "(~a ^ ~a)" a b) ctx)]
-    [(list 'cbrt a)       (round->sollya (format "(~a ^ (1/3))" a) ctx)]
-    [(list 'hypot a b)    (round->sollya (format "sqrt((~a ^ 2) + (~a ^ 2))" a b) ctx)]
-    [(list 'atan2 a b)    (round->sollya (format "atan(~a / ~a)" a b) ctx)]
+    [(list 'fabs a)       (round->sollya (format "abs(~a)" a) props)]
+    [(list 'fmax a b)     (round->sollya (format "max(~a, ~a)" a b) props)]
+    [(list 'fmin a b)     (round->sollya (format "min(~a, ~a)" a b) props)]
+    [(list 'fma a b c)    (round->sollya (format "((~a * ~a) + ~a)" a b c) props)]
+    [(list 'exp2 a)       (round->sollya (format "(2 ^ ~a)" a) props)]
+    [(list 'pow a b)      (round->sollya (format "(~a ^ ~a)" a b) props)]
+    [(list 'cbrt a)       (round->sollya (format "(~a ^ (1/3))" a) props)]
+    [(list 'hypot a b)    (round->sollya (format "sqrt((~a ^ 2) + (~a ^ 2))" a b) props)]
+    [(list 'atan2 a b)    (round->sollya (format "atan(~a / ~a)" a b) props)]
     [(list 'nearbyint a)  
-        (let ([rm (round-str (dict-ref ctx ':round 'nearestEven))])
+        (let ([rm (round-str (dict-ref props ':round 'nearestEven))])
           (if (equal? rm "RN")
-              (round->sollya (format "nearestint(~a)" a) ctx)
+              (round->sollya (format "nearestint(~a)" a) props)
               (error 'application->sollya "Unsupported rounding mode ~a for nearbyint" rm)))]
     [(list (or 'isnan 'isinf 'isfinite 'signbit) a)
         (format "~a(~a)" op a)]
     [(list (? operator? f) args ...)
-        (round->sollya (format "~a(~a)" f (string-join args ", ")) ctx)]))
+        (round->sollya (format "~a(~a)" f (string-join args ", ")) props)]))
 
-(define (constant->sollya ctx expr)
+(define (constant->sollya props expr)
   (match expr
-    ['E (round->sollya "exp(1)" ctx)]
-    ['LOG2E (round->sollya "log2(exp(1))" ctx)]
-    ['LOG10E (round->sollya "log10(exp(1))" ctx)]
-    ['LN2 (round->sollya "log(2)" ctx)]
-    ['LN10 (round->sollya "log(10)" ctx)]
-    ['PI (round->sollya "pi" ctx)]
-    ['PI_2 (round->sollya "(pi/2)" ctx)]
-    ['PI_4 (round->sollya "(pi/4)" ctx)]
-    ['M_1_PI (round->sollya "(1/pi)" ctx)]
-    ['M_2_PI (round->sollya "(2/pi)" ctx)]
-    ['M_2_SQRTPI (round->sollya "(2/sqrt(pi))" ctx)]
-    ['SQRT2 (round->sollya "sqrt(2)" ctx)]
-    ['SQRT1_2 (round->sollya "sqrt(1/2)" ctx)]
+    ['E (round->sollya "exp(1)" props)]
+    ['LOG2E (round->sollya "log2(exp(1))" props)]
+    ['LOG10E (round->sollya "log10(exp(1))" props)]
+    ['LN2 (round->sollya "log(2)" props)]
+    ['LN10 (round->sollya "log(10)" props)]
+    ['PI (round->sollya "pi" props)]
+    ['PI_2 (round->sollya "(pi/2)" props)]
+    ['PI_4 (round->sollya "(pi/4)" props)]
+    ['M_1_PI (round->sollya "(1/pi)" props)]
+    ['M_2_PI (round->sollya "(2/pi)" props)]
+    ['M_2_SQRTPI (round->sollya "(2/sqrt(pi))" props)]
+    ['SQRT2 (round->sollya "sqrt(2)" props)]
+    ['SQRT1_2 (round->sollya "sqrt(1/2)" props)]
     ['TRUE "true"]
     ['FALSE "false"]
     ['INFINITY "infty"]
     ['NAN "nan"]
     [(? symbol?) expr]
-    [(? number?) (round->sollya (format "~a" expr) ctx)]))
+    [(? number?) (round->sollya (format "~a" expr) props)]))
 
-(define (declaration->sollya ctx var [val #f])
+(define (declaration->sollya props var [val #f])
   (if val
     (format "var ~a = ~a;" var val)
     (format "var ~a;" var)))
@@ -100,11 +100,12 @@
 (define (assignment->sollya var val)
   (format "~a = ~a;" var val))
 
-(define (function->sollya name args arg-ctx body return ctx vars)
+(define (function->sollya name args arg-props body return ctx vars)
   (define arg-rounding
     (filter (compose not void?)
-        (for/list ([var args] [cx arg-ctx] #:unless (equal? (precision-str (dict-ref cx ':precision 'real)) "real"))
-          (format "\t~a = ~a;" var (round->sollya var cx)))))
+        (for/list ([var args] [prop arg-props] 
+                  #:unless (equal? (precision-str (dict-ref prop ':precision 'real)) "real"))
+          (format "\t~a = ~a;" var (round->sollya var prop)))))
   (define decl-list
     (set-subtract vars (set-add args name)))
 

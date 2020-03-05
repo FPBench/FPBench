@@ -20,12 +20,12 @@
   [('binary80) "long double"]
   [('boolean) "int"])
 
-(define (operator->c ctx operator args)
-  (define type (type->c (dict-ref ctx ':precision 'binary64)))
+(define (operator->c props operator args)
+  (define type (type->c (dict-ref props ':precision 'binary64)))
   (format "~a~a(~a)" operator (type->c-suffix type) (string-join args ", ")))
 
-(define (constant->c ctx expr)
-  (define type (type->c (dict-ref ctx ':precision 'binary64)))
+(define (constant->c props expr)
+  (define type (type->c (dict-ref props ':precision 'binary64)))
   (match expr
     [(or 'M_1_PI 'M_2_PI 'M_2_SQRTPI 'TRUE 'FALSE 'INFINITY 'NAN)
      (format "((~a) ~a)" type expr)]
@@ -33,8 +33,8 @@
     [(? number?)
      (format "~a~a" (real->double-flonum expr) (type->c-suffix type))]))
 
-(define (declaration->c ctx var [val #f])
-  (define type (type->c (dict-ref ctx ':precision 'binary64)))
+(define (declaration->c props var [val #f])
+  (define type (type->c (dict-ref props ':precision 'binary64)))
   (if val
       (format "~a ~a = ~a;" type var val)
       (format "~a ~a;" type var)))
@@ -42,10 +42,10 @@
 (define (assignment->c var val)
   (format "~a = ~a;" var val))
 
-(define (round->c val ctx) (format "~a" val)) ; round(val) = val
+(define (round->c val props) (format "~a" val)) ; round(val) = val
 
-(define (function->c name args arg-ctx body return ctx vars)
-  (define type (type->c (dict-ref ctx ':precision 'binary64)))
+(define (function->c name args arg-props body return ctx vars)
+  (define type (type->c (ctx-lookup-prop ctx ':precision 'binary64)))
   (format "~a ~a(~a) {\n~a\treturn ~a;\n}\n"
           type name
           (string-join

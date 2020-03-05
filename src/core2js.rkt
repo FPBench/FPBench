@@ -15,7 +15,7 @@
 
 (define (type->js type) "var")
 
-(define (operator->js ctx op args)
+(define (operator->js props op args)
   (define arg-list (string-join args ", "))
   (match op
     ['fabs  (format "~a.abs(~a)" (js-runtime) arg-list)]
@@ -25,7 +25,7 @@
     ['isnan (format "isNaN(~a)" arg-list)]
     [_      (format "~a.~a(~a)" (js-runtime) op arg-list)]))
 
-(define (constant->js ctx expr)
+(define (constant->js props expr)
   (match expr
     ['E "Math.E"]
     ['LOG2E "Math.LOG2E"]
@@ -48,7 +48,7 @@
     [(? symbol?) expr]
     [(? number?) (format "~a" (real->double-flonum expr))]))
 
-(define (decleration->js ctx var [val #f])
+(define (decleration->js props var [val #f])
   (if val
     (format "var ~a = ~a;" var val)
     (format "var ~a;" var)))
@@ -56,9 +56,9 @@
 (define (assignment->js var val)
   (format "~a = ~a;" var val))
 
-(define (round->js val ctx) (format "~a" val)) ; round(val) = val
+(define (round->js val props) (format "~a" val)) ; round(val) = val
 
-(define (function->js name args arg-ctx body return ctx vars)
+(define (function->js name args arg-props body return ctx vars)
   (format "function ~a(~a) {\n~a\treturn ~a;\n}\n"
           name 
           (string-join args ", ") 

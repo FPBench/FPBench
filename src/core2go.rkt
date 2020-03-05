@@ -16,7 +16,7 @@
   [('binary32) "float32"]
   [('boolean) "bool"])
 
-(define (operator->go ctx operator args)
+(define (operator->go props operator args)
   (let ([arg-list (string-join args ", ")])
     (match operator
       [(or 'fabs 'fmax 'fmin 'fdim)
@@ -29,8 +29,8 @@
            'remainder 'copysign 'trunc 'round)
        (format "math.~a(~a)" (string-titlecase (~a operator)) arg-list)])))
 
-(define (constant->go ctx expr)
-  (define type (type->go (dict-ref ctx ':precision 'binary64)))
+(define (constant->go props expr)
+  (define type (type->go (dict-ref props ':precision 'binary64)))
   (match expr
     ['TRUE "true"]
     ['FALSE "false"]
@@ -44,8 +44,8 @@
      (format "((~a) Math.~a)" type name)]
     [(? number?) (~a (real->double-flonum expr))]))
 
-(define (declaration->go ctx var [val #f])
-  (define type (type->go (dict-ref ctx ':precision 'binary64)))
+(define (declaration->go props var [val #f])
+  (define type (type->go (dict-ref props ':precision 'binary64)))
   (if val
       (format "var ~a = ~a(~a)" var type val)
       (format "var ~a ~a" var type)))
@@ -53,10 +53,10 @@
 (define (assignment->go var val)
   (format "~a = ~a" var val))
 
-(define (round->go val ctx) (format "~a" val)) ; round(val) = val
+(define (round->go val props) (format "~a" val)) ; round(val) = val
 
-(define (function->go name args arg-ctx body return ctx vars)
-  (define type (type->go (dict-ref ctx ':precision 'binary64)))
+(define (function->go name args arg-props body return ctx vars)
+  (define type (type->go (ctx-lookup-prop ctx ':precision 'binary64)))
   (format "func ~a(~a) ~a {\n~a\treturn ~a;\n}\n"
           name
           (string-join

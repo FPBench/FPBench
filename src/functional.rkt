@@ -12,10 +12,10 @@
   ((functional-fix-name (*func-lang*)) name))
 
 (define (convert-constant expr ctx)
-  ((functional-constant (*func-lang*)) expr ctx))
+  ((functional-constant (*func-lang*)) expr (ctx-props ctx)))
 
 (define (convert-operator op args ctx)
-  ((functional-operator (*func-lang*)) op args ctx))
+  ((functional-operator (*func-lang*)) op args (ctx-props ctx)))
 
 (define (convert-declaration var val)
   ((functional-declaration (*func-lang*)) var val))
@@ -40,112 +40,113 @@
 
 ;;; Compiler for functional languages
 
-(define (func-gensym name)
-  (if (or (equal? (functional-name (*func-lang*)) "smtlib2"))
-      (fix-name name)  ; smtlib2 does not need to generate new names
-      (gensym name fix-name)))
-
-(define (convert-expr expr #:names [names #hash()] #:ctx [ctx #hash()] #:indent [indent "\t"])
+(define (convert-expr expr #:ctx [ctx (make-compiler-ctx)] #:indent [indent "\t"])
   (match expr
     [`(let ([,vars ,vals] ...) ,body)
-      (define vars* (map func-gensym vars))
-      (define names*
-        (for/fold ([names* names]) ([var vars] [var* vars*])
-          (dict-set names* var var*)))
+      (define-values (ctx* vars* vals*)
+        (for/fold ([ctx* ctx] [vars* '()] [vals* '()]) ([var vars] [val vals])
+          (let-values ([(cx name) (ctx-unique-name ctx* var fix-name)])
+            (values cx (flatten (cons vars* name)) 
+                    (flatten (cons vals* (convert-expr val #:ctx ctx #:indent (format "\t~a" indent))))))))
       (convert-let
         (string-join
           (for/list ([var* vars*] [val vals])
-            (convert-declaration var* (convert-expr val #:names names #:ctx ctx #:indent (format "\t~a" indent))))
+            (convert-declaration var* (convert-expr val #:ctx ctx #:indent (format "\t~a" indent))))
           (declaration-divider (format "\t~a" indent)))
-        (convert-expr body #:names names* #:ctx ctx #:indent (format "\t~a" indent))
+        (convert-expr body #:ctx ctx* #:indent (format "\t~a" indent))
         indent)]
 
     [`(let* ([,vars ,vals] ...) ,body)
-      (define vals*
-        (for/list ([val vals])
-          (convert-expr val #:names names #:ctx ctx #:indent (format "\t~a" indent))))
+      (define-values (ctx* vars* vals*)
+        (for/fold ([ctx* ctx] [vars* '()] [vals* '()]) ([var vars] [val vals])
+          (let-values ([(cx name) (ctx-unique-name ctx* var fix-name)])
+            (values cx (flatten (cons vars* name)) 
+                    (flatten (cons vals* (convert-expr val #:ctx ctx* #:indent (format "\t~a" indent))))))))
       (convert-let
         (string-join
-          (for/list ([var vars] [val vals])
-            (convert-declaration (dict-ref names var var) (convert-expr val #:names names #:ctx ctx #:indent (format "\t~a" indent))))
+          (for/list ([var* vars*] [val* vals*])
+            (convert-declaration var* val*))
           (declaration-divider (format "\t~a" indent)))
-        (convert-expr body #:names names #:ctx ctx #:indent (format "\t~a" indent))
+        (convert-expr body #:ctx ctx* #:indent (format "\t~a" indent))
         indent)]
 
     [`(if ,cond ,ift ,iff)
       (convert-if
-        (convert-expr cond #:names names #:ctx ctx #:indent (format "\t~a" indent))
-        (convert-expr ift #:names names #:ctx ctx #:indent (format "\t~a" indent))
-        (convert-expr iff #:names names #:ctx ctx #:indent (format "\t~a" indent))
+        (convert-expr cond #:ctx ctx #:indent (format "\t~a" indent))
+        (convert-expr ift #:ctx ctx #:indent (format "\t~a" indent))
+        (convert-expr iff #:ctx ctx #:indent (format "\t~a" indent))
         indent)]        
     
     [`(while ,cond ([,vars ,inits ,updates] ...) ,body)
-      (define loop (func-gensym 'loop)) ; CakeML
-      (define vars* (map func-gensym vars))
-      (define vars** (map func-gensym vars*))
-      (define names*
-       (for/fold ([names* names]) ([var vars] [var* vars*])
-         (dict-set names* var var*)))
-      (define vals*
-        (for/list ([val inits])
-            (convert-expr val #:names names #:ctx ctx #:indent (format "\t~a" indent))))
-      (convert-while
-        vars*
-        vals*
-        (convert-expr cond #:names names* #:indent (format "\t~a" indent))
-        (for/list ([update updates])
-            (convert-expr update #:names names #:ctx ctx #:indent (format "\t\t\t\t~a" indent))) ; tabs for CakeML
-        vars**
-        (convert-expr body #:names names* #:ctx ctx #:indent (format "\t\t\t~a" indent))
-        loop
-        indent)]
+      (define loop ; CakeML
+        (let-values ([(cx name) (ctx-unique-name ctx 'loop fix-name)])
+          (set! ctx cx)
+          name))
+      (define-values (ctx* vars* vals*)
+        (for/fold ([ctx* ctx] [vars* '()] [vals* '()]) ([var vars] [val inits])
+          (let-values ([(cx name) (ctx-unique-name ctx* var fix-name)])
+            (values cx (flatten (cons vars* name)) 
+                    (flatten (cons vals* (convert-expr val #:ctx ctx #:indent (format "\t~a" indent))))))))
+      (define cond* (convert-expr cond #:indent (format "\t~a" indent)))
+      (define-values (ctx** vars** updates*)
+        (for/fold ([ctx** ctx*] [vars** '()] [updates* '()]) ([var vars] [val updates])
+          (let-values ([(cx name) (ctx-unique-name ctx** var fix-name)])
+            (values cx (flatten (cons vars** name)) 
+                    (flatten (cons updates* (convert-expr val #:ctx ctx* #:indent (format "\t\t\t\t~a" indent)))))))) ;; tabs for Cake
+      (convert-while 
+          vars* vals* cond* updates* vars**
+          (convert-expr body #:ctx ctx* #:indent (format "\t\t\t~a" indent)) loop indent)]
 
     [`(while* ,cond ([,vars ,inits ,updates] ...) ,body)
-      (define loop (func-gensym 'loop)) ; CakeML
-      (define vars* (map func-gensym vars))
-      (define names*
-       (for/fold ([names* names]) ([var vars] [var* vars*])
-         (dict-set names* var var*)))
-      (define vals*
-        (for/list ([val inits])
-            (convert-expr val #:names names #:ctx ctx #:indent (format "\t~a" indent))))
-      (convert-while
-        vars*
-        vals*
-        (convert-expr cond #:names names* #:indent (format "\t~a" indent))
-        (for/list ([update updates])
-            (convert-expr update #:names names #:ctx ctx #:indent (format "\t\t\t\t~a" indent))) ; tabs for CakeML
-        vars*
-        (convert-expr body #:names names* #:ctx ctx #:indent (format "\t\t\t~a" indent))
-        loop
-        indent)]
+      (define loop ; CakeML
+        (let-values ([(cx name) (ctx-unique-name ctx 'loop fix-name)])
+          (set! ctx cx)
+          name))
+      (define-values (ctx* vars* vals*)
+        (for/fold ([ctx* ctx] [vars* '()] [vals* '()]) ([var vars] [val inits])
+          (let-values ([(cx name) (ctx-unique-name ctx* var fix-name)])
+            (values cx (flatten (cons vars* name)) 
+                    (flatten (cons vals* (convert-expr val #:ctx ctx* #:indent (format "\t~a" indent))))))))
+      (define cond* (convert-expr cond #:indent (format "\t~a" indent)))
+      (define-values (ctx** vars** updates*)
+        (for/fold ([ctx** ctx*] [vars** '()] [updates* '()]) ([var vars] [val updates])
+          (let-values ([(cx name) (ctx-unique-name ctx** var fix-name)])
+            (values cx (flatten (cons vars** name)) 
+                    (flatten (cons updates* 
+                      (convert-expr 
+                          val 
+                          #:ctx (if (equal? (functional-name (*func-lang*)) "cml") ctx* ctx**)
+                          #:indent (format "\t\t\t\t~a" indent)))))))) ;; tabs for Cake
+      (convert-while 
+          vars* vals* cond* updates* 
+          (if (equal? (functional-name (*func-lang*)) "cml") vars* vars**)
+          (convert-expr body #:ctx ctx* #:indent (format "\t\t\t~a" indent)) loop indent)]
 
     ;; Ignore all casts and precision contexts
-    [`(cast ,body) (convert-expr body #:names names #:ctx ctx #:indent indent)]
-    [(list '! props ... body) (convert-expr body #:names names #:ctx ctx #:indent indent)]
+    [`(cast ,body) (convert-expr body #:ctx ctx #:indent indent)]
+    [(list '! props ... body) (convert-expr body #:ctx ctx #:indent indent)]
 
     [(list (? operator? operator) args ...)
      (define args_c
-       (map (λ (arg) (convert-expr arg #:names names #:ctx ctx #:indent indent)) args))
+       (map (λ (arg) (convert-expr arg #:ctx ctx #:indent indent)) args))
      (convert-operator operator args_c ctx)] 
     [(list 'digits (? number? m) (? number? e) (? number? b)) (convert-constant expr ctx)] ; WLS
     [(? constant?) (convert-constant expr ctx)]
     [(? number?) (convert-constant expr ctx)]
-    [(? symbol?) (dict-ref names expr expr)]))
+    [(? symbol?) (ctx-lookup-name ctx expr)]))
 
 (define (core->functional prog name)
   (match-define (list 'FPCore (list args ...) props ... body) prog)
-  (define-values (_ properties) (parse-properties props))
-  (define ctx (apply hash-set* #hash() (append '(:precision binary64 :round nearestEven) props)))
+  (define ctx (ctx-update-props (make-compiler-ctx) (append '(:precision binary64 :round nearestEven) props)))
   
-  (parameterize ([*names* (mutable-set)])
-    (define arg-names (map func-gensym args))
-    (define names
-      (for/fold ([names* (make-immutable-hash)]) ([arg args] [arg* arg-names])
-          (dict-set names* arg arg*)))
-    (convert-function
-      (func-gensym name)
-      arg-names
-      (convert-expr body #:ctx ctx #:names names)
-      ctx
-      names)))
+  (parameterize ([*used-names* (mutable-set)] [*gensym-collisions* 1])
+    (define func-name 
+      (let-values ([(cx fname) (ctx-unique-name ctx (string->symbol name) fix-name)])
+        (set! ctx cx)
+        fname))
+    (define-values (ctx* args*)
+      (for/fold ([ctx* ctx] [args* '()]) ([arg args])
+        (let-values ([(cx name) (ctx-unique-name ctx* arg fix-name)])
+          (values cx (flatten (cons args* name))))))  
+
+    (convert-function func-name args* (convert-expr body #:ctx ctx*) ctx* (set->list (*used-names*)))))

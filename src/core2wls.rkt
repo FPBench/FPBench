@@ -4,14 +4,14 @@
 (provide core->wls wls-supported number->wls)
 
 (define wls-supported (supported-list
-  (invert-op-list '(while* let*))
+  (invert-op-list '())
   (invert-const-list '())
   '(binary32 binary64)))
 
 (define (fix-name name)
   (string-join
    (for/list ([char (~a name)])
-     (if (regexp-match #rx"[a-zA-Z0-9]" (string char))
+     (if (regexp-match #rx"[a-zA-Z0-9$]" (string char))
          (string char)
          (format "$~a$" (char->integer char))))
    ""))
@@ -202,5 +202,5 @@
 
 ;;; Exports
 
-(define (core->wls prog name) (parameterize ([*func-lang*  wls-language] [gensym-dividing-char #\$]) (core->functional prog name)))
+(define (core->wls prog name) (parameterize ([*func-lang*  wls-language] [*gensym-divider* #\$]) (core->functional prog name)))
 (define-compiler '("wl" "wls") (const "") core->wls (const "") wls-supported)

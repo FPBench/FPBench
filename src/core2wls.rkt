@@ -4,7 +4,7 @@
 (provide core->wls wls-supported number->wls)
 
 (define wls-supported (supported-list
-  (invert-op-list '())
+  (invert-op-list '(let* while*))
   (invert-const-list '())
   '(binary32 binary64)))
 

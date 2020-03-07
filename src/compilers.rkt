@@ -1,9 +1,9 @@
 #lang racket
 
 (require "fpcore.rkt" "supported.rkt")
-(provide *used-names* *gensym-divider* *gensym-collisions* *gensym-unique*
-          make-compiler-ctx ctx-unique-name ctx-random-name ctx-lookup-name ctx-update-props
-          ctx-lookup-prop ctx-props define-compiler)
+(provide *used-names* *gensym-divider* *gensym-collisions* *gensym-fix-name*
+          make-compiler-ctx  ctx-unique-name ctx-random-name ctx-lookup-name 
+          ctx-update-props ctx-lookup-prop ctx-props define-compiler)
 (provide
   (contract-out
     [struct compiler
@@ -25,21 +25,19 @@
 
 ;;; Compiler contexts
 
-(define *used-names* (make-parameter (mutable-set)))  ; todo - make immutable?
+(define *used-names* (make-parameter (mutable-set)))
 (define *gensym-divider* (make-parameter #\_))
 (define *gensym-collisions* (make-parameter 1))
-(define *gensym-unique* (make-parameter #t))
+(define *gensym-fix-name* (make-parameter (λ (x) (string->symbol x))))
 
 ; Returns a unique, printable name based on the symbol and a fix-name procedure.
-(define (gensym sym fix-name) 
+(define (gensym sym) 
   (define name
-    (if (*gensym-unique*)
-        (for/fold ([gen (fix-name (if (symbol? sym) (symbol->string sym) sym))])
-                  ([i (in-naturals (*gensym-collisions*))]                      
-                  #:break (not (set-member? (*used-names*) gen)))              
-            (*gensym-collisions* (add1 i))                                  
-            (fix-name (format "~a~a~a" sym (*gensym-divider*) i)))
-        (symbol->string sym)))
+    (for/fold ([gen ((*gensym-fix-name*) (if (symbol? sym) (symbol->string sym) sym))])
+              ([i (in-naturals (*gensym-collisions*))]                      
+              #:break (not (set-member? (*used-names*) gen)))              
+        (*gensym-collisions* (add1 i))                                  
+        ((*gensym-fix-name*) (format "~a~a~a" sym (*gensym-divider*) i))))
   (set-add! (*used-names*) name)
   name)
 
@@ -51,15 +49,15 @@
 
 ; Takes a given symbol and a fix-name procedure, maps it to a unique, printable name and returns both
 ; the updated ctx struct and the name
-(define (ctx-unique-name ctx name fix-name)
-  (define unique (gensym name fix-name))
+(define (ctx-unique-name ctx name)
+  (define unique (gensym name))
   (values 
       (compiler-ctx (dict-set (compiler-ctx-name-map ctx) name unique) (compiler-ctx-props ctx))
       unique))
 
 ; Takes a fix-name procedure and returns a "random", unique, printable name that will be unmapped.
-(define (ctx-random-name fix-name)
-  (gensym 'VAR fix-name))
+(define (ctx-random-name)
+  (gensym 'VAR))
 
 ; Returns the unique, printable name currently mapped to by the given symbol.
 ; Returns the stringified version of the symbol otherwise.

@@ -198,9 +198,9 @@
           (string-join arg-strings ", ")
           body))
 
-(define wls-language (functional "wls" fix-name application->wls constant->wls declaration->wls let->wls if->wls while->wls function->wls))
+(define wls-language (functional "wls" application->wls constant->wls declaration->wls let->wls if->wls while->wls function->wls))
 
 ;;; Exports
 
-(define (core->wls prog name) (parameterize ([*func-lang*  wls-language] [*gensym-divider* #\$]) (core->functional prog name)))
+(define (core->wls prog name) (parameterize ([*func-lang*  wls-language] [*gensym-divider* #\$] [*gensym-fix-name* fix-name]) (core->functional prog name)))
 (define-compiler '("wl" "wls") (const "") core->wls (const "") wls-supported)

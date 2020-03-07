@@ -184,9 +184,9 @@
           type-str
           body))
 
-(define smt-language (functional "smtlib2" fix-name application->smt constant->smt declaration->smt let->smt if->smt while->smt function->smt))
+(define smt-language (functional "smtlib2" application->smt constant->smt declaration->smt let->smt if->smt while->smt function->smt))
 
 ;;; Exports
 
-(define (core->smtlib2 prog name) (parameterize ([*func-lang*  smt-language] [*gensym-unique* #f]) (core->functional prog name)))
+(define (core->smtlib2 prog name) (parameterize ([*func-lang*  smt-language] [*gensym-fix-name* fix-name]) (core->functional prog name)))
 (define-compiler '("smt" "smt2" "smtlib" "smtlib2") (const "") core->smtlib2 (const "") smt-supported)

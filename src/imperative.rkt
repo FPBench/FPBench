@@ -77,7 +77,7 @@
     [`(let ([,vars ,vals] ...) ,body)
       (define ctx*
         (for/fold ([ctx* ctx]) ([var vars] [val vals])
-          (let-values ([(cx name) (ctx-unique-name ctx* var fix-name)])
+          (let-values ([(cx name) (ctx-unique-name ctx* var)])
             (printf "~a~a\n" indent
                 (convert-declaration cx name (convert-expr val #:ctx ctx #:indent indent)))        
             cx)))
@@ -86,7 +86,7 @@
     [`(let* ([,vars ,vals] ...) ,body)
       (define ctx*
         (for/fold ([ctx* ctx]) ([var vars] [val vals])
-          (let-values ([(cx name) (ctx-unique-name ctx* var fix-name)])
+          (let-values ([(cx name) (ctx-unique-name ctx* var)])
             (printf "~a~a\n" indent
                  (convert-declaration cx name (convert-expr val #:ctx ctx* #:indent indent)))
             cx)))
@@ -94,7 +94,7 @@
 
     [`(if ,cond ,ift ,iff)
       (define test (convert-expr cond #:ctx ctx #:indent indent))
-      (define outvar (ctx-random-name fix-name))
+      (define outvar (ctx-random-name))
       ; Sollya has slightly different if
       (if (equal? ((language-name (*lang*))) "sollya")
           (printf "~aif (~a) then {\n" indent test)
@@ -111,11 +111,11 @@
       (define indent* (format "~a\t" indent))
       (define-values (ctx* vars*)
         (for/fold ([ctx* ctx] [vars* '()]) ([var vars] [val inits])
-          (let-values ([(cx name) (ctx-unique-name ctx* var fix-name)])
+          (let-values ([(cx name) (ctx-unique-name ctx* var)])
             (printf "~a~a\n" indent
                 (convert-declaration cx name (convert-expr val #:ctx ctx #:indent indent)))
             (values cx (flatten (cons vars* name))))))
-      (define test-var (ctx-random-name fix-name))
+      (define test-var (ctx-random-name))
       (printf "~a~a\n" indent
           (convert-declaration
               (ctx-update-props ctx '(:precision boolean))
@@ -127,7 +127,7 @@
           (printf "~a~a (~a) {\n" indent (while-name) test-var))
       (define-values (ctx** vars**)
         (for/fold ([ctx** ctx*] [vars** '()]) ([var vars] [update updates])
-          (let-values ([(cx name) (ctx-unique-name ctx* var fix-name)])
+          (let-values ([(cx name) (ctx-unique-name ctx* var)])
             (printf "~a\t~a\n" indent
                 (convert-declaration cx name (convert-expr update #:ctx ctx* #:indent indent*)))
           (values cx (flatten (cons vars** name))))))
@@ -142,11 +142,11 @@
       (define indent* (format "~a\t" indent))
       (define-values (ctx* vars*)
         (for/fold ([ctx* ctx] [vars* '()]) ([var vars] [val inits])
-          (let-values ([(cx name) (ctx-unique-name ctx* var fix-name)])
+          (let-values ([(cx name) (ctx-unique-name ctx* var)])
             (printf "~a~a\n" indent
                 (convert-declaration cx name (convert-expr val #:ctx ctx* #:indent indent)))
             (values cx (flatten (cons vars* name))))))
-      (define test-var (ctx-random-name fix-name))
+      (define test-var (ctx-random-name))
       (printf "~a~a\n" indent
           (convert-declaration
               (ctx-update-props ctx '(:precision boolean))
@@ -182,9 +182,9 @@
   (match-define (list 'FPCore (list args ...) props ... body) prog)
   (define ctx (ctx-update-props (make-compiler-ctx) (append '(:precision binary64 :round nearestEven) props)))
 
-  (parameterize ([*used-names* (mutable-set)] [*gensym-collisions* 1])
+  (parameterize ([*used-names* (mutable-set)] [*gensym-collisions* 1] [*gensym-fix-name* fix-name])
     (define func-name 
-      (let-values ([(cx fname) (ctx-unique-name ctx (string->symbol name) fix-name)])
+      (let-values ([(cx fname) (ctx-unique-name ctx (string->symbol name))])
         (set! ctx cx)
         fname))
 
@@ -193,13 +193,13 @@
         (match var
           [(list '! props ... name) 
             (values 
-                (let-values ([(cx name) (ctx-unique-name ctx name fix-name)])
+                (let-values ([(cx name) (ctx-unique-name ctx name)])
                             (set! ctx cx)
                             name)
                 (apply hash-set* (ctx-props ctx) props))]
           [name 
             (values 
-                (let-values ([(cx name) (ctx-unique-name ctx name fix-name)])
+                (let-values ([(cx name) (ctx-unique-name ctx name)])
                             (set! ctx cx)
                             name)
                 (ctx-props ctx))])))

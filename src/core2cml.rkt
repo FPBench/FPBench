@@ -110,9 +110,9 @@
             (format "\n\t~a" body)
             body)))
 
-(define cml-language (functional "cml" fix-name application->cml constant->cml declaration->cml let->cml if->cml while->cml function->cml))
+(define cml-language (functional "cml" application->cml constant->cml declaration->cml let->cml if->cml while->cml function->cml))
 
 ;;; Exports
 
-(define (core->cml prog name) (parameterize ([*func-lang*  cml-language]) (core->functional prog name)))
+(define (core->cml prog name) (parameterize ([*func-lang*  cml-language] [*gensym-fix-name* fix-name]) (core->functional prog name)))
 (define-compiler '("cml") (const "") core->cml (const "") cml-supported)

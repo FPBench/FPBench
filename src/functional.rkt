@@ -5,11 +5,8 @@
 
 ;;; Abstraction for different languages
 
-(struct functional (name fix-name operator constant declaration let if while function))
+(struct functional (name operator constant declaration let if while function))
 (define *func-lang* (make-parameter #f))
-
-(define (fix-name name)
-  ((functional-fix-name (*func-lang*)) name))
 
 (define (convert-constant expr ctx)
   ((functional-constant (*func-lang*)) expr (ctx-props ctx)))
@@ -45,7 +42,7 @@
     [`(let ([,vars ,vals] ...) ,body)
       (define-values (ctx* vars* vals*)
         (for/fold ([ctx* ctx] [vars* '()] [vals* '()]) ([var vars] [val vals])
-          (let-values ([(cx name) (ctx-unique-name ctx* var fix-name)])
+          (let-values ([(cx name) (ctx-unique-name ctx* var)])
             (values cx (flatten (cons vars* name)) 
                     (flatten (cons vals* (convert-expr val #:ctx ctx #:indent (format "\t~a" indent))))))))
       (convert-let
@@ -59,7 +56,7 @@
     [`(let* ([,vars ,vals] ...) ,body)
       (define-values (ctx* vars* vals*)
         (for/fold ([ctx* ctx] [vars* '()] [vals* '()]) ([var vars] [val vals])
-          (let-values ([(cx name) (ctx-unique-name ctx* var fix-name)])
+          (let-values ([(cx name) (ctx-unique-name ctx* var)])
             (values cx (flatten (cons vars* name)) 
                     (flatten (cons vals* (convert-expr val #:ctx ctx* #:indent (format "\t~a" indent))))))))
       (convert-let
@@ -79,18 +76,18 @@
     
     [`(while ,cond ([,vars ,inits ,updates] ...) ,body)
       (define loop ; CakeML
-        (let-values ([(cx name) (ctx-unique-name ctx 'loop fix-name)])
+        (let-values ([(cx name) (ctx-unique-name ctx 'loop)])
           (set! ctx cx)
           name))
       (define-values (ctx* vars* vals*)
         (for/fold ([ctx* ctx] [vars* '()] [vals* '()]) ([var vars] [val inits])
-          (let-values ([(cx name) (ctx-unique-name ctx* var fix-name)])
+          (let-values ([(cx name) (ctx-unique-name ctx* var)])
             (values cx (flatten (cons vars* name)) 
                     (flatten (cons vals* (convert-expr val #:ctx ctx #:indent (format "\t~a" indent))))))))
       (define cond* (convert-expr cond #:indent (format "\t~a" indent)))
       (define-values (ctx** vars** updates*)
         (for/fold ([ctx** ctx*] [vars** '()] [updates* '()]) ([var vars] [val updates])
-          (let-values ([(cx name) (ctx-unique-name ctx** var fix-name)])
+          (let-values ([(cx name) (ctx-unique-name ctx** var)])
             (values cx (flatten (cons vars** name)) 
                     (flatten (cons updates* (convert-expr val #:ctx ctx* #:indent (format "\t\t\t\t~a" indent)))))))) ;; tabs for Cake
       (convert-while 
@@ -99,18 +96,18 @@
 
     [`(while* ,cond ([,vars ,inits ,updates] ...) ,body)
       (define loop ; CakeML
-        (let-values ([(cx name) (ctx-unique-name ctx 'loop fix-name)])
+        (let-values ([(cx name) (ctx-unique-name ctx 'loop)])
           (set! ctx cx)
           name))
       (define-values (ctx* vars* vals*)
         (for/fold ([ctx* ctx] [vars* '()] [vals* '()]) ([var vars] [val inits])
-          (let-values ([(cx name) (ctx-unique-name ctx* var fix-name)])
+          (let-values ([(cx name) (ctx-unique-name ctx* var)])
             (values cx (flatten (cons vars* name)) 
                     (flatten (cons vals* (convert-expr val #:ctx ctx* #:indent (format "\t~a" indent))))))))
       (define cond* (convert-expr cond #:indent (format "\t~a" indent)))
       (define-values (ctx** vars** updates*)
         (for/fold ([ctx** ctx*] [vars** '()] [updates* '()]) ([var vars] [val updates])
-          (let-values ([(cx name) (ctx-unique-name ctx** var fix-name)])
+          (let-values ([(cx name) (ctx-unique-name ctx** var)])
             (values cx (flatten (cons vars** name)) 
                     (flatten (cons updates* 
                       (convert-expr 
@@ -141,12 +138,12 @@
   
   (parameterize ([*used-names* (mutable-set)] [*gensym-collisions* 1])
     (define func-name 
-      (let-values ([(cx fname) (ctx-unique-name ctx (string->symbol name) fix-name)])
+      (let-values ([(cx fname) (ctx-unique-name ctx (string->symbol name))])
         (set! ctx cx)
         fname))
     (define-values (ctx* args*)
       (for/fold ([ctx* ctx] [args* '()]) ([arg args])
-        (let-values ([(cx name) (ctx-unique-name ctx* arg fix-name)])
+        (let-values ([(cx name) (ctx-unique-name ctx* arg)])
           (values cx (flatten (cons args* name))))))  
 
     (convert-function func-name args* (convert-expr body #:ctx ctx*) ctx* (set->list (*used-names*)))))

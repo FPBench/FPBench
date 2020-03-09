@@ -179,7 +179,7 @@
           (string-join
             (for/list ([var vars] [val updatevars])
               (declaration->wls var val))
-            ", ")
+            "; ")
           body))
           
 (define (block->wls name indent)
@@ -190,6 +190,7 @@
     [_ (error 'block->wls "Unsupported block ~a" name)]))
 
 (define (function->wls name args body ctx names)
+  (define prec (ctx-lookup-prop ctx ':precision 'binary64))
   (define arg-strings
     (for/list ([var args])
       (format "~a_" (if (list? var) (car var) var))))

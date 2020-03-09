@@ -5,10 +5,9 @@
 
 ;; Go
 
-(define go-name (const "go"))
 (define go-header (curry format "package ~a\n\nimport \"math\"\n\n"))
 (define go-supported (supported-list
-   (invert-op-list '())
+   (invert-op-list '(!))
    (invert-const-list '())
    '(binary32 binary64)))
 
@@ -17,7 +16,7 @@
   [('binary32) "float32"]
   [('boolean) "bool"])
 
-(define (operator->go type operator args)
+(define (operator->go props operator args)
   (let ([arg-list (string-join args ", ")])
     (match operator
       [(or 'fabs 'fmax 'fmin 'fdim)
@@ -30,7 +29,8 @@
            'remainder 'copysign 'trunc 'round)
        (format "math.~a(~a)" (string-titlecase (~a operator)) arg-list)])))
 
-(define (constant->go type expr)
+(define (constant->go props expr)
+  (define type (type->go (dict-ref props ':precision 'binary64)))
   (match expr
     ['TRUE "true"]
     ['FALSE "false"]
@@ -44,7 +44,8 @@
      (format "((~a) Math.~a)" type name)]
     [(? number?) (~a (real->double-flonum expr))]))
 
-(define (declaration->go type var [val #f])
+(define (declaration->go props var [val #f])
+  (define type (type->go (dict-ref props ':precision 'binary64)))
   (if val
       (format "var ~a = ~a(~a)" var type val)
       (format "var ~a ~a" var type)))
@@ -52,7 +53,10 @@
 (define (assignment->go var val)
   (format "~a = ~a" var val))
 
-(define (function->go type name args body return)
+(define (round->go val props) (format "~a" val)) ; round(val) = val
+
+(define (function->go name args arg-props body return ctx vars)
+  (define type (type->go (ctx-lookup-prop ctx ':precision 'binary64)))
   (format "func ~a(~a) ~a {\n~a\treturn ~a;\n}\n"
           name
           (string-join
@@ -61,7 +65,7 @@
           type
           body return))
 
-(define go-language (language go-name type->go operator->go constant->go declaration->go assignment->go function->go))
+(define go-language (language (const "go") operator->go constant->go declaration->go assignment->go round->go function->go))
 
 ;;; Exports
 

@@ -103,7 +103,7 @@ endif
 cml-test:
 ifneq (, $(shell which cake))
 	cat benchmarks/*.fpcore tests/test*.fpcore | $(FILTER) not-operators $(known_inaccurate) \
-	| racket infra/test-core2cml.rkt --repeat 5
+	| racket infra/test-core2cml.rkt
 else
 	$(warning skipping CakeML tests; unable to find CakeML compiler)
 endif

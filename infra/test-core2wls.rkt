@@ -4,15 +4,16 @@
 (require "test-common.rkt" "../src/core2wls.rkt")
 
 (define (translate->wls prog ctx type test-file)
-  (call-with-output-file test-file #:exists 'replace
-    (lambda (port)
-      (fprintf port "~a\n" (core->wls prog "f"))
-      (fprintf port
-               (format "TimeConstrained[MemoryConstrained[Print[f[~a] // N], 2^32], 5]\n"
-                       (string-join (map number->wls (map cdr ctx)) ", ")))))
+  (*prog* (core->wls prog "f"))
   test-file)
 
 (define (run<-wls exec-name ctx type)
+  (call-with-output-file exec-name #:exists 'replace
+    (lambda (port)
+      (fprintf port "~a\n" (*prog*))
+      (fprintf port
+               (format "TimeConstrained[MemoryConstrained[Print[f[~a] // N], 2^32], 5]\n"
+                       (string-join (map number->wls (map cdr ctx)) ", ")))))
   (define out 
     (with-output-to-string
       (lambda ()

@@ -2,7 +2,7 @@
 
 (require math/flonum)
 (require "../src/common.rkt" "../src/fpcore.rkt" "../src/supported.rkt")
-(provide tester *tester* test-imperative)
+(provide tester *tester* test-imperative *prog*)
 
 (define fuel (make-parameter 100))
 (define tests-to-run (make-parameter 10))
@@ -10,6 +10,7 @@
 (define verbose (make-parameter #f))
 (define quiet (make-parameter #f))
 (define exact-out (make-parameter #f))
+(define *prog* (make-parameter #f))   ; interpreted languages can store converted core here
 
 ; Common test structure
 (struct tester (name compile run equality format-args format-output supported))
@@ -74,6 +75,7 @@
       (match-define (list 'FPCore (list vars ...) props* ... body) prog)
       (define-values (_ props) (parse-properties props*))
       (define type (dict-ref props ':precision 'binary64))
+      (define exec-name (compile-test prog '() type test-file))
       (define timeout 0)
       (define nans 0) ; wolfram only
       (define results  ; run test
@@ -105,7 +107,7 @@
             (set! timeout (+ timeout 1)))
           (define out* (if (equal? out 'timeout) 
                            (cons 'timeout "") 
-                           (run-test (compile-test prog ctx type test-file) ctx type)))
+                           (run-test exec-name ctx type)))
           (when (equal? (tester-name (*tester*)) "wls")
             (when (and (not (equal? out 'timeout)) (or (nan? out) (nan? (car out*))))
               (set! nans (+ nans 1))))

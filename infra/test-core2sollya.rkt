@@ -3,19 +3,7 @@
 (require "test-common.rkt" "../src/core2sollya.rkt")
 
 (define (translate->sollya prog ctx type test-file)
-  (call-with-output-file test-file #:exists 'replace
-    (lambda (port)
-      (fprintf port "~a\n\n" (core->sollya prog "f"))
-      (fprintf port "prec=4096!;\ndisplay=dyadic!;\n\n")
-      (fprintf port "f(~a);\n"
-               (string-join
-                (for/list ([arg ctx])
-                  (match-define (cons var value) arg)
-                  (cond
-                    [(nan? value) "nan"]
-                    [(infinite? value) (if (>= value 0) "infty" "-infty")]
-                    [else (format "~a" (inexact->exact value))]))
-                ", "))))
+  (*prog* (core->sollya prog "f"))
   test-file)
 
 (define (dyadic->exact s)
@@ -29,6 +17,19 @@
         (/ m (expt 2 (- e))))))
 
 (define (run<-sollya exec-name ctx type)
+  (call-with-output-file exec-name #:exists 'replace
+    (lambda (port)
+      (fprintf port "~a~a\n\n" (sollya-header) (*prog*))
+      (fprintf port "prec=4096!;\ndisplay=dyadic!;\n\n")
+      (fprintf port "f(~a);\n"
+               (string-join
+                (for/list ([arg ctx])
+                  (match-define (cons var value) arg)
+                  (cond
+                    [(nan? value) "nan"]
+                    [(infinite? value) (if (>= value 0) "infty" "-infty")]
+                    [else (format "~a" (inexact->exact value))]))
+                ", "))))
   (define out 
     (last
       (string-split

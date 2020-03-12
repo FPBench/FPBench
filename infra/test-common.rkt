@@ -2,7 +2,7 @@
 
 (require math/flonum)
 (require "../src/common.rkt" "../src/fpcore.rkt" "../src/range-analysis.rkt" "../src/supported.rkt")
-(provide tester *tester* test-imperative *prog*)
+(provide tester *tester* test-core *prog*)
 
 (define fuel (make-parameter 1000))
 (define tests-to-run (make-parameter 10))
@@ -47,6 +47,16 @@
       (let ([head (* (expt 2 31) (random-exp (- k 31)))])
         (+ head (random (expt 2 31))))))
 
+;   float            ordinal
+;   +nan.0,     <->  n > (2^(bits - 1) - 2^(bits - exp_bits - 1))
+;   -nan.0      ->   n > (2^(bits - 1) - 2^(bits - exp_bits - 1))
+;   +inf.0      <->  n = (2^(bits - 1) - 2^(bits - exp_bits - 1))
+;   0<x<+inf.0  <->  0 < n < (2^(bits - 1) - 2^(bits - exp_bits - 1))
+;   0           <->  0
+;   -0          ->   0
+;   0<x<-inf.0  <->  -(2^(bits - 1) - 2^(bits - exp_bits - 1)) < n < 0
+;   -inf.0      <->  n = -(2^(bits - 1) - 2^(bits - exp_bits - 1))
+;
 (define (float->ordinal x type)
   (define b
     (match type
@@ -82,10 +92,14 @@
     ['binary32 (real->single-flonum r)]))
 
 (define (sample-float intervals type) ; TODO: multiple intervals
-  (define inf (float->ordinal +inf.0 type)) ; +inf as a ordinal
-  (define interval (first intervals))
+  (define inf (float->ordinal +inf.0 type)) ; +inf as an ordinal
+  (define interval (first intervals)) ; TODO: multiple intervals
+  
+  ; interval possibly open or closed at the ends
   (define low (float->ordinal (interval-l interval) type))
   (define high (float->ordinal (interval-u interval) type))
+
+  ; interval as [low, high]
   (define low* (if (not (or (interval-l? interval) (= low (- inf)))) (+ low 1) low))
   (define high* (if (not (or (interval-u? interval) (= high inf))) (- high 1) high))
 
@@ -108,7 +122,7 @@
 
 ;;; Tester core
 
-(define (test-imperative argv curr-in-port source test-file)
+(define (test-core argv curr-in-port source test-file)
   (command-line
   #:program "Tester"
   #:once-each
@@ -181,7 +195,7 @@
             [0 ""]
             [1 " (1 nan)"]
             [_ (format " (~a nans)" nans)])))
-      (set! err (- result-len successful))
+      (set! err (+ err (- result-len successful)))
       (for ([i (in-naturals 1)] [x (in-list results)])   
         (define test-passed (=* (second x) (car (third x))))
         (unless (and (not (verbose)) test-passed)
@@ -191,4 +205,4 @@
                   (second x)                                                    
                   (format-output (if (exact-out) (cdr (third x)) (car (third x))))
                   (string-join (map (λ (p) (format-args (car p) (cdr p) type)) (first x)) ", "))))))
-  (exit err)))
+  err))

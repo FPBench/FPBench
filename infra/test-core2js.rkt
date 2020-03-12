@@ -46,4 +46,5 @@
 
 ;; TODO: Add types
 (module+ main (parameterize ([*tester* js-tester])
-  (test-imperative (current-command-line-arguments) (current-input-port) "stdin" "/tmp/test.js")))
+  (let ([state (test-core (current-command-line-arguments) (current-input-port) "stdin" "/tmp/test.sollya")])
+    (exit state))))

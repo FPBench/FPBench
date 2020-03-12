@@ -52,4 +52,5 @@
 
 ; Command line
 (module+ main (parameterize ([*tester* c-tester])
-  (test-imperative (current-command-line-arguments) (current-input-port) "stdin" "/tmp/test.c")))
+  (let ([state (test-core (current-command-line-arguments) (current-input-port) "stdin" "/tmp/test.c")])
+    (exit state))))

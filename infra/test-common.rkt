@@ -4,6 +4,9 @@
 (require "../src/common.rkt" "../src/fpcore.rkt" "../src/range-analysis.rkt" "../src/supported.rkt")
 (provide tester *tester* test-core *prog*)
 
+(module+ test
+  (require rackunit))
+
 (define fuel (make-parameter 1000))
 (define tests-to-run (make-parameter 10))
 (define ulps (make-parameter 0))
@@ -31,14 +34,7 @@
 (define (=* a b)
   ((tester-equality (*tester*)) a b (ulps)))
 
-;;; Helper functions
-
-(define ((eval-fuel-expr evaltor fuel [default #f]) expr ctx)
-  (let/ec k
-    (let eval ([expr expr] [ctx ctx] [fuel fuel])
-      (if (<= fuel 0)
-          (k default)
-          ((eval-expr* evaltor (λ (expr ctx) (eval expr ctx (- fuel 1)))) expr ctx)))))
+;;; Preconditions
 
 (define (random-exp k)
   "Like (random (expt 2 k)), but k is allowed to be arbitrarily large"
@@ -46,6 +42,12 @@
       (random (expt 2 k))
       (let ([head (* (expt 2 31) (random-exp (- k 31)))])
         (+ head (random (expt 2 31))))))
+
+(define (random-double)
+  (floating-point-bytes->real (integer->integer-bytes (random-exp 64) 8 #f)))
+
+(define (random-single) 
+  (real->single-flonum (floating-point-bytes->real (integer->integer-bytes (random-exp 32) 4 #f))))
 
 ;   float            ordinal
 ;   +nan.0,     <->  n > (2^(bits - 1) - 2^(bits - exp_bits - 1))
@@ -91,20 +93,17 @@
     ['binary64 r]
     ['binary32 (real->single-flonum r)]))
 
-(define (sample-float intervals type) ; TODO: multiple intervals
+(define (sample-float intervals type)
   (define inf (float->ordinal +inf.0 type)) ; +inf as an ordinal
-  (define interval (first intervals)) ; TODO: multiple intervals
-  
+  (define interval (first intervals)) ; TODO: multiple intervals 
   ; interval possibly open or closed at the ends
   (define low (float->ordinal (interval-l interval) type))
   (define high (float->ordinal (interval-u interval) type))
-
   ; interval as [low, high]
   (define low* (if (not (or (interval-l? interval) (= low (- inf)))) (+ low 1) low))
   (define high* (if (not (or (interval-u? interval) (= high inf))) (- high 1) high))
-
   ; random integer on the interval [0, INT_MAX]
-  (define rand  
+  (define rand 
     (exact-round
       (* (random)
         (match type
@@ -114,11 +113,40 @@
   (define rand_in_range (+ (remainder rand (+ (- high* low*) 1)) low*))
   (ordinal->float rand_in_range type))
 
-(define (random-double)
-  (floating-point-bytes->real (integer->integer-bytes (random-exp 64) 8 #f)))
+;;; Unit tests
 
-(define (random-single) 
-  (real->single-flonum (floating-point-bytes->real (integer->integer-bytes (random-exp 32) 4 #f))))
+(module+ test
+  ; (ordinal->float (float->ordinal x type)) returns x for all floats but -nan.0 and -0.
+  (check-equal? +nan.0 (ordinal->float (float->ordinal +nan.0 'binary64) 'binary64))
+  (check-equal? +inf.0 (ordinal->float (float->ordinal +inf.0 'binary64) 'binary64))
+  (check-equal? 1.79769e+308 (ordinal->float (float->ordinal 1.79769e+308 'binary64) 'binary64))
+  (check-equal? 1e10 (ordinal->float (float->ordinal 1e10 'binary64) 'binary64))
+  (check-equal? 4.94066e-324 (ordinal->float (float->ordinal 4.94066e-324 'binary64) 'binary64))
+  (check-equal? 0.0 (ordinal->float (float->ordinal 0.0 'binary64) 'binary64))
+  (check-equal? -4.94066e-324 (ordinal->float (float->ordinal -4.94066e-324 'binary64) 'binary64))
+  (check-equal? -1e10 (ordinal->float (float->ordinal -1e10 'binary64) 'binary64))
+  (check-equal? -1.79769e+308 (ordinal->float (float->ordinal -1.79769e+308 'binary64) 'binary64))
+  (check-equal? -inf.0 (ordinal->float (float->ordinal -inf.0 'binary64) 'binary64))
+
+  ; If a < x < b and f : float -> ordinal, then f(a) < f(x) < f(b) holds true (special case: f(+/-nan.0) > f(+inf.0))
+  (check-true (> (float->ordinal +nan.0 'binary64) (float->ordinal +inf.0 'binary64)))
+  (check-true (> (float->ordinal +inf.0 'binary64) (float->ordinal 1.79769e+308 'binary64)))
+  (check-true (> (float->ordinal 1.79769e+308 'binary64) (float->ordinal 4.94066e-324 'binary64)))
+  (check-true (> (float->ordinal 4.94066e-324 'binary64) (float->ordinal 0 'binary64)))
+  (check-true (> (float->ordinal 0 'binary64) (float->ordinal -4.94066e-324 'binary64)))
+  (check-true (> (float->ordinal -4.94066e-324 'binary64) (float->ordinal -1e10 'binary64)))
+  (check-true (> (float->ordinal -1e10 'binary64) (float->ordinal -1.79769e+308 'binary64)))
+  (check-true (> (float->ordinal -1.79769e+308 'binary64) (float->ordinal -inf.0 'binary64)))
+)
+
+;;; Misc
+
+(define ((eval-fuel-expr evaltor fuel [default #f]) expr ctx)
+  (let/ec k
+    (let eval ([expr expr] [ctx ctx] [fuel fuel])
+      (if (<= fuel 0)
+          (k default)
+          ((eval-expr* evaltor (λ (expr ctx) (eval expr ctx (- fuel 1)))) expr ctx)))))
 
 ;;; Tester core
 
@@ -151,8 +179,9 @@
       (for/list ([i (in-range (tests-to-run))])
         (define ctx 
           (for/list ([var vars])
-            (cons var 
-                  (sample-float (dict-ref precond var (list (make-interval -inf.0 +inf.0))) type))))
+            (cons var (sample-float  ; default interval [-inf.0, +inf.0]
+                          (dict-ref precond var (list (make-interval -inf.0 +inf.0))) 
+                          type))))
         (define evaltor 
           (match type 
             ['binary64 racket-double-evaluator] 

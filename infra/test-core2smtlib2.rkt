@@ -83,4 +83,4 @@
 ; Command line
 (module+ main (parameterize ([*tester* smt-tester])
   (let ([state (test-core (current-command-line-arguments) (current-input-port) "stdin" "/tmp/test.smt")])
-    (error state))))
+    (exit state))))

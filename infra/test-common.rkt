@@ -71,18 +71,18 @@
   (if (> s 0) (- u) u))
 
 (define (ordinal->float x type)
-  (define b
+  (define-values (b e) 
     (match type
-      ['binary32 4]
-      ['binary64 8]))
+      ['binary32 (values 4 8)]
+      ['binary64 (values 8 11)]))
   (define w (* 8 b))
-  (define abs-max (expt 2 (- w 1)))
+  (define inf (- (expt 2 (- w 1)) (expt 2 (- (- w e) 1))))
   (define r
     (cond
-      [(> x abs-max)     +nan.0]
-      [(= x abs-max)     +inf.0]
-      [(= x (- abs-max)) -inf.0]
-      [(< x (- abs-max)) -nan.0]
+      [(> x inf)     +nan.0]
+      [(= x inf)     +inf.0]
+      [(= x (- inf)) -inf.0]
+      [(< x (- inf)) -nan.0]
       [else 
         (let ([s (if (< x 0) 1 0)]
               [u (abs x)])
@@ -96,21 +96,18 @@
 (define (sample-float intervals type)
   (define inf (float->ordinal +inf.0 type)) ; +inf as an ordinal
   (define interval (first intervals)) ; TODO: multiple intervals 
-  ; interval possibly open or closed at the ends
-  (define low (float->ordinal (interval-l interval) type))
+  (define low (float->ordinal (interval-l interval) type)) ; interval possibly open or closed at the ends
   (define high (float->ordinal (interval-u interval) type))
-  ; interval as [low, high]
-  (define low* (if (not (or (interval-l? interval) (= low (- inf)))) (+ low 1) low))
-  (define high* (if (not (or (interval-u? interval) (= high inf))) (- high 1) high))
-  ; random integer on the interval [0, INT_MAX]
-  (define rand 
+  (define low* (if (interval-l? interval) low (+ low 1))) ; interval [low, high]
+  (define high* (if (interval-u? interval) high (- high 1)))
+  (define rand  ; random integer on the interval [0, 2 * INT_MAX]
     (exact-round
-      (* (random)
-        (match type
-          ['binary64 (- (expt 2 64) 1)]
-          ['binary32 (- (expt 2 32) 1)]))))
+      (* 2 (* (random)
+          (match type
+            ['binary64 (- (expt 2 64) 1)]
+            ['binary32 (- (expt 2 32) 1)])))))
   ; random integer on the interval [low*, high*] (C equiv: rand() % (high - low + 1) + high)
-  (define rand_in_range (+ (remainder rand (+ (- high* low*) 1)) low*))
+  (define rand_in_range (+ (remainder rand (+ (- high* low*) 1)) low*)) 
   (ordinal->float rand_in_range type))
 
 ;;; Unit tests

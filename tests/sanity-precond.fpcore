@@ -1,0 +1,12 @@
+(FPCore (x) :name "Single interval (1/4)" :pre (< 1 x 1.000001) :spec 1.0 (if (< 1 x 1.000001) 1 0))
+
+(FPCore (x) :name "Single interval (2/4)" :pre (< -1e-320 x 1e-320) :precision binary64 :spec 1.0 (if (< -1e-320 x 1e-320) 1 0))
+
+(FPCore (x) :name "Single interval (3/4)" :pre (< 1.797693134862315e308 x INFINITY) :precision binary64 :spec 1.0 (if (< 1.797693134862315e308 x INFINITY) 1 0))
+
+(FPCore (x) :name "Single interval (4/4)" :pre (== x 1) :spec 1.0 (if (== x 1) 1 0))
+
+; Unsupported
+; (FPCore (x) :name "Multiple intervals ()" :pre (and (< x -1) (> x 1)) :spec 1.0 (if (not (<= -1 x 1)) 1 0))
+; (FPCore (x y) :name "Dependent interval ()" :pre (< x y) :spec 1.0 (if (< x y) 1 0))
+; (FPCore (x) :name "Extra intervals ()" :pre (< (pow x 2) 1) :spec 1.0 (if (< -1 x 1) 1 0))

@@ -97,7 +97,7 @@
   (define inf (float->ordinal +inf.0 type)) ; +inf as an ordinal
   (define interval (first intervals)) ; TODO: multiple intervals 
   ; interval [low, high]
-  (define low (+ (float->ordinal (interval-l interval) type) (if (interval-1? interval) 0 1)))
+  (define low (+ (float->ordinal (interval-l interval) type) (if (interval-l? interval) 0 1)))
   (define high (- (float->ordinal (interval-u interval) type) (if (interval-u? interval) 0 1)))
   ; random integer on the interval [0, 2 * INT_MAX]
   (define rand
@@ -107,7 +107,7 @@
             ['binary64 (- (expt 2 64) 1)]
             ['binary32 (- (expt 2 32) 1)])))))
   ; random integer on the interval [low*, high*] (C equiv: rand() % (high - low + 1) + high)
-  (ordinal->float (+ (remainder rand (+ (- high* low*) 1)) low*) type))
+  (ordinal->float (+ (remainder rand (+ (- high low) 1)) low) type))
 
 ;;; Unit tests
 

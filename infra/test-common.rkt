@@ -96,19 +96,18 @@
 (define (sample-float intervals type)
   (define inf (float->ordinal +inf.0 type)) ; +inf as an ordinal
   (define interval (first intervals)) ; TODO: multiple intervals 
-  (define low (float->ordinal (interval-l interval) type)) ; interval possibly open or closed at the ends
-  (define high (float->ordinal (interval-u interval) type))
-  (define low* (if (interval-l? interval) low (+ low 1))) ; interval [low, high]
-  (define high* (if (interval-u? interval) high (- high 1)))
-  (define rand  ; random integer on the interval [0, 2 * INT_MAX]
+  ; interval [low, high]
+  (define low (+ (float->ordinal (interval-l interval) type) (if (interval-1? interval) 0 1)))
+  (define high (- (float->ordinal (interval-u interval) type) (if (interval-u? interval) 0 1)))
+  ; random integer on the interval [0, 2 * INT_MAX]
+  (define rand
     (exact-round
       (* 2 (* (random)
           (match type
             ['binary64 (- (expt 2 64) 1)]
             ['binary32 (- (expt 2 32) 1)])))))
   ; random integer on the interval [low*, high*] (C equiv: rand() % (high - low + 1) + high)
-  (define rand_in_range (+ (remainder rand (+ (- high* low*) 1)) low*)) 
-  (ordinal->float rand_in_range type))
+  (ordinal->float (+ (remainder rand (+ (- high* low*) 1)) low*) type))
 
 ;;; Unit tests
 
@@ -176,9 +175,12 @@
       (for/list ([i (in-range (tests-to-run))])
         (define ctx 
           (for/list ([var vars])
-            (cons var (sample-float  ; default interval [-inf.0, +inf.0]
-                          (dict-ref precond var (list (make-interval -inf.0 +inf.0))) 
-                          type))))
+            (cons var 
+              (sample-float  ; if invalid or no preconditions, (-inf.0, +inf.0), 
+                (if (equal? precond #f) 
+                    (list (make-interval -inf.0 +inf.0))
+                    (dict-ref precond var (list (make-interval -inf.0 +inf.0)))) 
+                type))))
         (define evaltor 
           (match type 
             ['binary64 racket-double-evaluator] 

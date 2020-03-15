@@ -13,6 +13,7 @@
 (define verbose (make-parameter #f))
 (define quiet (make-parameter #f))
 (define exact-out (make-parameter #f))
+(define sample-tries (make-parameter 1000))
 (define *prog* (make-parameter #f))   ; interpreted languages can store converted core here
 
 ; Common test structure
@@ -109,7 +110,7 @@
   ; random integer on the interval [low*, high*] (C equiv: rand() % (high - low + 1) + high)
   (ordinal->float (+ (remainder rand (+ (- high low) 1)) low) type))
 
-;;; Unit tests
+;;; Unit tests for float->ordinal and ordinal->float
 
 (module+ test
   ; (ordinal->float (float->ordinal x type)) returns x for all floats but -nan.0 and -0.
@@ -135,6 +136,16 @@
   (check-true (> (float->ordinal -1.79769e+308 'binary64) (float->ordinal -inf.0 'binary64)))
 )
 
+(define (sample-by-rejection pre var evaltor type)
+  (define rand
+    (match type
+      ['binary64 random-double]
+      ['binary32 random-single]))
+  (for/fold ([num (rand)])
+            ([i (in-range (sample-tries))])
+            #:break ((eval-expr evaltor) pre (make-hash (list (cons var num))))
+            (rand)))
+  
 ;;; Misc
 
 (define ((eval-fuel-expr evaltor fuel [default #f]) expr ctx)
@@ -167,24 +178,27 @@
     (match-define (list 'FPCore (list vars ...) props* ... body) prog)
     (define-values (_ props) (parse-properties props*))
     (define type (dict-ref props ':precision 'binary64))
-    (define precond (condition->range-table (dict-ref props ':pre '())))
+    (define precond (dict-ref props ':pre '()))
+    (define range-table (condition->range-table precond))
     (define exec-name (compile-test prog '() type test-file))
     (define timeout 0)
     (define nans 0) ; wolfram only
     (define results  ; run test
       (for/list ([i (in-range (tests-to-run))])
-        (define ctx 
-          (for/list ([var vars])
-            (cons var 
-              (sample-float  ; if invalid or no preconditions, (-inf.0, +inf.0), 
-                (if (equal? precond #f) 
-                    (list (make-interval -inf.0 +inf.0))
-                    (dict-ref precond var (list (make-interval -inf.0 +inf.0)))) 
-                type))))
         (define evaltor 
           (match type 
             ['binary64 racket-double-evaluator] 
             ['binary32 racket-single-evaluator]))
+        (define ctx 
+          (for/list ([var vars])
+            (cons var 
+              (cond
+                [(equal? precond '())   ; no precondition
+                  (sample-float (list (make-interval -inf.0 +inf.0)) type)] 
+                [(equal? range-table #f) ; failed range table
+                  (sample-by-rejection precond var evaltor type)]
+                [else     ; valid range table
+                  (sample-float (dict-ref range-table var (list (make-interval -inf.0 +inf.0))) type)]))))
         (define out
           (match ((eval-fuel-expr evaltor (fuel) 'timeout) body ctx)
             [(? real? result)

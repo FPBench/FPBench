@@ -143,11 +143,10 @@
           (match type
             ['binary64 (- (expt 2 64) 1)]
             ['binary32 (- (expt 2 32) 1)])))))
-  ; random integer on the interval [low*, high*] (C equiv: rand() % (high - low + 1) + high)
+  ; random integer on the interval [low*, high*]
   (ordinal->float (+ (remainder rand (+ (- high low) 1)) low) type))
 
 (define (sample-by-rejection pre vars evaltor type)
-  (displayln "Rejection")
   (define rand
     (match type
       ['binary64 random-double]

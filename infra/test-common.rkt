@@ -13,7 +13,7 @@
 (define verbose (make-parameter #f))
 (define quiet (make-parameter #f))
 (define exact-out (make-parameter #f))
-(define sample-tries (make-parameter 1000))
+(define sample-tries (make-parameter 100))
 (define *prog* (make-parameter #f))   ; interpreted languages can store converted core here
 
 ; Common test structure
@@ -94,24 +94,7 @@
     ['binary64 r]
     ['binary32 (real->single-flonum r)]))
 
-(define (sample-float intervals type)
-  (define inf (float->ordinal +inf.0 type)) ; +inf as an ordinal
-  (define interval (first intervals)) ; TODO: multiple intervals 
-  ; interval [low, high]
-  (define low (+ (float->ordinal (interval-l interval) type) (if (interval-l? interval) 0 1)))
-  (define high (- (float->ordinal (interval-u interval) type) (if (interval-u? interval) 0 1)))
-  ; random integer on the interval [0, 2 * INT_MAX]
-  (define rand
-    (exact-round
-      (* 2 (* (random)
-          (match type
-            ['binary64 (- (expt 2 64) 1)]
-            ['binary32 (- (expt 2 32) 1)])))))
-  ; random integer on the interval [low*, high*] (C equiv: rand() % (high - low + 1) + high)
-  (ordinal->float (+ (remainder rand (+ (- high low) 1)) low) type))
-
 ;;; Unit tests for float->ordinal and ordinal->float
-
 (module+ test
   ; (ordinal->float (float->ordinal x type)) returns x for all floats but -nan.0 and -0.
   (check-equal? +nan.0 (ordinal->float (float->ordinal +nan.0 'binary64) 'binary64))
@@ -136,15 +119,47 @@
   (check-true (> (float->ordinal -1.79769e+308 'binary64) (float->ordinal -inf.0 'binary64)))
 )
 
-(define (sample-by-rejection pre var evaltor type)
+(define (sample-float intervals type)
+  (define inf (float->ordinal +inf.0 type)) ; +inf as an ordinal
+  (define interval-range ; number of floats on the interval for all intervals
+    (for/list ([range intervals]) 
+      (sub1 (- (+ (float->ordinal (interval-u range) type) (if (interval-u? range) 1 0))
+               (- (float->ordinal (interval-l range) type) (if (interval-l? range) 1 0))))))
+  (define total-range (for/sum ([range interval-range]) range)) ; total number of floats
+  (define range-random (exact-round (* (random) (- total-range 1)))) ; random on [0, total-range - 1]
+  (define interval ; choose interval
+    (for/fold ([low 0] [i 0]
+              #:result (list-ref intervals i))
+              ([range interval-range])
+              #:break (and (<= low range-random) (< range-random (+ low range)))
+              (values (+ low range) (add1 i))))
+  ; interval [low, high]
+  (define low (+ (float->ordinal (interval-l interval) type) (if (interval-l? interval) 0 1)))
+  (define high (- (float->ordinal (interval-u interval) type) (if (interval-u? interval) 0 1)))
+  ; random integer on the interval [0, 2 * INT_MAX]
+  (define rand
+    (exact-round
+      (* 2 (* (random)
+          (match type
+            ['binary64 (- (expt 2 64) 1)]
+            ['binary32 (- (expt 2 32) 1)])))))
+  ; random integer on the interval [low*, high*] (C equiv: rand() % (high - low + 1) + high)
+  (ordinal->float (+ (remainder rand (+ (- high low) 1)) low) type))
+
+(define (sample-by-rejection pre vars evaltor type)
+  (displayln "Rejection")
   (define rand
     (match type
       ['binary64 random-double]
       ['binary32 random-single]))
-  (for/fold ([num (rand)])
+  (for/fold ([nums (for/list ([var vars]) (rand))]
+            #:result (for/list ([var vars] [num nums]) (cons var num)))
             ([i (in-range (sample-tries))])
-            #:break ((eval-expr evaltor) pre (make-hash (list (cons var num))))
-            (rand)))
+            #:break ((eval-expr evaltor) pre 
+                        (make-immutable-hash 
+                            (for/list ([var vars] [num nums])
+                                      (cons var num))))
+      (for/list ([var vars]) (rand))))
   
 ;;; Misc
 
@@ -190,15 +205,16 @@
             ['binary64 racket-double-evaluator] 
             ['binary32 racket-single-evaluator]))
         (define ctx 
-          (for/list ([var vars])
-            (cons var 
-              (cond
-                [(equal? precond '())   ; no precondition
-                  (sample-float (list (make-interval -inf.0 +inf.0)) type)] 
-                [(equal? range-table #f) ; failed range table
-                  (sample-by-rejection precond var evaltor type)]
-                [else     ; valid range table
-                  (sample-float (dict-ref range-table var (list (make-interval -inf.0 +inf.0))) type)]))))
+          (cond 
+            [(equal? precond '())                                          ; no precondition
+              (for/list ([var vars])
+                (cons var (sample-float (list (make-interval -inf.0 +inf.0)) type)))]
+            [(or (> (length (variables-in-expr body)) 2)                   ; dependent precondition
+                 (equal? range-table #f) (equal? range-table (make-hash))) ; failed range table
+              (sample-by-rejection precond vars evaltor type)]
+            [else                                                          ; valid range table
+              (for/list ([var vars])
+                (cons var (sample-float (dict-ref range-table var (list (make-interval -inf.0 +inf.0))) type)))]))
         (define out
           (match ((eval-fuel-expr evaltor (fuel) 'timeout) body ctx)
             [(? real? result)

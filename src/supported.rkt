@@ -1,7 +1,7 @@
 #lang racket
 (require "common.rkt" "fpcore.rkt")
-(provide valid-core unsupported-features operators-in constants-in property-values
-         invert-op-list invert-const-list) 
+(provide valid-core unsupported-features invert-op-list invert-const-list
+         operators-in constants-in property-values variables-in-expr)
 
 (provide
   (contract-out
@@ -133,3 +133,23 @@
   (define prop-hash (property-values-expr body))
   (property-hash-add! prop-hash props)
   prop-hash)
+
+(define/contract (variables-in-expr expr)
+  (-> expr? (listof symbol?))
+  (remove-duplicates
+   (match expr
+     [`(,(or 'while 'while*) ,test ([,vars ,inits ,updates] ...) ,res)
+            (append (constants-in-expr test)
+                    (append-map constants-in-expr inits)
+                    (append-map constants-in-expr updates)
+                    (constants-in-expr res))]
+     [`(,(or 'let 'let*) ([,vars ,vals] ...) ,body)
+      (append (append-map constants-in-expr vals) (constants-in-expr body))]
+     [`(if ,cond ,ift ,iff)
+      (append (constants-in-expr cond) (constants-in-expr ift) (constants-in-expr iff))]
+     [`(! ,props ... ,body)
+      (constants-in-expr body)]
+     [(list op args ...) (append-map constants-in-expr args)]
+     [(? constant?) '()]
+     [(? symbol?) '(list expr)]
+     [(? number?) '()])))

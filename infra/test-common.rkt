@@ -7,13 +7,15 @@
 (module+ test
   (require rackunit))
 
-(define fuel (make-parameter 1000))
+(define fuel-good-input (make-parameter 1000))
+(define fuel-bad-input (make-parameter 100))
+(define sample-tries (make-parameter 100))
 (define tests-to-run (make-parameter 10))
 (define ulps (make-parameter 0))
 (define verbose (make-parameter #f))
 (define quiet (make-parameter #f))
 (define exact-out (make-parameter #f))
-(define sample-tries (make-parameter 100))
+(define use-precond (make-parameter #t))
 (define *prog* (make-parameter #f))   ; interpreted languages can store converted core here
 
 ; Common test structure
@@ -43,12 +45,6 @@
       (random (expt 2 k))
       (let ([head (* (expt 2 31) (random-exp (- k 31)))])
         (+ head (random (expt 2 31))))))
-
-(define (random-double)
-  (floating-point-bytes->real (integer->integer-bytes (random-exp 64) 8 #f)))
-
-(define (random-single) 
-  (real->single-flonum (floating-point-bytes->real (integer->integer-bytes (random-exp 32) 4 #f))))
 
 ;   float            ordinal
 ;   +nan.0,     <->  n > (2^(bits - 1) - 2^(bits - exp_bits - 1))
@@ -146,21 +142,26 @@
   ; random integer on the interval [low*, high*]
   (ordinal->float (+ (remainder rand (+ (- high low) 1)) low) type))
 
+; Returns the float and whether or not it met the precondition
 (define (sample-by-rejection pre vars evaltor type)
-  (define rand
-    (match type
-      ['binary64 random-double]
-      ['binary32 random-single]))
-  (for/fold ([nums (for/list ([var vars]) (rand))]
-            #:result (for/list ([var vars] [num nums]) (cons var num)))
+  (for/fold ([nums (for/list ([var vars]) (sample-random type))]
+             [attempts 1]
+            #:result (values (for/list ([var vars] [num nums]) (cons var num)) 
+                             (not (equal? attempts (sample-tries)))))
             ([i (in-range (sample-tries))])
             #:break ((eval-expr evaltor) pre 
                         (make-immutable-hash 
                             (for/list ([var vars] [num nums])
                                       (cons var num))))
-      (for/list ([var vars]) (rand))))
+      (values (for/list ([var vars]) (sample-random type)) (+ i 1))))
+
+; Returns a random float
+(define (sample-random type)
+  (match type
+    ['binary64 (floating-point-bytes->real (integer->integer-bytes (random-exp 64) 8 #f))]
+    ['binary32 (real->single-flonum (floating-point-bytes->real (integer->integer-bytes (random-exp 32) 4 #f)))]))
   
-;;; Misc
+;;; Evaluator
 
 (define ((eval-fuel-expr evaltor fuel [default #f]) expr ctx)
   (let/ec k
@@ -175,7 +176,7 @@
   (command-line
   #:program "Tester"
   #:once-each
-  ["--fuel" fuel_ "Number of computation steps to allow" (fuel (string->number fuel_))]
+  ["--fuel" fuel_ "Number of computation steps to allow" (fuel-good-input (string->number fuel_))]
   ["--repeat" repeat_ "Number of times to test each program" (tests-to-run (string->number repeat_))]
   ["--error" ulps_ "Error, in ULPs, allowed for libc inaccuracies (probably use a value around 3)" (ulps (string->number ulps_))]
   ["--very-verbose" "Very verbose" (verbose #t) (exact-out #t)]
@@ -183,6 +184,7 @@
   [("-o" "--output") name_ "Name for generated C file" (test-file name_)]
   [("-v" "--verbose") "Verbose" (verbose #t)]
   [("-q" "--quiet") "Quiet" (quiet #t)]
+  ["--no-precond" "No precondition evaluation" (use-precond #f)]
   #:args ()
   (when (and (verbose) (quiet)) 
       (error "Verbose and quiet flags cannot be both set"))
@@ -203,19 +205,23 @@
           (match type 
             ['binary64 racket-double-evaluator] 
             ['binary32 racket-single-evaluator]))
-        (define ctx 
+        (define-values (ctx precond-met)
           (cond 
-            [(equal? precond '())                                          ; no precondition
-              (for/list ([var vars])
-                (cons var (sample-float (list (make-interval -inf.0 +inf.0)) type)))]
+            [(or (not (use-precond)) (equal? precond '()))                 ; --no-precond flag or no precondition
+              (values
+                  (for/list ([var vars])
+                            (cons var (sample-float (list (make-interval -inf.0 +inf.0)) type)))
+                  (use-precond))]      ; use less fuel for --no-precond flag
             [(or (> (length (variables-in-expr body)) 2)                   ; dependent precondition
                  (equal? range-table #f) (equal? range-table (make-hash))) ; failed range table
               (sample-by-rejection precond vars evaltor type)]
-            [else                                                          ; valid range table
-              (for/list ([var vars])
-                (cons var (sample-float (dict-ref range-table var (list (make-interval -inf.0 +inf.0))) type)))]))
+            [else     
+              (values                                                      ; valid range table
+                  (for/list ([var vars])
+                      (cons var (sample-float (dict-ref range-table var (list (make-interval -inf.0 +inf.0))) type)))
+                  #t)]))
         (define out
-          (match ((eval-fuel-expr evaltor (fuel) 'timeout) body ctx)
+          (match ((eval-fuel-expr evaltor (if precond-met (fuel-good-input) (fuel-bad-input)) 'timeout) body ctx)
             [(? real? result)
               ((match type
                 ['binary64 real->double-flonum] 

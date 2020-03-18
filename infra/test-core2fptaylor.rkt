@@ -76,4 +76,5 @@
 
 ; Command line
 (module+ main (parameterize ([*tester* fptaylor-tester])
-  (test-imperative (current-command-line-arguments) (current-input-port) "stdin" "/tmp/test.txt")))
+  (let ([state (test-core (current-command-line-arguments) (current-input-port) "stdin" "/tmp/test.txt")])
+    (exit state))))

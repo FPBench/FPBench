@@ -1,15 +1,21 @@
 #lang racket
 
 (require math/flonum)
-(require "../src/common.rkt" "../src/fpcore.rkt" "../src/supported.rkt")
-(provide tester *tester* test-imperative *prog*)
+(require "../src/common.rkt" "../src/fpcore.rkt" "../src/range-analysis.rkt" "../src/supported.rkt")
+(provide tester *tester* test-core *prog*)
 
-(define fuel (make-parameter 100))
+(module+ test
+  (require rackunit))
+
+(define fuel-good-input (make-parameter 1000))
+(define fuel-bad-input (make-parameter 100))
+(define sample-tries (make-parameter 100))
 (define tests-to-run (make-parameter 10))
 (define ulps (make-parameter 0))
 (define verbose (make-parameter #f))
 (define quiet (make-parameter #f))
 (define exact-out (make-parameter #f))
+(define use-precond (make-parameter #t))
 (define *prog* (make-parameter #f))   ; interpreted languages can store converted core here
 
 ; Common test structure
@@ -31,14 +37,7 @@
 (define (=* a b)
   ((tester-equality (*tester*)) a b (ulps)))
 
-;; Helper functions
-
-(define ((eval-fuel-expr evaltor fuel [default #f]) expr ctx)
-  (let/ec k
-    (let eval ([expr expr] [ctx ctx] [fuel fuel])
-      (if (<= fuel 0)
-          (k default)
-          ((eval-expr* evaltor (λ (expr ctx) (eval expr ctx (- fuel 1)))) expr ctx)))))
+;;; Preconditions
 
 (define (random-exp k)
   "Like (random (expt 2 k)), but k is allowed to be arbitrarily large"
@@ -47,18 +46,137 @@
       (let ([head (* (expt 2 31) (random-exp (- k 31)))])
         (+ head (random (expt 2 31))))))
 
-(define (sample-double)
-  (floating-point-bytes->real (integer->integer-bytes (random-exp 64) 8 #f)))
+;   float            ordinal
+;   +nan.0,     <->  n > (2^(bits - 1) - 2^(bits - exp_bits - 1))
+;   -nan.0      ->   n > (2^(bits - 1) - 2^(bits - exp_bits - 1))
+;   +inf.0      <->  n = (2^(bits - 1) - 2^(bits - exp_bits - 1))
+;   0<x<+inf.0  <->  0 < n < (2^(bits - 1) - 2^(bits - exp_bits - 1))
+;   0           <->  0
+;   -0          ->   0
+;   0<x<-inf.0  <->  -(2^(bits - 1) - 2^(bits - exp_bits - 1)) < n < 0
+;   -inf.0      <->  n = -(2^(bits - 1) - 2^(bits - exp_bits - 1))
+;
+(define (float->ordinal x type)
+  (define b
+    (match type
+      ['binary32 4]
+      ['binary64 8]))
+  (define w (* 8 b))
+  (define i (integer-bytes->integer (real->floating-point-bytes x b) #t))
+  (define s (bitwise-bit-field i (- w 1) w))
+  (define u (bitwise-bit-field i 0 (- w 1)))
+  (if (> s 0) (- u) u))
 
-(define (sample-single)
-  (real->single-flonum (floating-point-bytes->real (integer->integer-bytes (random-exp 32) 4 #f))))
+(define (ordinal->float x type)
+  (define-values (b e) 
+    (match type
+      ['binary32 (values 4 8)]
+      ['binary64 (values 8 11)]))
+  (define w (* 8 b))
+  (define inf (- (expt 2 (- w 1)) (expt 2 (- (- w e) 1))))
+  (define r
+    (cond
+      [(> x inf)     +nan.0]
+      [(= x inf)     +inf.0]
+      [(= x (- inf)) -inf.0]
+      [(< x (- inf)) -nan.0]
+      [else 
+        (let ([s (if (< x 0) 1 0)]
+              [u (abs x)])
+          (floating-point-bytes->real (integer->integer-bytes
+                (bitwise-ior (arithmetic-shift s (- w 1)) u)
+                b #f)))]))
+  (match type
+    ['binary64 r]
+    ['binary32 (real->single-flonum r)]))
+
+;;; Unit tests for float->ordinal and ordinal->float
+(module+ test
+  ; (ordinal->float (float->ordinal x type)) returns x for all floats but -nan.0 and -0.
+  (check-equal? +nan.0 (ordinal->float (float->ordinal +nan.0 'binary64) 'binary64))
+  (check-equal? +inf.0 (ordinal->float (float->ordinal +inf.0 'binary64) 'binary64))
+  (check-equal? 1.79769e+308 (ordinal->float (float->ordinal 1.79769e+308 'binary64) 'binary64))
+  (check-equal? 1e10 (ordinal->float (float->ordinal 1e10 'binary64) 'binary64))
+  (check-equal? 4.94066e-324 (ordinal->float (float->ordinal 4.94066e-324 'binary64) 'binary64))
+  (check-equal? 0.0 (ordinal->float (float->ordinal 0.0 'binary64) 'binary64))
+  (check-equal? -4.94066e-324 (ordinal->float (float->ordinal -4.94066e-324 'binary64) 'binary64))
+  (check-equal? -1e10 (ordinal->float (float->ordinal -1e10 'binary64) 'binary64))
+  (check-equal? -1.79769e+308 (ordinal->float (float->ordinal -1.79769e+308 'binary64) 'binary64))
+  (check-equal? -inf.0 (ordinal->float (float->ordinal -inf.0 'binary64) 'binary64))
+
+  ; If a < x < b and f : float -> ordinal, then f(a) < f(x) < f(b) holds true (special case: f(+/-nan.0) > f(+inf.0))
+  (check-true (> (float->ordinal +nan.0 'binary64) (float->ordinal +inf.0 'binary64)))
+  (check-true (> (float->ordinal +inf.0 'binary64) (float->ordinal 1.79769e+308 'binary64)))
+  (check-true (> (float->ordinal 1.79769e+308 'binary64) (float->ordinal 4.94066e-324 'binary64)))
+  (check-true (> (float->ordinal 4.94066e-324 'binary64) (float->ordinal 0 'binary64)))
+  (check-true (> (float->ordinal 0 'binary64) (float->ordinal -4.94066e-324 'binary64)))
+  (check-true (> (float->ordinal -4.94066e-324 'binary64) (float->ordinal -1e10 'binary64)))
+  (check-true (> (float->ordinal -1e10 'binary64) (float->ordinal -1.79769e+308 'binary64)))
+  (check-true (> (float->ordinal -1.79769e+308 'binary64) (float->ordinal -inf.0 'binary64)))
+)
+
+(define (sample-float intervals type)
+  (define inf (float->ordinal +inf.0 type)) ; +inf as an ordinal
+  (define interval-range ; number of floats on the interval for all intervals
+    (for/list ([range intervals]) 
+      (sub1 (- (+ (float->ordinal (interval-u range) type) (if (interval-u? range) 1 0))
+               (- (float->ordinal (interval-l range) type) (if (interval-l? range) 1 0))))))
+  (define total-range (for/sum ([range interval-range]) range)) ; total number of floats
+  (define range-random (exact-round (* (random) (- total-range 1)))) ; random on [0, total-range - 1]
+  (define interval ; choose interval
+    (for/fold ([low 0] [i 0]
+              #:result (list-ref intervals i))
+              ([range interval-range])
+              #:break (and (<= low range-random) (< range-random (+ low range)))
+              (values (+ low range) (add1 i))))
+  ; interval [low, high]
+  (define low (+ (float->ordinal (interval-l interval) type) (if (interval-l? interval) 0 1)))
+  (define high (- (float->ordinal (interval-u interval) type) (if (interval-u? interval) 0 1)))
+  ; random integer on the interval [0, 2 * INT_MAX]
+  (define rand
+    (exact-round
+      (* 2 (* (random)
+          (match type
+            ['binary64 (- (expt 2 64) 1)]
+            ['binary32 (- (expt 2 32) 1)])))))
+  ; random integer on the interval [low*, high*]
+  (ordinal->float (+ (remainder rand (+ (- high low) 1)) low) type))
+
+; Returns the float and whether or not it met the precondition
+(define (sample-by-rejection pre vars evaltor type)
+  (for/fold ([nums (for/list ([var vars]) (sample-random type))]
+             [attempts 1]
+            #:result (values (for/list ([var vars] [num nums]) (cons var num)) 
+                             (not (equal? attempts (sample-tries)))))
+            ([i (in-range (sample-tries))])
+            #:break ((eval-expr evaltor) pre 
+                        (make-immutable-hash 
+                            (for/list ([var vars] [num nums])
+                                      (cons var num))))
+      (values (for/list ([var vars]) (sample-random type)) (+ i 1))))
+
+; Returns a random float
+(define (sample-random type)
+  (match type
+    ['binary64 (floating-point-bytes->real (integer->integer-bytes (random-exp 64) 8 #f))]
+    ['binary32 (real->single-flonum (floating-point-bytes->real (integer->integer-bytes (random-exp 32) 4 #f)))]))
+  
+;;; Evaluator
+
+(define ((eval-fuel-expr evaltor fuel [default #f]) expr ctx)
+  (let/ec k
+    (let eval ([expr expr] [ctx ctx] [fuel fuel])
+      (if (<= fuel 0)
+          (k default)
+          ((eval-expr* evaltor (λ (expr ctx) (eval expr ctx (- fuel 1)))) expr ctx)))))
 
 ;;; Tester core
-(define (test-imperative argv curr-in-port source test-file)
+
+(define (test-core argv curr-in-port source test-file)
   (command-line
   #:program "Tester"
   #:once-each
-  ["--fuel" fuel_ "Number of computation steps to allow" (fuel (string->number fuel_))]
+  ["--fuel" fuel_ "Number of computation steps to allow" (fuel-good-input (string->number fuel_))]
   ["--repeat" repeat_ "Number of times to test each program" (tests-to-run (string->number repeat_))]
   ["--error" ulps_ "Error, in ULPs, allowed for libc inaccuracies (probably use a value around 3)" (ulps (string->number ulps_))]
   ["--very-verbose" "Very verbose" (verbose #t) (exact-out #t)]
@@ -66,75 +184,88 @@
   [("-o" "--output") name_ "Name for generated C file" (test-file name_)]
   [("-v" "--verbose") "Verbose" (verbose #t)]
   [("-q" "--quiet") "Quiet" (quiet #t)]
+  ["--no-precond" "No precondition evaluation" (use-precond #f)]
   #:args ()
   (when (and (verbose) (quiet)) 
       (error "Verbose and quiet flags cannot be both set"))
-  (let ([state 0])
-    (for ([prog (in-port (curry read-fpcore source) curr-in-port)]
-      #:when (valid-core prog (tester-supported (*tester*))))
-      (match-define (list 'FPCore (list vars ...) props* ... body) prog)
-      (define-values (_ props) (parse-properties props*))
-      (define type (dict-ref props ':precision 'binary64))
-      (define exec-name (compile-test prog '() type test-file))
-      (define timeout 0)
-      (define nans 0) ; wolfram only
-      (define results  ; run test
-        (for/list ([i (in-range (tests-to-run))])
-          (define ctx (for/list ([var vars])
-            (cons var
+  (define err 0)
+  (for ([prog (in-port (curry read-fpcore source) curr-in-port)]
+    #:when (valid-core prog (tester-supported (*tester*))))
+    (match-define (list 'FPCore (list vars ...) props* ... body) prog)
+    (define-values (_ props) (parse-properties props*))
+    (define type (dict-ref props ':precision 'binary64))
+    (define precond (dict-ref props ':pre '()))
+    (define range-table (condition->range-table precond))
+    (define exec-name (compile-test prog '() type test-file))
+    (define timeout 0)
+    (define nans 0) ; wolfram only
+    (define results  ; run test
+      (for/list ([i (in-range (tests-to-run))])
+        (define evaltor 
+          (match type 
+            ['binary64 racket-double-evaluator] 
+            ['binary32 racket-single-evaluator]))
+        (define-values (ctx precond-met)
+          (cond 
+            [(or (not (use-precond)) (equal? precond '()))                 ; --no-precond flag or no precondition
+              (values
+                  (for/list ([var vars])
+                            (cons var (sample-float (list (make-interval -inf.0 +inf.0)) type)))
+                  (use-precond))]      ; use less fuel for --no-precond flag
+            [(or (> (length (variables-in-expr body)) 2)                   ; dependent precondition
+                 (equal? range-table #f) (equal? range-table (make-hash))) ; failed range table
+              (sample-by-rejection precond vars evaltor type)]
+            [else     
+              (values                                                      ; valid range table
+                  (for/list ([var vars])
+                      (cons var (sample-float (dict-ref range-table var (list (make-interval -inf.0 +inf.0))) type)))
+                  #t)]))
+        (define out
+          (match ((eval-fuel-expr evaltor (if precond-met (fuel-good-input) (fuel-bad-input)) 'timeout) body ctx)
+            [(? real? result)
+              ((match type
+                ['binary64 real->double-flonum] 
+                ['binary32 real->single-flonum])
+              result)]
+            [(? complex? result)
               (match type
-                ['binary64 (sample-double)]
-                ['binary32 (sample-single)]))))
-          (define evaltor 
-            (match type 
-              ['binary64 racket-double-evaluator] 
-              ['binary32 racket-single-evaluator]))
-          (define out
-            (match ((eval-fuel-expr evaltor (fuel) 'timeout) body ctx)
-              [(? real? result)
-                ((match type
-                  ['binary64 real->double-flonum] 
-                  ['binary32 real->single-flonum])
-                result)]
-              [(? complex? result)
-                (match type
-                  ['binary64 +nan.0]
-                  ['binary32 +nan.f])]
-                  ['timeout 'timeout]
-                  [(? boolean? result)
-                result]))
-          (when (equal? out 'timeout)
-            (set! timeout (+ timeout 1)))
-          (define out* (if (equal? out 'timeout) 
-                           (cons 'timeout "") 
-                           (run-test exec-name ctx type)))
-          (when (equal? (tester-name (*tester*)) "wls")
-            (when (and (not (equal? out 'timeout)) (or (nan? out) (nan? (car out*))))
-              (set! nans (+ nans 1))))
-          (list ctx out out*)))
+                ['binary64 +nan.0]
+                ['binary32 +nan.f])]
+                ['timeout 'timeout]
+                [(? boolean? result)
+              result]))
+        (when (equal? out 'timeout)
+          (set! timeout (+ timeout 1)))
+        (define out* (if (equal? out 'timeout) 
+                          (cons 'timeout "") 
+                          (run-test exec-name ctx type)))
+        (when (equal? (tester-name (*tester*)) "wls")
+          (when (and (not (equal? out 'timeout)) (or (nan? out) (nan? (car out*))))
+            (set! nans (+ nans 1))))
+        (list ctx out out*)))
 
-      (unless (null? results) ; display results
-        (define successful (count (λ (x) (=* (second x) (car (third x)))) results))
-        (define result-len (length results))
-        (unless (and (quiet) (equal? successful result-len))
-          (printf "~a/~a: ~a~a~a\n" successful result-len
-            (dict-ref props ':name body) 
-            (match timeout
-              [0 ""]
-              [1 " (1 timeout)"]
-              [_ (format " (~a timeouts)" timeout)])
-            (match nans
-              [0 ""]
-              [1 " (1 nan)"]
-              [_ (format " (~a nans)" nans)])))
-        (set! state (- result-len successful))
-        (for ([i (in-naturals 1)] [x (in-list results)])   
-          (define test-passed (=* (second x) (car (third x))))
-          (unless (and (not (verbose)) test-passed)
-            (printf "\t~a\t~a\t(Expected) ~a\t(Output) ~a\t(Args) ~a\n" 
-                    i                                                   
-                    (if test-passed "Pass" "Fail")                         
-                    (second x)                                                    
-                    (format-output (if (exact-out) (cdr (third x)) (car (third x))))
-                    (string-join (map (λ (p) (format-args (car p) (cdr p) type)) (first x)) ", "))))))
-    (exit state)))) 
+    (unless (null? results) ; display results
+      (define successful (count (λ (x) (=* (second x) (car (third x)))) results))
+      (define result-len (length results))
+      (unless (and (quiet) (equal? successful result-len))
+        (printf "~a/~a: ~a~a~a\n" successful result-len
+          (dict-ref props ':name body) 
+          (match timeout
+            [0 ""]
+            [1 " (1 timeout)"]
+            [_ (format " (~a timeouts)" timeout)])
+          (match nans
+            [0 ""]
+            [1 " (1 nan)"]
+            [_ (format " (~a nans)" nans)])))
+      (set! err (+ err (- result-len successful)))
+      (for ([i (in-naturals 1)] [x (in-list results)])   
+        (define test-passed (=* (second x) (car (third x))))
+        (unless (and (not (verbose)) test-passed)
+          (printf "\t~a\t~a\t(Expected) ~a\t(Output) ~a\t(Args) ~a\n" 
+                  i                                                   
+                  (if test-passed "Pass" "Fail")                         
+                  (second x)                                                    
+                  (format-output (if (exact-out) (cdr (third x)) (car (third x))))
+                  (string-join (map (λ (p) (format-args (car p) (cdr p) type)) (first x)) ", "))))))
+  err))

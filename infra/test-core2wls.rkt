@@ -51,4 +51,5 @@
 
 ; Command line
 (module+ main (parameterize ([*tester* wls-tester])
-  (test-imperative (current-command-line-arguments) (current-input-port) "stdin" "/tmp/test.wls")))
+  (let ([state (test-core (current-command-line-arguments) (current-input-port) "stdin" "/tmp/test.wls")])
+    (exit state))))

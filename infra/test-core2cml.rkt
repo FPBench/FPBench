@@ -44,4 +44,5 @@
 
 (define cml-tester (tester "cml" compile->cml run<-cml cml-equality cml-format-args cml-format-output cml-supported))
 (module+ main (parameterize ([*tester* cml-tester])
-  (test-imperative (current-command-line-arguments) (current-input-port) "stdin" "/tmp/test.cml")))
+  (let ([state (test-core (current-command-line-arguments) (current-input-port) "stdin" "/tmp/test.cml")])
+    (exit state))))

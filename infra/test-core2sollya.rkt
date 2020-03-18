@@ -84,4 +84,5 @@
 
 ; Command line
 (module+ main (parameterize ([*tester* sollya-tester])
-  (test-imperative (current-command-line-arguments) (current-input-port) "stdin" "/tmp/test.sollya")))
+  (let ([state (test-core (current-command-line-arguments) (current-input-port) "stdin" "/tmp/test.sollya")])
+    (exit state))))

@@ -82,4 +82,5 @@
 
 ; Command line
 (module+ main (parameterize ([*tester* smt-tester])
-  (test-imperative (current-command-line-arguments) (current-input-port) "stdin" "/tmp/test.smtlib2")))
+  (let ([state (test-core (current-command-line-arguments) (current-input-port) "stdin" "/tmp/test.smt")])
+    (exit state))))

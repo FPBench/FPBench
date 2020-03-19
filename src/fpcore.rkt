@@ -19,6 +19,14 @@
   (define-values (rest props*) (parse-properties props))
   (null? rest))
 
+(define/match (fpcore->bf-round roundmode)
+  [('nearestEven) 'nearest]
+  [('nearestAway) (error 'fpcore->bf-round "math/bigfloat does not support 'nearestAway")]
+  [('toPositive)  'up]
+  [('toNegative)  'down]
+  [('toZero)      'zero])
+
+
 (define (argument? arg)
   (match arg
     [(? symbol? arg) true]
@@ -64,7 +72,6 @@
 
 (define/contract (check-expr stx ctx)
   (-> syntax? (dictof argument? type?) (cons/c expr? type?))
-
   (match (syntax-e stx)
     [(? number? val)
      (cons val 'real)]
@@ -257,15 +264,17 @@
          (rec res ctx*))]
     [`(! ,props* ... ,body)
      (define-values (_ props) (parse-properties props*))
-     (define evaltor*
+     (define-values (p evaltor*)
        (match (dict-ref props ':precision evaltor)
-         ['binary64 racket-double-evaluator]
-         ['binary32 racket-single-evaluator]
-         [_ evaltor]))
-     ((eval-expr* evaltor* rec) body ctx)]
+         ['binary64 (values 53 racket-double-evaluator)]
+         ['binary32 (values 24 racket-single-evaluator)]
+         [_         (values (bf-precision) evaltor)]))
+      (parameterize ([bf-rounding-mode (fpcore->bf-round (dict-ref props ':round 'nearestEven))]
+                     [bf-precision p])
+          ((eval-expr* evaltor* rec) body ctx))]
     [(list (? operator? op) args ...)
-     (apply ((evaluator-function evaltor) op)
-            (map (curryr rec ctx) args))]))
+      (apply ((evaluator-function evaltor) op)
+              (map (curryr rec ctx) args))]))
 
 (define/contract ((eval-expr evaltor) expr ctx)
   (-> evaluator? (-> expr? context/c any/c))
@@ -279,31 +288,35 @@
     (error 'eval-expr "Unimplemented operation ~a"
            unsupported-value)]))
 
+(define (arg->bf arg)
+  (cond ; only binary64 arg in a binary32 context must avoid rounding
+    [(and (double-flonum? arg) (equal? (bf-precision) 24))
+      (parameterize ([bf-precision 53]) (bf arg))]
+    [else    (bf arg)]))
+
 (define (compute-with-bf fn)
   (lambda (arg)
-    (let-values ([(p bf->float)
-                  (cond
-                    [(single-flonum? arg) (values 24 (compose real->single-flonum bigfloat->real))]
-                    [(double-flonum? arg) (values 53 (compose real->double-flonum bigfloat->real))])])
-      (parameterize ([bf-precision p])
-        (bf->float (fn (bf arg)))))))
+    (let ([bf->float 
+            (match (bf-precision)
+              [24 (compose real->single-flonum bigfloat->real)]     ; single
+              [_  (compose real->double-flonum bigfloat->real)])])  ; assume double otherwise
+      (bf->float (fn (arg->bf arg))))))
 
 (define (compute-with-bf-2 fn)
   (lambda (arg1 arg2)
-    (let-values ([(p bf->float)
-                  (cond
-                    [(single-flonum? arg1) (values 24 (compose real->single-flonum bigfloat->real))]
-                    [(double-flonum? arg1) (values 53 (compose real->double-flonum bigfloat->real))])])
-      (parameterize ([bf-precision p])
-        (bf->float (fn (bf arg1) (bf arg2)))))))
+    (let ([bf->float 
+            (match (bf-precision)
+              [24 (compose real->single-flonum bigfloat->real)]     ; single
+              [_  (compose real->double-flonum bigfloat->real)])])  ; assume double otherwise
+        (bf->float (fn (arg->bf arg1) (arg->bf arg2))))))
 
 (define (compute-with-bf-fma arg1 arg2 arg3)
-  (let-values ([(p bf->float)
-                (cond
-                  [(single-flonum? arg1) (values 24 (compose real->single-flonum bigfloat->real))]
-                  [(double-flonum? arg1) (values 53 (compose real->double-flonum bigfloat->real))])])
-    (parameterize ([bf-precision (+ (* p 2) 1)])
-      (bf->float (bf+ (bf* (bf arg1) (bf arg2)) (bf arg3))))))
+  (let ([bf->float 
+            (match (bf-precision)
+              [24 (compose real->single-flonum bigfloat->real)]     ; single
+              [_  (compose real->double-flonum bigfloat->real)])])  ; assume double otherwise
+    (parameterize ([bf-precision (+ (* (bf-precision) 2) 1)])
+      (bf->float (bf+ (bf* (arg->bf arg1) (arg->bf arg2)) (arg->bf arg3))))))
 
 (define (my!= #:cmp [cmp =] . args) (not (check-duplicates args cmp)))
 (define (my= #:cmp [cmp =] . args)
@@ -330,13 +343,17 @@
     [INFINITY	+inf.0]
     [TRUE #t] [FALSE #f])
    (table-fn
-    [+ +] [- -] [* *] [/ /] [fabs abs]
+    [+ (compute-with-bf-2 bf+)] [- (compute-with-bf-2 bf-)] 
+    [* (compute-with-bf-2 bf*)] [/ (compute-with-bf-2 bf/)] 
+    [fabs abs]
     ;; probably more of these should use mpfr
-    [exp exp] [log log]
-    [pow expt] [sqrt sqrt]
-    [sin sin] [cos cos] [tan tan]
-    [asin asin] [acos acos] [atan atan] [atan2 atan]
-    [ceil ceiling] [floor floor] [trunc truncate]
+    [exp (compute-with-bf bfexp)] [log (compute-with-bf bflog)]
+    [pow (compute-with-bf-2 bfexpt)] [sqrt (compute-with-bf bfsqrt)]
+    [sin (compute-with-bf bfsin)] [cos (compute-with-bf bfcos)] [tan (compute-with-bf bftan)]
+    [asin (compute-with-bf bfasin)] [acos (compute-with-bf bfacos)] 
+    [atan (compute-with-bf bfatan)] [atan2 (compute-with-bf-2 bfatan2)]
+    [ceil (compute-with-bf bfceiling)] [floor (compute-with-bf bffloor)] 
+    [trunc (compute-with-bf bftruncate)]
     [fmax max] [fmin min]
     [< <] [> >] [<= <=] [>= >=] [== my=] [!= my!=]
     [and (λ (x y) (and x y))] [or (λ (x y) (or x y))] [not not]
@@ -408,6 +425,7 @@
   (match-define `(FPCore (,vars ...) ,props* ... ,body) prog)
   (define-values (_ props) (parse-properties props*))
   (define base-precision (dict-ref props ':precision 'binary64))
+  (define base-rounding (dict-ref props ':round 'nearestEven))
   (define vars*
     (for/list ([var vars] [val vals])
       (match var
@@ -422,7 +440,15 @@
   (define evaltor (match base-precision
     ['binary64 racket-double-evaluator]
     ['binary32 racket-single-evaluator]))
-  ((eval-expr evaltor) body vars*))
+  (define result
+    (parameterize ([bf-rounding-mode (fpcore->bf-round base-rounding)] 
+                    [bf-precision (match base-precision
+                                    ['binary64 53]
+                                    ['binary32 24])])
+          ((eval-expr evaltor) body vars*)))
+  (match base-precision
+    ['binary64 (real->double-flonum result)]
+    ['binary32 (real->single-flonum result)]))
 
 (module+ main
   (command-line

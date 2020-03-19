@@ -121,7 +121,7 @@
 
     ;; Ignore all casts and precision contexts
     [`(cast ,body) (convert-expr body #:ctx ctx #:indent indent)]
-    [(list '! props ... body) (convert-expr body #:ctx ctx #:indent indent)]
+    [(list '! props ... body) (convert-expr body #:ctx (ctx-update-props ctx props) #:indent indent)]
 
     [(list (? operator? operator) args ...)
      (define args_c

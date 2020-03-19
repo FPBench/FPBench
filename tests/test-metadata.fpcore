@@ -1,0 +1,16 @@
+;; Annotations
+
+(FPCore (x)
+ :name "Round with addition"
+ :pre (< 1 x 1e15)
+ :spec (round x)
+ (let ([n (! :precision binary64 6755399441055744)])
+   (! :precision binary64 :round nearestEven (- (+ x n) n))))
+
+(FPCore (x)
+  :name "FPBench rounding example"
+  :precision binary64
+  :pre (< 1 x 1e40)
+  :spec (+ x ε)
+  (let ([ y (! :precision binary32 (- x 1))])
+    (+ y 1)))

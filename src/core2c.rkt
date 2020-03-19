@@ -5,7 +5,7 @@
 
 (define c-header (const "#include <math.h>\n#define TRUE 1\n#define FALSE 0\n\n"))
 (define c-supported (supported-list
-   (invert-op-list '(!))
+   (invert-op-list '())
    (invert-const-list '())
    '(binary32 binary64)))
 
@@ -22,7 +22,7 @@
 
 (define (operator->c props operator args)
   (define type (type->c (dict-ref props ':precision 'binary64)))
-  (format "~a~a(~a)" operator (type->c-suffix type) (string-join args ", ")))
+  (format "((~a) ~a~a(~a))" type operator (type->c-suffix type) (string-join args ", ")))
 
 (define (constant->c props expr)
   (define type (type->c (dict-ref props ':precision 'binary64)))
@@ -42,7 +42,9 @@
 (define (assignment->c var val)
   (format "~a = ~a;" var val))
 
-(define (round->c val props) (format "~a" val)) ; round(val) = val
+(define (round->c val props) 
+  (define type (type->c (dict-ref props ':precision 'binary64)))
+  (format "((~a) ~a)" type val))
 
 (define (function->c name args arg-props body return ctx vars)
   (define type (type->c (ctx-lookup-prop ctx ':precision 'binary64)))

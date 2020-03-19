@@ -4,7 +4,7 @@
 (provide core->cml cml-supported)
 
 (define cml-supported (supported-list
-  '(if let let* while while* + - * / < > <= >= == != not and or abs sqrt)    
+  '(! if let let* while while* + - * / < > <= >= == != not and or abs sqrt)    
   '(TRUE FALSE INFINITY NAN)
   '(binary64))) ; bool
 

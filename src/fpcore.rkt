@@ -26,7 +26,6 @@
   [('toNegative)  'down]
   [('toZero)      'zero])
 
-
 (define (argument? arg)
   (match arg
     [(? symbol? arg) true]
@@ -273,8 +272,7 @@
                      [bf-precision p])
           ((eval-expr* evaltor* rec) body ctx))]
     [(list (? operator? op) args ...)
-      (apply ((evaluator-function evaltor) op)
-              (map (curryr rec ctx) args))]))
+      (apply ((evaluator-function evaltor) op) (map (curryr rec ctx) args))]))
 
 (define/contract ((eval-expr evaltor) expr ctx)
   (-> evaluator? (-> expr? context/c any/c))
@@ -288,11 +286,11 @@
     (error 'eval-expr "Unimplemented operation ~a"
            unsupported-value)]))
 
-(define (arg->bf arg)
-  (cond ; only binary64 arg in a binary32 context must avoid rounding
-    [(and (double-flonum? arg) (equal? (bf-precision) 24))
+(define (fl->bf arg)
+  (cond
+    [(and (equal? (bf-precision) 24) (double-flonum? arg))
       (parameterize ([bf-precision 53]) (bf arg))]
-    [else    (bf arg)]))
+    [else (bf arg)]))
 
 (define (compute-with-bf fn)
   (lambda (arg)
@@ -300,7 +298,7 @@
             (match (bf-precision)
               [24 (compose real->single-flonum bigfloat->real)]     ; single
               [_  (compose real->double-flonum bigfloat->real)])])  ; assume double otherwise
-      (bf->float (fn (arg->bf arg))))))
+      (bf->float (fn (fl->bf arg))))))
 
 (define (compute-with-bf-2 fn)
   (lambda (arg1 arg2)
@@ -308,7 +306,7 @@
             (match (bf-precision)
               [24 (compose real->single-flonum bigfloat->real)]     ; single
               [_  (compose real->double-flonum bigfloat->real)])])  ; assume double otherwise
-        (bf->float (fn (arg->bf arg1) (arg->bf arg2))))))
+        (bf->float (fn (fl->bf arg1) (fl->bf arg2))))))
 
 (define (compute-with-bf-fma arg1 arg2 arg3)
   (let ([bf->float 
@@ -316,7 +314,7 @@
               [24 (compose real->single-flonum bigfloat->real)]     ; single
               [_  (compose real->double-flonum bigfloat->real)])])  ; assume double otherwise
     (parameterize ([bf-precision (+ (* (bf-precision) 2) 1)])
-      (bf->float (bf+ (bf* (arg->bf arg1) (arg->bf arg2)) (arg->bf arg3))))))
+      (bf->float (bf+ (bf* (fl->bf arg1) (fl->bf arg2)) (fl->bf arg3))))))
 
 (define (my!= #:cmp [cmp =] . args) (not (check-duplicates args cmp)))
 (define (my= #:cmp [cmp =] . args)
@@ -343,8 +341,15 @@
     [INFINITY	+inf.0]
     [TRUE #t] [FALSE #f])
    (table-fn
-    [+ (compute-with-bf-2 bf+)] [- (compute-with-bf-2 bf-)] 
-    [* (compute-with-bf-2 bf*)] [/ (compute-with-bf-2 bf/)] 
+    [+ (compute-with-bf-2 bf+)] 
+    [- (λ (x [y #f]) (if (equal? y #f) (- x) ((compute-with-bf-2 bf-) x y)))]  ; distinguish between negation and subtraction
+    [* (λ (x y) (if (and (or (zero? x) (zero? y))   ; to get around -0.0 (bigfloat) -> 0.0 (float)
+                         (nor (infinite? x) (infinite? y) (nan? x) (nan? y)))
+                    (if (xor (if (zero? x) (equal? x -0.0) (negative? x))
+                             (if (zero? y) (equal? y -0.0) (negative? y)))
+                        -0.0 0.0)
+                    ((compute-with-bf-2 bf*) x y)))]
+    [/ (compute-with-bf-2 bf/)]
     [fabs abs]
     ;; probably more of these should use mpfr
     [exp (compute-with-bf bfexp)] [log (compute-with-bf bflog)]
@@ -442,7 +447,7 @@
     ['binary32 racket-single-evaluator]))
   (define result
     (parameterize ([bf-rounding-mode (fpcore->bf-round base-rounding)] 
-                    [bf-precision (match base-precision
+                   [bf-precision (match base-precision
                                     ['binary64 53]
                                     ['binary32 24])])
           ((eval-expr evaltor) body vars*)))

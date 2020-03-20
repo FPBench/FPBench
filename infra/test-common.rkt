@@ -1,6 +1,6 @@
 #lang racket
 
-(require math/flonum)
+(require math/flonum math/bigfloat)
 (require "../src/common.rkt" "../src/fpcore.rkt" "../src/range-analysis.rkt" "../src/supported.rkt")
 (provide tester *tester* test-core *prog*)
 
@@ -200,49 +200,53 @@
     (define timeout 0)
     (define nans 0) ; wolfram only
     (define results  ; run test
-      (for/list ([i (in-range (tests-to-run))])
-        (define evaltor 
-          (match type 
-            ['binary64 racket-double-evaluator] 
-            ['binary32 racket-single-evaluator]))
-        (define-values (ctx precond-met)
-          (cond 
-            [(or (not (use-precond)) (equal? precond '()))                 ; --no-precond flag or no precondition
-              (values
-                  (for/list ([var vars])
-                            (cons var (sample-float (list (make-interval -inf.0 +inf.0)) type)))
-                  (use-precond))]      ; use less fuel for --no-precond flag
-            [(or (> (length (variables-in-expr body)) 2)                   ; dependent precondition
-                 (equal? range-table #f) (equal? range-table (make-hash))) ; failed range table
-              (sample-by-rejection precond vars evaltor type)]
-            [else     
-              (values                                                      ; valid range table
-                  (for/list ([var vars])
-                      (cons var (sample-float (dict-ref range-table var (list (make-interval -inf.0 +inf.0))) type)))
-                  #t)]))
-        (define out
-          (match ((eval-fuel-expr evaltor (if precond-met (fuel-good-input) (fuel-bad-input)) 'timeout) body ctx)
-            [(? real? result)
-              ((match type
-                ['binary64 real->double-flonum] 
-                ['binary32 real->single-flonum])
-              result)]
-            [(? complex? result)
-              (match type
-                ['binary64 +nan.0]
-                ['binary32 +nan.f])]
-                ['timeout 'timeout]
-                [(? boolean? result)
-              result]))
-        (when (equal? out 'timeout)
-          (set! timeout (+ timeout 1)))
-        (define out* (if (equal? out 'timeout) 
-                          (cons 'timeout "") 
-                          (run-test exec-name ctx type)))
-        (when (equal? (tester-name (*tester*)) "wls")
-          (when (and (not (equal? out 'timeout)) (or (nan? out) (nan? (car out*))))
-            (set! nans (+ nans 1))))
-        (list ctx out out*)))
+      (parameterize ([bf-precision 
+                        (match type
+                          ['binary64 53]
+                          ['binary32 24])])
+        (for/list ([i (in-range (tests-to-run))])
+          (define evaltor 
+            (match type 
+              ['binary64 racket-double-evaluator] 
+              ['binary32 racket-single-evaluator]))
+          (define-values (ctx precond-met)
+            (cond 
+              [(or (not (use-precond)) (equal? precond '()))                 ; --no-precond flag or no precondition
+                (values
+                    (for/list ([var vars])
+                              (cons var (sample-random type)))
+                    (use-precond))]      ; use less fuel for --no-precond flag
+              [(or (> (length (variables-in-expr body)) 2)                   ; dependent precondition
+                  (equal? range-table #f) (equal? range-table (make-hash))) ; failed range table
+                (sample-by-rejection precond vars evaltor type)]
+              [else     
+                (values                                                      ; valid range table
+                    (for/list ([var vars])
+                        (cons var (sample-float (dict-ref range-table var (list (make-interval -inf.0 +inf.0))) type)))
+                    #t)]))
+          (define out
+            (match ((eval-fuel-expr evaltor (if precond-met (fuel-good-input) (fuel-bad-input)) 'timeout) body ctx)
+              [(? real? result)
+                ((match type
+                  ['binary64 real->double-flonum] 
+                  ['binary32 real->single-flonum])
+                result)]
+              [(? complex? result)
+                (match type
+                  ['binary64 +nan.0]
+                  ['binary32 +nan.f])]
+                  ['timeout 'timeout]
+                  [(? boolean? result)
+                result]))
+          (when (equal? out 'timeout)
+            (set! timeout (+ timeout 1)))
+          (define out* (if (equal? out 'timeout) 
+                            (cons 'timeout "") 
+                            (run-test exec-name ctx type)))
+          (when (equal? (tester-name (*tester*)) "wls")
+            (when (and (not (equal? out 'timeout)) (or (nan? out) (nan? (car out*))))
+              (set! nans (+ nans 1))))
+          (list ctx out out*))))
 
     (unless (null? results) ; display results
       (define successful (count (λ (x) (=* (second x) (car (third x)))) results))

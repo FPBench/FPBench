@@ -43,7 +43,7 @@
 
 (define (convert-application ctx operator args)
   (match (cons operator args)
-    [(list '- a) (round-expr (format "-~a" a) ctx)]
+    [(list '- a) (round-expr (format "-(~a)" a) ctx)]
     [(list 'not a) (format "!~a" a)]
     [(list (or '== '!= '< '> '<= '>=)) "TRUE"]
     [(list (or '+ '- '* '/) a b) (round-expr (format "(~a ~a ~a)" a operator b) ctx)]

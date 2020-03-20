@@ -8,9 +8,9 @@
    (! :precision binary64 :round nearestEven (- (+ x n) n))))
 
 (FPCore (x)
-  :name "FPBench rounding example"
+  :name "FPBench precision example"
   :precision binary64
-  :pre (< 1 x 1e40)
+  :pre (< 1 x 100)
   :spec (+ x ε)
   (let ([ y (! :precision binary32 (- x 1))])
     (+ y 1)))

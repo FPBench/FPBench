@@ -5,7 +5,7 @@
 
 ;;; Abstraction for different languages
 
-(struct language (name operator constant declaration assignment round function))
+(struct language (name operator constant declaration assignment round round-mode function))
 (define *lang* (make-parameter #f))
 
 (define (convert-operator ctx operator args)
@@ -24,6 +24,9 @@
 
 (define (round-expr val ctx)
   ((language-round (*lang*)) val (ctx-props ctx)))
+
+(define (change-round-mode mode)
+  ((language-round-mode (*lang*)) mode))
 
 (define (convert-function name args arg-props body return ctx vars)
   ((language-function (*lang*)) name args arg-props body return ctx vars))
@@ -165,7 +168,14 @@
       (convert-expr retexpr #:ctx ctx* #:indent indent)]
 
     [`(! ,props ... ,body)
-      (convert-expr body #:ctx (ctx-update-props ctx props) #:indent indent)]
+      (define curr-round (ctx-lookup-prop ctx ':round 'binary64))
+      (define new-round (dict-ref (apply hash-set* #hash() props) ':round curr-round))
+      (if (not (equal? curr-round new-round))
+          (begin 
+            (printf "~a~a" indent (change-round-mode new-round))
+            (let ([ret (convert-expr body #:ctx (ctx-update-props ctx props) #:indent indent)])
+                 ret))
+          (convert-expr body #:ctx (ctx-update-props ctx props) #:indent indent))]
 
     [(list (? operator? operator) args ...)
       (define args_c

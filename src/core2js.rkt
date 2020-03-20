@@ -65,7 +65,8 @@
           body 
           return))
 
-(define js-language (language (const "js") operator->js constant->js decleration->js assignment->js round->js function->js))
+(define js-language (language (const "js") operator->js constant->js decleration->js assignment->js
+                              round->js (const "") function->js))
 
 ;;; Exports
 

@@ -3,7 +3,7 @@
 (require "common.rkt" "compilers.rkt" "imperative.rkt" "supported.rkt")
 (provide c-header core->c c-supported)
 
-(define c-header (const "#include <math.h>\n#define TRUE 1\n#define FALSE 0\n\n"))
+(define c-header (const "#include <fenv.h>\n#include <math.h>\n#define TRUE 1\n#define FALSE 0\n\n"))
 (define c-supported (supported-list
    (invert-op-list '())
    (invert-const-list '())
@@ -46,6 +46,15 @@
   (define type (type->c (dict-ref props ':precision 'binary64)))
   (format "((~a) ~a)" type val))
 
+(define (round-mode->c mode)
+  (format "fesetround(~a);\n"
+    (match mode
+      ['nearestEven   "FE_TONEAREST"]
+      ['toPositive    "FE_UPWARD"]
+      ['toNegative    "FE_DOWNWARD"]
+      ['toZero        "FE_TOWARDZERO"]
+      [_              (error 'round-mode->c (format "Unsupported rounding mode ~a" mode))])))
+
 (define (function->c name args arg-props body return ctx vars)
   (define type (type->c (ctx-lookup-prop ctx ':precision 'binary64)))
   (format "~a ~a(~a) {\n~a\treturn ~a;\n}\n"
@@ -55,7 +64,8 @@
            ", ")
           body return))
 
-(define c-language (language (const "c") operator->c constant->c declaration->c assignment->c round->c function->c))
+(define c-language (language (const "c") operator->c constant->c declaration->c assignment->c
+                             round->c round-mode->c function->c))
 
 ;;; Exports
 

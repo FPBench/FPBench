@@ -1,6 +1,6 @@
 #lang racket
 
-(provide parse-properties unparse-properties constants operators
+(provide parse-properties unparse-properties constants operators rounding-modes
          constant? operator? variable? define-by-match dictof property? property)
 
 (define (property? symb)
@@ -39,6 +39,8 @@
 
 (define (constant? x)
   (set-member? constants x))
+
+(define rounding-modes '(nearestEven nearestAway toPositive toNegative toZero))
 
 (define (variable? var)
   (and (symbol? var) (not (constant? var))))

@@ -1,7 +1,7 @@
 #lang racket
 
 (require racket/stream)
-(require "export.rkt" "transform.rkt" "src/fpcore.rkt")
+(require "export.rkt" "transform.rkt" "evaluate.rkt")
 (provide toolserver-main)
 
 ;; Non-buffering byte sequences
@@ -62,13 +62,14 @@
 (define newline-port (open-output-string))
 (newline newline-port)
 (define newline-string (get-output-string newline-port))
+(define separator-string ".")
 
 (define (read-one-command batch-port)
   (let loop ([line (read-line batch-port)])
     (if (eof-object? line)
         '()
         (let ([argv (string-split (string-trim line))])
-          (if (empty? argv)
+          (if (or (empty? argv) (equal? argv (list separator-string)))
               (loop (read-line batch-port))
               argv)))))
 
@@ -76,7 +77,7 @@
 (define (read-one-input port)
   (byte-sequence->input-port
    (for*/stream ([line (in-lines port)]
-                 #:break (equal? (string-trim line) ".")
+                 #:break (equal? (string-trim line) separator-string)
                  [c (in-bytes (string->bytes/utf-8 (string-append line newline-string)))])
      c)
    #:name 'stdin))
@@ -95,24 +96,19 @@
          (export-main argv port default-output-port)
          ;; force an input to be read in case port is unused
          (sequence-for-each void port)]
-        [(list "fpcore" argv ...)
+        [(list "evaluate" argv ...)
          (define port (read-one-input batch-port))
-         ;; maybe move this into something like interpret.rkt?
-         (let ([vals (map (compose real->double-flonum string->number) argv)]
-               [prog (read-fpcore "fpcore-input-port" port)])
-           (fprintf default-output-port "~a\n" (racket-run-fpcore prog vals)))
+         (evaluate-main argv port default-output-port)
          ;; force an input to be read in case port is unused
          (sequence-for-each void port)]
         [_
          (fprintf (current-error-port)
-                  "Invalid command sequence ~a: (should start with 'export' or 'transform')"
+                  "Invalid command sequence ~a: (should start with 'export' or 'transform' or 'evaluate')"
                   command)
          (newline (current-error-port))
          (fprintf (current-error-port) "Skipping input:")
          (newline (current-error-port))
-         (newline (current-error-port))
          (fprintf (current-error-port) "~a" (port->string (read-one-input batch-port)))
-         (newline (current-error-port))
          (newline (current-error-port))
          (flush-output (current-error-port))])
       (loop (read-one-command batch-port)))))

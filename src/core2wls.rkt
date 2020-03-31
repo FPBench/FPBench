@@ -6,7 +6,8 @@
 (define wls-supported (supported-list
   (invert-op-list '(let* while*))
   (invert-const-list '())
-  '(binary32 binary64)))
+  '(binary32 binary64)
+  '(nearestEven)))
 
 (define (fix-name name)
   (string-join

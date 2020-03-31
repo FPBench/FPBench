@@ -4,9 +4,10 @@
 (provide core->cml cml-supported)
 
 (define cml-supported (supported-list
-  '(! if let let* while while* + - * / < > <= >= == != not and or abs sqrt)    
+   (append ieee754-ops '(! if let let* while while* not and or)) 
   '(TRUE FALSE INFINITY NAN)
-  '(binary64))) ; bool
+  '(binary64)
+  '(nearestEven))) ; bool
 
 (define (fix-name name)
   (define str 

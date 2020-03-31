@@ -11,7 +11,8 @@
 (define js-supported (supported-list
    (invert-op-list'(!= copysign exp2 erf erfc fdim fma fmod isfinite isnormal lgamma nearbyint remainder signbit tgamma))
    (invert-const-list '())
-   '(binary64)))
+   '(binary64)
+   '(nearestEven)))
 
 (define (type->js type) "var")
 

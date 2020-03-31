@@ -7,7 +7,8 @@
 (define c-supported (supported-list
    (invert-op-list '())
    (invert-const-list '())
-   '(binary32 binary64)))
+   '(binary32 binary64)
+   ieee754-rounding-modes))
 
 (define/match (type->c-suffix type)
   [("double") ""]

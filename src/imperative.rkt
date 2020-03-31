@@ -174,6 +174,7 @@
           (begin 
             (printf "~a~a" indent (change-round-mode new-round))
             (let ([ret (convert-expr body #:ctx (ctx-update-props ctx props) #:indent indent)])
+                 (printf "~a~a" indent (change-round-mode curr-round))
                  ret))
           (convert-expr body #:ctx (ctx-update-props ctx props) #:indent indent))]
 

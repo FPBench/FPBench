@@ -6,7 +6,8 @@
 (define sollya-supported (supported-list
   (invert-op-list '(isnormal tgamma lgamma remainder fmod round cbrt atan2 erf))
   (invert-const-list '())
-  '(binary32 binary64)))
+  '(binary32 binary64)
+  ieee754-rounding-modes))
 
 (define sollya-header (const
   (string-append

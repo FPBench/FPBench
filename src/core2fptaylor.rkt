@@ -7,7 +7,8 @@
   (invert-op-list '(atan2 cbrt ceil copysign erf erfc exp2 expm1 fdim floor fmod hypot if let* lgamma 
                     log10 log1p log2 nearbyint pow remainder round tgamma trunc while while*))
   (invert-const-list '())
-  '(binary16 binary32 binary64 binary128)))
+  '(binary16 binary32 binary64 binary128)
+  '(nearestEven)))
 
 (define (fix-name name)
   (string-join
@@ -125,6 +126,8 @@
            (format "~a(~a(~a))" (type->rnd type #:scale inexact-scale)
                    (operator->fptaylor operator) (string-join args_fptaylor* ", ")))
          (application->fptaylor type operator args_fptaylor))]
+    [`(! ,props ... ,body)
+      (expr->fptaylor body #:names names #:inexact-scale inexact-scale #:type type)]
     [(? constant?)
      (format "~a(~a)" (type->rnd type) (constant->fptaylor expr))]
     [(? symbol?)

@@ -15,18 +15,18 @@
   (let ([ y (! :precision binary32 (- x 1))])
     (+ y 1)))
 
-(FPCore (x)
-  :name "FPBench precision example w/ rounding"
-  :precision binary64
-  :pre (< 1 x 100)
-  :spec (+ x ε)
-  (let ([ y (! :precision binary32 :round toPositive (- x 1))])
-    (+ y 1)))
+; (FPCore (x)
+;  :name "FPBench precision example w/ rounding mode"
+;  :precision binary64
+;  :pre (< 1 x 100)
+;  :spec (+ x ε)
+;  (let ([ y (! :precision binary32 :round toPositive (- x 1))])
+;    (+ y 1)))
 
 ;(FPCore (x y)
 ;  :name "FPBench rounding example"
-;  :pre (and (< 1 x 10e5)
-;            (< 1 y 10e5))
+;  :pre (and (< 1 x 100)
+;            (< 1 y 100))
 ;  (! :precision binary64 
 ;    (- (! :round toPositive (+ x y)) 
 ;       (! :round toNegative (+ x y)))))

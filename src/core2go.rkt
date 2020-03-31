@@ -9,7 +9,8 @@
 (define go-supported (supported-list
    (invert-op-list '())
    (invert-const-list '())
-   '(binary32 binary64)))
+   '(binary32 binary64)
+   '(nearestEven)))
 
 (define/match (type->go type)
   [('binary64) "float64"]

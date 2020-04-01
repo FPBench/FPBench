@@ -10,7 +10,7 @@
                     atanh erf erfc tgamma lgamma ceil floor fmod fdim copysign isfinite))
   (invert-const-list '(LOG2E LOG10E M_1_PI M_2_PI M_2_SQRTPI))
   '(binary32 binary64)
-  '(nearestEven)))
+   ieee754-rounding-modes))
 
 ;; Extremely simple html-inspired escapes. The understanding is that the
 ;; only difference between symbols is that FPCore allows : in names,
@@ -136,10 +136,9 @@
     ['isnormal "(fp.isNormal ~a)"]
     ['signbit "(fp.isNegative ~a)"]))
 
-
-
 (define (application->smt operator args ctx)
   (define rm (dict-ref ctx ':round 'nearestEven))
+  (define-values (w p) (fpbits (dict-ref ctx ':precision 'binary64)))
   (match (cons operator args)
     [(list (or '< '> '<= '>= '== 'and 'or) args ...)
      (format (operator->smt operator rm)
@@ -159,8 +158,12 @@
               " "))]
     [(list '- a)
      (format "(fp.neg ~a)" a)]
+    [(list (or 'not 'isinf 'isnan 'isnormal 'signbit) a) ;; avoid rounding on a boolean
+     (format (operator->smt operator rm) a)]
     [(list (? operator? op) args ...)
-     (apply format (operator->smt op rm) args)]))
+     (format "((_ to_fp ~a ~a) ~a ~a)" w p (rm->smt rm)
+        (apply format (operator->smt op rm) 
+               (map (curry format "((_ to_fp ~a ~a) ~a ~a)" 15 115 (rm->smt rm)) args)))]))
 
 (define (declaration->smt var val)
   (format "(~a ~a)" var val))
@@ -179,7 +182,7 @@
   (define arg-strings
     (for/list ([var args])
       (format "(~a ~a)" (if (list? var) (car var) var) type-str)))
-  (format "(define-fun ~a (~a) ~a\n ~a)"
+  (format "(define-fun ~a (~a) ~a\n ~a)\n"
           name
           (string-join arg-strings " ")
           type-str

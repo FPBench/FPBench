@@ -4,7 +4,7 @@
 (provide core->cml cml-supported)
 
 (define cml-supported (supported-list
-   (append ieee754-ops '(! if let let* while while* not and or)) 
+   (append (set-subtract ieee754-ops '(fma)) '(! if let let* while while* not and or)) 
   '(TRUE FALSE INFINITY NAN)
   '(binary64)
   '(nearestEven))) ; bool
@@ -57,8 +57,8 @@
 
 (define (constant->cml expr ctx)
   (match expr
-    ['INFINITY "inf"]
-    ['NAN "nan"]
+    ['INFINITY "(Double.fromString \"inf\")"]
+    ['NAN "(Double.fromString \"nan\")"]
     [(or 'TRUE 'FALSE) (string-titlecase (format "~a" expr))]
     [(? number?) (format "(Double.fromString \"~a\")" (real->double-flonum expr))]))
 

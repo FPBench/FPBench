@@ -1,9 +1,9 @@
 #lang racket
 (require "common.rkt" "fpcore.rkt")
-(provide valid-core unsupported-features invert-op-list invert-const-list
+(provide valid-core unsupported-features 
+         invert-op-list invert-const-list invert-round-modes-list
          ieee754-ops ieee754-rounding-modes
-         operators-in constants-in property-values round-modes-in
-         variables-in-expr)
+         operators-in constants-in property-values round-modes-in variables-in-expr)
 
 (provide
   (contract-out
@@ -22,7 +22,7 @@
 
 (define (invert-op-list list)
   (-> (listof symbol?) (listof symbol?))
-  (set-subtract (append operators '(if let let* while while* !)) list))
+  (set-subtract (append operators '(! if let let* while while*)) list))
 
 (define (invert-const-list list)
   (-> (listof symbol?) (listof symbol?))

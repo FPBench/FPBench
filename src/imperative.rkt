@@ -170,13 +170,15 @@
     [`(! ,props ... ,body)
       (define curr-round (ctx-lookup-prop ctx ':round 'binary64))
       (define new-round (dict-ref (apply hash-set* #hash() props) ':round curr-round))
-      (if (not (equal? curr-round new-round))
-          (begin 
-            (printf "~a~a" indent (change-round-mode new-round))
-            (let ([ret (convert-expr body #:ctx (ctx-update-props ctx props) #:indent indent)])
-                 (printf "~a~a" indent (change-round-mode curr-round))
-                 ret))
-          (convert-expr body #:ctx (ctx-update-props ctx props) #:indent indent))]
+      (if (or (equal? ((language-name (*lang*))) "sollya") (equal? curr-round new-round))
+          (convert-expr body #:ctx (ctx-update-props ctx props) #:indent indent)  ; Sollya doesn't need a temp variable
+          (let ([tmp-var (ctx-random-name)])
+            (printf "~a~a\n" indent (change-round-mode new-round))
+            (printf "~a~a\n" indent (convert-declaration
+                                      ctx tmp-var 
+                                      (convert-expr body #:ctx (ctx-update-props ctx props) #:indent indent)))
+            (printf "~a~a\n" indent (change-round-mode curr-round))
+            tmp-var))]
 
     [(list (? operator? operator) args ...)
       (define args_c

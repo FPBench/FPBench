@@ -8,7 +8,7 @@
    (invert-op-list '())
    (invert-const-list '())
    '(binary32 binary64)
-   ieee754-rounding-modes))
+   (invert-round-modes-list '(nearestAway))))
 
 (define/match (type->c-suffix type)
   [("double") ""]
@@ -48,7 +48,7 @@
   (format "((~a) ~a)" type val))
 
 (define (round-mode->c mode)
-  (format "fesetround(~a);\n"
+  (format "fesetround(~a);"
     (match mode
       ['nearestEven   "FE_TONEAREST"]
       ['toPositive    "FE_UPWARD"]

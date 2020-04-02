@@ -5,8 +5,8 @@
 
 (define c-header (const "#include <fenv.h>\n#include <math.h>\n#define TRUE 1\n#define FALSE 0\n\n"))
 (define c-supported (supported-list
-   (invert-op-list '())
-   (invert-const-list '())
+   fpcore-ops
+   fpcore-consts
    '(binary32 binary64)
    (invert-round-modes-list '(nearestAway))))
 
@@ -47,8 +47,9 @@
   (define type (type->c (dict-ref props ':precision 'binary64)))
   (format "((~a) ~a)" type val))
 
-(define (round-mode->c mode)
-  (format "fesetround(~a);"
+(define (round-mode->c mode indent)
+  (format "~afesetround(~a);\n"
+    indent
     (match mode
       ['nearestEven   "FE_TONEAREST"]
       ['toPositive    "FE_UPWARD"]

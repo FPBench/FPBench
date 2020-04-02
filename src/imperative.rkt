@@ -22,11 +22,11 @@
 (define (convert-assignment var val)
   ((language-assignment (*lang*)) var val))
 
-(define (round-expr val ctx)
+(define (round-expr val ctx) ; Sollya only
   ((language-round (*lang*)) val (ctx-props ctx)))
 
-(define (change-round-mode mode)
-  ((language-round-mode (*lang*)) mode))
+(define (change-round-mode mode indent) ; C only
+  ((language-round-mode (*lang*)) mode indent))
 
 (define (convert-function name args arg-props body return ctx vars)
   ((language-function (*lang*)) name args arg-props body return ctx vars))
@@ -170,15 +170,15 @@
     [`(! ,props ... ,body)
       (define curr-round (ctx-lookup-prop ctx ':round 'binary64))
       (define new-round (dict-ref (apply hash-set* #hash() props) ':round curr-round))
-      (if (or (equal? ((language-name (*lang*))) "sollya") (equal? curr-round new-round))
-          (convert-expr body #:ctx (ctx-update-props ctx props) #:indent indent)  ; Sollya doesn't need a temp variable
-          (let ([tmp-var (ctx-random-name)])
-            (printf "~a~a\n" indent (change-round-mode new-round))
-            (printf "~a~a\n" indent (convert-declaration
-                                      ctx tmp-var 
-                                      (convert-expr body #:ctx (ctx-update-props ctx props) #:indent indent)))
-            (printf "~a~a\n" indent (change-round-mode curr-round))
-            tmp-var))]
+      (if (and (equal? ((language-name (*lang*))) "c") (not (equal? curr-round new-round)))  ; Only C needs to emit a temporary variable
+        (let ([tmp-var (ctx-random-name)])
+          (printf "~a~a\n" indent (change-round-mode new-round indent))
+          (printf "~a~a\n" indent (convert-declaration
+                                    ctx tmp-var 
+                                    (convert-expr body #:ctx (ctx-update-props ctx props) #:indent indent)))
+          (printf "~a~a\n" indent (change-round-mode curr-round indent))
+          tmp-var)
+        (convert-expr body #:ctx (ctx-update-props ctx props) #:indent indent))] 
 
     [(list (? operator? operator) args ...)
       (define args_c

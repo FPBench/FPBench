@@ -9,8 +9,8 @@
 
 (define js-header (const "")) ; empty
 (define js-supported (supported-list
-   (invert-op-list'(!= copysign exp2 erf erfc fdim fma fmod isfinite isnormal lgamma nearbyint remainder signbit tgamma))
-   (invert-const-list '())
+   (invert-op-list '(!= copysign exp2 erf erfc fdim fma fmod isfinite isnormal lgamma nearbyint remainder signbit tgamma))
+   fpcore-consts
    '(binary64)
    '(nearestEven)))
 

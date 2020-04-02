@@ -7,8 +7,8 @@
 
 (define go-header (curry format "package ~a\n\nimport \"math\"\n\n"))
 (define go-supported (supported-list
-   (invert-op-list '())
-   (invert-const-list '())
+   fpcore-ops
+   fpcore-consts
    '(binary32 binary64)
    '(nearestEven)))
 

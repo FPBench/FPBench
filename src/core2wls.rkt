@@ -182,13 +182,6 @@
               (declaration->wls var val))
             "; ")
           body))
-          
-(define (block->wls name indent)
-  (match name
-    ['if ""]
-    ['let ""]
-    ['while ""]
-    [_ (error 'block->wls "Unsupported block ~a" name)]))
 
 (define (function->wls name args body ctx names)
   (define prec (ctx-lookup-prop ctx ':precision 'binary64))

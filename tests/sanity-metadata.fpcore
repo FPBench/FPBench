@@ -8,20 +8,20 @@
 
 (FPCore (x) :name "Single interval (4/4)" :pre (< 1.797693134862315e308 x INFINITY) :precision binary64 :spec 1.0 (if (< 1.797693134862315e308 x INFINITY) 1 0))
 
-(FPCore (x) :name "Multiple intervals (1/1)" :pre (or (< -5 x -1) (< 1 x 5)) :spec 1.0 (if (not (<= -1 x 1)) 1 0))
+(FPCore (x) :name "Multiple intervals (1/2)" :pre (or (< -5 x -1) (< 1 x 5)) :spec 1.0 (if (or (< -5 x -1) (< 1 x 5)) 1 0))
 
-(FPCore (x) :name "Multiple intervals (1/2)" :pre (or (< 1 x 1.00001) (< 1.7e308 x INFINITY)) :spec 1.0 (if (not (<= -1 x 1)) 1 0))
+(FPCore (x) :name "Multiple intervals (2/2)" :pre (or (< 1 x 1.00001) (< 1.7e308 x INFINITY)) :spec 1.0 (if (or (< 1 x 1.00001) (< 1.7e308 x INFINITY)) 1 0))
 
 
 ;; Preconditions (by rejection) ;; FPTaylor does not like these preconditions
 
-; (FPCore (x y) :name "Dependent preconditions (1/3)" :pre (< x y) x)
+; (FPCore (x y) :name "Dependent preconditions (1/3)" :pre (< x y) :spec 1.0 1.0)
 
-; (FPCore (x y) :name "Dependent preconditions (2/3)" :pre (< 1 x y 1.00001) x)
+; (FPCore (x y) :name "Dependent preconditions (2/3)" :pre (< 1 x y 1.00001) :spec 1.0 1.0)
 
-; (FPCore (x y) :name "Dependent preconditions (3/3)" :pre (== x y) x)
+; (FPCore (x y) :name "Dependent preconditions (3/3)" :pre (== x y) :spec 1.0 1.0)
 
-; (FPCore (x) :name "Extra preconditions (1/1)" :pre (< (pow x 2) 1) x)
+; (FPCore (x) :name "Extra preconditions (1/1)" :pre (< (pow x 2) 1) :spec 1.0 1.0)
 
 
 ;; Annotations

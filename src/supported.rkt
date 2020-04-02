@@ -2,7 +2,7 @@
 (require "common.rkt" "fpcore.rkt")
 (provide valid-core unsupported-features 
          invert-op-list invert-const-list invert-round-modes-list
-         ieee754-ops ieee754-rounding-modes
+         ieee754-ops ieee754-rounding-modes fpcore-ops fpcore-consts
          operators-in constants-in property-values round-modes-in variables-in-expr)
 
 (provide
@@ -18,11 +18,14 @@
 (define ieee754-ops '(+ - * / < > <= >= == != abs fma sqrt))
 (define ieee754-rounding-modes '(nearestEven nearestAway toPositive toNegative toZero))
 
+(define fpcore-ops (append operators '(! if let let* while while*))) ; annotation, control constructs, and "operators" in common.rkt
+(define fpcore-consts constants) ; same as "constants" in common.rkt
+
 ;;; Blacklist <==> Whitelist
 
 (define (invert-op-list list)
   (-> (listof symbol?) (listof symbol?))
-  (set-subtract (append operators '(! if let let* while while*)) list))
+  (set-subtract fpcore-ops list))
 
 (define (invert-const-list list)
   (-> (listof symbol?) (listof symbol?))
@@ -48,6 +51,7 @@
 
 (define (unsupported-features core supp)
   (define core-prec (dict-ref (property-values core) ':precision #f))
+  (displayln (set-subtract (round-modes-in core) (supported-list-round-modes supp)))
   (set-union
     (set-subtract (operators-in core) (supported-list-ops supp))
     (set-subtract (constants-in core) (supported-list-consts supp))
@@ -161,7 +165,8 @@
       (append (round-modes-in-expr cond) (round-modes-in-expr ift) (round-modes-in-expr iff))]
      [`(! ,props ... ,body)
       (let ([rnd-mode (dict-ref (apply hash-set* #hash() props) ':round #f)])
-           (if (equal? rnd-mode #f) '() (list rnd-mode)))]
+        (append (round-modes-in-expr body)
+                (if (equal? rnd-mode #f) '() (list rnd-mode))))]
      [(list op args ...) (append-map round-modes-in-expr args)]
      [(? constant?) '()]
      [(? symbol?) '()]

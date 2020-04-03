@@ -3,7 +3,8 @@
 (require "fpcore.rkt" "supported.rkt")
 (provide *used-names* *gensym-divider* *gensym-collisions* *gensym-fix-name*
           make-compiler-ctx  ctx-unique-name ctx-random-name ctx-lookup-name 
-          ctx-update-props ctx-lookup-prop ctx-props define-compiler)
+          ctx-update-props ctx-lookup-prop ctx-props ctx-lookup-prec
+          define-compiler)
 (provide
   (contract-out
     [struct compiler
@@ -28,7 +29,7 @@
 (define *used-names* (make-parameter (mutable-set)))
 (define *gensym-divider* (make-parameter #\_))
 (define *gensym-collisions* (make-parameter 1))
-(define *gensym-fix-name* (make-parameter (λ (x) (string->symbol x))))
+(define *gensym-fix-name* (make-parameter (λ (x) (symbol->string x))))
 
 ; Returns a unique, printable name based on the symbol and a fix-name procedure.
 (define (gensym sym) 
@@ -41,33 +42,46 @@
   (set-add! (*used-names*) name)
   name)
 
-(struct compiler-ctx (name-map props))
+(struct compiler-ctx (name-map prec-map props))
 
 ; Returns a new context struct with an empty name map and empty properties.
 (define (make-compiler-ctx) 
-  (compiler-ctx (make-immutable-hash) (make-immutable-hash)))
+  (compiler-ctx (make-immutable-hash) (make-immutable-hash) (make-immutable-hash)))
 
 ; Takes a given symbol and a fix-name procedure, maps it to a unique, printable name and returns both
 ; the updated ctx struct and the name
 (define (ctx-unique-name ctx name)
-  (define unique (gensym name))
-  (values 
-      (compiler-ctx (dict-set (compiler-ctx-name-map ctx) name unique) (compiler-ctx-props ctx))
-      unique))
+  (let ([unique (gensym name)]
+        [prec   (dict-ref (compiler-ctx-props ctx) ':precision 'binary64)])
+    (values 
+      (compiler-ctx (dict-set (compiler-ctx-name-map ctx) name unique) 
+                    (dict-set (compiler-ctx-prec-map ctx) name prec)
+                    (compiler-ctx-props ctx))
+      unique)))
 
-; Takes a fix-name procedure and returns a "random", unique, printable name that will be unmapped.
-(define (ctx-random-name)
-  (gensym 'VAR))
+; Takes a fix-name procedure and returns the updated context struct and a "random", unique, printable name
+; that will be unmapped, but it's precision is mapped.
+(define (ctx-random-name ctx)
+  (let ([name (gensym 'VAR)]
+        [prec (dict-ref (compiler-ctx-props ctx) ':precision 'binary64)])
+    (values
+      (compiler-ctx (compiler-ctx-name-map ctx) 
+                    (dict-set (compiler-ctx-prec-map ctx) name prec)
+                    (compiler-ctx-props ctx))
+      name)))
 
 ; Returns the unique, printable name currently mapped to by the given symbol.
 ; Returns the stringified version of the symbol otherwise.
 (define (ctx-lookup-name ctx sym)
-  (define name (dict-ref (compiler-ctx-name-map ctx) sym (symbol->string sym)))
-  name)
+  (dict-ref (compiler-ctx-name-map ctx) sym (symbol->string sym)))
+
+; Returns the precision of the given variable. Returns false if the symbol is unmapped.
+(define (ctx-lookup-prec ctx name)
+  (dict-ref (compiler-ctx-prec-map ctx) name #f))
 
 ; Functionally extends a context struct's hash table of properties from the given properties.
 (define (ctx-update-props ctx props)
-  (compiler-ctx (compiler-ctx-name-map ctx) (apply hash-set* (compiler-ctx-props ctx) props)))
+  (compiler-ctx (compiler-ctx-name-map ctx) (compiler-ctx-prec-map ctx) (apply hash-set* (compiler-ctx-props ctx) props)))
 
 ; Returns the property value stored in the context struct. Returns the value at 
 ; failure otherwise.

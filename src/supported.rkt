@@ -51,7 +51,6 @@
 
 (define (unsupported-features core supp)
   (define core-prec (dict-ref (property-values core) ':precision #f))
-  (displayln (set-subtract (round-modes-in core) (supported-list-round-modes supp)))
   (set-union
     (set-subtract (operators-in core) (supported-list-ops supp))
     (set-subtract (constants-in core) (supported-list-consts supp))

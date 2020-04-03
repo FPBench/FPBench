@@ -97,7 +97,10 @@
 
     [`(if ,cond ,ift ,iff)
       (define test (convert-expr cond #:ctx ctx #:indent indent))
-      (define outvar (ctx-random-name))
+      (define outvar
+        (let-values ([(cx name) (ctx-random-name ctx)])
+            (set! ctx cx)
+            name))
       ; Sollya has slightly different if
       (if (equal? ((language-name (*lang*))) "sollya")
           (printf "~aif (~a) then {\n" indent test)
@@ -118,7 +121,10 @@
             (printf "~a~a\n" indent
                 (convert-declaration cx name (convert-expr val #:ctx ctx #:indent indent)))
             (values cx (flatten (cons vars* name))))))
-      (define test-var (ctx-random-name))
+      (define test-var
+        (let-values ([(cx name) (ctx-random-name ctx)])
+            (set! ctx cx)
+            name))
       (printf "~a~a\n" indent
           (convert-declaration
               (ctx-update-props ctx '(:precision boolean))
@@ -149,7 +155,10 @@
             (printf "~a~a\n" indent
                 (convert-declaration cx name (convert-expr val #:ctx ctx* #:indent indent)))
             (values cx (flatten (cons vars* name))))))
-      (define test-var (ctx-random-name))
+      (define test-var
+        (let-values ([(cx name) (ctx-random-name ctx)])
+            (set! ctx cx)
+            name))
       (printf "~a~a\n" indent
           (convert-declaration
               (ctx-update-props ctx '(:precision boolean))
@@ -167,15 +176,17 @@
        (printf "~a}~a\n" indent (if (equal? ((language-name (*lang*))) "sollya") ";" ""))
       (convert-expr retexpr #:ctx ctx* #:indent indent)]
 
+    ; Ignore all casts
+    [`(cast ,body) (convert-expr body #:ctx ctx #:indent indent)]
+
     [`(! ,props ... ,body)
       (define curr-round (ctx-lookup-prop ctx ':round 'binary64))
       (define new-round (dict-ref (apply hash-set* #hash() props) ':round curr-round))
       (if (and (equal? ((language-name (*lang*))) "c") (not (equal? curr-round new-round)))  ; Only C needs to emit a temporary variable
-        (let ([tmp-var (ctx-random-name)])
+        (let-values ([(ctx* tmp-var) (ctx-random-name ctx)])
           (printf "~a~a\n" indent (change-round-mode new-round indent))
-          (printf "~a~a\n" indent (convert-declaration
-                                    ctx tmp-var 
-                                    (convert-expr body #:ctx (ctx-update-props ctx props) #:indent indent)))
+          (printf "~a~a\n" indent 
+              (convert-declaration ctx* tmp-var (convert-expr body #:ctx (ctx-update-props ctx* props) #:indent indent)))
           (printf "~a~a\n" indent (change-round-mode curr-round indent))
           tmp-var)
         (convert-expr body #:ctx (ctx-update-props ctx props) #:indent indent))] 

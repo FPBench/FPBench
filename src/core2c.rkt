@@ -7,7 +7,7 @@
 (define c-supported (supported-list
    fpcore-ops
    fpcore-consts
-   '(binary32 binary64)
+   '(binary32 binary64 binary80)
    (invert-round-modes-list '(nearestAway))))
 
 (define/match (type->c-suffix type)
@@ -23,7 +23,15 @@
 
 (define (operator->c props operator args)
   (define type (type->c (dict-ref props ':precision 'binary64)))
-  (format "((~a) ~a~a(~a))" type operator (type->c-suffix type) (string-join args ", ")))
+  (define op*
+    (match operator
+      ['isinf       "isinf"]
+      ['isnan       "isnan"]
+      ['isfinite    "isfinite"]
+      ['isnormal    "isnormal"]
+      ['signbit     "signbit"]
+      [_          (format "~a~a" operator (type->c-suffix type))]))
+  (format "((~a) ~a(~a))" type op* (string-join args ", ")))
 
 (define (constant->c props expr)
   (define type (type->c (dict-ref props ':precision 'binary64)))

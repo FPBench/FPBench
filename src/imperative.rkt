@@ -205,13 +205,11 @@
 (define (convert-core prog name)
   (match-define (list 'FPCore (list args ...) props ... body) prog)
   (define ctx (ctx-update-props (make-compiler-ctx) (append '(:precision binary64 :round nearestEven) props)))
-
   (parameterize ([*used-names* (mutable-set)] [*gensym-collisions* 1] [*gensym-fix-name* fix-name])
     (define func-name 
       (let-values ([(cx fname) (ctx-unique-name ctx (string->symbol name))])
         (set! ctx cx)
         fname))
-
     (define-values (arg-names arg-props)
       (for/lists (n p) ([var args])
         (match var
@@ -227,11 +225,9 @@
                             (set! ctx cx)
                             name)
                 (ctx-props ctx))])))
-
     (define-values (body-out return-out) 
       (let ([p (open-output-string)])
         (parameterize ([current-output-port p])    
           (define out (convert-expr body #:ctx ctx))
           (values (get-output-string p) out))))
-
     (convert-function func-name arg-names arg-props body-out return-out ctx (set->list (*used-names*)))))

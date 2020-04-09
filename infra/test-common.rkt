@@ -1,6 +1,6 @@
 #lang racket
 
-(require math/flonum math/bigfloat)
+(require math/flonum racket/extflonum math/bigfloat)
 (require "../src/common.rkt" "../src/fpcore.rkt" "../src/range-analysis.rkt" "../src/supported.rkt")
 (provide tester *tester* test-core *prog*)
 
@@ -39,42 +39,34 @@
 
 ;;; Preconditions
 
-(define (random-exp k)
-  "Like (random (expt 2 k)), but k is allowed to be arbitrarily large"
-  (if (< k 31) ; Racket generates random numbers in the range [0, 2^32-2]; I think it's a bug
-      (random (expt 2 k))
-      (let ([head (* (expt 2 31) (random-exp (- k 31)))])
-        (+ head (random (expt 2 31))))))
-
-;   float            ordinal
-;   +nan.0,     <->  n > (2^(bits - 1) - 2^(bits - exp_bits - 1))
-;   -nan.0      ->   n > (2^(bits - 1) - 2^(bits - exp_bits - 1))
-;   +inf.0      <->  n = (2^(bits - 1) - 2^(bits - exp_bits - 1))
-;   0<x<+inf.0  <->  0 < n < (2^(bits - 1) - 2^(bits - exp_bits - 1))
-;   0           <->  0
-;   -0          ->   0
-;   0<x<-inf.0  <->  -(2^(bits - 1) - 2^(bits - exp_bits - 1)) < n < 0
-;   -inf.0      <->  n = -(2^(bits - 1) - 2^(bits - exp_bits - 1))
-;
+; binary32, binary64: f(+-nan) > f(inf)
+; binary80:           f(+-nan) < f(-inf)
 (define (float->ordinal x type)
-  (define b
+  (define-values (w i)
     (match type
-      ['binary32 4]
-      ['binary64 8]))
-  (define w (* 8 b))
-  (define i (integer-bytes->integer (real->floating-point-bytes x b) #t))
+      ['binary80 (values 80 (let ([b (extfl->floating-point-bytes (real->extfl x))])
+                              (+ (integer-bytes->integer (subbytes b 0 8) #f)
+                                 (* (integer-bytes->integer (subbytes b 8 10) #f) 
+                                    (expt 2 64)))))]
+      ['binary64 (values 64 (integer-bytes->integer (real->floating-point-bytes x 8) #f))]
+      ['binary32 (values 32 (integer-bytes->integer (real->floating-point-bytes x 4) #f))]))
   (define s (bitwise-bit-field i (- w 1) w))
   (define u (bitwise-bit-field i 0 (- w 1)))
   (if (> s 0) (- u) u))
 
 (define (ordinal->float x type)
-  (define-values (b e) 
+  (define-values (b e real->float) 
     (match type
-      ['binary32 (values 4 8)]
-      ['binary64 (values 8 11)]))
+      ['binary80 (values 10 15 real->extfl)]
+      ['binary64 (values 8 11 identity)]
+      ['binary32 (values 4 8 real->single-flonum)]))
   (define w (* 8 b))
-  (define inf (- (expt 2 (- w 1)) (expt 2 (- (- w e) 1))))
-  (define r
+  (define inf 
+    (- (expt 2 (- w 1)) 
+        (if (equal? type 'binary80)
+            (expt 2 (- (- w e) 2)) ; for +inf in binary80, the highest significand bit is 1 
+            (expt 2 (- (- w e) 1)))))
+  (real->float
     (cond
       [(> x inf)     +nan.0]
       [(= x inf)     +inf.0]
@@ -83,12 +75,16 @@
       [else 
         (let ([s (if (< x 0) 1 0)]
               [u (abs x)])
-          (floating-point-bytes->real (integer->integer-bytes
-                (bitwise-ior (arithmetic-shift s (- w 1)) u)
-                b #f)))]))
-  (match type
-    ['binary64 r]
-    ['binary32 (real->single-flonum r)]))
+          (match type
+            ['binary80  (floating-point-bytes->extfl 
+                          (bytes-append
+                            (integer->integer-bytes (bitwise-bit-field u 0 64) 8 #f) 
+                            (integer->integer-bytes 
+                              (bitwise-ior (arithmetic-shift s (sub1 (- w 64)))
+                                           (bitwise-bit-field u 64 80))
+                              2 #f)))]
+            [_          (floating-point-bytes->real 
+                          (integer->integer-bytes (bitwise-ior (arithmetic-shift s (- w 1)) u) b #f))]))])))
 
 ;;; Unit tests for float->ordinal and ordinal->float
 (module+ test
@@ -115,7 +111,7 @@
   (check-true (> (float->ordinal -1.79769e+308 'binary64) (float->ordinal -inf.0 'binary64)))
 )
 
-(define (sample-float intervals type)
+(define (sample-float-on-intervals intervals type)
   (define inf (float->ordinal +inf.0 type)) ; +inf as an ordinal
   (define interval-range ; number of floats on the interval for all intervals
     (for/list ([range intervals]) 
@@ -137,10 +133,19 @@
     (exact-round
       (* 2 (* (random)
           (match type
+            ['binary80 (- (expt 2 80) 1)]
             ['binary64 (- (expt 2 64) 1)]
             ['binary32 (- (expt 2 32) 1)])))))
   ; random integer on the interval [low*, high*]
   (ordinal->float (+ (remainder rand (+ (- high low) 1)) low) type))
+
+(define (sample-float intervals type)
+  (if (equal? (length intervals) 0)
+      (match type
+        ['binary80 +nan.t]
+        ['binary60 +nan.0]
+        ['binary32 +nan.f])
+      (sample-float-on-intervals intervals type)))
 
 ; Returns the float and whether or not it met the precondition
 (define (sample-by-rejection pre vars evaltor type)
@@ -155,9 +160,20 @@
                                       (cons var num))))
       (values (for/list ([var vars]) (sample-random type)) (+ i 1))))
 
-; Returns a random float
+;;; Random sampler
+
+(define (random-exp k)
+  "Like (random (expt 2 k)), but k is allowed to be arbitrarily large"
+  (if (< k 31) ; Racket generates random numbers in the range [0, 2^32-2]; I think it's a bug
+      (random (expt 2 k))
+      (let ([head (* (expt 2 31) (random-exp (- k 31)))])
+        (+ head (random (expt 2 31))))))
+
 (define (sample-random type)
   (match type
+    ['binary80 (floating-point-bytes->extfl (bytes-append
+                  (integer->integer-bytes (random-exp 64) 8 #f)
+                  (integer->integer-bytes (random-exp 16) 2 #f)))]
     ['binary64 (floating-point-bytes->real (integer->integer-bytes (random-exp 64) 8 #f))]
     ['binary32 (real->single-flonum (floating-point-bytes->real (integer->integer-bytes (random-exp 32) 4 #f)))]))
   
@@ -169,6 +185,19 @@
       (if (<= fuel 0)
           (k default)
           ((eval-expr* evaltor (λ (expr ctx) (eval expr ctx (- fuel 1)))) expr ctx)))))
+
+(define/match (prec->bf-bits prec)
+  [('binary80) 64]
+  [('binary64) 53]
+  [('binary32) 24])
+
+(define (extfl->real x)
+  (cond
+    [(equal? x +inf.t)  +inf.0] 
+    [(equal? x -inf.t)  -inf.0]
+    [(equal? x +nan.t)  +nan.0] 
+    [(equal? x -nan.t)  -nan.0]
+    [else (extfl->exact x)])) 
 
 ;;; Tester core
 
@@ -190,7 +219,7 @@
       (error "Verbose and quiet flags cannot be both set"))
   (define err 0)
   (for ([prog (in-port (curry read-fpcore source) curr-in-port)]
-    #:when (valid-core prog (tester-supported (*tester*))))
+        #:when (valid-core prog (tester-supported (*tester*))))
     (match-define (list 'FPCore (list vars ...) props* ... body) prog)
     (define-values (_ props) (parse-properties props*))
     (define type (dict-ref props ':precision 'binary64))
@@ -200,13 +229,11 @@
     (define timeout 0)
     (define nans 0) ; wolfram only
     (define results  ; run test
-      (parameterize ([bf-precision 
-                        (match type
-                          ['binary64 53]
-                          ['binary32 24])])
+      (parameterize ([bf-precision (prec->bf-bits type)])
         (for/list ([i (in-range (tests-to-run))])
           (define evaltor 
             (match type 
+              ['binary80 racket-binary80-evaluator]
               ['binary64 racket-double-evaluator] 
               ['binary32 racket-single-evaluator]))
           (define-values (ctx precond-met)
@@ -228,15 +255,20 @@
             (match ((eval-fuel-expr evaltor (if precond-met (fuel-good-input) (fuel-bad-input)) 'timeout) body ctx)
               [(? real? result)
                 ((match type
+                  ['binary80 real->extfl]
                   ['binary64 real->double-flonum] 
                   ['binary32 real->single-flonum])
                 result)]
+              [(? extflonum? result)
+                (match type
+                  ['binary80 result]
+                  [_         (extfl->real result)])]
               [(? complex? result)
                 (match type
                   ['binary64 +nan.0]
                   ['binary32 +nan.f])]
-                  ['timeout 'timeout]
-                  [(? boolean? result)
+              ['timeout 'timeout]
+              [(? boolean? result)
                 result]))
           (when (equal? out 'timeout)
             (set! timeout (+ timeout 1)))

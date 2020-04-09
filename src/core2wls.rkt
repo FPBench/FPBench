@@ -4,7 +4,7 @@
 (provide core->wls wls-supported number->wls)
 
 (define wls-supported (supported-list
-  (invert-op-list '(let* while*))
+  (invert-op-list '())
   (invert-const-list '())
   '(binary32 binary64)
   '(nearestEven)))
@@ -160,38 +160,60 @@
 (define (declaration->wls var val)
   (format "~a = ~a" var val))
 
-(define (let->wls decls body indent)
-  (format "With[{~a}, ~a]" decls body))
+(define (normal-let->wls name vars vals body)
+  (format "~a[{~a}, ~a]" 
+    name
+    (string-join
+      (for/list ([var vars] [val vals])
+          (declaration->wls var val))
+      ", ")
+    body))
+    
+(define (nested-let->wls name vars vals body)
+  (cond
+    [(> (length vars) 0) 
+      (format "~a[{~a}, ~a]" name (declaration->wls (first vars) (first vals)) 
+                             (nested-let->wls name (drop vars 1) (drop vals 1) body))]
+    [else body]))
+
+(define (let->wls vars vals body indent nested)
+  (if nested
+    (format (nested-let->wls "With" vars vals body))
+    (format (normal-let->wls "With" vars vals body))))                         
 
 (define (if->wls cond ift iff indent)
   (format "If[~a, ~a, ~a]" cond ift iff))
 
-(define (while->wls vars inits cond updates updatevars body loop indent)
-  (format "Block[{~a}, While[~a, With[{~a}, ~a]]; ~a]"
-          (string-join
-            (for/list ([var vars] [val inits])
-              (declaration->wls var val))
-            ", ")
-          cond
-          (string-join
-            (for/list ([var updatevars] [val updates])
-              (declaration->wls var val))
-            ", ")
+(define (while->wls vars inits cond updates updatevars body loop indent nested)
+  (if nested
+    (nested-let->wls "Block" vars inits   ; Block[{~a}, While[~a, ~a]; ~a]
+      (format "While[~a, ~a]; ~a"
+        cond
+        (string-join
+          (for/list ([var vars] [val updates])
+            (declaration->wls var val))
+          "; ")
+        body))
+    (normal-let->wls "Block" vars inits   ; Block[{~a}, While[~a, With[{~a}, ~a]]; ~a]
+      (format "While[~a, ~a]; ~a"
+        cond
+        (normal-let->wls "With" updatevars updates
           (string-join
             (for/list ([var vars] [val updatevars])
               (declaration->wls var val))
-            "; ")
-          body))
+            "; "))
+        body))))
 
 (define (function->wls name args body ctx names)
   (define prec (ctx-lookup-prop ctx ':precision 'binary64))
   (define arg-strings
     (for/list ([var args])
       (format "~a_" (if (list? var) (car var) var))))
-  (format "~a[~a] := ~a\n"
+  (format "~a[~a] := SetPrecision[~a, ~a]\n"
           name
           (string-join arg-strings ", ")
-          body))
+          body
+          (match prec ['binary64 15.95458977019100] ['binary32 7.224719895935549])))
 
 (define wls-language (functional "wls" application->wls constant->wls declaration->wls let->wls if->wls while->wls function->wls))
 

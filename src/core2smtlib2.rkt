@@ -5,7 +5,7 @@
 (provide core->smtlib2 smt-supported rm->smt number->smt)
 
 (define smt-supported (supported-list
-  (invert-op-list '(while* let* while exp exp2 expm1 log log10 log2 log1p pow cbrt
+  (invert-op-list '(while* while exp exp2 expm1 log log10 log2 log1p pow cbrt
                     hypot sin cos tan asin acos atan atan2 sinh cosh tanh asinh acosh 
                     atanh erf erfc tgamma lgamma ceil floor fmod fdim copysign isfinite))
   (invert-const-list '(LOG2E LOG10E M_1_PI M_2_PI M_2_SQRTPI))
@@ -197,6 +197,28 @@
                 (format "((_ to_fp ~a ~a) ~a ~a)" w p (rm->smt rm) body*))))
         w p)]
 
+    [`(let* ([,vars ,vals] ...) ,body)
+      (define rm (ctx-lookup-prop ctx ':round 'nearestEven))
+      (define-values (ctx* vars* vals*)
+        (for/fold ([ctx* ctx] [vars* '()] [vals* '()]) 
+                  ([var vars] [val vals])
+          (let-values ([(cx name) (ctx-unique-name ctx* var)]
+                       [(val_c w* p*) (expr->smt val ctx* w p)])
+            (values cx (flatten (cons vars* name)) (flatten (cons vals* val_c))))))
+      (define body*
+        (let-values ([(body* w* p*) (expr->smt body ctx* w p)])
+            (if (and (equal? w* w) (equal? p* p))
+                body*
+                (format "((_ to_fp ~a ~a) ~a ~a)" w p (rm->smt rm) body*))))
+      (values
+        (let nested ([vars_c vars*]
+                     [vals_c vals*])
+          (cond
+            [(> (length vars_c) 0)
+              (format "(let ((~a ~a)) ~a)" (first vars_c) (first vals_c) (nested (drop vars_c 1) (drop vals_c 1)))]
+            [else body*]))
+        w p)]
+
     [`(if ,cond ,ift ,iff)
       (define li (list cond ift iff))
       (define-values (li* max-w max-p)
@@ -237,11 +259,10 @@
 
     [(? constant?) (values (constant->smt expr ctx) w p)]
     [(? number?) (values (constant->smt expr ctx) w p)]
-
     [(? symbol?) 
-      (define decl-prec (ctx-lookup-prec ctx expr))
-      (define-values (w* p*) (fpbits decl-prec))
-      (values (ctx-lookup-name ctx expr) w* p*)]))
+      (let*-values ([(decl-prec) (ctx-lookup-prec ctx expr)]
+                    [(w* p*) (fpbits decl-prec)])
+        (values (ctx-lookup-name ctx expr) w* p*))]))
 
 ;; Exports
 

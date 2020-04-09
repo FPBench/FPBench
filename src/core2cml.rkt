@@ -51,7 +51,7 @@
      (format "~a" (string-join (map ~a a) " andalso "))]
     [(list 'or a ...)
      (format "~a" (string-join (map ~a a) " orelse "))]
-    [(list 'abs a) (format "(Double.abs ~a)" a)]
+    [(list 'fabs a) (format "(Double.abs ~a)" a)]
     [(list 'sqrt a) (format "(Double.sqrt ~a)" a)]
     [(list 'fma a b c) (format "(Double.fma ~a ~a ~a)" a b c)]))
 
@@ -65,13 +65,19 @@
 (define (declaration->cml var [val 0])
   (format "val ~a = ~a" var val))
 
-(define (let->cml decls body indent)
-  (format "let\n~a\t~a\n~ain\n~a\t~a\n~aend" indent decls indent indent body indent))
+(define (let->cml vars vals body indent nested)
+  (format "let\n~a\t~a\n~ain\n~a\t~a\n~aend" 
+    indent
+    (string-join
+      (for/list ([var vars] [val vals])
+        (declaration->cml var val))
+      (format "\n\t~a" indent))
+    indent indent body indent)) ; todo fix
 
 (define (if->cml cond ift iff indent)
   (format "if ~a\n~athen ~a\n~aelse ~a" cond indent ift indent iff))
 
-(define (while->cml vars inits cond updates updatevars body loop indent)
+(define (while->cml vars inits cond updates updatevars body loop indent nested)
   (define loopdef
     (string-append
       (format "~a " loop)

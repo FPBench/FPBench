@@ -15,7 +15,7 @@
 
 ;;; Predefined supported lists
 
-(define ieee754-ops '(+ - * / < > <= >= == != abs fma sqrt))
+(define ieee754-ops '(+ - * / < > <= >= == != fabs fma sqrt))
 (define ieee754-rounding-modes '(nearestEven nearestAway toPositive toNegative toZero))
 
 (define fpcore-ops (append operators '(! if let let* while while*))) ; annotation, control constructs, and "operators" in common.rkt

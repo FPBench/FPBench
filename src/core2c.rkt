@@ -1,16 +1,18 @@
 #lang racket
 
+(require math/bigfloat)
 (require "common.rkt" "compilers.rkt" "imperative.rkt" "supported.rkt")
 (provide c-header core->c c-supported)
 
-(define c-header (const "#include <fenv.h>\n#include <math.h>\n#define TRUE 1\n#define FALSE 0\n\n"))
+(define c-header (const "#include <fenv.h>\n#include <math.h>\n#include <stdint.h>\n#define TRUE 1\n#define FALSE 0\n\n"))
 (define c-supported (supported-list
    fpcore-ops
    fpcore-consts
-   '(binary32 binary64 binary80)
+   '(binary32 binary64 binary80 integer)
    (invert-round-modes-list '(nearestAway))))
 
 (define/match (type->c-suffix type)
+  [("int64_t") ""]
   [("double") ""]
   [("float") "f"]
   [("long double") "l"])
@@ -19,7 +21,8 @@
   [('binary64) "double"]
   [('binary32) "float"]
   [('binary80) "long double"]
-  [('boolean) "int"])
+  [('boolean) "int"]
+  [('integer) "int64_t"])
 
 (define (operator->c props operator args)
   (define type (type->c (dict-ref props ':precision 'binary64)))
@@ -34,13 +37,18 @@
   (format "((~a) ~a(~a))" type op* (string-join args ", ")))
 
 (define (constant->c props expr)
-  (define type (type->c (dict-ref props ':precision 'binary64)))
+  (define prec (dict-ref props ':precision 'binary64))
+  (define type (type->c prec))
   (match expr
     [(or 'M_1_PI 'M_2_PI 'M_2_SQRTPI 'TRUE 'FALSE 'INFINITY 'NAN)
      (format "((~a) ~a)" type expr)]
     [(? symbol?) (format "((~a) M_~a)" type expr)]
     [(? number?)
-     (format "~a~a" (real->double-flonum expr) (type->c-suffix type))]))
+      (match prec
+        ['integer   (format "~a" (inexact->exact expr))]
+        ['binary80  (parameterize ([bf-precision 64]) 
+                        (format "~a~a" (bigfloat->string (bf expr)) (type->c-suffix type)))]
+        [_          (format "~a~a" (real->double-flonum expr) (type->c-suffix type))])]))
 
 (define (declaration->c props var [val #f])
   (define type (type->c (dict-ref props ':precision 'binary64)))

@@ -83,39 +83,57 @@
 
 (define (sample-float-on-intervals intervals type)
   (define inf (float->ordinal +inf.0 type)) ; +inf as an ordinal
-  (define interval-range ; number of floats on the interval for all intervals
+  (define interval-ranges ; number of floats on the interval for all intervals
     (for/list ([range intervals]) 
       (sub1 (- (+ (float->ordinal (interval-u range) type) (if (interval-u? range) 1 0))
                (- (float->ordinal (interval-l range) type) (if (interval-l? range) 1 0))))))
-  (define total-range (for/sum ([range interval-range]) range)) ; total number of floats
+  (define total-range (for/sum ([range interval-ranges]) range)) ; total number of floats
   (define range-random (exact-round (* (random) (- total-range 1)))) ; random on [0, total-range - 1]
   (define interval ; choose interval
     (for/fold ([low 0] [i 0]
               #:result (list-ref intervals i))
-              ([range interval-range])
+              ([range interval-ranges])
               #:break (and (<= low range-random) (< range-random (+ low range)))
               (values (+ low range) (add1 i))))
   ; interval [low, high]
   (define low (+ (float->ordinal (interval-l interval) type) (if (interval-l? interval) 0 1)))
   (define high (- (float->ordinal (interval-u interval) type) (if (interval-u? interval) 0 1)))
-  ; random integer on the interval [0, 2 * INT_MAX]
+  ; random integer on the interval [0, 2 * UINT_MAX]
   (define rand
     (exact-round
-      (* 2 (* (random)
+      (* 2 (random)
           (match type
             ['binary80 (- (expt 2 80) 1)]
             ['binary64 (- (expt 2 64) 1)]
-            ['binary32 (- (expt 2 32) 1)])))))
+            ['binary32 (- (expt 2 32) 1)]))))
   ; random integer on the interval [low*, high*]
   (ordinal->float (+ (remainder rand (+ (- high low) 1)) low) type))
 
+(define (sample-int-on-intervals intervals)
+  (define interval-ranges ; number of integers on the interval for all intervals
+    (for/list ([range intervals]) 
+      (sub1 (- (+ (inexact->exact (truncate (interval-u range))) (if (interval-u? range) 1 0))
+               (- (inexact->exact (truncate (interval-l range))) (if (interval-l? range) 1 0))))))
+  (define total-range (for/sum ([range interval-ranges]) range)) ; total number of integers
+  (define range-random (exact-round (* (random) (- total-range 1)))) ; random on [0, total-range - 1]
+  (define interval ; choose interval
+    (for/fold ([low 0] [i 0]
+              #:result (list-ref intervals i))
+              ([range interval-ranges])
+              #:break (and (<= low range-random) (< range-random (+ low range)))
+              (values (+ low range) (add1 i))))
+  ; interval [low, high]
+  (define low (+ (inexact->exact (truncate (interval-l interval))) (if (interval-l? interval) 0 1)))
+  (define high (- (inexact->exact (truncate (interval-u interval))) (if (interval-u? interval) 0 1)))
+  ; random integer on the interval [0, UINT_MAX]
+  (define rand (exact-round (* (random) (expt 2 64))))
+  (+ (remainder rand (+ (- high low) 1)) low))
+
 (define (sample-float intervals type)
-  (if (equal? (length intervals) 0)
-      (match type
-        ['binary80 +nan.t]
-        ['binary60 +nan.0]
-        ['binary32 +nan.f])
-      (sample-float-on-intervals intervals type)))
+  (cond
+    [(equal? (length intervals) 0) (match type ['binary80 +nan.t] ['binary60 +nan.0] ['binary32 +nan.f])]
+    [(equal? type 'integer)  (sample-int-on-intervals intervals)]
+    [else (sample-float-on-intervals intervals type)]))
 
 ; Returns the float and whether or not it met the precondition
 (define (sample-by-rejection pre vars evaltor type)
@@ -145,4 +163,5 @@
                   (integer->integer-bytes (random-exp 64) 8 #f)
                   (integer->integer-bytes (random-exp 16) 2 #f)))]
     ['binary64 (floating-point-bytes->real (integer->integer-bytes (random-exp 64) 8 #f))]
-    ['binary32 (real->single-flonum (floating-point-bytes->real (integer->integer-bytes (random-exp 32) 4 #f)))]))
+    ['binary32 (real->single-flonum (floating-point-bytes->real (integer->integer-bytes (random-exp 32) 4 #f)))]
+    ['integer  (random-exp 8)]))

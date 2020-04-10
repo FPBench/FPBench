@@ -2,7 +2,8 @@
 
 (require "common.rkt" math/flonum racket/extflonum math/bigfloat math/special-functions math/base)
 (provide
- (struct-out evaluator) racket-binary80-evaluator racket-double-evaluator racket-single-evaluator
+ (struct-out evaluator) racket-integer-evaluator
+  racket-binary80-evaluator racket-double-evaluator racket-single-evaluator
  fpcore? expr? context/c eval-expr* eval-expr racket-run-fpcore
  read-fpcore)
 
@@ -270,6 +271,7 @@
          ['binary80 (values 64 racket-binary80-evaluator)]
          ['binary64 (values 53 racket-double-evaluator)]
          ['binary32 (values 24 racket-single-evaluator)]
+         ['integer  (values 53 racket-integer-evaluator)]
          [_         (values (bf-precision) evaltor)]))
       (parameterize ([bf-rounding-mode (fpcore->bf-round (dict-ref props ':round 'nearestEven))]
                      [bf-precision p])
@@ -300,7 +302,8 @@
 (define/match (prec->bf-bits prec)
   [('binary80)  64]
   [('binary64)  53]
-  [('binary32)  24])
+  [('binary32)  24]
+  [('integer)   53]) ; integer is just a double
 
 (define (fl->bf arg)
   (cond
@@ -436,6 +439,13 @@
                [constant (λ (x) (let ([v ((evaluator-constant racket-double-evaluator) x)])
                                   (if (real? v) (real->single-flonum v) v)))]))
 
+(define/contract racket-integer-evaluator evaluator?
+  (evaluator
+    (λ (x) (truncate (if (real? x) (real->double-flonum x) (extfl->real x))))
+    (λ (x) (let ([v ((evaluator-constant racket-double-evaluator) x)])
+              (truncate (if (real? v) (real->single-flonum v) v))))
+    (λ (op) (compose truncate ((evaluator-function racket-double-evaluator) op)))))  
+
 ; Since extflonums aren't consider "numbers", they need their own
 ; arithemtic functions
 (define (extfl-zero? x) (or (equal? x -0.0t0) (equal? x 0.0t0)))
@@ -458,7 +468,7 @@
    real->extfl
    (λ (x) (let ([v ((evaluator-constant racket-double-evaluator) x)])
             (if (real? v) (real->extfl v) v)))
-   (table-fn            ; almost a copy of double-evaluator
+   (table-fn    
     [+ (compute-with-bf-2 bf+)] 
     [- (λ (x [y #f]) (if (equal? y #f) (extfl* x -1.0t0) ((compute-with-bf-2 bf-) x y)))]  ; distinguish between negation and subtraction
     [* (λ (x y) (if (and (or (extfl-zero? x) (extfl-zero? y))   ; to get around -0.0 (bigfloat) -> 0.0 (float)
@@ -533,26 +543,38 @@
   (match prec
     ['binary80 (real->extfl x)]
     ['binary64 (real->double-flonum x)]
-    ['binary32 (real->single-flonum x)]))
+    ['binary32 (real->single-flonum x)]
+    ['integer  (inexact->exact x)]))
 
-(define/contract (racket-run-fpcore prog vals)
-  (-> fpcore? (listof real?) (or/c real? extflonum?))
+(define (string->float x prec)
+  (match prec
+    ['binary80  (parameterize ([bf-precision 64])
+                  (let ([f (bf x)])
+                    (if (bf= x -0.bf) -0.0t0
+                        (real->extfl (bigfloat->real x)))))]
+    ['binary64  (real->double-flonum (string->number x))]
+    ['binary32  (real->single-flonum (string->number x))]
+    ['integer   (string->number x)]))
+
+(define/contract (racket-run-fpcore prog args)
+  (-> fpcore? (listof string?) (or/c real? extflonum?))
   (match-define `(FPCore (,vars ...) ,props* ... ,body) prog)
   (define-values (_ props) (parse-properties props*))
   (define base-precision (dict-ref props ':precision 'binary64))
   (define base-rounding (dict-ref props ':round 'nearestEven))
   (define vars*
-    (for/list ([var vars] [val vals])
+    (for/list ([var vars] [arg args])
       (match var
         [`(! ,var-props* ... ,(? symbol? var*))
          (define-values (_ var-props) (parse-properties var-props*))
-         (cons var* (real->float var (dict-ref var-props ':precision base-precision)))]
+         (cons var* (string->float arg (dict-ref var-props ':precision base-precision)))]
         [(? symbol?)
-         (cons var val)])))
+         (cons var (string->float arg base-precision))])))
   (define evaltor (match base-precision
     ['binary80 racket-binary80-evaluator]
     ['binary64 racket-double-evaluator]
-    ['binary32 racket-single-evaluator]))
+    ['binary32 racket-single-evaluator]
+    ['integer  racket-integer-evaluator]))
   (parameterize ([bf-rounding-mode (fpcore->bf-round base-rounding)] 
                  [bf-precision (prec->bf-bits base-precision)])
         (real->float ((eval-expr evaltor) body vars*) base-precision)))
@@ -561,7 +583,6 @@
   (command-line
    #:program "fpcore.rkt"
    #:args args
-   (port-count-lines! (current-input-port))
-   (let ([vals (map (compose real->double-flonum string->number) args)])
-     (for ([prog (in-port (curry read-fpcore "stdin"))])
-       (printf "~a\n" (racket-run-fpcore prog vals))))))
+    (port-count-lines! (current-input-port))
+    (for ([prog (in-port (curry read-fpcore "stdin"))])
+        (printf "~a\n" (racket-run-fpcore prog args)))))

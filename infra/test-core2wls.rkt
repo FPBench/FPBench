@@ -13,11 +13,11 @@
     (lambda (port)
       (fprintf port "~a\n" (*prog*))
       (fprintf port
-               (format "Block[{$MinPrecision=~a,$MaxPrecision=~a},TimeConstrained[MemoryConstrained[Print[f[~a]//N],2^32],5]\n"
-                        wls-prec wls-prec
-                        (string-join (map (λ (x) (format "N[~a, ~a]" (number->wls x) wls-prec))
-                                         (map cdr ctx)) 
-                                    ", ")))))
+        (format "Block[{$MinPrecision=~a,$MaxPrecision=~a,$MaxExtraPrecision=0},TimeConstrained[MemoryConstrained[Print[f[~a]//N],2^32],5]\n"
+                wls-prec wls-prec
+                (string-join (map (λ (x) (format "N[~a, ~a]" (number->wls x) wls-prec))
+                                  (map cdr ctx)) 
+                            ", ")))))
   (define out 
     (with-output-to-string
       (lambda ()

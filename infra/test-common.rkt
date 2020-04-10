@@ -49,7 +49,8 @@
 (define/match (prec->bf-bits prec)
   [('binary80) 64]
   [('binary64) 53]
-  [('binary32) 24])
+  [('binary32) 24]
+  [('integer)  53])
 
 (define (extfl->real x)
   (cond
@@ -89,6 +90,12 @@
     (define exec-name (compile-test prog '() type (test-file)))
     (define timeout 0)
     (define nans 0) ; wolfram only
+    (define-values (vars* var-types)
+      (for/lists (n t) ([var vars])
+        (match var
+          [(list '! props ... name) (values name (dict-ref (apply hash-set* #hash() props) ':precision 'binary64))]
+          [name (values name type)])))
+
     (define results  ; run test
       (parameterize ([bf-precision (prec->bf-bits type)])
         (for/list ([i (in-range (tests-to-run))])
@@ -96,21 +103,21 @@
             (match type 
               ['binary80 racket-binary80-evaluator]
               ['binary64 racket-double-evaluator] 
-              ['binary32 racket-single-evaluator]))
+              ['binary32 racket-single-evaluator]
+              ['integer racket-integer-evaluator]))
           (define-values (ctx precond-met)
             (cond 
-              [(or (not (use-precond)) (equal? precond '()))                 ; --no-precond flag or no precondition
+              [(or (not (use-precond)) (equal? precond '()))                  ; --no-precond flag or no precondition
                 (values
-                    (for/list ([var vars])
-                              (cons var (sample-random type)))
-                    (use-precond))]      ; use less fuel for --no-precond flag
-              [(or (> (length (variables-in-expr body)) 2)                   ; dependent precondition
-                  (equal? range-table #f) (equal? range-table (make-hash))) ; failed range table
-                (sample-by-rejection precond vars evaltor type)]
+                    (for/list ([var vars*] [vtype var-types]) (cons var (sample-random vtype)))
+                    (use-precond))]
+              [(or (> (length (variables-in-expr body)) 2)                    ; dependent precondition or
+                   (equal? range-table #f) (equal? range-table (make-hash)))  ; failed range table
+                (sample-by-rejection precond vars* evaltor type)]
               [else     
-                (values                                                      ; valid range table
-                    (for/list ([var vars])
-                        (cons var (sample-float (dict-ref range-table var (list (make-interval -inf.0 +inf.0))) type)))
+                (values                                                       ; else, valid range table
+                    (for/list ([var vars*] [vtype var-types])
+                        (cons var (sample-float (dict-ref range-table var (list (make-interval -inf.0 +inf.0))) vtype)))
                     #t)]))
           (define out
             (match ((eval-fuel-expr evaltor (if precond-met (fuel-good-input) (fuel-bad-input)) 'timeout) body ctx)
@@ -118,7 +125,8 @@
                 ((match type
                   ['binary80 real->extfl]
                   ['binary64 real->double-flonum] 
-                  ['binary32 real->single-flonum])
+                  ['binary32 real->single-flonum]
+                  ['integer inexact->exact])
                 result)]
               [(? extflonum? result)
                 (match type

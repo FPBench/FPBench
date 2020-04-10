@@ -217,7 +217,7 @@
   (define arg-strings
     (for/list ([var args])
       (format "~a_" (if (list? var) (car var) var))))
-  (format "~a[~a] := Block[{$MinPrecision=~a, $MaxPrecision=~a}, ~a]\n"
+  (format "~a[~a] := Block[{$MinPrecision=~a, $MaxPrecision=~a, $MaxExtraPrecision=0}, ~a]\n"
           name
           (string-join arg-strings ", ")
           wls-prec

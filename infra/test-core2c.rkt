@@ -9,10 +9,11 @@
       (define N (length (second prog)))
       (fprintf p "#include <stdlib.h>\n#include <stdio.h>\n~a~a\n\n" (c-header) (core->c prog "f"))
       (fprintf p "int main(int argc, char **argv) { ")
-      (define strtox (match type ['binary80 "strtold"] ['binary64 "strtod"] ['binary32 "strtof"]))
+      (define strtox (match type ['binary80 "strtold(argv[~a], NULL)"] ['binary64 "strtod(argv[~a], NULL)"] 
+                                 ['binary32 "strtof(argv[~a], NULL)"]  ['integer  "strtoll(argv[~a], NULL, 10)"]))
       (fprintf p "printf(\"%.~a\", f(~a)); return 0; }\n"
-               (match type ['binary80 "20Lg"] ['binary64 "17g"] ['binary32 "17g"])
-               (string-join (map (curry format "~a(argv[~a], NULL)" strtox) (map add1 (range N))) ", "))))
+               (match type ['binary80 "20Lg"] ['binary64 "17g"] ['binary32 "17g"] ['integer "li"])
+               (string-join (map (curry format strtox) (map add1 (range N))) ", "))))
   (define c-file (string-replace test-file ".c" ".bin"))
   (system (format "cc ~a -lm -o ~a" test-file c-file))
   c-file)
@@ -30,7 +31,8 @@
     (match type
       ['binary80 (λ (x) (parameterize ([bf-precision 64]) (bigfloat->string (bf (extfl->real x)))))]
       ['binary64 real->double-flonum]
-      ['binary32 real->double-flonum]))
+      ['binary32 real->double-flonum]
+      ['integer identity]))
   (define out
     (with-output-to-string
      (λ ()
@@ -45,7 +47,8 @@
   (match type
     ['binary80 (cons (parameterize ([bf-precision 64]) (real->extfl (bigfloat->real (bf out*)))) out*)]
     ['binary64 (cons (real->double-flonum (string->number out*)) out*)]
-    ['binary32 (cons (real->single-flonum (string->number out*)) out*)]))
+    ['binary32 (cons (real->single-flonum (string->number out*)) out*)]
+    ['integer  (cons (string->number out*) out*)]))
 
 (define (c-equality a b ulps)
   (match (list a b)

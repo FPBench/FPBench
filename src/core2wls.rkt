@@ -1,7 +1,8 @@
 #lang racket
 
+(require math/bigfloat)
 (require "common.rkt" "compilers.rkt" "functional.rkt" "supported.rkt")
-(provide core->wls wls-supported number->wls)
+(provide core->wls wls-supported number->wls prec->wls)
 
 (define wls-supported (supported-list
   (invert-op-list '())
@@ -17,6 +18,11 @@
          (format "$~a$" (char->integer char))))
    ""))
 
+(define (prec->wls prec)
+  (match prec 
+    ['binary64 15.95458977019100]
+    ['binary32 7.224719895935549]))
+
 (define (number->wls x)
   (match x
     [(or +inf.0 +inf.f) "Infinity"]
@@ -24,7 +30,7 @@
     [(or +nan.0 +nan.f) "Indeterminate"]
     [_ (let* ([q (if (single-flonum? x)
                      ;; Workaround for misbehavior of inexact->exact with single-flonum inputs
-                     (inexact->exact (real->double-flonum x))
+                     (parameterize ([bf-precision 24]) (inexact->exact (bigfloat->flonum (bf x))))
                      (inexact->exact x))]
               [n (numerator q)]
               [d (denominator q)])
@@ -33,30 +39,32 @@
              (format "(~a/~a)" n d)))]))
 
 (define (constant->wls expr ctx)
+  (define wls-prec (prec->wls (ctx-lookup-prop ctx ':precision 'binary64)))
   (match expr
-    ['E "E"]
-    ['LOG2E "Log[2, E]"]
-    ['LOG10E "Log[10, E]"]
-    ['LN2 "Log[2]"]
-    ['LN10 "Log[10]"]
-    ['PI "Pi"]
-    ['PI_2 "(Pi / 2)"]
-    ['PI_4 "(Pi / 4)"]
-    ['M_1_PI "(1 / Pi)"]
-    ['M_2_PI "(2 / Pi)"]
-    ['M_2_SQRTPI "(2 / Sqrt[Pi])"]
-    ['SQRT2 "Sqrt[2]"]
-    ['SQRT1_2 "Sqrt[1 / 2]"]
+    ['E       (format "N[E, ~a]" wls-prec)]
+    ['LOG2E   (format "N[Log[2, E] ~a]" wls-prec)]
+    ['LOG10E  (format "N[Log[10, E] ~a]" wls-prec)]
+    ['LN2     (format "N[Log[2] ~a]" wls-prec)]
+    ['LN10    (format "N[Log[10] ~a]" wls-prec)]
+    ['PI      (format "N[Pi ~a]" wls-prec)]
+    ['PI_2    (format "N[(Pi / 2) ~a]" wls-prec)]
+    ['PI_4    (format "N[(Pi / 4) ~a]" wls-prec)]
+    ['M_1_PI  (format "N[(1 / Pi) ~a]" wls-prec)]
+    ['M_2_PI  (format "N[(2 / Pi) ~a]" wls-prec)]
+    ['M_2_SQRTPI  (format "N[(2 / Sqrt[Pi]) ~a]" wls-prec)]
+    ['SQRT2   (format "N[Sqrt[2] ~a]" wls-prec)]
+    ['SQRT1_2 (format "N[Sqrt[1 / 2] ~a]" wls-prec)]
     ['TRUE "True"]
     ['FALSE "False"]
     ['INFINITY "Infinity"]
     ['NAN "Indeterminate"]
     [(list 'digits (? number? m) (? number? e) (? number? b))
-     (format "(~a * ~a ^ ~a)"
+     (format "N[~a * ~a ^ ~a, ~a]"
              (number->wls m)
              (number->wls e)
-             (number->wls b))]
-    [(? number?) (number->wls expr)]
+             (number->wls b)
+             wls-prec)]
+    [(? number?) (format "N[~a, ~a]" (number->wls expr) wls-prec)]
     [(? symbol?) expr]))
 
 (define/match (operator->wls op)
@@ -205,15 +213,16 @@
         body))))
 
 (define (function->wls name args body ctx names)
-  (define prec (ctx-lookup-prop ctx ':precision 'binary64))
+  (define wls-prec (prec->wls (ctx-lookup-prop ctx ':precision 'binary64)))
   (define arg-strings
     (for/list ([var args])
       (format "~a_" (if (list? var) (car var) var))))
-  (format "~a[~a] := SetPrecision[~a, ~a]\n"
+  (format "~a[~a] := Block[{$MinPrecision=~a, $MaxPrecision=~a}, ~a]\n"
           name
           (string-join arg-strings ", ")
-          body
-          (match prec ['binary64 15.95458977019100] ['binary32 7.224719895935549])))
+          wls-prec
+          wls-prec
+          body))
 
 (define wls-language (functional "wls" application->wls constant->wls declaration->wls let->wls if->wls while->wls function->wls))
 

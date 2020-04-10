@@ -11,6 +11,7 @@
 (define fuel-bad-input (make-parameter 100))
 (define tests-to-run (make-parameter 10))
 (define ulps (make-parameter 0))
+(define test-file (make-parameter #f))
 (define verbose (make-parameter #f))
 (define quiet (make-parameter #f))
 (define exact-out (make-parameter #f))
@@ -60,7 +61,7 @@
 
 ;;; Tester core
 
-(define (test-core argv curr-in-port source test-file)
+(define (test-core argv curr-in-port source default-file)
   (command-line
   #:program "Tester"
   #:once-each
@@ -77,6 +78,7 @@
   (when (and (verbose) (quiet)) 
       (error "Verbose and quiet flags cannot be both set"))
   (define err 0)
+  (when (equal? (test-file) #f) (test-file default-file))
   (for ([prog (in-port (curry read-fpcore source) curr-in-port)]
         #:when (valid-core prog (tester-supported (*tester*))))
     (match-define (list 'FPCore (list vars ...) props* ... body) prog)
@@ -84,7 +86,7 @@
     (define type (dict-ref props ':precision 'binary64))
     (define precond (dict-ref props ':pre '()))
     (define range-table (condition->range-table precond))
-    (define exec-name (compile-test prog '() type test-file))
+    (define exec-name (compile-test prog '() type (test-file)))
     (define timeout 0)
     (define nans 0) ; wolfram only
     (define results  ; run test

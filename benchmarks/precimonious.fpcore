@@ -4,8 +4,9 @@
  :name "arclength of a wiggly function"
  :cite (precimonious-2013)
  :precision binary64
- :pre (<= 0 n 100)
-
+ :pre (>= n 0)
+ :fpbench-allowed-ulps 10
+ :fpbench-pre-override (== n 82)
  (let* ([dppi PI]
         [h (/ dppi n)]
         [t1 0])
@@ -38,7 +39,9 @@
  :name "arclength of a wiggly function (old version)"
  :cite (precimonious-2013)
  :precision binary64
- :pre (<= 0 n 100)
+ :pre (>= n 0)
+ :fpbench-pre-override (<= 1 n 200)
+
  (let ([dppi (acos -1.0)])
    (let ([h (/ dppi n)])
      (while (<= i n)

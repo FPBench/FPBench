@@ -50,7 +50,7 @@
   [('binary80) 64]
   [('binary64) 53]
   [('binary32) 24]
-  [('integer)  53])
+  [('integer)  128])
 
 (define (extfl->real x)
   (cond
@@ -85,7 +85,9 @@
     (match-define (list 'FPCore (list vars ...) props* ... body) prog)
     (define-values (_ props) (parse-properties props*))
     (define type (dict-ref props ':precision 'binary64))
-    (define precond (dict-ref props ':pre '()))
+    (define precond-override (dict-ref props ':fpbench-pre-override '()))
+    (define ulps-override (dict-ref props ':fpbench-allowed-ulps #f))
+    (define precond (if (empty? precond-override) (dict-ref props ':pre '()) precond-override)) 
     (define range-table (condition->range-table precond))
     (define exec-name (compile-test prog '() type (test-file)))
     (define timeout 0)
@@ -95,6 +97,7 @@
         (match var
           [(list '! props ... name) (values name (dict-ref (apply hash-set* #hash() props) ':precision 'binary64))]
           [name (values name type)])))
+    (when (not (equal? ulps-override #f)) (ulps ulps-override))
 
     (define results  ; run test
       (parameterize ([bf-precision (prec->bf-bits type)])

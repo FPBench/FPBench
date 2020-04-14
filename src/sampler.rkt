@@ -109,11 +109,16 @@
   ; random integer on the interval [low*, high*]
   (ordinal->float (+ (remainder rand (+ (- high low) 1)) low) type))
 
+(define (clamp-int x)
+  (if (> (abs x) (expt 2 64))
+    (inexact->exact (* (expt 2 64) (sgn x)))
+    (inexact->exact (truncate x))))
+
 (define (sample-int-on-intervals intervals)
   (define interval-ranges ; number of integers on the interval for all intervals
     (for/list ([range intervals]) 
-      (sub1 (- (+ (inexact->exact (truncate (interval-u range))) (if (interval-u? range) 1 0))
-               (- (inexact->exact (truncate (interval-l range))) (if (interval-l? range) 1 0))))))
+      (sub1 (- (+ (clamp-int (interval-u range)) (if (interval-u? range) 1 0))
+               (- (clamp-int (interval-l range)) (if (interval-l? range) 1 0))))))
   (define total-range (for/sum ([range interval-ranges]) range)) ; total number of integers
   (define range-random (exact-round (* (random) (- total-range 1)))) ; random on [0, total-range - 1]
   (define interval ; choose interval
@@ -123,8 +128,8 @@
               #:break (and (<= low range-random) (< range-random (+ low range)))
               (values (+ low range) (add1 i))))
   ; interval [low, high]
-  (define low (+ (inexact->exact (truncate (interval-l interval))) (if (interval-l? interval) 0 1)))
-  (define high (- (inexact->exact (truncate (interval-u interval))) (if (interval-u? interval) 0 1)))
+  (define low (+ (clamp-int (interval-l interval)) (if (interval-l? interval) 0 1)))
+  (define high (- (clamp-int (interval-u interval)) (if (interval-u? interval) 0 1)))
   ; random integer on the interval [0, UINT_MAX]
   (define rand (exact-round (* (random) (expt 2 64))))
   (+ (remainder rand (+ (- high low) 1)) low))
@@ -164,4 +169,4 @@
                   (integer->integer-bytes (random-exp 16) 2 #f)))]
     ['binary64 (floating-point-bytes->real (integer->integer-bytes (random-exp 64) 8 #f))]
     ['binary32 (real->single-flonum (floating-point-bytes->real (integer->integer-bytes (random-exp 32) 4 #f)))]
-    ['integer  (random-exp 8)]))
+    ['integer  (- (random-exp 64) (expt 2 63) 1)]))

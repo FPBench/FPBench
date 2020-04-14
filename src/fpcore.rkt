@@ -271,7 +271,7 @@
          ['binary80 (values 64 racket-binary80-evaluator)]
          ['binary64 (values 53 racket-double-evaluator)]
          ['binary32 (values 24 racket-single-evaluator)]
-         ['integer  (values 53 racket-integer-evaluator)]
+         ['integer  (values 128 racket-integer-evaluator)]
          [_         (values (bf-precision) evaltor)]))
       (parameterize ([bf-rounding-mode (fpcore->bf-round (dict-ref props ':round 'nearestEven))]
                      [bf-precision p])
@@ -303,7 +303,7 @@
   [('binary80)  64]
   [('binary64)  53]
   [('binary32)  24]
-  [('integer)   53]) ; integer is just a double
+  [('integer)   128]) ; compute at high precision, then round
 
 (define (fl->bf arg)
   (cond
@@ -342,6 +342,8 @@
 (define (my!= #:cmp [cmp =] . args) (not (check-duplicates args cmp)))
 (define (my= #:cmp [cmp =] . args)
   (match args ['() true] [(cons hd tl) (andmap (curry cmp hd) tl)]))
+
+;;; binary64 and binary32 evaluators
 
 (define/contract racket-double-evaluator evaluator?
   (evaluator
@@ -439,15 +441,31 @@
                [constant (λ (x) (let ([v ((evaluator-constant racket-double-evaluator) x)])
                                   (if (real? v) (real->single-flonum v) v)))]))
 
+;;; integer evaluator
+
+(define (bf->integer x) 
+  (bigfloat->real (bffloor x)))
+
 (define/contract racket-integer-evaluator evaluator?
   (evaluator
-    (λ (x) (truncate (if (real? x) (real->double-flonum x) (extfl->real x))))
-    (λ (x) (let ([v ((evaluator-constant racket-double-evaluator) x)])
-              (truncate (if (real? v) (real->single-flonum v) v))))
-    (λ (op) (compose truncate ((evaluator-function racket-double-evaluator) op)))))  
+   (λ (x) (bf->integer (bf x)))
+   (λ (x) (bf->integer ((evaluator-constant racket-double-evaluator) x))) ; Integer constants other than TRUE and FALSE are nonsensical
+   (table-fn
+    [+ (λ (x y) (bf->integer (parameterize ([bf-rounding-mode 'down]) (bf+ (bf x) (bf y)))))]
+    [- (λ (x [y #f]) (if (equal? y #f) (- x) 
+                         (parameterize ([bf-rounding-mode 'down]) (bf->integer (bf- (bf x) (bf y))))))]
+    [* (λ (x y) (bf->integer (parameterize ([bf-rounding-mode 'down]) (bf* (bf x) (bf y)))))]
+    [/ (λ (x y) (bf->integer (parameterize ([bf-rounding-mode 'down]) (bf/ (bf x) (bf y)))))]
+
+    [< <] [> >] [<= <=] [>= >=] [== my=] [!= my!=]
+    [and (λ (x y) (and x y))] [or (λ (x y) (or x y))] [not not]
+   )))
+
+;;; binary80 evaluator 
 
 ; Since extflonums aren't consider "numbers", they need their own
 ; arithemtic functions
+
 (define (extfl-zero? x) (or (equal? x -0.0t0) (equal? x 0.0t0)))
 (define (extfl-inf? x) (or (extfl= x -inf.t) (extfl= x +inf.t)))
 (define (extfl-nan? x) (not (extfl= x x)))
@@ -554,7 +572,7 @@
                         (real->extfl (bigfloat->real x)))))]
     ['binary64  (real->double-flonum (string->number x))]
     ['binary32  (real->single-flonum (string->number x))]
-    ['integer   (string->number x)]))
+    ['integer   (bf->integer (bf x))]))
 
 (define/contract (racket-run-fpcore prog args)
   (-> fpcore? (listof string?) (or/c real? extflonum?))

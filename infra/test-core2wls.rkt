@@ -13,7 +13,7 @@
     (lambda (port)
       (fprintf port "~a\n" (*prog*))
       (fprintf port
-        (format "Block[{$MinPrecision=~a,$MaxPrecision=~a,$MaxExtraPrecision=0},TimeConstrained[MemoryConstrained[Print[f[~a]//N],2^32],5]\n"
+        (format "Block[{$MinPrecision=~a,$MaxPrecision=~a,$MaxExtraPrecision=0},TimeConstrained[MemoryConstrained[Print[f[~a]//N],2^32],5]]\n"
                 wls-prec wls-prec
                 (string-join (map (λ (x) (format "N[~a, ~a]" (number->wls x) wls-prec))
                                   (map cdr ctx)) 
@@ -27,7 +27,7 @@
       ['() ""]
       [s (last s)]))
   (define out* 
-    (match fp
+    (match (string-replace fp "*^" "e")
       ["Infinity" "+inf.0"]
       ["-Infinity" "-inf.0"]
       ["ComplexInfinity" "+nan.0"]

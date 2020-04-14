@@ -6,7 +6,7 @@
 (define sollya-supported (supported-list
   (invert-op-list '(isnormal tgamma lgamma remainder fmod round cbrt atan2 erf))
   fpcore-consts
-  '(binary32 binary64)
+  '(binary32 binary64 binary80 integer)
   ieee754-rounding-modes))
 
 (define sollya-header (const

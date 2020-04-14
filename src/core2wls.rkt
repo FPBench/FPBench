@@ -7,7 +7,7 @@
 (define wls-supported (supported-list
   (invert-op-list '())
   (invert-const-list '())
-  '(binary32 binary64)
+  '(binary64 real integer)
   '(nearestEven)))
 
 (define (fix-name name)
@@ -20,8 +20,9 @@
 
 (define (prec->wls prec)
   (match prec 
-    ['binary64 15.95458977019100]
-    ['binary32 7.224719895935549]))
+    ['binary64 "MachinePrecision"]
+    ['real     "Infinity"]
+    ['integer  "Infinity"]))
 
 (define (number->wls x)
   (match x
@@ -34,9 +35,9 @@
                      (inexact->exact x))]
               [n (numerator q)]
               [d (denominator q)])
-         (if (= d 1)
-             (format "~a" n)
-             (format "(~a/~a)" n d)))]))
+        (if (= d 1)
+            (format "~a" n)
+            (format "(~a/~a)" n d)))]))
 
 (define (constant->wls expr ctx)
   (define wls-prec (prec->wls (ctx-lookup-prop ctx ':precision 'binary64)))

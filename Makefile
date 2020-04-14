@@ -111,7 +111,7 @@ endif
 wls-test:
 ifneq (, $(shell which wolframscript))
 	cat benchmarks/*.fpcore tests/*.fpcore  | $(FILTER) not-operators $(known_inaccurate) \
- 	| racket infra/test-core2wls.rkt
+ 	| racket infra/test-core2wls.rkt --error 10
 else
 	$(warning skipping wolframscript tests; unable to find wolframscript interpreter)
 endif

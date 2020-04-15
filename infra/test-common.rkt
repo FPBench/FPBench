@@ -132,9 +132,7 @@
                   ['integer inexact->exact])
                 result)]
               [(? extflonum? result)
-                (match type
-                  ['binary80 result]
-                  [_         (extfl->real result)])]
+                (extfl->real result)]
               [(? complex? result)
                 (match type
                   ['binary64 +nan.0]

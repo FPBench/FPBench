@@ -1,7 +1,7 @@
 #lang racket
 
-(require math/flonum)
-(require "../src/common.rkt" "../src/fpcore.rkt" "../src/range-analysis.rkt" "../src/supported.rkt")
+(require math/flonum racket/extflonum math/bigfloat)
+(require "../src/common.rkt" "../src/fpcore.rkt" "../src/range-analysis.rkt" "../src/sampler.rkt" "../src/supported.rkt")
 (provide tester *tester* test-core *prog*)
 
 (module+ test
@@ -9,9 +9,9 @@
 
 (define fuel-good-input (make-parameter 1000))
 (define fuel-bad-input (make-parameter 100))
-(define sample-tries (make-parameter 100))
 (define tests-to-run (make-parameter 10))
 (define ulps (make-parameter 0))
+(define test-file (make-parameter #f))
 (define verbose (make-parameter #f))
 (define quiet (make-parameter #f))
 (define exact-out (make-parameter #f))
@@ -36,130 +36,6 @@
 
 (define (=* a b)
   ((tester-equality (*tester*)) a b (ulps)))
-
-;;; Preconditions
-
-(define (random-exp k)
-  "Like (random (expt 2 k)), but k is allowed to be arbitrarily large"
-  (if (< k 31) ; Racket generates random numbers in the range [0, 2^32-2]; I think it's a bug
-      (random (expt 2 k))
-      (let ([head (* (expt 2 31) (random-exp (- k 31)))])
-        (+ head (random (expt 2 31))))))
-
-;   float            ordinal
-;   +nan.0,     <->  n > (2^(bits - 1) - 2^(bits - exp_bits - 1))
-;   -nan.0      ->   n > (2^(bits - 1) - 2^(bits - exp_bits - 1))
-;   +inf.0      <->  n = (2^(bits - 1) - 2^(bits - exp_bits - 1))
-;   0<x<+inf.0  <->  0 < n < (2^(bits - 1) - 2^(bits - exp_bits - 1))
-;   0           <->  0
-;   -0          ->   0
-;   0<x<-inf.0  <->  -(2^(bits - 1) - 2^(bits - exp_bits - 1)) < n < 0
-;   -inf.0      <->  n = -(2^(bits - 1) - 2^(bits - exp_bits - 1))
-;
-(define (float->ordinal x type)
-  (define b
-    (match type
-      ['binary32 4]
-      ['binary64 8]))
-  (define w (* 8 b))
-  (define i (integer-bytes->integer (real->floating-point-bytes x b) #t))
-  (define s (bitwise-bit-field i (- w 1) w))
-  (define u (bitwise-bit-field i 0 (- w 1)))
-  (if (> s 0) (- u) u))
-
-(define (ordinal->float x type)
-  (define-values (b e) 
-    (match type
-      ['binary32 (values 4 8)]
-      ['binary64 (values 8 11)]))
-  (define w (* 8 b))
-  (define inf (- (expt 2 (- w 1)) (expt 2 (- (- w e) 1))))
-  (define r
-    (cond
-      [(> x inf)     +nan.0]
-      [(= x inf)     +inf.0]
-      [(= x (- inf)) -inf.0]
-      [(< x (- inf)) -nan.0]
-      [else 
-        (let ([s (if (< x 0) 1 0)]
-              [u (abs x)])
-          (floating-point-bytes->real (integer->integer-bytes
-                (bitwise-ior (arithmetic-shift s (- w 1)) u)
-                b #f)))]))
-  (match type
-    ['binary64 r]
-    ['binary32 (real->single-flonum r)]))
-
-;;; Unit tests for float->ordinal and ordinal->float
-(module+ test
-  ; (ordinal->float (float->ordinal x type)) returns x for all floats but -nan.0 and -0.
-  (check-equal? +nan.0 (ordinal->float (float->ordinal +nan.0 'binary64) 'binary64))
-  (check-equal? +inf.0 (ordinal->float (float->ordinal +inf.0 'binary64) 'binary64))
-  (check-equal? 1.79769e+308 (ordinal->float (float->ordinal 1.79769e+308 'binary64) 'binary64))
-  (check-equal? 1e10 (ordinal->float (float->ordinal 1e10 'binary64) 'binary64))
-  (check-equal? 4.94066e-324 (ordinal->float (float->ordinal 4.94066e-324 'binary64) 'binary64))
-  (check-equal? 0.0 (ordinal->float (float->ordinal 0.0 'binary64) 'binary64))
-  (check-equal? -4.94066e-324 (ordinal->float (float->ordinal -4.94066e-324 'binary64) 'binary64))
-  (check-equal? -1e10 (ordinal->float (float->ordinal -1e10 'binary64) 'binary64))
-  (check-equal? -1.79769e+308 (ordinal->float (float->ordinal -1.79769e+308 'binary64) 'binary64))
-  (check-equal? -inf.0 (ordinal->float (float->ordinal -inf.0 'binary64) 'binary64))
-
-  ; If a < x < b and f : float -> ordinal, then f(a) < f(x) < f(b) holds true (special case: f(+/-nan.0) > f(+inf.0))
-  (check-true (> (float->ordinal +nan.0 'binary64) (float->ordinal +inf.0 'binary64)))
-  (check-true (> (float->ordinal +inf.0 'binary64) (float->ordinal 1.79769e+308 'binary64)))
-  (check-true (> (float->ordinal 1.79769e+308 'binary64) (float->ordinal 4.94066e-324 'binary64)))
-  (check-true (> (float->ordinal 4.94066e-324 'binary64) (float->ordinal 0 'binary64)))
-  (check-true (> (float->ordinal 0 'binary64) (float->ordinal -4.94066e-324 'binary64)))
-  (check-true (> (float->ordinal -4.94066e-324 'binary64) (float->ordinal -1e10 'binary64)))
-  (check-true (> (float->ordinal -1e10 'binary64) (float->ordinal -1.79769e+308 'binary64)))
-  (check-true (> (float->ordinal -1.79769e+308 'binary64) (float->ordinal -inf.0 'binary64)))
-)
-
-(define (sample-float intervals type)
-  (define inf (float->ordinal +inf.0 type)) ; +inf as an ordinal
-  (define interval-range ; number of floats on the interval for all intervals
-    (for/list ([range intervals]) 
-      (sub1 (- (+ (float->ordinal (interval-u range) type) (if (interval-u? range) 1 0))
-               (- (float->ordinal (interval-l range) type) (if (interval-l? range) 1 0))))))
-  (define total-range (for/sum ([range interval-range]) range)) ; total number of floats
-  (define range-random (exact-round (* (random) (- total-range 1)))) ; random on [0, total-range - 1]
-  (define interval ; choose interval
-    (for/fold ([low 0] [i 0]
-              #:result (list-ref intervals i))
-              ([range interval-range])
-              #:break (and (<= low range-random) (< range-random (+ low range)))
-              (values (+ low range) (add1 i))))
-  ; interval [low, high]
-  (define low (+ (float->ordinal (interval-l interval) type) (if (interval-l? interval) 0 1)))
-  (define high (- (float->ordinal (interval-u interval) type) (if (interval-u? interval) 0 1)))
-  ; random integer on the interval [0, 2 * INT_MAX]
-  (define rand
-    (exact-round
-      (* 2 (* (random)
-          (match type
-            ['binary64 (- (expt 2 64) 1)]
-            ['binary32 (- (expt 2 32) 1)])))))
-  ; random integer on the interval [low*, high*]
-  (ordinal->float (+ (remainder rand (+ (- high low) 1)) low) type))
-
-; Returns the float and whether or not it met the precondition
-(define (sample-by-rejection pre vars evaltor type)
-  (for/fold ([nums (for/list ([var vars]) (sample-random type))]
-             [attempts 1]
-            #:result (values (for/list ([var vars] [num nums]) (cons var num)) 
-                             (not (equal? attempts (sample-tries)))))
-            ([i (in-range (sample-tries))])
-            #:break ((eval-expr evaltor) pre 
-                        (make-immutable-hash 
-                            (for/list ([var vars] [num nums])
-                                      (cons var num))))
-      (values (for/list ([var vars]) (sample-random type)) (+ i 1))))
-
-; Returns a random float
-(define (sample-random type)
-  (match type
-    ['binary64 (floating-point-bytes->real (integer->integer-bytes (random-exp 64) 8 #f))]
-    ['binary32 (real->single-flonum (floating-point-bytes->real (integer->integer-bytes (random-exp 32) 4 #f)))]))
   
 ;;; Evaluator
 
@@ -170,9 +46,23 @@
           (k default)
           ((eval-expr* evaltor (λ (expr ctx) (eval expr ctx (- fuel 1)))) expr ctx)))))
 
+(define/match (prec->bf-bits prec)
+  [('binary80) 64]
+  [('binary64) 53]
+  [('binary32) 24]
+  [('integer)  128])
+
+(define (extfl->real x)
+  (cond
+    [(equal? x +inf.t)  +inf.0] 
+    [(equal? x -inf.t)  -inf.0]
+    [(equal? x +nan.t)  +nan.0] 
+    [(equal? x -nan.t)  -nan.0]
+    [else (extfl->exact x)])) 
+
 ;;; Tester core
 
-(define (test-core argv curr-in-port source test-file)
+(define (test-core argv curr-in-port source default-file)
   (command-line
   #:program "Tester"
   #:once-each
@@ -189,60 +79,76 @@
   (when (and (verbose) (quiet)) 
       (error "Verbose and quiet flags cannot be both set"))
   (define err 0)
+  (when (equal? (test-file) #f) (test-file default-file))
   (for ([prog (in-port (curry read-fpcore source) curr-in-port)]
-    #:when (valid-core prog (tester-supported (*tester*))))
+        #:when (valid-core prog (tester-supported (*tester*))))
     (match-define (list 'FPCore (list vars ...) props* ... body) prog)
     (define-values (_ props) (parse-properties props*))
     (define type (dict-ref props ':precision 'binary64))
-    (define precond (dict-ref props ':pre '()))
+    (define precond-override (dict-ref props ':fpbench-pre-override '()))
+    (define ulps-override (dict-ref props ':fpbench-allowed-ulps #f))
+    (define precond (if (empty? precond-override) (dict-ref props ':pre '()) precond-override)) 
     (define range-table (condition->range-table precond))
-    (define exec-name (compile-test prog '() type test-file))
+    (define exec-name (compile-test prog '() type (test-file)))
     (define timeout 0)
     (define nans 0) ; wolfram only
+    (define-values (vars* var-types)
+      (for/lists (n t) ([var vars])
+        (match var
+          [(list '! props ... name) (values name (dict-ref (apply hash-set* #hash() props) ':precision 'binary64))]
+          [name (values name type)])))
+    (when (not (equal? ulps-override #f)) (ulps ulps-override))
+
     (define results  ; run test
-      (for/list ([i (in-range (tests-to-run))])
-        (define evaltor 
-          (match type 
-            ['binary64 racket-double-evaluator] 
-            ['binary32 racket-single-evaluator]))
-        (define-values (ctx precond-met)
-          (cond 
-            [(or (not (use-precond)) (equal? precond '()))                 ; --no-precond flag or no precondition
-              (values
-                  (for/list ([var vars])
-                            (cons var (sample-float (list (make-interval -inf.0 +inf.0)) type)))
-                  (use-precond))]      ; use less fuel for --no-precond flag
-            [(or (> (length (variables-in-expr body)) 2)                   ; dependent precondition
-                 (equal? range-table #f) (equal? range-table (make-hash))) ; failed range table
-              (sample-by-rejection precond vars evaltor type)]
-            [else     
-              (values                                                      ; valid range table
-                  (for/list ([var vars])
-                      (cons var (sample-float (dict-ref range-table var (list (make-interval -inf.0 +inf.0))) type)))
-                  #t)]))
-        (define out
-          (match ((eval-fuel-expr evaltor (if precond-met (fuel-good-input) (fuel-bad-input)) 'timeout) body ctx)
-            [(? real? result)
-              ((match type
-                ['binary64 real->double-flonum] 
-                ['binary32 real->single-flonum])
-              result)]
-            [(? complex? result)
-              (match type
-                ['binary64 +nan.0]
-                ['binary32 +nan.f])]
-                ['timeout 'timeout]
-                [(? boolean? result)
-              result]))
-        (when (equal? out 'timeout)
-          (set! timeout (+ timeout 1)))
-        (define out* (if (equal? out 'timeout) 
-                          (cons 'timeout "") 
-                          (run-test exec-name ctx type)))
-        (when (equal? (tester-name (*tester*)) "wls")
-          (when (and (not (equal? out 'timeout)) (or (nan? out) (nan? (car out*))))
-            (set! nans (+ nans 1))))
-        (list ctx out out*)))
+      (parameterize ([bf-precision (prec->bf-bits type)])
+        (for/list ([i (in-range (tests-to-run))])
+          (define evaltor 
+            (match type 
+              ['binary80 racket-binary80-evaluator]
+              ['binary64 racket-double-evaluator] 
+              ['binary32 racket-single-evaluator]
+              ['integer racket-integer-evaluator]))
+          (define-values (ctx precond-met)
+            (cond 
+              [(or (not (use-precond)) (equal? precond '()))                  ; --no-precond flag or no precondition
+                (values
+                    (for/list ([var vars*] [vtype var-types]) (cons var (sample-random vtype)))
+                    (use-precond))]
+              [(or (> (length (variables-in-expr body)) 2)                    ; dependent precondition or
+                   (equal? range-table #f) (equal? range-table (make-hash)))  ; failed range table
+                (sample-by-rejection precond vars* evaltor type)]
+              [else     
+                (values                                                       ; else, valid range table
+                    (for/list ([var vars*] [vtype var-types])
+                        (cons var (sample-float (dict-ref range-table var (list (make-interval -inf.0 +inf.0))) vtype)))
+                    #t)]))
+          (define out
+            (match ((eval-fuel-expr evaltor (if precond-met (fuel-good-input) (fuel-bad-input)) 'timeout) body ctx)
+              [(? real? result)
+                ((match type
+                  ['binary80 real->extfl]
+                  ['binary64 real->double-flonum] 
+                  ['binary32 real->single-flonum]
+                  ['integer inexact->exact])
+                result)]
+              [(? extflonum? result)
+                (extfl->real result)]
+              [(? complex? result)
+                (match type
+                  ['binary64 +nan.0]
+                  ['binary32 +nan.f])]
+              ['timeout 'timeout]
+              [(? boolean? result)
+                result]))
+          (when (equal? out 'timeout)
+            (set! timeout (+ timeout 1)))
+          (define out* (if (equal? out 'timeout) 
+                            (cons 'timeout "") 
+                            (run-test exec-name ctx type)))
+          (when (equal? (tester-name (*tester*)) "wls")
+            (when (and (not (equal? out 'timeout)) (not (nan? out)) (nan? (car out*)))
+              (set! nans (+ nans 1))))
+          (list ctx out out*))))
 
     (unless (null? results) ; display results
       (define successful (count (λ (x) (=* (second x) (car (third x)))) results))

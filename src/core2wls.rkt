@@ -1,12 +1,14 @@
 #lang racket
 
+(require math/bigfloat)
 (require "common.rkt" "compilers.rkt" "functional.rkt" "supported.rkt")
-(provide core->wls wls-supported number->wls)
+(provide core->wls wls-supported number->wls prec->wls)
 
 (define wls-supported (supported-list
-  (invert-op-list '(let* while*))
+  (invert-op-list '())
   (invert-const-list '())
-  '(binary32 binary64)))
+  '(binary64 real integer)
+  '(nearestEven)))
 
 (define (fix-name name)
   (string-join
@@ -16,6 +18,12 @@
          (format "$~a$" (char->integer char))))
    ""))
 
+(define (prec->wls prec)
+  (match prec 
+    ['binary64 "MachinePrecision"]
+    ['real     "Infinity"]
+    ['integer  "Infinity"]))
+
 (define (number->wls x)
   (match x
     [(or +inf.0 +inf.f) "Infinity"]
@@ -23,39 +31,41 @@
     [(or +nan.0 +nan.f) "Indeterminate"]
     [_ (let* ([q (if (single-flonum? x)
                      ;; Workaround for misbehavior of inexact->exact with single-flonum inputs
-                     (inexact->exact (real->double-flonum x))
+                     (parameterize ([bf-precision 24]) (inexact->exact (bigfloat->flonum (bf x))))
                      (inexact->exact x))]
               [n (numerator q)]
               [d (denominator q)])
-         (if (= d 1)
-             (format "~a" n)
-             (format "(~a/~a)" n d)))]))
+        (if (= d 1)
+            (format "~a" n)
+            (format "(~a/~a)" n d)))]))
 
 (define (constant->wls expr ctx)
+  (define wls-prec (prec->wls (ctx-lookup-prop ctx ':precision 'binary64)))
   (match expr
-    ['E "E"]
-    ['LOG2E "Log[2, E]"]
-    ['LOG10E "Log[10, E]"]
-    ['LN2 "Log[2]"]
-    ['LN10 "Log[10]"]
-    ['PI "Pi"]
-    ['PI_2 "(Pi / 2)"]
-    ['PI_4 "(Pi / 4)"]
-    ['M_1_PI "(1 / Pi)"]
-    ['M_2_PI "(2 / Pi)"]
-    ['M_2_SQRTPI "(2 / Sqrt[Pi])"]
-    ['SQRT2 "Sqrt[2]"]
-    ['SQRT1_2 "Sqrt[1 / 2]"]
+    ['E       (format "N[E, ~a]" wls-prec)]
+    ['LOG2E   (format "N[Log[2, E], ~a]" wls-prec)]
+    ['LOG10E  (format "N[Log[10, E], ~a]" wls-prec)]
+    ['LN2     (format "N[Log[2], ~a]" wls-prec)]
+    ['LN10    (format "N[Log[10], ~a]" wls-prec)]
+    ['PI      (format "N[Pi, ~a]" wls-prec)]
+    ['PI_2    (format "N[(Pi / 2), ~a]" wls-prec)]
+    ['PI_4    (format "N[(Pi / 4), ~a]" wls-prec)]
+    ['M_1_PI  (format "N[(1 / Pi), ~a]" wls-prec)]
+    ['M_2_PI  (format "N[(2 / Pi), ~a]" wls-prec)]
+    ['M_2_SQRTPI  (format "N[(2 / Sqrt[Pi]), ~a]" wls-prec)]
+    ['SQRT2   (format "N[Sqrt[2], ~a]" wls-prec)]
+    ['SQRT1_2 (format "N[Sqrt[1 / 2], ~a]" wls-prec)]
     ['TRUE "True"]
     ['FALSE "False"]
     ['INFINITY "Infinity"]
     ['NAN "Indeterminate"]
     [(list 'digits (? number? m) (? number? e) (? number? b))
-     (format "(~a * ~a ^ ~a)"
+     (format "N[~a * ~a ^ ~a, ~a]"
              (number->wls m)
              (number->wls e)
-             (number->wls b))]
-    [(? number?) (number->wls expr)]
+             (number->wls b)
+             wls-prec)]
+    [(? number?) (format "N[~a, ~a]" (number->wls expr) wls-prec)]
     [(? symbol?) expr]))
 
 (define/match (operator->wls op)
@@ -159,44 +169,60 @@
 (define (declaration->wls var val)
   (format "~a = ~a" var val))
 
-(define (let->wls decls body indent)
-  (format "With[{~a}, ~a]" decls body))
+(define (normal-let->wls name vars vals body)
+  (format "~a[{~a}, ~a]" 
+    name
+    (string-join
+      (for/list ([var vars] [val vals])
+          (declaration->wls var val))
+      ", ")
+    body))
+    
+(define (nested-let->wls name vars vals body)
+  (cond
+    [(> (length vars) 0) 
+      (format "~a[{~a}, ~a]" name (declaration->wls (first vars) (first vals)) 
+                             (nested-let->wls name (drop vars 1) (drop vals 1) body))]
+    [else body]))
+
+(define (let->wls vars vals body indent nested)
+  (if nested
+    (format (nested-let->wls "With" vars vals body))
+    (format (normal-let->wls "With" vars vals body))))                         
 
 (define (if->wls cond ift iff indent)
   (format "If[~a, ~a, ~a]" cond ift iff))
 
-(define (while->wls vars inits cond updates updatevars body loop indent)
-  (format "Block[{~a}, While[~a, With[{~a}, ~a]]; ~a]"
-          (string-join
-            (for/list ([var vars] [val inits])
-              (declaration->wls var val))
-            ", ")
-          cond
-          (string-join
-            (for/list ([var updatevars] [val updates])
-              (declaration->wls var val))
-            ", ")
+(define (while->wls vars inits cond updates updatevars body loop indent nested)
+  (if nested
+    (nested-let->wls "Block" vars inits   ; Block[{~a}, While[~a, ~a]; ~a]
+      (format "While[~a, ~a]; ~a"
+        cond
+        (string-join
+          (for/list ([var vars] [val updates])
+            (declaration->wls var val))
+          "; ")
+        body))
+    (normal-let->wls "Block" vars inits   ; Block[{~a}, While[~a, With[{~a}, ~a]]; ~a]
+      (format "While[~a, ~a]; ~a"
+        cond
+        (normal-let->wls "With" updatevars updates
           (string-join
             (for/list ([var vars] [val updatevars])
               (declaration->wls var val))
-            "; ")
-          body))
-          
-(define (block->wls name indent)
-  (match name
-    ['if ""]
-    ['let ""]
-    ['while ""]
-    [_ (error 'block->wls "Unsupported block ~a" name)]))
+            "; "))
+        body))))
 
 (define (function->wls name args body ctx names)
-  (define prec (ctx-lookup-prop ctx ':precision 'binary64))
+  (define wls-prec (prec->wls (ctx-lookup-prop ctx ':precision 'binary64)))
   (define arg-strings
     (for/list ([var args])
       (format "~a_" (if (list? var) (car var) var))))
-  (format "~a[~a] := ~a\n"
+  (format "~a[~a] := Block[{$MinPrecision=~a, $MaxPrecision=~a, $MaxExtraPrecision=0}, ~a]\n"
           name
           (string-join arg-strings ", ")
+          wls-prec
+          wls-prec
           body))
 
 (define wls-language (functional "wls" application->wls constant->wls declaration->wls let->wls if->wls while->wls function->wls))

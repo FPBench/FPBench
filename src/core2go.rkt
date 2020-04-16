@@ -7,9 +7,10 @@
 
 (define go-header (curry format "package ~a\n\nimport \"math\"\n\n"))
 (define go-supported (supported-list
-   (invert-op-list '(!))
-   (invert-const-list '())
-   '(binary32 binary64)))
+   fpcore-ops
+   fpcore-consts
+   '(binary32 binary64)
+   '(nearestEven)))
 
 (define/match (type->go type)
   [('binary64) "float64"]
@@ -65,7 +66,8 @@
           type
           body return))
 
-(define go-language (language (const "go") operator->go constant->go declaration->go assignment->go round->go function->go))
+(define go-language (language (const "go") operator->go constant->go declaration->go assignment->go
+                              round->go (const "") function->go))
 
 ;;; Exports
 

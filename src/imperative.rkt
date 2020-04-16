@@ -5,7 +5,7 @@
 
 ;;; Abstraction for different languages
 
-(struct language (name operator constant declaration assignment round function))
+(struct language (name operator constant declaration assignment round round-mode function))
 (define *lang* (make-parameter #f))
 
 (define (convert-operator ctx operator args)
@@ -22,8 +22,11 @@
 (define (convert-assignment var val)
   ((language-assignment (*lang*)) var val))
 
-(define (round-expr val ctx)
+(define (round-expr val ctx) ; Sollya only
   ((language-round (*lang*)) val (ctx-props ctx)))
+
+(define (change-round-mode mode indent) ; C only
+  ((language-round-mode (*lang*)) mode indent))
 
 (define (convert-function name args arg-props body return ctx vars)
   ((language-function (*lang*)) name args arg-props body return ctx vars))
@@ -43,7 +46,7 @@
 
 (define (convert-application ctx operator args)
   (match (cons operator args)
-    [(list '- a) (round-expr (format "-~a" a) ctx)]
+    [(list '- a) (round-expr (format "-(~a)" a) ctx)]
     [(list 'not a) (format "!~a" a)]
     [(list (or '== '!= '< '> '<= '>=)) "TRUE"]
     [(list (or '+ '- '* '/) a b) (round-expr (format "(~a ~a ~a)" a operator b) ctx)]
@@ -94,7 +97,10 @@
 
     [`(if ,cond ,ift ,iff)
       (define test (convert-expr cond #:ctx ctx #:indent indent))
-      (define outvar (ctx-random-name))
+      (define outvar
+        (let-values ([(cx name) (ctx-random-name ctx)])
+            (set! ctx cx)
+            name))
       ; Sollya has slightly different if
       (if (equal? ((language-name (*lang*))) "sollya")
           (printf "~aif (~a) then {\n" indent test)
@@ -115,7 +121,10 @@
             (printf "~a~a\n" indent
                 (convert-declaration cx name (convert-expr val #:ctx ctx #:indent indent)))
             (values cx (flatten (cons vars* name))))))
-      (define test-var (ctx-random-name))
+      (define test-var
+        (let-values ([(cx name) (ctx-random-name ctx)])
+            (set! ctx cx)
+            name))
       (printf "~a~a\n" indent
           (convert-declaration
               (ctx-update-props ctx '(:precision boolean))
@@ -146,7 +155,10 @@
             (printf "~a~a\n" indent
                 (convert-declaration cx name (convert-expr val #:ctx ctx* #:indent indent)))
             (values cx (flatten (cons vars* name))))))
-      (define test-var (ctx-random-name))
+      (define test-var
+        (let-values ([(cx name) (ctx-random-name ctx)])
+            (set! ctx cx)
+            name))
       (printf "~a~a\n" indent
           (convert-declaration
               (ctx-update-props ctx '(:precision boolean))
@@ -164,8 +176,20 @@
        (printf "~a}~a\n" indent (if (equal? ((language-name (*lang*))) "sollya") ";" ""))
       (convert-expr retexpr #:ctx ctx* #:indent indent)]
 
+    ; Ignore all casts
+    [`(cast ,body) (convert-expr body #:ctx ctx #:indent indent)]
+
     [`(! ,props ... ,body)
-      (convert-expr body #:ctx (ctx-update-props ctx props) #:indent indent)]
+      (define curr-round (ctx-lookup-prop ctx ':round 'binary64))
+      (define new-round (dict-ref (apply hash-set* #hash() props) ':round curr-round))
+      (if (and (equal? ((language-name (*lang*))) "c") (not (equal? curr-round new-round)))  ; Only C needs to emit a temporary variable
+        (let-values ([(ctx* tmp-var) (ctx-random-name ctx)])
+          (printf "~a~a\n" indent (change-round-mode new-round indent))
+          (printf "~a~a\n" indent 
+              (convert-declaration ctx* tmp-var (convert-expr body #:ctx (ctx-update-props ctx* props) #:indent indent)))
+          (printf "~a~a\n" indent (change-round-mode curr-round indent))
+          tmp-var)
+        (convert-expr body #:ctx (ctx-update-props ctx props) #:indent indent))] 
 
     [(list (? operator? operator) args ...)
       (define args_c
@@ -181,13 +205,11 @@
 (define (convert-core prog name)
   (match-define (list 'FPCore (list args ...) props ... body) prog)
   (define ctx (ctx-update-props (make-compiler-ctx) (append '(:precision binary64 :round nearestEven) props)))
-
   (parameterize ([*used-names* (mutable-set)] [*gensym-collisions* 1] [*gensym-fix-name* fix-name])
     (define func-name 
       (let-values ([(cx fname) (ctx-unique-name ctx (string->symbol name))])
         (set! ctx cx)
         fname))
-
     (define-values (arg-names arg-props)
       (for/lists (n p) ([var args])
         (match var
@@ -203,11 +225,9 @@
                             (set! ctx cx)
                             name)
                 (ctx-props ctx))])))
-
     (define-values (body-out return-out) 
       (let ([p (open-output-string)])
         (parameterize ([current-output-port p])    
           (define out (convert-expr body #:ctx ctx))
           (values (get-output-string p) out))))
-
     (convert-function func-name arg-names arg-props body-out return-out ctx (set->list (*used-names*)))))

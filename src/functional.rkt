@@ -9,49 +9,41 @@
 (define *func-lang* (make-parameter #f))
 
 (define (convert-constant expr ctx)
-  ((functional-constant (*func-lang*)) expr (ctx-props ctx)))
+  ((functional-constant (*func-lang*)) expr ctx))
 
 (define (convert-operator op args ctx)
-  ((functional-operator (*func-lang*)) op args (ctx-props ctx)))
+  ((functional-operator (*func-lang*)) op args ctx))
 
 (define (convert-declaration var val)
   ((functional-declaration (*func-lang*)) var val))
 
-(define (convert-let decls body indent)
-  ((functional-let (*func-lang*)) decls body indent))
+(define (convert-let vars vals body indent nested)
+  ((functional-let (*func-lang*)) vars vals body indent nested))
 
 (define (convert-if cond ift iff indent)
   ((functional-if (*func-lang*)) cond ift iff indent))
 
-(define (convert-while vars inits cond updates updatevars body loop indent)
-  ((functional-while (*func-lang*)) vars inits cond updates updatevars body loop indent))
+(define (convert-while vars inits cond updates updatevars body loop indent nested)
+  ((functional-while (*func-lang*)) vars inits cond updates updatevars body loop indent nested))
 
 (define (convert-function name args body ctx names)
   ((functional-function (*func-lang*)) name args body ctx names))
-
-(define (declaration-divider indent)
-  (match (functional-name (*func-lang*))
-    ["smtlib2" " "]
-    ["cml" (format "\n~a" indent)]
-    [_ ", "]))
 
 ;;; Compiler for functional languages
 
 (define (convert-expr expr #:ctx [ctx (make-compiler-ctx)] #:indent [indent "\t"])
   (match expr
     [`(let ([,vars ,vals] ...) ,body)
-      (define-values (ctx* vars* vals*)
-        (for/fold ([ctx* ctx] [vars* '()] [vals* '()]) ([var vars] [val vals])
+      (define-values (ctx* vars*)
+        (for/fold ([ctx* ctx] [vars* '()]) ([var vars] [val vals])
           (let-values ([(cx name) (ctx-unique-name ctx* var)])
-            (values cx (flatten (cons vars* name)) 
-                    (flatten (cons vals* (convert-expr val #:ctx ctx #:indent (format "\t~a" indent))))))))
+            (values cx (flatten (cons vars* name))))))
       (convert-let
-        (string-join
-          (for/list ([var* vars*] [val vals])
-            (convert-declaration var* (convert-expr val #:ctx ctx #:indent (format "\t~a" indent))))
-          (declaration-divider (format "\t~a" indent)))
+        vars*
+        (for/list ([val vals]) (convert-expr val #:ctx ctx #:indent (format "\t~a" indent)))
         (convert-expr body #:ctx ctx* #:indent (format "\t~a" indent))
-        indent)]
+        indent
+        #f)]
 
     [`(let* ([,vars ,vals] ...) ,body)
       (define-values (ctx* vars* vals*)
@@ -60,12 +52,11 @@
             (values cx (flatten (cons vars* name)) 
                     (flatten (cons vals* (convert-expr val #:ctx ctx* #:indent (format "\t~a" indent))))))))
       (convert-let
-        (string-join
-          (for/list ([var* vars*] [val* vals*])
-            (convert-declaration var* val*))
-          (declaration-divider (format "\t~a" indent)))
+        vars*
+        vals*
         (convert-expr body #:ctx ctx* #:indent (format "\t~a" indent))
-        indent)]
+        indent 
+        #t)]
 
     [`(if ,cond ,ift ,iff)
       (convert-if
@@ -92,7 +83,7 @@
                     (flatten (cons updates* (convert-expr val #:ctx ctx* #:indent (format "\t\t\t\t~a" indent)))))))) ;; tabs for Cake
       (convert-while 
           vars* vals* cond* updates* vars**
-          (convert-expr body #:ctx ctx* #:indent (format "\t\t\t~a" indent)) loop indent)]
+          (convert-expr body #:ctx ctx* #:indent (format "\t\t\t~a" indent)) loop indent #f)]
 
     [`(while* ,cond ([,vars ,inits ,updates] ...) ,body)
       (define loop ; CakeML
@@ -112,16 +103,15 @@
                     (flatten (cons updates* 
                       (convert-expr 
                           val 
-                          #:ctx (if (equal? (functional-name (*func-lang*)) "cml") ctx* ctx**)
+                          #:ctx ctx*
                           #:indent (format "\t\t\t\t~a" indent)))))))) ;; tabs for Cake
       (convert-while 
-          vars* vals* cond* updates* 
-          (if (equal? (functional-name (*func-lang*)) "cml") vars* vars**)
-          (convert-expr body #:ctx ctx* #:indent (format "\t\t\t~a" indent)) loop indent)]
+          vars* vals* cond* updates* vars*
+          (convert-expr body #:ctx ctx* #:indent (format "\t\t\t~a" indent)) loop indent #t)]
 
-    ;; Ignore all casts and precision contexts
+    ;; Ignore all casts
     [`(cast ,body) (convert-expr body #:ctx ctx #:indent indent)]
-    [(list '! props ... body) (convert-expr body #:ctx ctx #:indent indent)]
+    [(list '! props ... body) (convert-expr body #:ctx (ctx-update-props ctx props) #:indent indent)]
 
     [(list (? operator? operator) args ...)
      (define args_c

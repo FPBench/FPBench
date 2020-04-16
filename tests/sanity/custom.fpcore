@@ -170,3 +170,11 @@
                                  [x 0.0 (+ x i)])
                                 x)])
                 b))
+
+;;; Annotations
+
+(FPCore () 
+    :name "Annotations (1/1)" 
+    :spec 1.0
+    (let ([x (! :precision binary64 :round nearestEven 1.0)]) 
+        x))

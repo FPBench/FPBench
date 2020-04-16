@@ -1,26 +1,42 @@
 #lang racket
 
-(require math/flonum)
+(require math/flonum racket/extflonum math/bigfloat)
 (require "test-common.rkt" "../src/core2c.rkt")
 
 (define (compile->c prog ctx type test-file)
   (call-with-output-file test-file #:exists 'replace
     (λ (p)
       (define N (length (second prog)))
-      (fprintf p "#include <stdlib.h>\n#include <stdio.h>\n#include <math.h>\n#define TRUE 1\n#define FALSE 0\n\n~a\n\n" (core->c prog "f"))
+      (fprintf p "#include <stdlib.h>\n#include <stdio.h>\n~a~a\n\n" (c-header) (core->c prog "f"))
       (fprintf p "int main(int argc, char **argv) { ")
-      (define strtox (match type ['binary64 "strtod"] ['binary32 "strtof"]))
-      (fprintf p "printf(\"%.20g\", f(~a)); return 0; }\n"
-               (string-join (map (curry format "~a(argv[~a], NULL)" strtox) (map add1 (range N))) ", "))))
+      (define strtox (match type ['binary80 "strtold(argv[~a], NULL)"] ['binary64 "strtod(argv[~a], NULL)"] 
+                                 ['binary32 "strtof(argv[~a], NULL)"]  ['integer  "strtoll(argv[~a], NULL, 10)"]))
+      (fprintf p "printf(\"%.~a\", f(~a)); return 0; }\n"
+               (match type ['binary80 "20Lg"] ['binary64 "17g"] ['binary32 "17g"] ['integer "li"])
+               (string-join (map (curry format strtox) (map add1 (range N))) ", "))))
   (define c-file (string-replace test-file ".c" ".bin"))
   (system (format "cc ~a -lm -o ~a" test-file c-file))
   c-file)
 
+(define (extfl->real x)
+  (cond
+    [(equal? x +inf.t)  +inf.0] 
+    [(equal? x -inf.t)  -inf.0]
+    [(equal? x +nan.t)  +nan.0] 
+    [(equal? x -nan.t)  -nan.0]
+    [else (extfl->exact x)]))  
+
 (define (run<-c exec-name ctx type)
+  (define real->float
+    (match type
+      ['binary80 (λ (x) (parameterize ([bf-precision 64]) (bigfloat->string (bf (extfl->real x)))))]
+      ['binary64 real->double-flonum]
+      ['binary32 real->double-flonum]
+      ['integer identity]))
   (define out
     (with-output-to-string
      (λ ()
-       (system (string-join (cons exec-name (map (compose ~a real->double-flonum) (dict-values ctx))) " ")))))
+       (system (string-join (cons exec-name (map (compose ~a real->float) (dict-values ctx))) " ")))))
   (define out*
     (match out
       ["nan" "+nan.0"]
@@ -28,19 +44,28 @@
       ["inf" "+inf.0"]
       ["-inf" "-inf.0"]
       [x x]))
-  (cons
-    ((match type
-      ['binary64 real->double-flonum]
-      ['binary32 real->single-flonum])
-    (string->number out*)) out*))
+  (match type
+    ['binary80 (cons (parameterize ([bf-precision 64]) (real->extfl (bigfloat->real (bf out*)))) out*)]
+    ['binary64 (cons (real->double-flonum (string->number out*)) out*)]
+    ['binary32 (cons (real->single-flonum (string->number out*)) out*)]
+    ['integer  (cons (string->number out*) out*)]))
 
 (define (c-equality a b ulps)
   (match (list a b)
     ['(timeout timeout) true]
+    [(list (? extflonum?) (? extflonum?))
+      (or (extfl= a b)
+          (and (equal? a +nan.t) (equal? b +nan.t))
+          (and (parameterize ([bf-precision 64]) 
+                  (<= (abs (bigfloats-between (bf (extfl->real a)) (bf (extfl->real b))))
+                      ulps))))]
     [else
       (or (= a b)
           (and (nan? a) (nan? b))
           (and (double-flonum? a) (double-flonum? b) (<= (abs (flonums-between a b)) ulps)))]))
+
+    ; (Expected) 1.09275537727565181636t-2915
+    ; (Output)   1.0927553772756518164t-2915
 
 (define (c-format-args var val type)
   (format "~a = ~a" var val))

@@ -9,9 +9,10 @@
 
 (define js-header (const "")) ; empty
 (define js-supported (supported-list
-   (invert-op-list'(! != copysign exp2 erf erfc fdim fma fmod isfinite isnormal lgamma nearbyint remainder signbit tgamma))
-   (invert-const-list '())
-   '(binary64)))
+   (invert-op-list '(!= copysign exp2 erf erfc fdim fma fmod isfinite isnormal lgamma nearbyint remainder signbit tgamma))
+   fpcore-consts
+   '(binary64)
+   '(nearestEven)))
 
 (define (type->js type) "var")
 
@@ -65,7 +66,8 @@
           body 
           return))
 
-(define js-language (language (const "js") operator->js constant->js decleration->js assignment->js round->js function->js))
+(define js-language (language (const "js") operator->js constant->js decleration->js assignment->js
+                              round->js (const "") function->js))
 
 ;;; Exports
 

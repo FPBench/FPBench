@@ -2,7 +2,7 @@
 
 (require "fpcore.rkt" "supported.rkt")
 (provide *used-names* *gensym-divider* *gensym-collisions* *gensym-fix-name*
-          make-compiler-ctx  ctx-unique-name ctx-random-name ctx-lookup-name 
+          make-compiler-ctx ctx-unique-name ctx-random-name ctx-lookup-name 
           ctx-update-props ctx-lookup-prop ctx-props ctx-lookup-prec
           define-compiler)
 (provide

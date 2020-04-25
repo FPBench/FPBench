@@ -5,46 +5,108 @@
 (define var-odds (make-parameter 0.5))
 (define math-const (make-parameter 0.5))
 (define unique-vars (make-parameter #f))
+(define full-set (make-parameter #f))
+
+;; Move this somewhere better
+(define bool-ops '(< > <= >= == != and or not isfinite isinf isnan isnormal signbit))
 
 (define (rand-from-list list)
   (list-ref list (random 0 (length list))))
 
-(define (gensyms count) 
-  (for/list ([i count])
-    (string->symbol (format "x~a" (add1 i)))))
+(define (member? v list)
+  (for/or ([i list]) (equal? i v)))
 
+(define (clamp x low high)
+  (max low (min x high)))
+
+(define (gensyms count [start 1]) 
+  (for/list ([i (in-range start (+ start count))])
+    (string->symbol (format "x~a" i))))
+
+; Returns the number of variable terminals in an expression
 (define (variable-count expr)
  (match expr
+  [`(let ([,vars ,vals] ...) ,body) (+ (for/sum ([val vals]) (variable-count val)) (variable-count body))]
+  [`(let* ([,vars ,vals] ...) ,body) (+ (for/sum ([val vals]) (variable-count val)) (variable-count body))]
+  [`(if ,cond ,ift ,iff) (for/sum ([arg (list cond ift iff)]) (variable-count arg))]
   [(list op args ...) (for/sum ([arg args]) (variable-count arg))]
-  ['var       1]    ; variable placeholder
-  [_          0]))
+  ['var  1]    ; variable placeholder
+  [_     0]))
 
-(define (assign-terminals expr consts prec vars var-count [simple-const #f])
-  (define unused vars)
+; Returns the max number of unbound variables in an expression
+(define (max-unbound-in-expr expr)
+ (match expr
+  [`(let ([,vars ,vals] ...) ,body) (- (+ (max-unbound-in-expr body) (for/sum ([val vals]) (max-unbound-in-expr val))) 
+                                       (length vars))]
+  [`(let* ([,vars ,vals] ...) ,body) (- (+ (max-unbound-in-expr body) (for/sum ([val vals]) (max-unbound-in-expr val)))
+                                        (length vars))]
+  [`(if ,cond ,ift ,iff) (for/sum ([arg (list cond ift iff)]) (max-unbound-in-expr arg))]
+  [(list op args ...) (for/sum ([arg args]) (max-unbound-in-expr arg))]
+  ['var  1]    ; variable placeholder
+  [_     0]))
+
+; Returns the min number of unbound variables in an expression
+(define (min-unbound-in-expr expr)
+ (match expr
+  [`(let ([,vars ,vals] ...) ,body) (clamp (for/sum ([val vals]) (min-unbound-in-expr val)) 0 1)]
+  [`(let* ([,vars ,vals] ...) ,body) (min-unbound-in-expr (first vals))]
+  [`(if ,cond ,ift ,iff) (clamp (for/sum ([arg (list cond ift iff)]) (min-unbound-in-expr arg)) 0 1)]
+  [(list op args ...) (clamp (for/sum ([arg args]) (min-unbound-in-expr arg)) 0 1)]
+  ['var  1]    ; variable placeholder
+  [_     0]))
+
+; Returns a random list of size count that countains every element of free at least once.
+(define (random-vars free count)
+  (define unused free)
   (define bound 0)
-  (let inner ([subexpr expr])  
-    (match subexpr
-      [(list op args ...) (append `(,op) (map inner args))]
-      ['var
-       (cond
-        [(unique-vars)
-          (let ([name (list-ref vars bound)])
-            (set! bound (add1 bound))
-            name)]
-        [(> (- var-count bound) (length unused))
-          (let ([name (rand-from-list vars)])
-            (set! bound (add1 bound))
-            (set! unused (remove name unused))
-            name)]
-        [else
-          (let ([name (rand-from-list unused)])
-            (set! bound (add1 bound))
-            (set! unused (remove name unused))
-            name)])]
-      ['const  (if simple-const 
-                   (rand-from-list '(1.0 0.0 -1.0))
-                   (if (> (random) (math-const)) (rand-from-list consts) (sample-random prec)))]
-      [_       subexpr])))
+  (if (= count 0) '()
+    (for/list ([i (in-range count)])
+      (let ([name (if (> (- count bound) (length unused))
+                      (rand-from-list free)
+                      (rand-from-list unused))])
+        (set! bound (add1 bound))
+        (set! unused (remove name unused))
+        name))))
+
+(define (subexpr-vars vars distr)
+  (define used 0)
+  (if (empty? distr) '()
+    (for/list ([c distr])
+      (let ([v (take (drop vars used) c)])
+        (set! used (+ used c))
+        v))))
+
+(define (assign-terminals expr consts prec free)
+  (define varc (length free))
+  (let inner ([subexpr expr] [free free])
+   (match subexpr
+    [`(let ([,vars ,vals] ...) ,body)
+      (let* ([letfree-count (for/sum ([val vals]) (max-unbound-in-expr val))]
+             [letfree (if (= (length free) 0) '() (random-vars free letfree-count))]
+             [distr (for/list ([val vals]) (min (length free) (max-unbound-in-expr val)))]
+             [vars* (gensyms (length vars) (add1 varc))]
+             [unbound (remove* (remove-duplicates letfree) free)] ; must be in body
+             [extra (- (max-unbound-in-expr body) (length vars) (length unbound))])
+        (set! varc (+ varc (length vars)))
+       `(let (,@(map (λ (x y vs) (list x (inner y vs))) vars* vals (subexpr-vars letfree distr))) 
+            ,(inner body (append vars* unbound (if (= (length free) 0) '() (random-vars free extra))))
+      ))]
+    [`(if ,cond ,ift ,iff)
+      (let* ([var-count (max-unbound-in-expr subexpr)]
+             [args (list cond ift iff)]
+             [vars (if (= (length free) 0) '() (random-vars free var-count))]
+             [distr (for/list ([arg args]) (min (length free) (max-unbound-in-expr arg)))])
+        `(if ,@(map (λ (x vs) (inner x vs)) args (subexpr-vars vars distr))))]     
+    [(list op args ...)
+      (let* ([var-count (max-unbound-in-expr subexpr)]
+             [vars (if (= (length free) 0) '() (random-vars free var-count))]
+             [distr (for/list ([arg args]) (min (length free) (max-unbound-in-expr arg)))])
+        `(,op ,@(map (λ (x vs) (inner x vs)) args (subexpr-vars vars distr))))]
+    ['var (first free)]
+    ['const (if (full-set)
+                (rand-from-list '(1.0 0.0 -1.0))
+                (if (> (random) (math-const)) (rand-from-list consts) (sample-random prec)))]
+    [_ expr])))
 
 ; Returns a list of integers of size count such that all values are less than depth
 ; and at least one is one less than depth.
@@ -57,93 +119,136 @@
 
 ;;; Set generator
 
-(define (gen-set-layer ops consts depth)
+(define (gen-set-cond ops child-proc)
+  (for/fold ([exprs '()]) ([cond ops])
+   (match cond
+    [(or '< '> '<= '>= '== '!=)
+     (append exprs
+      (for*/list ([subexpr1 (child-proc)]
+                  [subexpr2 (child-proc)])
+        `(,cond ,subexpr1 ,subexpr2)))]
+    [(or 'isfinite 'isinf 'isnan 'isnormal 'signbit)
+     (append exprs
+      (for*/list ([subexpr (child-proc)])
+        `(,cond ,subexpr)))])))
+
+(define (gen-set-layer ops depth)
   (cond
     [(> depth 0)
-     (for/fold ([exprs '()]) ([op ops])
+     (for/fold ([exprs '()]) ([op (remove* bool-ops ops)])
       (match op
         [(or 'fabs 'exp 'exp2 'expm1 'log 'log10 'log2 'log1p 'sqrt 'cbrt 'sin 'cos 'tan 
               'asin 'acos 'atan 'sinh 'cosh 'tanh 'asinh 'acosh 'atanh 'erf 'erfc 'tgamma 'lgamma 
               'ceil 'floor 'trunc 'round 'nearbyint)
          (append exprs
-           (for/list ([subexpr (gen-set-layer ops consts (sub1 depth))])
+           (for/list ([subexpr (gen-set-layer ops (sub1 depth))])
             `(,op ,subexpr)))]
         [(or '+ '- '* '/ 'pow 'hypot 'atan2 'fmod 'remainder 'fmax 'fmin 'fdim 'copysign)
          (append exprs
-           (for*/list ([subexpr1 (gen-set-layer ops consts (sub1 depth))]
-                       [subexpr2 (gen-set-layer ops consts (sub1 depth))])
+           (for*/list ([subexpr1 (gen-set-layer ops (sub1 depth))]
+                       [subexpr2 (gen-set-layer ops (sub1 depth))])
             `(,op ,subexpr1 ,subexpr2)))]
         ['fma
          (append exprs
-           (for*/list ([subexpr1 (gen-set-layer ops consts (sub1 depth))]
-                       [subexpr2 (gen-set-layer ops consts (sub1 depth))]
-                       [subexpr3 (gen-set-layer ops consts (sub1 depth))])
-            `(,op ,subexpr1 ,subexpr2 ,subexpr3)))]))]
+           (for*/list ([subexpr1 (gen-set-layer ops (sub1 depth))]
+                       [subexpr2 (gen-set-layer ops (sub1 depth))]
+                       [subexpr3 (gen-set-layer ops (sub1 depth))])
+            `(,op ,subexpr1 ,subexpr2 ,subexpr3)))]
+        ['if
+          (append exprs
+            (for*/list ([cond (gen-set-cond (filter (curryr member? bool-ops) ops)
+                                            (thunk (gen-set-layer ops (sub1 depth))))]
+                        [subexpr1 (gen-set-layer ops (sub1 depth))]
+                        [subexpr2 (gen-set-layer ops (sub1 depth))])
+            `(if ,cond ,subexpr1 ,subexpr2)))]
+      ))]
     [(equal? (var-odds) 1.0) (list 'var)]
     [else (list 'const 'var)]))
 
 (define (gen-expr-set ops precs rnd-modes consts depth)
-  (let ([exprs (gen-set-layer ops consts depth)])
+  (let ([exprs (gen-set-layer ops depth)])
     (for*/list ([expr exprs] [prec precs] [rnd rnd-modes])
-      (let* ([var-count (variable-count expr)]
-             [free-count 
-              (cond
-               [(unique-vars) var-count]
-               [(= var-count 0) 0]
-               [else (add1 (random 0 var-count))])]
+      (let* ([max-vars (max-unbound-in-expr expr)]
+             [min-vars (min-unbound-in-expr expr)]
+             [free-count (if (unique-vars) max-vars (random min-vars (add1 max-vars)))]
              [args (gensyms free-count)])
-    `(FPCore ,args :precision ,prec :round ,rnd ,(assign-terminals expr consts prec args var-count #t))))))
+    `(FPCore ,args :precision ,prec :round ,rnd ,(assign-terminals expr consts prec args))))))
 
 ;; Random generator
 
-(define (gen-rand-layer ops consts depth)
+(define (gen-body-min-vars gen-proc [min 1])
+  (let ([body (gen-proc)])
+    (if (< (min-unbound-in-expr body) min)
+        (gen-body-min-vars gen-proc)
+        body)))
+
+(define (gen-rand-cond ops child-proc)
+  (let ([cond (rand-from-list ops)])
+   (match cond
+    [(or '< '> '<= '>= '== '!=)
+      `(,cond ,(child-proc) ,(child-proc))]
+    [(or 'isfinite 'isinf 'isnan 'isnormal 'signbit)
+      `(,cond ,(child-proc))])))
+
+(define (gen-rand-layer ops depth)
   (cond
     [(> depth 0)
-      (let ([op (rand-from-list ops)])
-        (match op
-          [(or 'fabs 'exp 'exp2 'expm1 'log 'log10 'log2 'log1p 'sqrt 'cbrt 'sin 'cos 'tan 
-               'asin 'acos 'atan 'sinh 'cosh 'tanh 'asinh 'acosh 'atanh 'erf 'erfc 'tgamma 'lgamma 
-               'ceil 'floor 'trunc 'round 'nearbyint)
-            `(,op ,(gen-rand-layer ops consts (sub1 depth)))]
-          [(or '+ '- '* '/ 'pow 'hypot 'atan2 'fmod 'remainder 'fmax 'fmin 'fdim 'copysign)
-            (let ([depths (next-child-depth depth 2)])
-              `(,op ,(gen-rand-layer ops consts (first depths)) 
-                    ,(gen-rand-layer ops consts (second depths))))]
-          ['fma
-            (let ([depths (next-child-depth depth 3)])
-              `(,op ,(gen-rand-layer ops consts (first depths))
-                    ,(gen-rand-layer ops consts (second depths))
-                    ,(gen-rand-layer ops consts (third depths))))]
+      (let ([op (rand-from-list (remove* bool-ops ops))])
+       (match op
+        [(or 'fabs 'exp 'exp2 'expm1 'log 'log10 'log2 'log1p 'sqrt 'cbrt 'sin 'cos 'tan 
+              'asin 'acos 'atan 'sinh 'cosh 'tanh 'asinh 'acosh 'atanh 'erf 'erfc 'tgamma 'lgamma 
+              'ceil 'floor 'trunc 'round 'nearbyint)
+          `(,op ,(gen-rand-layer ops (sub1 depth)))]
+        [(or '+ '- '* '/ 'pow 'hypot 'atan2 'fmod 'remainder 'fmax 'fmin 'fdim 'copysign)
+          (let ([depths (next-child-depth depth 2)])
+            `(,op ,(gen-rand-layer ops (first depths)) 
+                  ,(gen-rand-layer ops (second depths))))]
+        ['fma
+          (let ([depths (next-child-depth depth 3)])
+            `(,op ,(gen-rand-layer ops (first depths))
+                  ,(gen-rand-layer ops (second depths))
+                  ,(gen-rand-layer ops (third depths))))]
+        ['if
+          (let ([depths (next-child-depth depth 2)]
+                [cond (gen-rand-cond (filter (curryr member? bool-ops) ops)
+                                     (thunk (gen-rand-layer ops (random 0 depth))))])
+          `(if ,cond ,(gen-rand-layer ops (first depths)) 
+                  ,(gen-rand-layer ops (first depths))))]
+        [(or 'let 'let*)
+          (let* ([body (gen-body-min-vars (thunk (gen-rand-layer ops (sub1 depth))))]
+                 [var-count (add1 (random 0 (max-unbound-in-expr body)))]
+                 [vars (build-list var-count (const 'var))]
+                 [vals (for/list ([i (in-range var-count)]) 
+                          (gen-rand-layer ops (random 0 depth)))])
+            `(,op (,@(map list vars vals)) ,body))]
       ))]
     [else (if (> (random) (var-odds)) 'const 'var)]))
 
 (define (gen-random-expr ops precs rnd-modes consts depth number)
   (for/list ([i (in-range number)])
-    (let* ([expr (gen-rand-layer ops consts depth)]
+    (let* ([expr (gen-rand-layer ops depth)]
            [prec (rand-from-list precs)]
            [rnd (rand-from-list rnd-modes)]
-           [var-count (variable-count expr)]
-           [free-count 
-            (cond
-              [(unique-vars) var-count]
-              [(= var-count 0) 0]
-              [else (add1 (random 0 var-count))])]
+           [max-vars (max-unbound-in-expr expr)]
+           [min-vars (min-unbound-in-expr expr)]
+           [free-count (if (unique-vars) max-vars (random min-vars (add1 max-vars)))]
            [args (gensyms free-count)])
-      `(FPCore ,args :precision ,prec :round ,rnd ,(assign-terminals expr consts prec args var-count)))))
+      `(,(string->symbol (format "FPCore ~a" args))
+          ,(if (> depth 3) (string->symbol (format ":name \"Random ~a\"" (add1 i))) "")
+          ,(string->symbol (format ":prec ~a" prec))
+          ,(string->symbol (format ":round ~a" rnd))
+          ,(assign-terminals expr consts prec args)))))
 
 ;;; Command line
 
 (module+ main
- (define full-set #f)
  (define depth 1)
- (define newline "\n")
  (define number 1)
  (command-line
-  #:program "gen-exprs.rkt"
+  #:program "gen-random.rkt"
   #:once-each
   [("-o" "--output") _file "Name of output file"
-    (current-output-port (open-output-file _file #:mode 'text #:exists 'truncate))
-    (set! newline "\n\n")]
+    (current-output-port (open-output-file _file #:mode 'text #:exists 'truncate))]
   [("-d" "--depth") _depth "expr depth. Default 1"
     (set! depth (string->number _depth))
     (when (not (exact-nonnegative-integer? depth)) (error 'main "Invalid depth: ~a" depth))]
@@ -156,22 +261,23 @@
   ["--unique-vars" "If this flag is set to #t, every variable will be unique"
     (unique-vars #t)]
   ["--full-set" "If this flag is set to #t, this program will output a test for every operator, precision, and rounding mode combination"
-    (set! full-set #t)]
+    (full-set #t)]
   #:args ()
-
-  (define ops 
-    '(fabs exp exp2 expm1 log log10 log2 log1p sqrt cbrt sin cos tan asin acos atan
-      sinh cosh tanh asinh acosh atanh erf erfc tgamma lgamma ceil floor trunc
-      round nearbyint + - * / pow hypot atan2 fmod remainder fmax fmin fdim copysign fma))
+  (define ops (append (remove* '(cast and or not) operators) '(if let)))
   (define consts '(E LOG2E LOG10E LN2 LN10 PI PI_2 PI_4 M_1_PI M_2_PI M_2_SQRTPI SQRT2 SQRT1_2))
-  (define precs '(binary80 binary64 binary32))
-  (define rnd-modes '(nearestEven toPositive toNegative toZero))
+  ; (define precs '(binary80 binary64 binary32))
+  ; (define rnd-modes '(nearestEven toPositive toNegative toZero))
+  (define precs '(binary64))
+  (define rnd-modes '(nearestEven))
   (define cores
-    (if full-set (gen-expr-set ops precs rnd-modes consts depth)
-                 (gen-random-expr ops precs rnd-modes consts depth number)))
+    (if (full-set)
+        (gen-expr-set ops precs rnd-modes consts depth)
+        (gen-random-expr ops precs rnd-modes consts depth number)))
 
   (when (not (terminal-port? (current-output-port)))
     (fprintf (current-output-port) ";; -*- mode: scheme -*-\n")
-    (fprintf (current-output-port) ";; Count: ~a\n\n" (length cores)))
-  (for ([core cores]) (fprintf (current-output-port) "~a~a" core newline))))
+    (fprintf (current-output-port) ";; Count: ~a\n\n" number))
+  (for ([core cores]) 
+    (pretty-display core (current-output-port))
+    (newline))))
     

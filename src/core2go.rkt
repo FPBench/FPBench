@@ -12,10 +12,6 @@
    '(binary64)
    '(nearestEven)))
 
-; Inaccurate ops: fmod, lgamma (returns two values), log1p, remainder
-; Unsupported ops: isfinite isnormal
-; Unknown: fma (a*b+c might be implicitly converted to a fma instruction)
-
 (define/match (type->go type)
   [('binary64) "float64"]
   [('binary32) "float32"]

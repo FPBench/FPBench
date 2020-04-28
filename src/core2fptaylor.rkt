@@ -110,10 +110,12 @@
        (for/fold ([names* names]) ([var vars] [var* vars*])
          (dict-set names* var var*)))
      (expr->fptaylor body #:names names* #:inexact-scale inexact-scale #:type type)]
-    [`(if ,cond ,ift ,iff)
-     (error 'expr->fptaylor "Unsupported operation ~a" expr)]
-    [`(while ,cond ([,vars ,inits ,updates] ...) ,retexpr)
-     (error 'expr->fptaylor "Unsupported operation ~a" expr)]
+
+    [`(! ,props ... ,body)
+      (expr->fptaylor body #:names names #:inexact-scale inexact-scale #:type type)]
+    ; Ignore all casts
+    [`(cast ,body) (expr->fptaylor body #:names names #:inexact-scale inexact-scale #:type type)]
+
     [(list (? operator? operator) args ...)
      (define args_fptaylor
        (map (λ (arg) (expr->fptaylor arg #:names names #:inexact-scale inexact-scale #:type type)) args))
@@ -126,8 +128,6 @@
            (format "~a(~a(~a))" (type->rnd type #:scale inexact-scale)
                    (operator->fptaylor operator) (string-join args_fptaylor* ", ")))
          (application->fptaylor type operator args_fptaylor))]
-    [`(! ,props ... ,body)
-      (expr->fptaylor body #:names names #:inexact-scale inexact-scale #:type type)]
     [(? constant?)
      (format "~a(~a)" (type->rnd type) (constant->fptaylor expr))]
     [(? symbol?)

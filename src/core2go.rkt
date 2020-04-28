@@ -5,9 +5,10 @@
 
 ; convoluted solution to deal with Go's hatred of unused variables
 (define go-header (curry format (string-append "package ~a\n\nimport \"math\"\n\n// Helper function to get rid of annoying unused variable errors\n"
-                                               "func Use(vals ...interface{}) {\n\tfor _, val := range vals {\n\t\t_ = val\n\t}\n}\n\n")))
+                                               "func Use(vals ...interface{}) {\n\tfor _, val := range vals {\n\t\t_ = val\n\t}\n}\n\n"
+                                               "func Lgamma(x float64) float64 {\n\tres, _ := math.Lgamma(x)\n\treturn res\n}\n\n")))
 (define go-supported (supported-list
-   (invert-op-list '(fmod fma isfinite isnormal lgamma log1p remainder)) 
+   (invert-op-list '(isnormal)) 
    (invert-const-list '(M_1_PI M_2_PI M_2_SQRTPI SQRT1_2))
    '(binary64)
    '(nearestEven)))
@@ -22,14 +23,18 @@
   (match operator
     ['isinf (format "math.IsInf(~a, 0)" arg-list)]
     ['isnan (format "math.IsNaN(~a)" arg-list)]
+    ['isfinite (format "!math.IsInf(~a, 0)" arg-list)]
     ['tgamma (format "math.Gamma(~a)" arg-list)]
-    ['lgamma (format "math.Lgamma(~a)" arg-list)]
+    ['lgamma (format "Lgamma(~a)" arg-list)]
+    ['log1p (format "math.Log1p(~a)" arg-list)]
+    ['fma (format "math.FMA(~a)" arg-list)]
+    ['fmod (format "math.Mod(~a)" arg-list)]
     ['nearbyint (format "math.RoundToEven(~a)" arg-list)]
     [(or 'fabs 'fmax 'fmin 'fdim 'fmod)
       (format "math.~a(~a)" (string-titlecase (substring (~a operator) 1)) arg-list)]
     [(or 'exp 'exp2 'expm1 'log 'log10 'log2 'log1p 'pow 'sqrt 'cbrt 'hypot
          'sin 'cos 'tan 'asin 'acos 'atan 'atan2 'sinh 'cosh 'tanh
-         'asinh 'acosh 'atanh 'erf 'erfc 'tgamma 'lgamma 'ceil 'floor
+         'asinh 'acosh 'atanh 'erf 'erfc 'tgamma 'ceil 'floor
          'remainder 'copysign 'signbit 'trunc 'round)
      (format "math.~a(~a)" (string-titlecase (~a operator)) arg-list)]))
 

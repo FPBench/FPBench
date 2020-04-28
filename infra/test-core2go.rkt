@@ -10,6 +10,7 @@
       (define N (length (second prog)))
       (fprintf p "package main\n\nimport (\n\"math\"\n\"fmt\"\n\"os\"\n\"strconv\"\n)\n\nvar _ = math.E\nvar _ = os.Stdin\n\n")
       (fprintf p "func Use(vals ...interface{}) {\n\tfor _, val := range vals {\n\t\t_ = val\n\t}\n}\n\n")
+      (fprintf p "func Lgamma(x float64) float64 {\n\tres, _ := math.Lgamma(x)\n\treturn res\n}\n\n")
       (fprintf p "func strtox(arg string) float~a {\n\ts, _ := strconv.ParseFloat(arg, ~a)\n\treturn s\n}\n\n" bit-length bit-length)
       (fprintf p "~a\n" (core->go prog "f"))
       (fprintf p "func main(){")

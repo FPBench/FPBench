@@ -1,9 +1,9 @@
 #lang racket
 
 (require math/flonum)
-(require "test-common.rkt" "test-imperative.rkt" "../src/core2js.rkt")
+(require "test-common.rkt" "../src/core2js.rkt")
 
-(define (compile->js prog type test-file)
+(define (compile->js prog ctx type test-file)
   (call-with-output-file test-file #:exists 'replace
     (λ (p)
        (define N (length (second prog)))
@@ -36,8 +36,15 @@
           (and (nan? a) (nan? b))
           (<= (abs (flonums-between a b)) ulps))]))
 
-(define js-tester (tester compile->js run<-js js-supported js-equality))
+(define (js-format-args var val type)
+  (format "~a = ~a" var val))
+
+(define (js-format-output result)
+  (format "~a" result))
+
+(define js-tester (tester "js" compile->js run<-js js-equality js-format-args js-format-output js-supported))
 
 ;; TODO: Add types
 (module+ main (parameterize ([*tester* js-tester])
-  (test-imperative (current-command-line-arguments) (current-input-port) "stdin" "/tmp/test.js")))
+  (let ([state (test-core (current-command-line-arguments) (current-input-port) "stdin" "/tmp/test.sollya")])
+    (exit state))))

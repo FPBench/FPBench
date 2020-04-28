@@ -1,9 +1,9 @@
 #lang racket
 
 (require math/flonum)
-(require "test-common.rkt" "test-imperative.rkt" "../src/core2go.rkt")
+(require "test-common.rkt" "../src/core2go.rkt")
 
-(define (compile->go prog type test-file)
+(define (compile->go prog ctx type test-file)
   (define bit-length (match type ['binary64 "64"] ['binary32 "32"]))
   (call-with-output-file test-file #:exists 'replace
     (λ (p)
@@ -44,8 +44,15 @@
           (and (nan? a) (nan? b))
           (<= (abs (flonums-between a b)) ulps))]))
 
-(define go-tester (tester compile->go run<-go go-supported go-equality))
+(define (go-format-args var val type)
+  (format "~a = ~a" var val))
+
+(define (go-format-output result)
+  (format "~a" result))
+
+(define go-tester (tester "go" compile->go run<-go go-equality go-format-args go-format-output go-supported))
 
 ; Command line
 (module+ main (parameterize ([*tester* go-tester])
-  (test-imperative (current-command-line-arguments) (current-input-port) "stdin" "/tmp/test.go")))
+  (let ([state (test-core (current-command-line-arguments) (current-input-port) "stdin" "/tmp/test.go")])
+    (exit state))))

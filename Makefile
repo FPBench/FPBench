@@ -1,34 +1,18 @@
 all: testsetup sanity test setup
 
 FILTER = racket infra/filter.rkt
-
-core2fptaylor_prec = binary16 binary32 binary64 binary128
-core2fptaylor_unsupported_ops = "atan2" "cbrt" "ceil" "copysign" "erf" "erfc" "exp2" "expm1" "fdim" "floor" "fmod" "hypot" "if" "let*" "lgamma" "log10" "log1p" "log2" "nearbyint" "pow" "remainder" "round" "tgamma" "trunc" "while" "while*"
-
-core2smtlib2_prec = binary32 binary64
-core2smtlib2_unsupported_ops = "while*" "let*" "while" "!=" "exp" "exp2" "expm1" "log" "log10" "log2" "log1p" "pow" "cbrt" "hypot" "sin" "cos" "tan" "asin" "acos" "atan" "atan2" "sinh" "cosh" "tanh" "asinh" "acosh" "atanh" "erf" "erfc" "tgamma" "lgamma" "ceil" "floor" "fmod" "fdim" "copysign" "isfinite"
-core2smtlib2_unsupported_consts = "LOG2E" "LOG10E" "M_1_PI" "M_2_PI" "M_2_SQRTPI"
-
-core2sollya_prec = binary32 binary64
-core2sollya_unsupported_ops = "isnormal" "tgamma" "lgamma" "remainder" "fmod" "round" "cbrt" "atan2" "erf"
-
-core2wls_prec = binary32 binary64
-core2wls_unsupported_ops = "while*" "let*"
-
 known_inaccurate = "round" "isnormal" "fmod" "remainder"
 
 c-sanity:
 ifneq (, $(shell which $(CC)))
-	cat tests/sanity*.fpcore | racket infra/test-core2c.rkt --repeat 1
+	cat tests/sanity/*.fpcore | racket infra/test-core2c.rkt --repeat 1
 else
 	$(warning skipping C sanity tests; unable to find C compiler $(CC))
 endif
 
 fptaylor-sanity:
 ifneq (, $(shell which fptaylor))
-	cat tests/sanity*.fpcore | $(FILTER) precision $(core2fptaylor_prec) \
-	| $(FILTER) not-operators $(core2fptaylor_unsupported_ops) \
-	| racket infra/test-core2fptaylor.rkt --repeat 1
+	cat tests/sanity/*.fpcore | racket infra/test-core2fptaylor.rkt --repeat 1
 	$(RM) -r log tmp
 else
 	$(warning skipping fptaylor sanity tests; unable to find fptaylor)
@@ -36,42 +20,42 @@ endif
 
 js-sanity:
 ifneq (, $(shell which node))
-	cat tests/sanity*.fpcore | racket infra/test-core2js.rkt --repeat 1
+	cat tests/sanity/*.fpcore | racket infra/test-core2js.rkt --repeat 1
 else
 	$(warning skipping javascript sanity tests; unable to find node)
 endif
 
 smtlib2-sanity:
 ifneq (, $(shell which z3))
-	cat tests/sanity*.fpcore | $(FILTER) precision $(core2smtlib2_prec) \
-	| $(FILTER) not-operators $(core2smtlib2_unsupported_ops) \
-	| $(FILTER) not-constants $(core2smtlib2_unsupported_consts) \
-	| racket infra/test-core2smtlib2.rkt --repeat 1
+	cat tests/sanity/*.fpcore | racket infra/test-core2smtlib2.rkt --repeat 1
 else
 	$(warning skipping smtlib2 sanity tests; unable to find z3)
 endif
 
 sollya-sanity:
 ifneq (, $(shell which sollya))
-	cat tests/sanity*.fpcore | $(FILTER) precision $(core2sollya_prec) \
-	| $(FILTER) not-operators $(core2sollya_unsupported_ops) \
-	| racket infra/test-core2sollya.rkt --repeat 1
+	cat tests/sanity/*.fpcore | racket infra/test-core2sollya.rkt --repeat 1
 else
 	$(warning skipping sollya sanity tests; unable to sollya interpreter)
 endif
 
+cml-sanity:
+ifneq (, $(shell which cake))
+	cat tests/sanity/*.fpcore | racket infra/test-core2cml.rkt --repeat 1
+else
+	$(warning skipping CakeML sanity tests; unable to find CakeML compiler)
+endif
+
 wls-sanity:
 ifneq (, $(shell which wolframscript))
-	cat tests/sanity*.fpcore | $(FILTER) precision $(core2wls_prec) \
-	| $(FILTER) not-operators $(core2wls_unsupported_ops) \
-	| racket infra/test-core2wls.rkt --repeat 1
+	cat tests/sanity/*.fpcore | racket infra/test-core2wls.rkt --repeat 1
 else
 	$(warning skipping wolframscript sanity tests; unable to find wolframscript interpreter)
 endif
 
 go-sanity:
 ifneq (, $(shell which go))
-	cat tests/sanity*.fpcore | racket infra/test-core2go.rkt --repeat 1
+	cat tests/sanity/*.fpcore | racket infra/test-core2go.rkt --repeat 1
 else
 	$(warning skipping Go sanity tests; unable to find node)
 endif
@@ -83,26 +67,25 @@ raco-test:
 
 c-test:
 ifneq (, $(shell which $(CC)))
-	cat benchmarks/*.fpcore tests/test*.fpcore | $(FILTER) not-operators $(known_inaccurate) \
+	cat benchmarks/*.fpcore tests/*.fpcore | $(FILTER) not-operators $(known_inaccurate) \
 	| racket infra/test-core2c.rkt --error 3
 else
 	$(warning skipping C tests; unable to find C compiler $(CC))
 endif
 
+# Core to C???
 fptaylor-test:
 ifneq (, $(shell which fptaylor))
-	cat benchmarks/*.fpcore tests/test*.fpcore | $(FILTER) precision $(core2fptaylor_prec) \
-	| $(FILTER) not-operators $(core2fptaylor_unsupported_ops) $(known_inaccurate) \
+	cat benchmarks/*.fpcore tests/*.fpcore | $(FILTER) not-operators $(known_inaccurate) \
 	| racket infra/test-core2c.rkt --error 3
 	$(RM) -r log tmp
 else
 	$(warning skipping fptaylor tests; unable to find fptaylor)
 endif
 
-
 js-test:
 ifneq (, $(shell which node))
-	cat benchmarks/*.fpcore tests/test*.fpcore | $(FILTER) not-operators $(known_inaccurate) \
+	cat benchmarks/*.fpcore tests/*.fpcore | $(FILTER) not-operators $(known_inaccurate) \
 	| racket infra/test-core2js.rkt --error 150
 else
 	$(warning skipping javascript tests; unable to find node)
@@ -110,9 +93,7 @@ endif
 
 smtlib2-test:
 ifneq (, $(shell which z3))
-	cat benchmarks/*.fpcore tests/test*.fpcore | $(FILTER) precision $(core2smtlib2_prec) \
-	| $(FILTER) not-operators $(core2smtlib2_unsupported_ops) $(known_inaccurate) \
-	| $(FILTER) not-constants $(core2smtlib2_unsupported_consts) \
+	cat benchmarks/*.fpcore tests/*.fpcore | $(FILTER) not-operators $(known_inaccurate) \
 	| racket infra/test-core2smtlib2.rkt
 else
 	$(warning skipping smtlib2 tests; unable to find z3)
@@ -120,25 +101,31 @@ endif
 
 sollya-test:
 ifneq (, $(shell which sollya))
-	cat benchmarks/*.fpcore tests/test*.fpcore | $(FILTER) precision $(core2sollya_prec) \
-	| $(FILTER) not-operators $(core2sollya_unsupported_ops) $(known_inaccurate) \
+	cat benchmarks/*.fpcore tests/*.fpcore | $(FILTER) not-operators $(known_inaccurate) \
 	| racket infra/test-core2sollya.rkt
 else
-	$(warning skipping sollya tests; unable to sollya interpreter)
+	$(warning skipping sollya tests; unable to find sollya interpreter)
+endif
+
+cml-test:
+ifneq (, $(shell which cake))
+	cat benchmarks/*.fpcore tests/*.fpcore | $(FILTER) not-operators $(known_inaccurate) \
+	| racket infra/test-core2cml.rkt
+else
+	$(warning skipping CakeML tests; unable to find CakeML compiler)
 endif
 
 wls-test:
 ifneq (, $(shell which wolframscript))
-	cat benchmarks/*.fpcore tests/test*.fpcore | $(FILTER) precision $(core2wls_prec) \
-	| $(FILTER) not-operators $(core2wls_unsupported_ops) \
-	| racket infra/test-core2wls.rkt
+	cat benchmarks/*.fpcore tests/*.fpcore  | $(FILTER) not-operators $(known_inaccurate) \
+ 	| racket infra/test-core2wls.rkt --error 3
 else
 	$(warning skipping wolframscript tests; unable to find wolframscript interpreter)
 endif
 
 go-test:
 ifneq (, $(shell which go))
-	cat benchmarks/*.fpcore tests/test*.fpcore | $(FILTER) not-operators $(known_inaccurate) \
+	cat benchmarks/*.fpcore tests/*.fpcore | $(FILTER) not-operators $(known_inaccurate) \
 	| racket infra/test-core2go.rkt --error 150
 else
 	$(warning skipping Go tests; unable to find Go compiler)
@@ -151,5 +138,8 @@ testsetup:
 
 setup:
 	raco make export.rkt transform.rkt
+
+www/benchmarks.jsonp: $(wildcards benchmarks/*.fpcore)
+	racket infra/core2json.rkt --padding load_benchmarks $^
 
 .PHONY: c-sanity c-test fptaylor-sanity fptaylor-test js-sanity js-test smtlib2-sanity smtlib2-test sollya-sanity sollya-test wls-sanity wls-test raco-test sanity test testsetup setup

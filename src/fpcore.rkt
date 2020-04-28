@@ -1,8 +1,9 @@
 #lang racket
 
-(require "common.rkt" math/flonum math/bigfloat math/special-functions math/base)
+(require "common.rkt" math/flonum racket/extflonum math/bigfloat math/special-functions math/base)
 (provide
- (struct-out evaluator) racket-double-evaluator racket-single-evaluator
+ (struct-out evaluator) racket-integer-evaluator
+  racket-binary80-evaluator racket-double-evaluator racket-single-evaluator
  fpcore? expr? context/c eval-expr* eval-expr racket-run-fpcore
  read-fpcore)
 
@@ -19,6 +20,13 @@
   (define-values (rest props*) (parse-properties props))
   (null? rest))
 
+(define/match (fpcore->bf-round roundmode)
+  [('nearestEven) 'nearest]
+  [('nearestAway) (error 'fpcore->bf-round "math/bigfloat does not support 'nearestAway")]
+  [('toPositive)  'up]
+  [('toNegative)  'down]
+  [('toZero)      'zero])
+
 (define (argument? arg)
   (match arg
     [(? symbol? arg) true]
@@ -29,6 +37,7 @@
 (define (expr? expr)
   (match expr
     [(? number?) true]
+    [(? extflonum?) true]
     [(? constant?) true]
     [(? symbol?) true]
     [(list (? operator?) (? expr?) ...) true]
@@ -64,7 +73,6 @@
 
 (define/contract (check-expr stx ctx)
   (-> syntax? (dictof argument? type?) (cons/c expr? type?))
-
   (match (syntax-e stx)
     [(? number? val)
      (cons val 'real)]
@@ -221,6 +229,7 @@
   (-> evaluator? (-> expr? context/c any/c) (-> expr? context/c any/c))
   (match expr
     [(? number?) ((evaluator-real evaltor) expr)]
+    [(? extflonum?) expr]
     [(? constant?) ((evaluator-constant evaltor) expr)]
     [(? symbol?) ((evaluator-real evaltor) (dict-ref ctx expr))]
     [`(if ,test ,ift ,iff)
@@ -257,15 +266,18 @@
          (rec res ctx*))]
     [`(! ,props* ... ,body)
      (define-values (_ props) (parse-properties props*))
-     (define evaltor*
-       (match (dict-ref props ':precision evaltor)
-         ['binary64 racket-double-evaluator]
-         ['binary32 racket-single-evaluator]
-         [_ evaltor]))
-     ((eval-expr* evaltor* rec) body ctx)]
+     (define-values (p evaltor*)
+       (match (dict-ref props ':precision #f)
+         ['binary80 (values 64 racket-binary80-evaluator)]
+         ['binary64 (values 53 racket-double-evaluator)]
+         ['binary32 (values 24 racket-single-evaluator)]
+         ['integer  (values 128 racket-integer-evaluator)]
+         [_         (values (bf-precision) evaltor)]))
+      (parameterize ([bf-rounding-mode (fpcore->bf-round (dict-ref props ':round 'nearestEven))]
+                     [bf-precision p])
+          ((eval-expr* evaltor* rec) body ctx))]
     [(list (? operator? op) args ...)
-     (apply ((evaluator-function evaltor) op)
-            (map (curryr rec ctx) args))]))
+      (apply ((evaluator-function evaltor) op) (map (curryr rec ctx) args))]))
 
 (define/contract ((eval-expr evaltor) expr ctx)
   (-> evaluator? (-> expr? context/c any/c))
@@ -279,39 +291,63 @@
     (error 'eval-expr "Unimplemented operation ~a"
            unsupported-value)]))
 
+(define (extfl->real x)
+  (cond
+    [(equal? x +inf.t)  +inf.0] 
+    [(equal? x -inf.t)  -inf.0]
+    [(equal? x +nan.t)  +nan.0] 
+    [(equal? x -nan.t)  -nan.0]
+    [else (extfl->exact x)])) 
+
+(define/match (prec->bf-bits prec)
+  [('binary80)  64]
+  [('binary64)  53]
+  [('binary32)  24]
+  [('integer)   128]) ; compute at high precision, then round
+
+(define (fl->bf arg)
+  (cond
+    [(extflonum? arg)     (parameterize ([bf-precision 64]) (if (equal? arg -0.0t0) -0.bf (bf (extfl->real arg))))]
+    [(double-flonum? arg) (parameterize ([bf-precision 53]) (bf arg))]
+    [(single-flonum? arg) (parameterize ([bf-precision 24]) (bf arg))]
+    [else                 (bf arg)]))
+
 (define (compute-with-bf fn)
   (lambda (arg)
-    (let-values ([(p bf->float)
-                  (cond
-                    [(single-flonum? arg) (values 24 (compose real->single-flonum bigfloat->real))]
-                    [(double-flonum? arg) (values 53 (compose real->double-flonum bigfloat->real))])])
-      (parameterize ([bf-precision p])
-        (bf->float (fn (bf arg)))))))
+    (let ([bf->float 
+            (match (bf-precision)
+              [64 (compose real->extfl bigfloat->real)]
+              [53 (compose real->double-flonum bigfloat->real)]
+              [24 (compose real->single-flonum bigfloat->real)])])
+      (bf->float (fn (fl->bf arg))))))
 
 (define (compute-with-bf-2 fn)
   (lambda (arg1 arg2)
-    (let-values ([(p bf->float)
-                  (cond
-                    [(single-flonum? arg1) (values 24 (compose real->single-flonum bigfloat->real))]
-                    [(double-flonum? arg1) (values 53 (compose real->double-flonum bigfloat->real))])])
-      (parameterize ([bf-precision p])
-        (bf->float (fn (bf arg1) (bf arg2)))))))
+    (let ([bf->float 
+            (match (bf-precision)
+              [64 (compose real->extfl bigfloat->real)]
+              [53 (compose real->double-flonum bigfloat->real)]
+              [24 (compose real->single-flonum bigfloat->real)])])
+        (bf->float (fn (fl->bf arg1) (fl->bf arg2))))))
 
 (define (compute-with-bf-fma arg1 arg2 arg3)
-  (let-values ([(p bf->float)
-                (cond
-                  [(single-flonum? arg1) (values 24 (compose real->single-flonum bigfloat->real))]
-                  [(double-flonum? arg1) (values 53 (compose real->double-flonum bigfloat->real))])])
-    (parameterize ([bf-precision (+ (* p 2) 1)])
-      (bf->float (bf+ (bf* (bf arg1) (bf arg2)) (bf arg3))))))
+  (let ([bf->float 
+            (match (bf-precision)
+              [64 (compose real->extfl bigfloat->real)]
+              [53 (compose real->double-flonum bigfloat->real)]
+              [24 (compose real->single-flonum bigfloat->real)])])
+    (parameterize ([bf-precision (+ (* (bf-precision) 2) 1)])
+      (bf->float (bf+ (bf* (fl->bf arg1) (fl->bf arg2)) (fl->bf arg3))))))
 
 (define (my!= #:cmp [cmp =] . args) (not (check-duplicates args cmp)))
 (define (my= #:cmp [cmp =] . args)
   (match args ['() true] [(cons hd tl) (andmap (curry cmp hd) tl)]))
 
+;;; binary64 and binary32 evaluators
+
 (define/contract racket-double-evaluator evaluator?
   (evaluator
-   real->double-flonum
+   (λ (x) (if (real? x) (real->double-flonum x) (extfl->real x)))
    (table-fn
     [E		2.71828182845904523540]
     [LOG2E	1.44269504088896340740]
@@ -330,13 +366,27 @@
     [INFINITY	+inf.0]
     [TRUE #t] [FALSE #f])
    (table-fn
-    [+ +] [- -] [* *] [/ /] [fabs abs]
-    ;; probably more of these should use mpfr
-    [exp exp] [log log]
-    [pow expt] [sqrt sqrt]
-    [sin sin] [cos cos] [tan tan]
-    [asin asin] [acos acos] [atan atan] [atan2 atan]
-    [ceil ceiling] [floor floor] [trunc truncate]
+    [+ (compute-with-bf-2 bf+)] 
+    [- (λ (x [y #f]) (if (equal? y #f) (- x) ((compute-with-bf-2 bf-) x y)))]  ; distinguish between negation and subtraction
+    [* (λ (a b)
+          (let ([x (if (real? a) a (extfl->exact a))]  ; <-- possibly redundant?
+                [y (if (real? b) b (extfl->exact b))])   
+                (if (and (or (zero? x) (zero? y))      ; to get around -0.0 (bigfloat) -> 0.0 (float)
+                         (nor (infinite? x) (infinite? y) (nan? x) (nan? y)))
+                    (if (xor (if (zero? x) (equal? x -0.0) (negative? x))
+                             (if (zero? y) (equal? y -0.0) (negative? y)))
+                        -0.0 0.0)
+                    ((compute-with-bf-2 bf*) x y))))]
+    [/ (compute-with-bf-2 bf/)]
+    [fabs abs]
+
+    [exp (compute-with-bf bfexp)] [log (compute-with-bf bflog)]
+    [pow (compute-with-bf-2 bfexpt)] [sqrt (compute-with-bf bfsqrt)]
+    [sin (compute-with-bf bfsin)] [cos (compute-with-bf bfcos)] [tan (compute-with-bf bftan)]
+    [asin (compute-with-bf bfasin)] [acos (compute-with-bf bfacos)] 
+    [atan (compute-with-bf bfatan)] [atan2 (compute-with-bf-2 bfatan2)]
+    [ceil (compute-with-bf bfceiling)] [floor (compute-with-bf bffloor)] 
+    [trunc (compute-with-bf bftruncate)]
     [fmax max] [fmin min]
     [< <] [> >] [<= <=] [>= >=] [== my=] [!= my!=]
     [and (λ (x y) (and x y))] [or (λ (x y) (or x y))] [not not]
@@ -354,24 +404,14 @@
                            (- (abs x))
                            (abs x)))]
 
-    ;; use mpfr
-
-    ;[cbrt (lambda (x) (expt x 1/3))]
     [cbrt (compute-with-bf bfcbrt)]
-    ;[exp2 (λ (x) (expt 2.0 x))]
     [exp2 (compute-with-bf bfexp2)]
-    ;[expm1 (lambda (x) (- (exp x) 1.0))]
     [expm1 (compute-with-bf bfexpm1)]
-    ;[log1p (lambda (x) (log (+ 1.0 x)))]
     [log1p (compute-with-bf bflog1p)]
-    ;[log10 (λ (x) (/ (log x) (log 10.0)))]
     [log10 (compute-with-bf bflog10)]
-    ;[log2 (λ (x) (/ (log x) (log 2.0)))]
     [log2 (compute-with-bf bflog2)]
 
-    ;[fma (lambda (a b c) (+ (* a b) c))]
     [fma compute-with-bf-fma]
-    ;[hypot flhypot]
     [hypot (compute-with-bf-2 bfhypot)]
 
     [sinh (compute-with-bf bfsinh)]
@@ -388,47 +428,179 @@
 
     ;; TODO: known to be incorrect
     [round round]
-
     [isnormal (lambda (x) (not (or (nan? x) (infinite? x) (<= (abs x) 0.0))))]
-
     [fmod (lambda (x y) (let ([n (truncate (/ (abs x) (abs y)))])
                           (* (- (abs x) (* (abs y) n)) (sgn x))))]
-
     [remainder (lambda (x y) (let ([n (round (/ x y))])
                                (- x (* y n))))]
     )))
 
 (define/contract racket-single-evaluator evaluator?
   (struct-copy evaluator racket-double-evaluator
-               [real real->single-flonum]
-               [constant (λ (x) (real->single-flonum ((evaluator-constant racket-double-evaluator) x)))]))
+               [real (λ (x) (if (real? x) (real->single-flonum x) (extfl->real x)))]
+               [constant (λ (x) (let ([v ((evaluator-constant racket-double-evaluator) x)])
+                                  (if (real? v) (real->single-flonum v) v)))]))
 
-(define/contract (racket-run-fpcore prog vals)
-  (-> fpcore? (listof real?) real?)
+;;; integer evaluator
+
+(define (bf->integer x) 
+  (bigfloat->real (bffloor x)))
+
+(define/contract racket-integer-evaluator evaluator?
+  (evaluator
+   (λ (x) (bf->integer (bf x)))
+   (λ (x) (bf->integer ((evaluator-constant racket-double-evaluator) x))) ; Integer constants other than TRUE and FALSE are nonsensical
+   (table-fn
+    [+ (λ (x y) (bf->integer (parameterize ([bf-rounding-mode 'down]) (bf+ (bf x) (bf y)))))]
+    [- (λ (x [y #f]) (if (equal? y #f) (- x) 
+                         (parameterize ([bf-rounding-mode 'down]) (bf->integer (bf- (bf x) (bf y))))))]
+    [* (λ (x y) (bf->integer (parameterize ([bf-rounding-mode 'down]) (bf* (bf x) (bf y)))))]
+    [/ (λ (x y) (bf->integer (parameterize ([bf-rounding-mode 'down]) (bf/ (bf x) (bf y)))))]
+
+    [< <] [> >] [<= <=] [>= >=] [== my=] [!= my!=]
+    [and (λ (x y) (and x y))] [or (λ (x y) (or x y))] [not not]
+   )))
+
+;;; binary80 evaluator 
+
+; Since extflonums aren't consider "numbers", they need their own
+; arithemtic functions
+
+(define (extfl-zero? x) (or (equal? x -0.0t0) (equal? x 0.0t0)))
+(define (extfl-inf? x) (or (extfl= x -inf.t) (extfl= x +inf.t)))
+(define (extfl-nan? x) (not (extfl= x x)))
+(define (extfl-neg? x) (not (extfl< x 0.0t0)))
+(define (extfl-signbit x) (if (or (extfl< x 0.0t0) (equal? x -0.0t0)) #t #f))
+(define (extfl-sgn x) (if (extfl< x 0.0t0) -1.0t0 (if (extfl> x 0.0t0) 1.0t0 x)))
+
+(define (extfl-cmp cmp x y rest)
+  (cond
+    [(= (length rest) 0) (cmp x y)]
+    [(= (length rest) 1) (and (cmp x y) (cmp y (first rest)))]
+    [else (and (cmp x y) (cmp y (first rest))
+               (for/and ([i (in-range (sub1 (length rest)))])
+                  (cmp (list-ref rest i) (list-ref rest (add1 i)))))]))
+
+(define/contract racket-binary80-evaluator evaluator?
+  (evaluator
+   real->extfl
+   (λ (x) (let ([v ((evaluator-constant racket-double-evaluator) x)])
+            (if (real? v) (real->extfl v) v)))
+   (table-fn    
+    [+ (compute-with-bf-2 bf+)] 
+    [- (λ (x [y #f]) (if (equal? y #f) (extfl* x -1.0t0) ((compute-with-bf-2 bf-) x y)))]  ; distinguish between negation and subtraction
+    [* (λ (x y) (if (and (or (extfl-zero? x) (extfl-zero? y))   ; to get around -0.0 (bigfloat) -> 0.0 (float)
+                         (nor (extfl-inf? x) (extfl-inf? y) (extfl-nan? x) (extfl-nan? y)))
+                    (if (xor (if (extfl-zero? x) (equal? x -0.0t0) (extfl-neg? x))
+                             (if (extfl-zero? y) (equal? y -0.0t0) (extfl-neg? y)))
+                        -0.0t0 0.0t0)
+                    ((compute-with-bf-2 bf*) x y)))]
+    [/ (compute-with-bf-2 bf/)]
+    [fabs extflabs]
+
+    [exp (compute-with-bf bfexp)] [log (compute-with-bf bflog)]
+    [pow (compute-with-bf-2 bfexpt)] [sqrt (compute-with-bf bfsqrt)]
+    [sin (compute-with-bf bfsin)] [cos (compute-with-bf bfcos)] [tan (compute-with-bf bftan)]
+    [asin (compute-with-bf bfasin)] [acos (compute-with-bf bfacos)] 
+    [atan (compute-with-bf bfatan)] [atan2 (compute-with-bf-2 bfatan2)]
+    [ceil (compute-with-bf bfceiling)] [floor (compute-with-bf bffloor)] 
+    [trunc (compute-with-bf bftruncate)]
+    [fmax (λ (x y) (if (extfl-nan? x) y (if (extfl-nan? y) x (extflmax x y))))]
+    [fmin (λ (x y) (if (extfl-nan? x) y (if (extfl-nan? y) x (extflmin x y))))]
+    [<  (λ (x y . rest) (extfl-cmp extfl< x y rest))]
+    [>  (λ (x y . rest) (extfl-cmp extfl> x y rest))]
+    [<= (λ (x y . rest) (extfl-cmp extfl<= x y rest))]
+    [>= (λ (x y . rest) (extfl-cmp extfl>= x y rest))]
+    [== (λ (x y . rest) (extfl-cmp extfl= x y rest))]
+    [!= (λ (x y . rest) (extfl-cmp (compose not extfl=) x y rest))]
+    [and (λ (x y) (and x y))] [or (λ (x y) (or x y))] [not not]
+    [isnan extfl-nan?] [isinf extfl-inf?]
+    [nearbyint (λ (x) (if (extfl-nan? x) +nan.t (extflround x)))]
+    [cast identity]
+
+    ;; emulate behavior
+    [isfinite (λ (x) (not (or (extfl-nan? x) (extfl-inf? x))))]
+    [fdim (λ (x y) (if (or (extfl-nan? x) (extfl-nan? y)) +nan.t (if (extfl> x y) ((compute-with-bf-2 bf-) x y) 0.0t0)))]
+    [signbit extfl-signbit]
+    [copysign (λ (x y) (if (extfl-signbit y) (extfl* (extflabs x) -1.0t0) (extflabs x)))]
+
+    [cbrt (compute-with-bf bfcbrt)]
+    [exp2 (compute-with-bf bfexp2)]
+    [expm1 (compute-with-bf bfexpm1)]
+    [log1p (compute-with-bf bflog1p)]
+    [log10 (compute-with-bf bflog10)]
+    [log2 (compute-with-bf bflog2)]
+
+    [fma compute-with-bf-fma]
+    [hypot (compute-with-bf-2 bfhypot)]
+
+    [sinh (compute-with-bf bfsinh)]
+    [cosh (compute-with-bf bfcosh)]
+    [tanh (compute-with-bf bftanh)]
+    [asinh (compute-with-bf bfasinh)]
+    [acosh (compute-with-bf bfacosh)]
+    [atanh (compute-with-bf bfatanh)]
+
+    [erf (compute-with-bf bferf)]
+    [erfc (compute-with-bf bferfc)]
+    [tgamma (compute-with-bf bfgamma)]
+    [lgamma (compute-with-bf bflog-gamma)]
+
+    ;; TODO: known to be incorrect
+    [round (λ (x) (if (extfl-nan? x) +nan.t (extflround x)))]
+    [isnormal (lambda (x) (not (or (extfl-nan? x) (extfl-inf? x) (extfl<= (extflabs x) 0.0t0))))]
+    [fmod (lambda (x y) (let ([n (extfltruncate (extfl/ (extflabs x) (extflabs y)))])
+                          (extfl* (extfl- (extflabs x) (extfl* (extflabs y) n)) (extfl-sgn x))))]
+    [remainder (lambda (x y) (let ([n (extflround (extfl/ x y))])
+                               (extfl- x (extfl* y n))))]
+    )))
+
+;; Interpreter from command line
+
+(define (real->float x prec)
+  (match prec
+    ['binary80 (real->extfl x)]
+    ['binary64 (real->double-flonum x)]
+    ['binary32 (real->single-flonum x)]
+    ['integer  (inexact->exact x)]))
+
+(define (string->float x prec)
+  (match prec
+    ['binary80  (parameterize ([bf-precision 64])
+                  (let ([f (bf x)])
+                    (if (bf= x -0.bf) -0.0t0
+                        (real->extfl (bigfloat->real x)))))]
+    ['binary64  (real->double-flonum (string->number x))]
+    ['binary32  (real->single-flonum (string->number x))]
+    ['integer   (bf->integer (bf x))]))
+
+(define/contract (racket-run-fpcore prog args)
+  (-> fpcore? (listof string?) (or/c real? extflonum?))
   (match-define `(FPCore (,vars ...) ,props* ... ,body) prog)
   (define-values (_ props) (parse-properties props*))
   (define base-precision (dict-ref props ':precision 'binary64))
+  (define base-rounding (dict-ref props ':round 'nearestEven))
   (define vars*
-    (for/list ([var vars] [val vals])
+    (for/list ([var vars] [arg args])
       (match var
         [`(! ,var-props* ... ,(? symbol? var*))
          (define-values (_ var-props) (parse-properties var-props*))
-         (cons var*
-           (match (dict-ref var-props ':precision base-precision)
-             ['binary64 (real->double-flonum val)]
-             ['binary32 (real->single-flonum val)]))]
+         (cons var* (string->float arg (dict-ref var-props ':precision base-precision)))]
         [(? symbol?)
-         (cons var val)])))
+         (cons var (string->float arg base-precision))])))
   (define evaltor (match base-precision
+    ['binary80 racket-binary80-evaluator]
     ['binary64 racket-double-evaluator]
-    ['binary32 racket-single-evaluator]))
-  ((eval-expr evaltor) body vars*))
+    ['binary32 racket-single-evaluator]
+    ['integer  racket-integer-evaluator]))
+  (parameterize ([bf-rounding-mode (fpcore->bf-round base-rounding)] 
+                 [bf-precision (prec->bf-bits base-precision)])
+        (real->float ((eval-expr evaltor) body vars*) base-precision)))
 
 (module+ main
   (command-line
    #:program "fpcore.rkt"
    #:args args
-   (port-count-lines! (current-input-port))
-   (let ([vals (map (compose real->double-flonum string->number) args)])
-     (for ([prog (in-port (curry read-fpcore "stdin"))])
-       (printf "~a\n" (racket-run-fpcore prog vals))))))
+    (port-count-lines! (current-input-port))
+    (for ([prog (in-port (curry read-fpcore "stdin"))])
+        (printf "~a\n" (racket-run-fpcore prog args)))))

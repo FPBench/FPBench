@@ -1,40 +1,66 @@
 #lang racket
 (require "common.rkt" "fpcore.rkt")
-(provide valid-core operators-in constants-in property-values
-  invert-op-list invert-const-list)
+(provide valid-core unsupported-features 
+         invert-op-list invert-const-list invert-round-modes-list
+         ieee754-ops ieee754-rounding-modes fpcore-ops fpcore-consts
+         operators-in constants-in property-values round-modes-in variables-in-expr)
 
 (provide
   (contract-out
     [struct supported-list
      ([ops (listof symbol?)]
       [consts (listof symbol?)]
-      [precisions (listof symbol?)])]))  
+      [precisions (listof symbol?)]
+      [round-modes (listof symbol?)])]))
 
-(struct supported-list (ops consts precisions))
+;;; Predefined supported lists
 
-; Blacklist <==> Whitelist
+(define ieee754-ops '(+ - * / < > <= >= == != fabs fma sqrt))
+(define ieee754-rounding-modes '(nearestEven nearestAway toPositive toNegative toZero))
+
+(define fpcore-ops (append operators '(! if let let* while while*))) ; annotation, control constructs, and "operators" in common.rkt
+(define fpcore-consts constants) ; same as "constants" in common.rkt
+
+;;; Blacklist <==> Whitelist
 
 (define (invert-op-list list)
   (-> (listof symbol?) (listof symbol?))
-  (set-subtract (append operators '(if let let* while while*)) list))
+  (set-subtract fpcore-ops list))
 
 (define (invert-const-list list)
   (-> (listof symbol?) (listof symbol?))
   (set-subtract constants list))
 
-; Core checking
+(define (invert-round-modes-list list)
+  (-> (listof symbol?) (listof symbol?))
+  (set-subtract ieee754-rounding-modes list))
+
+;;; Core checking
+
+(struct supported-list (ops consts precisions round-modes))
 
 (define (valid-core core supp)
-  (let ([core-prec (dict-ref (property-values core) ':precision #f)])
-    (and (subset? (operators-in core) (supported-list-ops supp))
-         (subset? (constants-in core) (supported-list-consts supp))
-         (or 
-           (equal? core-prec #f)
-           (ormap (lambda (e) (set-member? core-prec e)) (supported-list-precisions supp))))))
+  (define core-prec (dict-ref (property-values core) ':precision #f))
+  (define supp-prec (supported-list-precisions supp))
+  (and  (subset? (operators-in core) (supported-list-ops supp))
+        (subset? (constants-in core) (supported-list-consts supp))
+        (subset? (round-modes-in core) (supported-list-round-modes supp))  
+        (or 
+          (equal? core-prec #f)
+          (andmap (lambda (e) (set-member? supp-prec e)) (set->list core-prec)))))
+
+(define (unsupported-features core supp)
+  (define core-prec (dict-ref (property-values core) ':precision #f))
+  (set-union
+    (set-subtract (operators-in core) (supported-list-ops supp))
+    (set-subtract (constants-in core) (supported-list-consts supp))
+    (set-subtract (round-modes-in core) (supported-list-round-modes supp))
+    (if (equal? core-prec #f) 
+        '()
+        (set-subtract (set->list core-prec) (supported-list-precisions supp)))))
 
 (define/contract (operators-in-expr expr)
   (-> expr? (listof symbol?))
-
   (remove-duplicates
    (match expr
      [`(while ,test ([,vars ,inits ,updates] ...) ,res)
@@ -89,7 +115,7 @@
 (define/contract (constants-in core)
   (-> fpcore? (listof symbol?))
   (match-define (list 'FPCore (list args ...) props ... body) core)
-  (constants-in-expr body))
+  (constants-in-expr body))  
 
 (define property-hash? (hash/c symbol? (set/c any/c)))
 (define (property-hash-add! hash props)
@@ -122,3 +148,55 @@
   (define prop-hash (property-values-expr body))
   (property-hash-add! prop-hash props)
   prop-hash)
+
+(define/contract (round-modes-in-expr expr)
+  (-> expr? (listof symbol?))
+  (remove-duplicates
+   (match expr
+     [`(,(or 'while 'while*) ,test ([,vars ,inits ,updates] ...) ,res)
+            (append (round-modes-in-expr test)
+                    (append-map round-modes-in-expr inits)
+                    (append-map round-modes-in-expr updates)
+                    (round-modes-in-expr res))]
+     [`(,(or 'let 'let*) ([,vars ,vals] ...) ,body)
+      (append (append-map round-modes-in-expr vals) (round-modes-in-expr body))]
+     [`(if ,cond ,ift ,iff)
+      (append (round-modes-in-expr cond) (round-modes-in-expr ift) (round-modes-in-expr iff))]
+     [`(! ,props ... ,body)
+      (let ([rnd-mode (dict-ref (apply hash-set* #hash() props) ':round #f)])
+        (append (round-modes-in-expr body)
+                (if (equal? rnd-mode #f) '() (list rnd-mode))))]
+     [(list op args ...) (append-map round-modes-in-expr args)]
+     [(? constant?) '()]
+     [(? symbol?) '()]
+     [(? number?) '()])))
+
+(define/contract (round-modes-in core)
+  (-> fpcore? (listof symbol?))
+  (match-define (list 'FPCore (list args ...) props ... body) core)
+  (remove-duplicates
+    (let ([rnd-mode (dict-ref (apply hash-set* #hash() props) ':round #f)]
+          [in-body (round-modes-in-expr body)])
+        (if (equal? rnd-mode #f) 
+            (append in-body '(nearestEven)) 
+            (append (list rnd-mode) in-body))))) 
+
+(define/contract (variables-in-expr expr)
+  (-> expr? (listof symbol?))
+  (remove-duplicates
+   (match expr
+     [`(,(or 'while 'while*) ,test ([,vars ,inits ,updates] ...) ,res)
+            (append (variables-in-expr test)
+                    (append-map variables-in-expr inits)
+                    (append-map variables-in-expr updates)
+                    (variables-in-expr res))]
+     [`(,(or 'let 'let*) ([,vars ,vals] ...) ,body)
+      (append (append-map variables-in-expr vals) (variables-in-expr body))]
+     [`(if ,cond ,ift ,iff)
+      (append (variables-in-expr cond) (variables-in-expr ift) (variables-in-expr iff))]
+     [`(! ,props ... ,body)
+      (variables-in-expr body)]
+     [(list op args ...) (append-map variables-in-expr args)]
+     [(? constant?) '()]
+     [(? symbol?) '(list expr)]
+     [(? number?) '()])))

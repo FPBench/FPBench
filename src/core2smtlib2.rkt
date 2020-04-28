@@ -1,8 +1,16 @@
 #lang racket
 
 (require math/bigfloat)
-(require "common.rkt" "fpcore.rkt")
-(provide rm->smt number->smt core->smtlib2)
+(require "common.rkt" "compilers.rkt" "supported.rkt")
+(provide core->smtlib2 smt-supported rm->smt number->smt)
+
+(define smt-supported (supported-list
+  (invert-op-list '(while* while exp exp2 expm1 log log10 log2 log1p pow cbrt
+                    hypot sin cos tan asin acos atan atan2 sinh cosh tanh asinh acosh 
+                    atanh erf erfc tgamma lgamma ceil floor fmod fdim copysign isfinite))
+  (invert-const-list '(LOG2E LOG10E M_1_PI M_2_PI M_2_SQRTPI))
+  '(binary32 binary64)
+   ieee754-rounding-modes))
 
 ;; Extremely simple html-inspired escapes. The understanding is that the
 ;; only difference between symbols is that FPCore allows : in names,
@@ -16,7 +24,14 @@
        [_ (string char)]))
    ""))
 
-(define (fptype w p)
+(define/match (fpbits type)
+  [('binary16) (values 5 11)]
+  [('binary32) (values 8 24)]
+  [('binary64) (values 11 53)]
+  [('binary128) (values 15 113)])
+
+(define (fptype type)
+  (define-values (w p) (fpbits type))
   (format "(_ FloatingPoint ~a ~a)" w p))
 
 (define/match (rm->bf rm)
@@ -34,6 +49,9 @@
   [('toNegative) "roundTowardNegative"]
   [('toZero) "roundTowardZero"]
   [(_) (error 'rm->smt "Unsupported rounding mode ~a" rm)])
+
+(define (cast->smt x w p rm)
+  (format "((_ to_fp ~a ~a) ~a ~a)" w p rm x))
 
 ;; Any exact number can be written out (exactly) as a division. In general, adding
 ;; lots of real divisions to a formula is probably not wise.
@@ -67,26 +85,24 @@
      (number->smt (bigfloat->rational qbf) w p rm)))
   )
 
-(define (constant->smt c w p rm)
-  (match c
+(define (constant->smt expr ctx)
+  (define-values (w p) (fpbits (ctx-lookup-prop ctx ':precision 'binary64)))
+  (define rm (ctx-lookup-prop ctx ':round 'nearestEven))
+  (match expr
     ['E (bf-constant (bfexp 1.bf) w p rm)]
-    ;['LOG2E ""]
-    ;['LOG10E ""]
     ['LN2 (bf-constant (bflog 2.bf) w p rm)]
     ['LN10 (bf-constant (bflog 10.bf) w p rm)]
     ['PI (bf-constant pi.bf w p rm)]
     ['PI_2 (bf-constant (bf/ pi.bf 2.bf) w p rm)] ; ok since division by 2 is exact
     ['PI_4 (bf-constant (bf/ pi.bf 4.bf) w p rm)] ; ok since division by 4 is exact
-    ;['M_1_PI ""]
-    ;['M_2_PI ""]
-    ;['M_2_SQRTPI ""]
     ['SQRT2 (bf-constant (bfsqrt 2.bf) w p rm)]
     ['SQRT1_2 (bf-constant (bfsqrt (bf/ 1.bf 2.bf)) w p rm)]
     ['TRUE "true"]
     ['FALSE "false"]
     ['INFINITY (format "(_ +oo ~a ~a)" w p)]
     ['NAN (format "(_ NaN ~a ~a)" w p)]
-    [_ (error 'constant->smt "Unsupported constant ~a" c)]))
+    [(? number?) (number->smt expr w p rm)]
+    [(? symbol?) (format "~a" expr)]))
 
 (define (operator->smt op rm)
   (match op
@@ -96,45 +112,13 @@
     ['/ (format "(fp.div ~a ~~a ~~a)" (rm->smt rm))]
     ['fabs "(fp.abs ~a)"]
     ['fma (format "(fp.fma ~a ~~a ~~a ~~a)" (rm->smt rm))]
-    ;['exp ""]
-    ;['exp2 ""]
-    ;['expm1 ""]
-    ;['log ""]
-    ;['log10 ""]
-    ;['log2 ""]
-    ;['log1p ""]
-    ;['pow ""]
     ['sqrt (format "(fp.sqrt ~a ~~a)" (rm->smt rm))]
-    ;['cbrt ""]
-    ;['hypot ""]
-    ;['sin ""]
-    ;['cos ""]
-    ;['tan ""]
-    ;['asin ""]
-    ;['acos ""]
-    ;['atan ""]
-    ;['atan2 ""]
-    ;['sinh ""]
-    ;['cosh ""]
-    ;['tanh ""]
-    ;['asinh ""]
-    ;['acosh ""]
-    ;['atanh ""]
-    ;['erf ""]
-    ;['erfc ""]
-    ;['tgamma ""]
-    ;['lgamma ""]
-    ;['ceil ""]
-    ;['floor ""]
-    ;['fmod ""]
     ;; The behavior of fp.rem may not be fully compliant with C11
     ;; remainder function, however based on the documentation things
     ;; seem promising.
     ['remainder "(fp.rem ~a ~a)"]
     ['fmax "(fp.max ~a ~a)"]
     ['fmin "(fp.min ~a ~a)"]
-    ;['fdim ""]
-    ;['copysign ""]
     ['trunc (format "(fp.roundToIntegral ~a ~~a)" (rm->smt 'toZero))]
     ['round (format "(fp.roundToIntegral ~a ~~a)" (rm->smt 'nearestAway))]
     ['nearbyint (format "(fp.roundToIntegral ~a ~~a)" (rm->smt rm))]
@@ -153,10 +137,11 @@
     ['isinf "(fp.isInfinite ~a)"]
     ['isnan "(fp.isNaN ~a)"]
     ['isnormal "(fp.isNormal ~a)"]
-    ['signbit "(fp.isNegative ~a)"]
-    [_ (error 'operator->smt "Unsupported operator ~a" op)]))
+    ['signbit "(fp.isNegative ~a)"]))
 
-(define (application->smt operator args rm)
+(define (application->smt operator args ctx rrnd)
+  (define rm (ctx-lookup-prop ctx ':round 'nearestEven))
+  (define-values (w p) (fpbits (ctx-lookup-prop ctx ':precision 'binary64)))
   (match (cons operator args)
     [(list (or '< '> '<= '>= '== 'and 'or) args ...)
      (format (operator->smt operator rm)
@@ -176,60 +161,136 @@
               " "))]
     [(list '- a)
      (format "(fp.neg ~a)" a)]
+    [(list (or 'not 'isinf 'isnan 'isnormal 'signbit) a) ;; avoid rounding on a boolean
+     (format (operator->smt operator rm) a)]
     [(list (? operator? op) args ...)
-     (apply format (operator->smt op rm) args)]
-    [_ (error 'application->smt "Unsupported application ~a ~a" operator args)]))
+     (let ([expr_c (apply format (operator->smt op rm) args)])
+       (if rrnd expr_c (format "((_ to_fp ~a ~a) ~a ~a)" w p (rm->smt rm) expr_c)))]))
 
-(define (expr->smt expr w p rm)
+;; Compiler for SMT
+; Separate from functional compiler since SMT can only perform operations on 
+; arguments of the same precision. The best (and not ideal) solution is to
+; round the arguments to the highest precision neccesary to preform the operation,
+; and then round down. Thus, we need to track the "highest precision" during the
+; compilation.
+
+(define (expr->smt expr ctx w p)
   (match expr
     [`(let ([,vars ,vals] ...) ,body)
-     (format "(let (~a) ~a)"
-             (string-join
-              (for/list ([var vars] [val vals])
-                (format "(~a ~a)"
-                        (fix-name var) (expr->smt val w p rm)))
-              " ")
-             (expr->smt body w p rm))]
-    [`(if ,condition ,true-branch ,false-branch)
-     (format "(ite ~a ~a ~a)"
-             (expr->smt condition w p rm)
-             (expr->smt true-branch w p rm)
-             (expr->smt false-branch w p rm))]
-    [`(while ,condition ([,vars ,inits ,updates] ...) ,body)
-     (error 'expr->smt "Loop unrolling not supported: ~a" expr)]
+      (define rm (ctx-lookup-prop ctx ':round 'nearestEven))
+      (define-values (ctx* vars* vals*)
+        (for/fold ([ctx* ctx] [vars* '()] [vals* '()]) 
+                  ([var vars] [val vals])
+          (let-values ([(cx name) (ctx-unique-name ctx* var)]
+                       [(val_c w* p*) (expr->smt val ctx w p)])
+            (values cx (flatten (cons vars* name)) (flatten (cons vals* val_c))))))
+      (values
+        (format "(let (~a) ~a)"
+          (string-join
+            (for/list ([var* vars*] [val* vals*])
+              (let-values ()
+                (format "(~a ~a)" var* val*)))
+            " ")
+          (let-values ([(body* w* p*) (expr->smt body ctx* w p)])
+            (if (and (equal? w* w) (equal? p* p))
+                body*
+                (format "((_ to_fp ~a ~a) ~a ~a)" w p (rm->smt rm) body*))))
+        w p)]
+
+    [`(let* ([,vars ,vals] ...) ,body)
+      (define rm (ctx-lookup-prop ctx ':round 'nearestEven))
+      (define-values (ctx* vars* vals*)
+        (for/fold ([ctx* ctx] [vars* '()] [vals* '()]) 
+                  ([var vars] [val vals])
+          (let-values ([(cx name) (ctx-unique-name ctx* var)]
+                       [(val_c w* p*) (expr->smt val ctx* w p)])
+            (values cx (flatten (cons vars* name)) (flatten (cons vals* val_c))))))
+      (define body*
+        (let-values ([(body* w* p*) (expr->smt body ctx* w p)])
+            (if (and (equal? w* w) (equal? p* p))
+                body*
+                (format "((_ to_fp ~a ~a) ~a ~a)" w p (rm->smt rm) body*))))
+      (values
+        (let nested ([vars_c vars*]
+                     [vals_c vals*])
+          (cond
+            [(> (length vars_c) 0)
+              (format "(let ((~a ~a)) ~a)" (first vars_c) (first vals_c) (nested (drop vars_c 1) (drop vals_c 1)))]
+            [else body*]))
+        w p)]
+
+    [`(if ,cond ,ift ,iff)
+      (define li (list cond ift iff))
+      (define-values (li* max-w max-p)
+        (for/fold ([li* '()] [max-w w] [max-p p]) 
+                  ([v li])
+          (let-values ([(v_c w* p*) (expr->smt v ctx w p)])
+            (values (flatten (cons li* v_c)) (if (> w* max-w) w* max-w) (if (> p* max-p) p* max-p)))))
+      (values (format "(ite ~a ~a ~a)" (first li*) (second li*) (third li*)) w p)]
+
+    ;; Ignore all casts
+    [`(cast ,body)
+      (let-values ([(body* w* p*) (expr->smt body ctx w p)])
+        (values body* w p))]
+
+    [(list '! props ... body) 
+      (define prec (dict-ref (apply hash-set* #hash() props) ':precision #f))
+      (define rm (ctx-lookup-prop ctx ':round 'nearestEven))
+      (if (equal? prec #f)
+        (let-values ([(body* w* p*) (expr->smt body (ctx-update-props ctx props) w p)])
+          (values body* w* p*))
+        (let*-values ([(w* p*) (fpbits prec)]
+                      [(body* w** p**) (expr->smt body (ctx-update-props ctx props) w* p*)])
+          (values (format "((_ to_fp ~a ~a) ~a ~a)" w p (rm->smt rm) body*) w** p**)))]
+      
     [(list (? operator? operator) args ...)
-     (application->smt operator
-                       (for/list ([arg args])
-                         (expr->smt arg w p rm))
-                       rm)]
-    [(? constant?)
-     (constant->smt expr w p rm)]
-    [(? symbol?)
-     (fix-name expr)]
-    [(? number?)
-     (number->smt expr w p rm)]
-    [_ (error 'expr->smt "Unsupported expr ~a" expr)]))
+      (define-values (args* ws ps max-w max-p)
+        (for/fold ([args* '()] [ws '()] [ps '()] [max-w w] [max-p p]) 
+                  ([arg args])
+          (let-values ([(arg* w* p*) (expr->smt arg ctx w p)])
+            (values (flatten (cons args* arg*)) (flatten (cons ws w*)) (flatten (cons ps p*))
+                    (if (> w* max-w) w* max-w) (if (> p* max-p) p* max-p)))))
+      (define args_r
+        (for/list ([arg* args*] [w* ws] [p* ps])
+          (if (and (equal? w* max-w) (equal? p* max-p))
+              arg*
+              (format "((_ to_fp ~a ~a) ~a ~a)" max-w max-p (rm->smt (ctx-lookup-prop ctx ':round 'nearestEven)) arg*))))
+      (values (application->smt operator args_r ctx (and (equal? w max-w) (equal? p max-p))) w p)] 
 
-(define (core->smtlib2 prog name)
-  (match-define (list 'FPCore (list args ...) props ... body) prog)
-  (define-values (_ properties) (parse-properties props))
-  (define type (dict-ref properties ':precision 'binary64))
-  (define rm (dict-ref properties ':round 'nearestEven))
+    [(? constant?) (values (constant->smt expr ctx) w p)]
+    [(? number?) (values (constant->smt expr ctx) w p)]
+    [(? symbol?) 
+      (let*-values ([(decl-prec) (ctx-lookup-prec ctx expr)]
+                    [(w* p*) (fpbits decl-prec)])
+        (values (ctx-lookup-name ctx expr) w* p*))]))
 
-  (define-values (w p)
-    (match type
-      ['binary16 (values 5 11)]
-      ['binary32 (values 8 24)]
-      ['binary64 (values 11 53)]
-      ['binary128 (values 15 113)]
-      [_ (error 'core->smtlib2 "Unsupported precision type ~a" type)]))
+;; Exports
 
-  (define arg-strings
-    (for/list ([var args])
-      (format "(~a ~a)" (fix-name (if (list? var) (car var) var)) (fptype w p))))
+(define (core->smtlib2 prog name) 
+  (parameterize ([*gensym-fix-name* fix-name] 
+                 [*used-names* (mutable-set)] 
+                 [*gensym-collisions* 1]) 
+    (match-define (list 'FPCore (list args ...) props ... body) prog)
+    (define ctx (ctx-update-props (make-compiler-ctx) (append '(:precision binary64 :round nearestEven) props)))
+    (define prec (ctx-lookup-prop ctx ':precision 'binary64))
+    (define type-str (fptype prec))
+    (define-values (w p) (fpbits prec))
 
-  (format "(define-fun ~a (~a) ~a\n ~a)"
-          (fix-name name)
-          (string-join arg-strings " ")
-          (fptype w p)
-          (expr->smt body w p rm)))
+    (define func-name 
+      (let-values ([(cx fname) (ctx-unique-name ctx (string->symbol name))])
+        (set! ctx cx)
+        fname))  
+    (define-values (ctx* args*)
+      (for/fold ([ctx* ctx] [args* '()]) 
+                ([arg args])
+        (let-values ([(cx name) (ctx-unique-name ctx* arg)])
+            (values cx (flatten (cons args* (format "(~a ~a)" (if (list? arg) (car arg) arg) type-str)))))))  
+    (define-values (body_c w* p*) (expr->smt body ctx* w p))
+  
+    (format "(define-fun ~a (~a) ~a\n ~a)\n"
+            func-name
+            (string-join args* " ")
+            type-str
+            body_c)))
+
+(define-compiler '("smt" "smt2" "smtlib" "smtlib2") (const "") core->smtlib2 (const "") smt-supported)

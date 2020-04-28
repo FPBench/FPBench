@@ -3,15 +3,14 @@
 (require "common.rkt" "compilers.rkt" "imperative.rkt" "supported.rkt")
 (provide go-header core->go go-supported)
 
-;; Go
-
 ; convoluted solution to deal with Go's hatred of unused variables
 (define go-header (curry format (string-append "package ~a\n\nimport \"math\"\n\n// Helper function to get rid of annoying unused variable errors\n"
                                                "func Use(vals ...interface{}) {\n\tfor _, val := range vals {\n\t\t_ = val\n\t}\n}\n\n")))
 (define go-supported (supported-list
    (invert-op-list '(fmod fma isfinite isnormal lgamma log1p remainder)) 
    (invert-const-list '(M_1_PI M_2_PI M_2_SQRTPI SQRT1_2))
-   '(binary64)))  ; math operations only allow float64
+   '(binary64)
+   '(nearestEven)))
 
 ; Inaccurate ops: fmod, lgamma (returns two values), log1p, remainder
 ; Unsupported ops: isfinite isnormal
@@ -38,7 +37,8 @@
          'remainder 'copysign 'signbit 'trunc 'round)
      (format "math.~a(~a)" (string-titlecase (~a operator)) arg-list)]))
 
-(define (constant->go type expr)
+(define (constant->go props expr)
+  (define type (type->go (dict-ref props ':precision 'binary64)))
   (match expr
     ['TRUE "true"]
     ['FALSE "false"]
@@ -60,18 +60,20 @@
      (format "~a(math.~a)" type name)]
     [(? number?) (~a (real->double-flonum expr))]))
 
-(define (declaration->go type var indent [val #f])
-  (string-append
-    (if val
+(define (declaration->go props var [val #f])
+  (define type (type->go (dict-ref props ':precision 'binary64)))
+  (if val
       (format "var ~a = ~a(~a)" var type val)
-      (format "var ~a ~a" var type))
-    (format "\n~aUse(~a)" indent var)))
+      (format "var ~a ~a" var type)))
 
 (define (assignment->go var val)
   (format "~a = ~a" var val))
 
-(define (function->go type name args body return)
-  (format "func ~a(~a) ~a {\n~a\treturn ~a;\n}\n"
+(define (round->go val props) (format "~a" val)) ; round(val) = val
+
+(define (function->go name args arg-props body return ctx vars)
+  (define type (type->go (ctx-lookup-prop ctx ':precision 'binary64)))
+  (format "func ~a(~a) ~a {\n~a\treturn ~a\n}\n"
           name
           (string-join
            (map (λ (arg) (format "~a ~a" arg type)) args)
@@ -79,7 +81,8 @@
           type
           body return))
 
-(define go-language (language "go" type->go operator->go constant->go declaration->go assignment->go function->go))
+(define go-language (language (const "go") operator->go constant->go declaration->go assignment->go
+                              round->go (const "") function->go))
 
 ;;; Exports
 

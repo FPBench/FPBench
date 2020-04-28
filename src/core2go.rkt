@@ -1,15 +1,16 @@
 #lang racket
 
 (require "common.rkt" "compilers.rkt" "imperative.rkt" "supported.rkt")
-(provide go-header core->go)
+(provide go-header core->go go-supported)
 
-;; Go
-
-(define go-header (curry format "package ~a\n\nimport \"math\"\n\n"))
+; convoluted solution to deal with Go's hatred of unused variables
+(define go-header (curry format (string-append "package ~a\n\nimport \"math\"\n\n// Helper function to get rid of annoying unused variable errors\n"
+                                               "func Use(vals ...interface{}) {\n\tfor _, val := range vals {\n\t\t_ = val\n\t}\n}\n\n"
+                                               "func Lgamma(x float64) float64 {\n\tres, _ := math.Lgamma(x)\n\treturn res\n}\n\n")))
 (define go-supported (supported-list
-   fpcore-ops
-   fpcore-consts
-   '(binary32 binary64)
+   (invert-op-list '(isnormal)) 
+   (invert-const-list '(M_1_PI M_2_PI M_2_SQRTPI SQRT1_2))
+   '(binary64)
    '(nearestEven)))
 
 (define/match (type->go type)
@@ -17,18 +18,25 @@
   [('binary32) "float32"]
   [('boolean) "bool"])
 
-(define (operator->go props operator args)
-  (let ([arg-list (string-join args ", ")])
-    (match operator
-      [(or 'fabs 'fmax 'fmin 'fdim)
-       (format "math.~a(~a)" (string-titlecase (substring (~a operator) 1)) arg-list)]
-      [(or 'isinf 'isnan)
-       (format "math.Is~a(~a)" (string-titlecase (substring (~a operator) 2)) arg-list)]
-      [(or 'exp 'exp2 'expm1 'log 'log10 'log2 'log1p 'pow 'sqrt 'cbrt 'hypot
-           'sin 'cos 'tan 'asin 'cos 'atan 'atan2 'sinh 'cosh 'tanh
-           'asinh 'acosh 'atanh 'erf 'erfc 'tgamma 'lgamma 'ceil 'floor
-           'remainder 'copysign 'trunc 'round)
-       (format "math.~a(~a)" (string-titlecase (~a operator)) arg-list)])))
+(define (operator->go type operator args)
+  (define arg-list (string-join args ", "))
+  (match operator
+    ['isinf (format "math.IsInf(~a, 0)" arg-list)]
+    ['isnan (format "math.IsNaN(~a)" arg-list)]
+    ['isfinite (format "!math.IsInf(~a, 0)" arg-list)]
+    ['tgamma (format "math.Gamma(~a)" arg-list)]
+    ['lgamma (format "Lgamma(~a)" arg-list)]
+    ['log1p (format "math.Log1p(~a)" arg-list)]
+    ['fma (format "math.FMA(~a)" arg-list)]
+    ['fmod (format "math.Mod(~a)" arg-list)]
+    ['nearbyint (format "math.RoundToEven(~a)" arg-list)]
+    [(or 'fabs 'fmax 'fmin 'fdim 'fmod)
+      (format "math.~a(~a)" (string-titlecase (substring (~a operator) 1)) arg-list)]
+    [(or 'exp 'exp2 'expm1 'log 'log10 'log2 'log1p 'pow 'sqrt 'cbrt 'hypot
+         'sin 'cos 'tan 'asin 'acos 'atan 'atan2 'sinh 'cosh 'tanh
+         'asinh 'acosh 'atanh 'erf 'erfc 'tgamma 'ceil 'floor
+         'remainder 'copysign 'signbit 'trunc 'round)
+     (format "math.~a(~a)" (string-titlecase (~a operator)) arg-list)]))
 
 (define (constant->go props expr)
   (define type (type->go (dict-ref props ':precision 'binary64)))
@@ -38,11 +46,19 @@
     [(? symbol?)
      (define name
        (match expr
-         ['E "E"] ['LOG2E "Log2E"] ['LOG10E "Log10E"] ['LN2 "Ln2"] ['LN10 "Ln10"]
-         ['PI "Pi"] ['PI_2 "Pi/2"] ['PI_4 "Pi/4"] ['SQRT2 "Sqrt2"]
-         ['MAXFLOAT "MaxFloat64"] ['INFINITY "Inf(1)"] ['NAN "Nan()"]
-         [_ (error 'constant->go "Unsupported constant ~a" expr)]))
-     (format "((~a) Math.~a)" type name)]
+         ['E "E"]
+         ['LOG2E "Log2E"] 
+         ['LOG10E "Log10E"] 
+         ['LN2 "Ln2"] 
+         ['LN10 "Ln10"]
+         ['PI "Pi"] 
+         ['PI_2 "Pi/2"] 
+         ['PI_4 "Pi/4"] 
+         ['SQRT2 "Sqrt2"]
+         ['MAXFLOAT "MaxFloat64"] 
+         ['INFINITY "Inf(1)"] 
+         ['NAN "NaN()"]))
+     (format "~a(math.~a)" type name)]
     [(? number?) (~a (real->double-flonum expr))]))
 
 (define (declaration->go props var [val #f])
@@ -58,7 +74,7 @@
 
 (define (function->go name args arg-props body return ctx vars)
   (define type (type->go (ctx-lookup-prop ctx ':precision 'binary64)))
-  (format "func ~a(~a) ~a {\n~a\treturn ~a;\n}\n"
+  (format "func ~a(~a) ~a {\n~a\treturn ~a\n}\n"
           name
           (string-join
            (map (λ (arg) (format "~a ~a" arg type)) args)
@@ -72,5 +88,4 @@
 ;;; Exports
 
 (define (core->go prog name) (parameterize ([*lang* go-language]) (convert-core prog name)))
-
 (define-compiler '("go") go-header core->go (const "") go-supported)

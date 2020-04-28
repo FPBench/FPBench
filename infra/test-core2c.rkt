@@ -63,10 +63,7 @@
       (or (= a b)
           (and (nan? a) (nan? b))
           (and (double-flonum? a) (double-flonum? b) (<= (abs (flonums-between a b)) ulps)))]))
-
-    ; (Expected) 1.09275537727565181636t-2915
-    ; (Output)   1.0927553772756518164t-2915
-
+          
 (define (c-format-args var val type)
   (format "~a = ~a" var val))
 

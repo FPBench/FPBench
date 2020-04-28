@@ -16,6 +16,7 @@
 (define quiet (make-parameter #f))
 (define exact-out (make-parameter #f))
 (define use-precond (make-parameter #t))
+(define suppress-failures (make-parameter #f))
 (define *prog* (make-parameter #f))   ; interpreted languages can store converted core here
 
 ; Common test structure
@@ -75,6 +76,7 @@
   [("-v" "--verbose") "Verbose" (verbose #t)]
   [("-q" "--quiet") "Quiet" (quiet #t)]
   ["--no-precond" "No precondition evaluation" (use-precond #f)]
+  [("-s" "--suppress") "Supresses any failures" (suppress-failures #t)]
   #:args ()
   (when (and (verbose) (quiet)) 
       (error "Verbose and quiet flags cannot be both set"))
@@ -169,9 +171,11 @@
         (define test-passed (=* (second x) (car (third x))))
         (unless (and (not (verbose)) test-passed)
           (printf "\t~a\t~a\t(Expected) ~a\t(Output) ~a\t(Args) ~a\n" 
-                  i                                                   
-                  (if test-passed "Pass" "Fail")                         
-                  (second x)                                                    
+                  i (if test-passed "Pass" "Fail") (second x)                                                    
                   (format-output (if (exact-out) (cdr (third x)) (car (third x))))
                   (string-join (map (λ (p) (format-args (car p) (cdr p) type)) (first x)) ", "))))))
-  err))
+  (if (and (suppress-failures) (> err 0))
+    (begin
+      (printf "Suppressing failures. Total failed: ~a\n" err)
+      0)
+    err)))

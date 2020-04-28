@@ -31,8 +31,14 @@
 (define (convert-function name args arg-props body return ctx vars)
   ((language-function (*lang*)) name args arg-props body return ctx vars))
 
-(define (while-name) ; Go is weird
+(define (while-name) ; Go only
   (if (equal? ((language-name (*lang*))) "go") "for" "while"))
+
+(define (use-vars vars indent) ; Go doesn't like unused variables
+  (if (equal? ((language-name (*lang*))) "go")
+    (format "~aUse(~a)\n" indent (string-join vars ", "))
+    ""))
+
 
 ;;; Compiler for imperative languages
 
@@ -81,9 +87,10 @@
       (define ctx*
         (for/fold ([ctx* ctx]) ([var vars] [val vals])
           (let-values ([(cx name) (ctx-unique-name ctx* var)])
-            (printf "~a~a\n" indent
-                (convert-declaration cx name (convert-expr val #:ctx ctx #:indent indent)))        
+            (printf "~a~a\n" indent 
+                (convert-declaration cx name (convert-expr val #:ctx ctx #:indent indent)))
             cx)))
+      (displayln (use-vars (for/list ([var vars]) (ctx-lookup-name ctx* var)) indent))
       (convert-expr body #:ctx ctx* #:indent indent)]
 
     [`(let* ([,vars ,vals] ...) ,body)
@@ -93,6 +100,7 @@
             (printf "~a~a\n" indent
                  (convert-declaration cx name (convert-expr val #:ctx ctx* #:indent indent)))
             cx)))
+      (displayln (use-vars (for/list ([var vars]) (ctx-lookup-name ctx* var)) indent))
       (convert-expr body #:ctx ctx* #:indent indent)]
 
     [`(if ,cond ,ift ,iff)
@@ -125,6 +133,7 @@
         (let-values ([(cx name) (ctx-random-name ctx)])
             (set! ctx cx)
             name))
+      (displayln (use-vars vars* indent))
       (printf "~a~a\n" indent
           (convert-declaration
               (ctx-update-props ctx '(:precision boolean))
@@ -140,6 +149,7 @@
             (printf "~a\t~a\n" indent
                 (convert-declaration cx name (convert-expr update #:ctx ctx* #:indent indent*)))
           (values cx (flatten (cons vars** name))))))
+      (displayln (use-vars vars** indent*))
       (for ([var* vars*] [var** vars**])
           (printf "~a\t~a\n" indent (convert-assignment var* var**)))
       (printf "~a\t~a\n" indent
@@ -159,6 +169,7 @@
         (let-values ([(cx name) (ctx-random-name ctx)])
             (set! ctx cx)
             name))
+      (displayln (use-vars vars* indent))
       (printf "~a~a\n" indent
           (convert-declaration
               (ctx-update-props ctx '(:precision boolean))

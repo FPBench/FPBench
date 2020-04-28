@@ -23,7 +23,15 @@
   (define out
     (with-output-to-string
      (λ ()
-       (system (string-join (cons exec-name (map (compose ~a real->double-flonum) (dict-values ctx))) " ")))))
+      (system 
+        (string-join 
+          (cons exec-name 
+          (map (λ (x)
+                (match x
+                  [+nan.0 "NaN"] [+inf.0 "+Inf"] [-inf.0 "-Inf"]
+                  [x (~a (real->double-flonum x))]))
+               (dict-values ctx))) 
+        " ")))))
   (define out*
     (match out
       ["NaN" "+nan.0"]

@@ -118,7 +118,7 @@ endif
 wls-test:
 ifneq (, $(shell which wolframscript))
 	cat benchmarks/*.fpcore tests/*.fpcore  | $(FILTER) not-operators $(known_inaccurate) \
- 	| racket infra/test-core2wls.rkt --error 3
+ 	| racket infra/test-core2wls.rkt -s --error 3
 else
 	$(warning skipping wolframscript tests; unable to find wolframscript interpreter)
 endif
@@ -126,7 +126,7 @@ endif
 go-test:
 ifneq (, $(shell which go))
 	cat benchmarks/*.fpcore tests/*.fpcore | $(FILTER) not-operators $(known_inaccurate) \
-	| racket infra/test-core2go.rkt --error 150
+	| racket infra/test-core2go.rkt -s --error 150
 else
 	$(warning skipping Go tests; unable to find Go compiler)
 endif

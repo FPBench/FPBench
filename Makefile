@@ -57,7 +57,7 @@ go-sanity:
 ifneq (, $(shell which go))
 	cat tests/sanity/*.fpcore | racket infra/test-core2go.rkt --repeat 1
 else
-	$(warning skipping Go sanity tests; unable to find node)
+	$(warning skipping Go sanity tests; unable to find go)
 endif
 
 sanity: c-sanity fptaylor-sanity js-sanity smtlib2-sanity sollya-sanity wls-sanity

@@ -21,12 +21,15 @@ jobs:
           path: ../cache
           key: ${{ runner.os }}-deps
           
-      - name: "Setup node"
-        uses: actions/setup-node@v1
+      - uses: actions/setup-node@v1
         with:
           node-version: '10.15.1'
+
+      - uses: Bogdanp/setup-racket@v0.7
+        with:
+          version: '7.3'
           
-      - name: "Setup environment"
+      - name: "Install dependencies"
         run: |     
           sudo apt-get install -y gnuplot libmpfr-dev libmpfi-dev libxml2-dev flex bison ocaml racket
           (git clone https://github.com/fplll/fplll.git ../cache/fplll || echo "Assuming FPLLL cached, skipping clone")
@@ -41,6 +44,4 @@ jobs:
           echo "::add-path::${PWD}/../cache/fptaylor"
           echo "::add-path::${PWD}/../cache/${Z3_DISTR}/bin"
  
-      - name: "Run tests"
-        run: |
-          make sanity test
+      - run: make sanity test

@@ -31,7 +31,7 @@ jobs:
           
       - name: "Install dependencies"
         run: |     
-          sudo apt-get install -y gnuplot libmpfr-dev libmpfi-dev libxml2-dev flex bison ocaml racket
+          sudo apt-get install -y gnuplot libmpfr-dev libmpfi-dev libxml2-dev flex bison ocaml
           (git clone https://github.com/fplll/fplll.git ../cache/fplll || echo "Assuming FPLLL cached, skipping clone")
           (cd ../cache/fplll && git checkout ${FPLLL_VERSION} && ./autogen.sh && ./configure && make && sudo make install && sudo ldconfig)
           (git clone https://scm.gforge.inria.fr/anonscm/git/sollya/sollya.git ../cache/sollya || echo "Assuming sollya cached, skipping clone")

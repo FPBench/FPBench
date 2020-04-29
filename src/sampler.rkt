@@ -92,9 +92,9 @@
   (define interval ; choose interval
     (for/fold ([low 0] [i 0]
               #:result (list-ref intervals i))
-              ([range interval-ranges])
-              #:break (and (<= low range-random) (< range-random (+ low range)))
-              (values (+ low range) (add1 i))))
+              ([range interval-ranges]
+              #:break (and (<= low range-random) (< range-random (+ low range))))
+        (values (+ low range) (add1 i))))
   ; interval [low, high]
   (define low (+ (float->ordinal (interval-l interval) type) (if (interval-l? interval) 0 1)))
   (define high (- (float->ordinal (interval-u interval) type) (if (interval-u? interval) 0 1)))
@@ -124,9 +124,9 @@
   (define interval ; choose interval
     (for/fold ([low 0] [i 0]
               #:result (list-ref intervals i))
-              ([range interval-ranges])
-              #:break (and (<= low range-random) (< range-random (+ low range)))
-              (values (+ low range) (add1 i))))
+              ([range interval-ranges]
+              #:break (and (<= low range-random) (< range-random (+ low range))))
+        (values (+ low range) (add1 i))))
   ; interval [low, high]
   (define low (+ (clamp-int (interval-l interval)) (if (interval-l? interval) 0 1)))
   (define high (- (clamp-int (interval-u interval)) (if (interval-u? interval) 0 1)))
@@ -146,11 +146,11 @@
              [attempts 1]
             #:result (values (for/list ([var vars] [num nums]) (cons var num)) 
                              (not (equal? attempts (sample-tries)))))
-            ([i (in-range (sample-tries))])
+            ([i (in-range (sample-tries))]
             #:break ((eval-expr evaltor) pre 
                         (make-immutable-hash 
                             (for/list ([var vars] [num nums])
-                                      (cons var num))))
+                                      (cons var num)))))
       (values (for/list ([var vars]) (sample-random type)) (+ i 1))))
 
 ;;; Random sampler

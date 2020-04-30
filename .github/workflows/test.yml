@@ -50,3 +50,5 @@ jobs:
           echo "::add-path::${PWD}/../cache/cake"
  
       - run: make sanity test
+        env:
+          CAKEML_BASE: "../cache/cake"

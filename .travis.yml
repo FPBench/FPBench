@@ -1,0 +1,37 @@
+notifications:
+  slack: uw-cse:O3kA2v8PDrUzH6YTuMfVUy8z
+language: node_js
+node_js:
+  - "10.15.1"
+cache:
+  directories:
+  - ../FPTaylor
+  - ../fplll
+  - ../sollya
+  - ../travis-racket
+env:
+  global:
+    - FPTAYLOR_VERSION="a318f5b2c83a389777a7ef9a0c094f54412bcda2"
+    - FPLLL_VERSION="5.2.1"
+    - SOLLYA_VERSION="sollya-7.0"
+    - RACKET_DIR=~/racket
+    - RACKET_VERSION="7.3"
+    - Z3_VERSION="4.8.4"
+    - Z3_DISTRIB="z3-4.8.4.d6df51951f4c-x64-ubuntu-14.04"
+before_install:
+  - sudo apt-get install -y gcc g++ gnuplot libgmp-dev libmpfr-dev libmpfi-dev libxml2-dev libtool autoconf automake flex bison ocaml
+  - (git clone https://github.com/fplll/fplll.git ../fplll || echo "Assuming FPLLL cached, skipping clone")
+  - (cd ../fplll && git checkout ${FPLLL_VERSION} && ./autogen.sh && ./configure && make && sudo make install && sudo ldconfig)
+  - (git clone https://scm.gforge.inria.fr/anonscm/git/sollya/sollya.git ../sollya || echo "Assuming sollya cached, skipping clone")
+  - (cd ../sollya && git checkout ${SOLLYA_VERSION} && ./autogen.sh && ./configure && make && sudo make install && sudo ldconfig)
+  - which sollya
+  - (git clone https://github.com/soarlab/FPTaylor.git ../FPTaylor || echo "Asuming FPTaylor cached, skipping clone")
+  - (cd ../FPTaylor && git checkout ${FPTAYLOR_VERSION} && make)
+  - (git clone https://github.com/greghendershott/travis-racket.git ../travis-racket || echo "Assuming travis-racket cached, skipping clone")
+  - cat ../travis-racket/install-racket.sh | bash
+  - curl -L -O https://github.com/Z3Prover/z3/releases/download/z3-${Z3_VERSION}/${Z3_DISTRIB}.zip
+  - unzip ${Z3_DISTRIB}.zip
+  - export PATH="${RACKET_DIR}/bin:${PWD}/${Z3_DISTRIB}/bin:${PWD}/../FPTaylor:${PATH}"
+script:
+  - raco pkg install --auto $TRAVIS_BUILD_DIR/
+  - make sanity test

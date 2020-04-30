@@ -60,7 +60,7 @@ else
 	$(warning skipping Go sanity tests; unable to find go)
 endif
 
-sanity: c-sanity fptaylor-sanity js-sanity smtlib2-sanity sollya-sanity wls-sanity
+sanity: c-sanity fptaylor-sanity js-sanity go-sanity smtlib2-sanity sollya-sanity wls-sanity cml-sanity
 
 raco-test:
 	raco test .
@@ -132,7 +132,7 @@ else
 	$(warning skipping Go tests; unable to find Go compiler)
 endif
 
-test: c-test fptaylor-test js-test smtlib2-test sollya-test wls-test raco-test
+test: c-test js-test go-test smtlib2-test sollya-test wls-test cml-test raco-test
 
 testsetup:
 	raco make infra/filter.rkt infra/test-core2c.rkt infra/test-core2fptaylor.rkt infra/test-core2js.rkt infra/test-core2smtlib2.rkt infra/test-core2sollya.rkt infra/test-core2wls.rkt

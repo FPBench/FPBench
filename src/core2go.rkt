@@ -8,7 +8,7 @@
                                                "func Use(vals ...interface{}) {\n\tfor _, val := range vals {\n\t\t_ = val\n\t}\n}\n\n"
                                                "func Lgamma(x float64) float64 {\n\tres, _ := math.Lgamma(x)\n\treturn res\n}\n\n")))
 (define go-supported (supported-list
-   (invert-op-list '(isnormal)) 
+   (invert-op-list '(isnormal isfinite)) 
    (invert-const-list '(M_1_PI M_2_PI M_2_SQRTPI SQRT1_2))
    '(binary64)
    '(nearestEven)))
@@ -23,7 +23,6 @@
   (match operator
     ['isinf (format "math.IsInf(~a, 0)" arg-list)]
     ['isnan (format "math.IsNaN(~a)" arg-list)]
-    ['isfinite (format "!math.IsInf(~a, 0)" arg-list)]
     ['tgamma (format "math.Gamma(~a)" arg-list)]
     ['lgamma (format "Lgamma(~a)" arg-list)]
     ['log1p (format "math.Log1p(~a)" arg-list)]

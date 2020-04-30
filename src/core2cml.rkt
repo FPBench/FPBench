@@ -60,6 +60,7 @@
     ['INFINITY "(Double.fromString \"inf\")"]
     ['NAN "(Double.fromString \"nan\")"]
     [(or 'TRUE 'FALSE) (string-titlecase (format "~a" expr))]
+    [(? hex?) (error 'constant->cml "Hex format unsupported")]
     [(? number?) (format "(Double.fromString \"~a\")" (real->double-flonum expr))]))
 
 (define (declaration->cml var [val 0])

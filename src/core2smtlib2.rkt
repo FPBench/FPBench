@@ -5,10 +5,10 @@
 (provide core->smtlib2 smt-supported rm->smt number->smt)
 
 (define smt-supported (supported-list
-  (invert-op-list '(while* while exp exp2 expm1 log log10 log2 log1p pow cbrt
+  (invert-op-list '(digits while* while exp exp2 expm1 log log10 log2 log1p pow cbrt
                     hypot sin cos tan asin acos atan atan2 sinh cosh tanh asinh acosh 
                     atanh erf erfc tgamma lgamma ceil floor fmod fdim copysign isfinite))
-  (invert-const-list '(LOG2E LOG10E M_1_PI M_2_PI M_2_SQRTPI))
+  (invert-const-list '(LOG2E LOG10E M_1_PI M_2_PI M_2_SQRTPI hex))
   '(binary32 binary64)
    ieee754-rounding-modes))
 
@@ -101,6 +101,7 @@
     ['FALSE "false"]
     ['INFINITY (format "(_ +oo ~a ~a)" w p)]
     ['NAN (format "(_ NaN ~a ~a)" w p)]
+    [(? hex?) (error 'constant->smt "hex format unsupported")]
     [(? number?) (number->smt expr w p rm)]
     [(? symbol?) (format "~a" expr)]))
 

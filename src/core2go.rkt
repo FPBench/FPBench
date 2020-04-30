@@ -7,7 +7,7 @@
 
 (define go-header (curry format "package ~a\n\nimport \"math\"\n\n"))
 (define go-supported (supported-list
-   fpcore-ops
+   (invert-op-list '(digits))
    fpcore-consts
    '(binary32 binary64)
    '(nearestEven)))
@@ -35,6 +35,8 @@
   (match expr
     ['TRUE "true"]
     ['FALSE "false"]
+    [(? hex?) (format "~a" expr)]
+    [(? number?) (~a (real->double-flonum expr))]
     [(? symbol?)
      (define name
        (match expr
@@ -42,8 +44,7 @@
          ['PI "Pi"] ['PI_2 "Pi/2"] ['PI_4 "Pi/4"] ['SQRT2 "Sqrt2"]
          ['MAXFLOAT "MaxFloat64"] ['INFINITY "Inf(1)"] ['NAN "Nan()"]
          [_ (error 'constant->go "Unsupported constant ~a" expr)]))
-     (format "((~a) Math.~a)" type name)]
-    [(? number?) (~a (real->double-flonum expr))]))
+     (format "((~a) Math.~a)" type name)]))
 
 (define (declaration->go props var [val #f])
   (define type (type->go (dict-ref props ':precision 'binary64)))

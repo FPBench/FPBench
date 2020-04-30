@@ -6,10 +6,10 @@
 
 (define c-header (const "#include <fenv.h>\n#include <math.h>\n#include <stdint.h>\n#define TRUE 1\n#define FALSE 0\n\n"))
 (define c-supported (supported-list
-   fpcore-ops
-   fpcore-consts
-   '(binary32 binary64 binary80 integer)
-   (invert-round-modes-list '(nearestAway))))
+  (invert-op-list '(digits))
+  fpcore-consts
+  '(binary32 binary64 binary80 integer)
+  (invert-round-modes-list '(nearestAway))))
 
 (define/match (type->c-suffix type)
   [("int64_t") ""]
@@ -24,17 +24,15 @@
   [('boolean) "int"]
   [('integer) "int64_t"])
 
-(define (operator->c props operator args)
+(define (operator->c props op args)
   (define type (type->c (dict-ref props ':precision 'binary64)))
-  (define op*
-    (match operator
-      ['isinf       "isinf"]
-      ['isnan       "isnan"]
-      ['isfinite    "isfinite"]
-      ['isnormal    "isnormal"]
-      ['signbit     "signbit"]
-      [_          (format "~a~a" operator (type->c-suffix type))]))
-  (format "((~a) ~a(~a))" type op* (string-join args ", ")))
+  (match op
+    ['isinf     (format "isinf(~a)" args)]
+    ['isnan     (format "isnan(~a)" args)]
+    ['isfinite  (format "isfinite(~a)" args)]
+    ['isnormal  (format "isnormal(~a)" args)]
+    ['signbit   (format "signbit(~a)" args)]
+    [_          (format "((~a) ~a~a(~a))" type op (type->c-suffix type) (string-join args ", "))]))
 
 (define (constant->c props expr)
   (define prec (dict-ref props ':precision 'binary64))
@@ -42,13 +40,14 @@
   (match expr
     [(or 'M_1_PI 'M_2_PI 'M_2_SQRTPI 'TRUE 'FALSE 'INFINITY 'NAN)
      (format "((~a) ~a)" type expr)]
-    [(? symbol?) (format "((~a) M_~a)" type expr)]
+    [(? hex?) (format "~a" expr)]
     [(? number?)
       (match prec
         ['integer   (format "~a" (inexact->exact expr))]
         ['binary80  (parameterize ([bf-precision 64]) 
                         (format "~a~a" (bigfloat->string (bf expr)) (type->c-suffix type)))]
-        [_          (format "~a~a" (real->double-flonum expr) (type->c-suffix type))])]))
+        [_          (format "~a~a" (real->double-flonum expr) (type->c-suffix type))])]
+    [(? symbol?) (format "((~a) M_~a)" type expr)]))
 
 (define (declaration->c props var [val #f])
   (define type (type->c (dict-ref props ':precision 'binary64)))

@@ -119,7 +119,7 @@
      (convert-operator operator args_c ctx)] 
     [(list 'digits (? number? m) (? number? e) (? number? b)) (convert-constant expr ctx)] ; WLS
     [(? constant?) (convert-constant expr ctx)]
-    [(? number?) (convert-constant expr ctx)]
+    [(or (? number?) (? hex?)) (convert-constant expr ctx)]
     [(? symbol?) (ctx-lookup-name ctx expr)]))
 
 (define (core->functional prog name)

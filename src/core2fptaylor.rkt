@@ -4,8 +4,8 @@
 (provide core->fptaylor fptaylor-supported)
 
 (define fptaylor-supported (supported-list
-  (invert-op-list '(atan2 cbrt ceil copysign erf erfc exp2 expm1 fdim floor fmod hypot if let* lgamma 
-                    log10 log1p log2 nearbyint pow remainder round tgamma trunc while while*))
+  (invert-op-list '(atan2 cbrt ceil copysign digits erf erfc exp2 expm1 fdim floor fmod hypot if let* 
+                    lgamma log10 log1p log2 nearbyint pow remainder round tgamma trunc while while*))
   fpcore-consts
   '(binary16 binary32 binary64 binary128)
   '(nearestEven)))
@@ -130,6 +130,7 @@
          (application->fptaylor type operator args_fptaylor))]
     [(? constant?)
      (format "~a(~a)" (type->rnd type) (constant->fptaylor expr))]
+    [(? hex?) (format "~a" expr)]
     [(? symbol?)
      (fix-name (dict-ref names expr expr))]
     [(? number?)

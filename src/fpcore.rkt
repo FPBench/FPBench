@@ -48,11 +48,10 @@
     [`(cast ,(? expr?)) true]
     [`(! ,props ... ,(? expr?))
       (properties? props)]
+    [`(digits ,(? number?) ,(? number?) ,(? number?)) true]
     [_ false]))
 
 (define type? (symbols 'boolean 'real))
-
-;; TODO: add updated number definition (hex, rational, and digits)
 
 (define/match (operator-type op args)
   [((or '- 'fabs 'exp 'exp2 'expm1 'log 'log10 'log2 'log1p 'sqrt
@@ -76,12 +75,23 @@
   (match (syntax-e stx)
     [(? number? val)
      (cons val 'real)]
+    [(? hex? val)
+     (cons val 'real)]
     [(? constant? val)
      (cons val (match val [(or 'TRUE 'FALSE) 'boolean] [_ 'real]))]
     [(? symbol? var)
      (unless (dict-has-key? ctx var)
        (raise-syntax-error #f "Undefined variable" stx))
      (cons var (dict-ref ctx var))]
+    [(list (app syntax-e 'digits) m e b)
+     (define m* (check-expr m ctx))
+     (define e* (check-expr e ctx))
+     (define b* (check-expr b ctx))
+     (unless (and (integer? (car m*)) (integer? (car e*)) (integer? (car b*)))
+      (raise-syntax-error #f "Values of digits must be integers" stx))
+      (unless (>= (car b*) 2)
+        (raise-syntax-error #f "Base of digits must be greater than 1" stx))
+     (cons `(digits ,(car m*) ,(car e*) ,(car b*)) 'real)]
     [(list (app syntax-e 'if) test ift iff)
      (define test* (check-expr test ctx))
      (unless (equal? (cdr test*) 'boolean)
@@ -229,6 +239,8 @@
   (-> evaluator? (-> expr? context/c any/c) (-> expr? context/c any/c))
   (match expr
     [(? number?) ((evaluator-real evaltor) expr)]
+    [(? hex?) ((evaluator-real evaltor) (hex->racket expr))]
+    [`(digits ,m ,e ,b) (digits->float m e b)]
     [(? extflonum?) expr]
     [(? constant?) ((evaluator-constant evaltor) expr)]
     [(? symbol?) ((evaluator-real evaltor) (dict-ref ctx expr))]
@@ -386,7 +398,7 @@
     [asin (compute-with-bf bfasin)] [acos (compute-with-bf bfacos)] 
     [atan (compute-with-bf bfatan)] [atan2 (compute-with-bf-2 bfatan2)]
     [ceil (compute-with-bf bfceiling)] [floor (compute-with-bf bffloor)] 
-    [trunc (compute-with-bf bftruncate)]
+    [trunc (λ (x) (* (sgn x) ((compute-with-bf bftruncate) x)))]
     [fmax max] [fmin min]
     [< <] [> >] [<= <=] [>= >=] [== my=] [!= my!=]
     [and (λ (x y) (and x y))] [or (λ (x y) (or x y))] [not not]

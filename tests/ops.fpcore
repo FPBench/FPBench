@@ -1,3 +1,5 @@
+(FPCore (arg0) :name "Test - (with inputs)" (- arg0))
+
 (FPCore (arg0 arg1) :name "Test + (with inputs)" (+ arg0 arg1))
 
 (FPCore (arg0 arg1) :name "Test - (with inputs)" (- arg0 arg1))

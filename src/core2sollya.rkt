@@ -4,7 +4,7 @@
 (provide core->sollya sollya-supported sollya-header)
 
 (define sollya-supported (supported-list
-  (invert-op-list '(digits isnormal tgamma lgamma remainder fmod round cbrt atan2 erf))
+  (invert-op-list '(isnormal tgamma lgamma remainder fmod round cbrt atan2 erf))
   fpcore-consts
   '(binary32 binary64 binary80 integer)
   ieee754-rounding-modes))
@@ -90,7 +90,7 @@
     ['FALSE "false"]
     ['INFINITY "infty"]
     ['NAN "nan"]
-    [(? hex?) (format "~a" expr)]
+    [(? hex?) (round->sollya (format "~a" expr) props)]
     [(? symbol?) expr]
     [(? number?) (round->sollya (format "~a" expr) props)]))
 

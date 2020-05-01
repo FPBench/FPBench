@@ -9,8 +9,8 @@
 
 (define js-header (const "")) ; empty
 (define js-supported (supported-list
-   (invert-op-list '(!= copysign digits exp2 erf erfc fdim fma fmod isfinite isnormal lgamma nearbyint remainder signbit tgamma))
-   (invert-op-list '(hex))
+   (invert-op-list '(!= copysign exp2 erf erfc fdim fma fmod isfinite isnormal lgamma nearbyint remainder signbit tgamma))
+   fpcore-consts
    '(binary64)
    '(nearestEven)))
 
@@ -46,7 +46,7 @@
     ['FALSE "false"]
     ['INFINITY "Infinity"]
     ['NAN "NaN"]
-    [(? hex?) (error 'constant->js "Hex format unsupported")]
+    [(? hex?) ((compose ~a real->double-flonum hex->racket) expr)]
     [(? number?) (format "~a" (real->double-flonum expr))]
     [(? symbol?) expr]))
 

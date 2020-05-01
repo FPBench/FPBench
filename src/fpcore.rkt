@@ -240,7 +240,7 @@
   (match expr
     [(? number?) ((evaluator-real evaltor) expr)]
     [(? hex?) ((evaluator-real evaltor) (hex->racket expr))]
-    [`(digits ,m ,e ,b) (digits->float m e b)]
+    [`(digits ,m ,e ,b) (digits->number m e b)]
     [(? extflonum?) expr]
     [(? constant?) ((evaluator-constant evaltor) expr)]
     [(? symbol?) ((evaluator-real evaltor) (dict-ref ctx expr))]

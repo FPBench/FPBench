@@ -59,7 +59,7 @@
           (and (equal? a* +nan.t) (equal? b +nan.t))
           (and (parameterize ([bf-precision 64]) 
                   (<= (abs (bigfloats-between (bf (extfl->real a)) (bf (extfl->real b))))
-                      ulps))))]
+                      ulps)))))]
     [else
       (or (= a b)
           (and (nan? a) (nan? b))

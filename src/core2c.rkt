@@ -6,7 +6,7 @@
 
 (define c-header (const "#include <fenv.h>\n#include <math.h>\n#include <stdint.h>\n#define TRUE 1\n#define FALSE 0\n\n"))
 (define c-supported (supported-list
-  (invert-op-list '(digits))
+  fpcore-ops
   fpcore-consts
   '(binary32 binary64 binary80 integer)
   (invert-round-modes-list '(nearestAway))))

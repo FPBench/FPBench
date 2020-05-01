@@ -5,10 +5,10 @@
 (provide core->smtlib2 smt-supported rm->smt number->smt)
 
 (define smt-supported (supported-list
-  (invert-op-list '(digits while* while exp exp2 expm1 log log10 log2 log1p pow cbrt
+  (invert-op-list '(while* while exp exp2 expm1 log log10 log2 log1p pow cbrt
                     hypot sin cos tan asin acos atan atan2 sinh cosh tanh asinh acosh 
                     atanh erf erfc tgamma lgamma ceil floor fmod fdim copysign isfinite))
-  (invert-const-list '(LOG2E LOG10E M_1_PI M_2_PI M_2_SQRTPI hex))
+  (invert-const-list '(LOG2E LOG10E M_1_PI M_2_PI M_2_SQRTPI))
   '(binary32 binary64)
    ieee754-rounding-modes))
 
@@ -258,7 +258,9 @@
               (format "((_ to_fp ~a ~a) ~a ~a)" max-w max-p (rm->smt (ctx-lookup-prop ctx ':round 'nearestEven)) arg*))))
       (values (application->smt operator args_r ctx (and (equal? w max-w) (equal? p max-p))) w p)] 
 
+    [(list digits m e b) (values (constant->smt (digits->number m e b) ctx) w p)]
     [(? constant?) (values (constant->smt expr ctx) w p)]
+    [(? hex?) (values (constant->smt (hex->racket expr) ctx) w p)]
     [(? number?) (values (constant->smt expr ctx) w p)]
     [(? symbol?) 
       (let*-values ([(decl-prec) (ctx-lookup-prec ctx expr)]

@@ -6,7 +6,7 @@
 
 (define wls-supported (supported-list
   fpcore-ops
-  (invert-op-list '(hex))
+  fpcore-consts
   '(binary64 real integer)
   '(nearestEven)))
 
@@ -65,7 +65,7 @@
              (number->wls b)
              (number->wls e)
              wls-prec)]
-    [(? hex?) (error 'constant->wls "Hex format unsupported")]
+    [(? hex?) (hex->racket expr)]
     [(? number?) (format "N[~a, ~a]" (number->wls expr) wls-prec)]
     [(? symbol?) expr]))
 

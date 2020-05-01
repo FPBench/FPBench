@@ -4,7 +4,7 @@
 (provide core->fptaylor fptaylor-supported)
 
 (define fptaylor-supported (supported-list
-  (invert-op-list '(atan2 cbrt ceil copysign digits erf erfc exp2 expm1 fdim floor fmod hypot if let* 
+  (invert-op-list '(atan2 cbrt ceil copysign erf erfc exp2 expm1 fdim floor fmod hypot if let* 
                     lgamma log10 log1p log2 nearbyint pow remainder round tgamma trunc while while*))
   fpcore-consts
   '(binary16 binary32 binary64 binary128)
@@ -78,6 +78,12 @@
     [(and (eq? dir 'ne) (= scale 1)) (format "rnd~a" bits)]
     [else (format "rnd(~a,~a,~a)" bits dir scale)]))
 
+(define (number->fptaylor expr type)
+  (define n-str (format-number expr))
+  (if (string-contains? n-str "/")
+      (format "~a~a" (type->rnd type) n-str)
+      n-str))
+
 (define *names* (make-parameter (mutable-set)))
 
 (define (gensym name)
@@ -128,16 +134,14 @@
            (format "~a(~a(~a))" (type->rnd type #:scale inexact-scale)
                    (operator->fptaylor operator) (string-join args_fptaylor* ", ")))
          (application->fptaylor type operator args_fptaylor))]
+
+    [(list digits m e b) (number->fptaylor (digits->number m e b) type)]
     [(? constant?)
      (format "~a(~a)" (type->rnd type) (constant->fptaylor expr))]
-    [(? hex?) (format "~a" expr)]
+    [(? hex?) (number->fptaylor (hex->racket expr) type)]
     [(? symbol?)
      (fix-name (dict-ref names expr expr))]
-    [(? number?)
-     (define n-str (format-number expr))
-     (if (string-contains? n-str "/")
-         (format "~a~a" (type->rnd type) n-str)
-         n-str)]))
+    [(? number?) (number->fptaylor expr type)]))
 
 ; This function should be called after remove-let and canonicalize
 ; (negations should be removed)

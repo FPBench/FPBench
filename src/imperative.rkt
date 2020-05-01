@@ -206,7 +206,7 @@
       (define args_c
           (map (λ (arg) (convert-expr arg #:ctx ctx #:indent indent)) args))
      (convert-application ctx operator args_c)] 
-    [(list digits m e b) (convert-constant ctx expr)]
+    [(list digits m e b) (convert-constant ctx (digits->number m e b))]
     [(? constant?) (convert-constant ctx expr)]
     [(or (? number?) (? hex?)) (convert-constant ctx expr)]
     [(? symbol?) (ctx-lookup-name ctx expr)]))

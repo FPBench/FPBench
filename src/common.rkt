@@ -2,7 +2,7 @@
 
 (provide parse-properties unparse-properties constants operators
          constant? operator? variable? define-by-match dictof property? property
-         hex? hex->racket digits->float)
+         hex? hex->racket digits->number)
 
 (define (property? symb)
   (and (symbol? symb) (string-prefix? (symbol->string symb) ":")))
@@ -79,5 +79,5 @@
          [exp (if (equal? (sixth matches) #f) 0 (string->number (sixth matches)))])
     (* sign mant (expt 2 exp))))
 
-(define (digits->float m e b)
+(define (digits->number m e b)
   (* m (expt b e)))

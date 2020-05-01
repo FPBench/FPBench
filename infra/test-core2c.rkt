@@ -52,19 +52,19 @@
 
 (define (c-equality a b ulps)
   (cond
-   [(equal? a 'timeout) true]
-   [(extflonum? b)
+    [(equal? a 'timeout) true]
+    [(extflonum? b)
      (let ([a* (real->extfl a)])
       (or (extfl= a* b)
           (and (equal? a* +nan.t) (equal? b +nan.t))
           (and (parameterize ([bf-precision 64]) 
-                  (<= (abs (bigfloats-between (bf a) (bf (extfl->real b))))
-                      ulps)))))]
-  [else
-    (or (= a b)
-        (and (nan? a) (nan? b))
-        (and (double-flonum? a) (double-flonum? b) (<= (abs (flonums-between a b)) ulps)))]))
-
+                  (<= (abs (bigfloats-between (bf (extfl->real a)) (bf (extfl->real b))))
+                      ulps))))]
+    [else
+      (or (= a b)
+          (and (nan? a) (nan? b))
+          (and (double-flonum? a) (double-flonum? b) (<= (abs (flonums-between a b)) ulps)))]))
+          
 (define (c-format-args var val type)
   (format "~a = ~a" var val))
 

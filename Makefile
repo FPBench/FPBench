@@ -53,7 +53,14 @@ else
 	$(warning skipping wolframscript sanity tests; unable to find wolframscript interpreter)
 endif
 
-sanity: c-sanity fptaylor-sanity js-sanity smtlib2-sanity sollya-sanity wls-sanity
+go-sanity:
+ifneq (, $(shell which go))
+	cat tests/sanity/*.fpcore | racket infra/test-core2go.rkt --repeat 1
+else
+	$(warning skipping Go sanity tests; unable to find go)
+endif
+
+sanity: c-sanity fptaylor-sanity js-sanity go-sanity smtlib2-sanity sollya-sanity wls-sanity cml-sanity
 
 raco-test:
 	raco test .
@@ -111,12 +118,21 @@ endif
 wls-test:
 ifneq (, $(shell which wolframscript))
 	cat benchmarks/*.fpcore tests/*.fpcore  | $(FILTER) not-operators $(known_inaccurate) \
- 	| racket infra/test-core2wls.rkt --error 3
+  | racket infra/test-core2wls.rkt -s --error 3
+
 else
 	$(warning skipping wolframscript tests; unable to find wolframscript interpreter)
 endif
 
-test: c-test fptaylor-test js-test smtlib2-test sollya-test wls-test raco-test
+go-test:
+ifneq (, $(shell which go))
+	cat benchmarks/*.fpcore tests/*.fpcore | $(FILTER) not-operators $(known_inaccurate) \
+	| racket infra/test-core2go.rkt -s --error 150
+else
+	$(warning skipping Go tests; unable to find Go compiler)
+endif
+
+test: c-test js-test go-test smtlib2-test sollya-test wls-test cml-test raco-test
 
 testsetup:
 	raco make infra/filter.rkt infra/test-core2c.rkt infra/test-core2fptaylor.rkt infra/test-core2js.rkt infra/test-core2smtlib2.rkt infra/test-core2sollya.rkt infra/test-core2wls.rkt

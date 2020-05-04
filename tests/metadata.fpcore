@@ -76,3 +76,7 @@
     (- (! :round toPositive (+ x y)) 
        (! :round toNegative (+ x y)))))
 
+(FPCore (x)
+  :name "FPBench casting example"
+  :pre (< 1 x 100)
+  (cast (! :precision binary32 (cast x))))

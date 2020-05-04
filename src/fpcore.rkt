@@ -288,6 +288,7 @@
       (parameterize ([bf-rounding-mode (fpcore->bf-round (dict-ref props ':round 'nearestEven))]
                      [bf-precision p])
           ((eval-expr* evaltor* rec) body ctx))]
+    [`(cast ,expr) ((evaluator-real evaltor) ((eval-expr* evaltor rec) expr ctx))]
     [(list (? operator? op) args ...)
       (apply ((evaluator-function evaltor) op) (map (curryr rec ctx) args))]))
 
@@ -377,7 +378,7 @@
     [NAN	+nan.0]
     [INFINITY	+inf.0]
     [TRUE #t] [FALSE #f])
-   (table-fn
+   (table-fn                      ; TODO: Bigfloat -> flonum causes -0.0 to become 0.0
     [+ (compute-with-bf-2 bf+)] 
     [- (λ (x [y #f]) (if (equal? y #f) (- x) ((compute-with-bf-2 bf-) x y)))]  ; distinguish between negation and subtraction
     [* (λ (a b)
@@ -398,7 +399,7 @@
     [asin (compute-with-bf bfasin)] [acos (compute-with-bf bfacos)] 
     [atan (compute-with-bf bfatan)] [atan2 (compute-with-bf-2 bfatan2)]
     [ceil (compute-with-bf bfceiling)] [floor (compute-with-bf bffloor)] 
-    [trunc (λ (x) (* (sgn x) ((compute-with-bf bftruncate) x)))]
+    [trunc (λ (x) (if (< 0 x -1) -0.0 ((compute-with-bf bftruncate) x)))]
     [fmax max] [fmin min]
     [< <] [> >] [<= <=] [>= >=] [== my=] [!= my!=]
     [and (λ (x y) (and x y))] [or (λ (x y) (or x y))] [not not]

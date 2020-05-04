@@ -58,7 +58,7 @@
 (define (assignment->c var val)
   (format "~a = ~a;" var val))
 
-(define (round->c val props) 
+(define (round->c val props)
   (define type (type->c (dict-ref props ':precision 'binary64)))
   (format "((~a) ~a)" type val))
 

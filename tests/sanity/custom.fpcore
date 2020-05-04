@@ -181,11 +181,10 @@
   :spec 1.0
   (if (< 1.0 0.0) 0.0 1.0))
 
-; CakeML doesn't like this one
-; (FPCore ()
-;   :name "Test if (3/3)"
-;   :spec 1.0
-;   (if (> (if (> 1.0 0.0) 1.0 0.0) (if (< 1.0 0.0) 1.0 0.0)) 1.0 0.0))
+(FPCore ()
+  :name "Test if (3/3)"
+  :spec 1.0
+  (if (> (if (> 1.0 0.0) 1.0 0.0) (if (< 1.0 0.0) 1.0 0.0)) 1.0 0.0))
 
 (FPCore ()
   :name "Test cast (1/1)"

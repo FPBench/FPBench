@@ -58,7 +58,7 @@
 (define (assignment->js var val)
   (format "~a = ~a;" var val))
 
-(define (round->js val props) (format "~a" val)) ; round(val) = val
+(define (round->js val props) (~a val)) ; round(val) = val
 
 (define (function->js name args arg-props body return ctx vars)
   (format "function ~a(~a) {\n~a\treturn ~a;\n}\n"

@@ -191,7 +191,7 @@
     (format (nested-let->wls "With" vars vals body))
     (format (normal-let->wls "With" vars vals body))))                         
 
-(define (if->wls cond ift iff indent)
+(define (if->wls cond ift iff tmp indent)
   (format "If[~a, ~a, ~a]" cond ift iff))
 
 (define (while->wls vars inits cond updates updatevars body loop indent nested)

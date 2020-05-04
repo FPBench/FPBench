@@ -22,7 +22,7 @@
 (define (convert-assignment var val)
   ((language-assignment (*lang*)) var val))
 
-(define (round-expr val ctx) ; Sollya only
+(define (round-expr val ctx) ; Sollya will never ignore but C can
   ((language-round (*lang*)) val (ctx-props ctx)))
 
 (define (change-round-mode mode indent) ; C only
@@ -188,7 +188,7 @@
       (convert-expr retexpr #:ctx ctx* #:indent indent)]
 
     ; Ignore all casts
-    [`(cast ,body) (convert-expr body #:ctx ctx #:indent indent)]
+    [`(cast ,body) (round-expr (convert-expr body #:ctx ctx #:indent indent) ctx)]
 
     [`(! ,props ... ,body)
       (define curr-round (ctx-lookup-prop ctx ':round 'binary64))

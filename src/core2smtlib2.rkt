@@ -231,8 +231,9 @@
 
     ;; Ignore all casts
     [`(cast ,body)
-      (let-values ([(body* w* p*) (expr->smt body ctx w p)])
-        (values body* w p))]
+      (define rm (ctx-lookup-prop ctx ':round 'nearestEven))
+      (let-values ([(body* w* p*)  (expr->smt body ctx w p)])
+        (values (format "((_ to_fp ~a ~a) ~a ~a)" w p (rm->smt rm) body*) w p))]
 
     [(list '! props ... body) 
       (define prec (dict-ref (apply hash-set* #hash() props) ':precision #f))

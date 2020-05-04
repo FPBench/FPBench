@@ -67,7 +67,7 @@
 (define (assignment->go var val)
   (format "~a = ~a" var val))
 
-(define (round->go val props) (format "~a" val)) ; round(val) = val
+(define (round->go val props) (~a val)) ; round(val) = val
 
 (define (function->go name args arg-props body return ctx vars)
   (define type (type->go (ctx-lookup-prop ctx ':precision 'binary64)))

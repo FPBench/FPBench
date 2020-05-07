@@ -5,7 +5,8 @@
 (define var-odds (make-parameter 0.5))
 (define math-const (make-parameter 0.5))
 (define unique-vars (make-parameter #f))
-(define full-set (make-parameter #f))
+(define exhaustive (make-parameter #f))
+(define gensym-count (make-parameter 1))
 
 ;; Move this somewhere better
 (define bool-ops '(< > <= >= == != and or not isfinite isinf isnan isnormal signbit))
@@ -19,102 +20,108 @@
 (define (clamp x low high)
   (max low (min x high)))
 
-(define (gensyms count [start 1]) 
-  (for/list ([i (in-range start (+ start count))])
-    (string->symbol (format "x~a" i))))
+(define (gensyms count [name 'x] [start (gensym-count)])
+  (gensym-count (+ (gensym-count) count))
+  (for/list ([i (in-range count)])
+    (string->symbol (format "~a~a" name (+ i start)))))
 
 ; Returns the max number of unbound variables in an expression
 (define (max-unbound-in-expr expr)
  (match expr
-  [`(let ([,vars ,vals] ...) ,body) 
-   (- (+ (max-unbound-in-expr body) (for/sum ([val vals]) (max-unbound-in-expr val))) (length vars))]
-  [`(let* ([,vars ,vals] ...) ,body) 
-   (- (+ (max-unbound-in-expr body) (for/sum ([val vals]) (max-unbound-in-expr val))) (length vars))]
+  [`(,(or 'while 'while*) ,cond ([,vars ,inits ,updates] ...) ,body) 
+    (for/sum ([arg (flatten (list cond body inits updates))]) (max-unbound-in-expr arg))]
+  [`(,(or 'let 'let*) ([,vars ,vals] ...) ,body) (for/sum ([arg (list* body vals)]) (max-unbound-in-expr arg))]
   [`(if ,cond ,ift ,iff) (for/sum ([arg (list cond ift iff)]) (max-unbound-in-expr arg))]
   [(list op args ...) (for/sum ([arg args]) (max-unbound-in-expr arg))]
-  ['var  1]    ; variable placeholder
-  [_     0]))
+  ['term  1]
+  [_      0]))
 
 ; Returns the min number of unbound variables in an expression
 (define (min-unbound-in-expr expr)
  (match expr
-  [`(let ([,vars ,vals] ...) ,body) 
-   (clamp (for/sum ([val vals]) (min-unbound-in-expr val)) 0 1)]
-  [`(let* ([,vars ,vals] ...) ,body) 
-   (min-unbound-in-expr (first vals))]
+  [`(,(or 'while 'while*) ,cond ([,vars ,inits ,updates] ...) ,body) 
+   (clamp (for/sum ([arg (flatten (list cond body inits updates))]) (max-unbound-in-expr arg)) 0 1)]
+  [`(,(or 'let 'let*) ([,vars ,vals] ...) ,body) 
+   (clamp (for/sum ([arg (list* body vals)]) (min-unbound-in-expr arg)) 0 1)]
   [`(if ,cond ,ift ,iff) 
    (clamp (for/sum ([arg (list cond ift iff)]) (min-unbound-in-expr arg)) 0 1)]
   [(list op args ...) (clamp (for/sum ([arg args]) (min-unbound-in-expr arg)) 0 1)]
-  ['var  1]    ; variable placeholder
-  [_     0]))
+  ['term 0]
+  [_  0]))
 
-; Returns a random list of size count that countains every element of free at least once.
 (define (random-vars free count)
   (define unused free)
   (define bound 0)
-  (if (= count 0) '()
-    (for/list ([i (in-range count)])
-      (let ([name (if (> (- count bound) (length unused))
-                      (rand-from-list free)
-                      (rand-from-list unused))])
-        (set! bound (add1 bound))
-        (set! unused (remove name unused))
-        name))))
+  (for/list ([i (in-range count)] 
+            #:unless (or (= count 0) (empty? free)))
+    (let ([name (if (> (- count bound) (length unused))
+                    (rand-from-list free)
+                    (rand-from-list unused))])
+      (set! bound (add1 bound))
+      (set! unused (remove name unused))
+      name)))
 
-(define (distr->subvars vars distr)
-  (define used 0)
-  (if (empty? distr) '()
-    (for/list ([c distr])
-      (let ([v (take (drop vars used) c)])
-        (set! used (+ used c))
-        v))))
+(define (distribute-vars vars distr total) ; assigns n 'vars' based on a distribution of m total 'vars' in subexpression
+  (define l (shuffle (append vars (build-list (- total (length vars)) (const 'term)))))
+  (for/fold ([svars '()] [used 0] #:result (reverse svars))
+            ([c distr])
+    (let ([v (take (drop l used) c)])
+      (values (list* (filter-not (curry equal? 'term) v) svars) (+ used c)))))
 
-(define (assign-terminals expr consts prec free)
+(define (assign-vars expr free [let-assign? #f])
   (define varc (length free))
   (let inner ([subexpr expr] [free free])
    (match subexpr
+    [`(while ([,vars ,vals] ...) ,body) subexpr]
     [`(let ([,vars ,vals] ...) ,body)
-      (let* ([letfree-count (for/sum ([val vals]) (max-unbound-in-expr val))]         ; total number of variables in 'vals'
-             [letfree (if (= (length free) 0) '() (random-vars free letfree-count))]  ; random number of free from above to be used in 'vals'
-             [distr (for/list ([val vals]) (min (length free) (max-unbound-in-expr val)))]
-             [vars* (gensyms (length vars) (add1 varc))]          ; new vars in let
-             [unbound (remove* (remove-duplicates letfree) free)] ; left over unbound free vars need to be used in body
-             [extra (- (max-unbound-in-expr body) (length vars) (length unbound))])
-        (set! varc (+ varc (length vars)))
-       `(let (,@(map (λ (x y vs) (list x (inner y vs))) vars* vals (distr->subvars letfree distr))) 
-            ,(inner body (append vars* unbound (if (= (length free) 0) '() (random-vars free extra))))
-      ))]
+     (if let-assign?
+       (begin                                                                             ; first pass
+         (set! let-assign? #f)
+        `(let (,@(map (λ (x y) (list x (inner y '()))) vars vals)) ,(inner body free)))     
+       (let* ([args (list* body vals)]                                                    ; later pass
+              [distr (for/list ([arg args]) (max-unbound-in-expr arg))]               
+              [total (foldl + 0 distr)]
+              [svars (distribute-vars free distr total)])
+         `(let (,@(map (λ (x y vs) (list x (inner y vs))) vars vals (drop svars 1)))
+              ,(inner body (first svars)))))]
     [`(let* ([,vars ,vals] ...) ,body)
-      (let* ([letfree-count (for/sum ([val vals]) (max-unbound-in-expr val))]         ; total number of variables in 'vals'
-             [letfree (if (= (length free) 0) '() (random-vars free letfree-count))]  ; random number of free from above to be used in 'vals'
-             [distr (for/list ([val vals]) (min (length free) (max-unbound-in-expr val)))]
-             [vars* (gensyms (length vars) (add1 varc))]
-             [unbound (remove* (remove-duplicates letfree) free)] ; must be in body
-             [extra (- (max-unbound-in-expr body) (length vars) (length unbound))])
-        (set! varc (+ varc (length vars)))
-       `(let* (,@(for/list ([var vars*] [val vals] [vs (distr->subvars letfree distr)])
-                    (let ([vs* (if (>= (length vs) (min-unbound-in-expr val)) vs 
-                                   (random-vars (append (remove* (member var vars*) vars*) vs) 
-                                                (- (min-unbound-in-expr val) (length vs))))])
-                      (list var (inner val vs*)))))
-            ,(inner body (append vars* unbound (if (= (length free) 0) '() (random-vars free extra))))
-      ))]
-    [`(if ,cond ,ift ,iff)
-      (let* ([var-count (max-unbound-in-expr subexpr)]
-             [args (list cond ift iff)]
-             [vars (if (= (length free) 0) '() (random-vars free var-count))]
-             [distr (for/list ([arg args]) (min (length free) (max-unbound-in-expr arg)))])
-        `(if ,@(map (λ (x vs) (inner x vs)) args (distr->subvars vars distr))))]     
-    [(list op args ...)
-      (let* ([var-count (max-unbound-in-expr subexpr)]
-             [vars (if (= (length free) 0) '() (random-vars free var-count))]
-             [distr (for/list ([arg args]) (min (length free) (max-unbound-in-expr arg)))])
-        `(,op ,@(map (λ (x vs) (inner x vs)) args (distr->subvars vars distr))))]
-    ['var (first free)]
-    ['const (if (full-set)
-                (rand-from-list '(1.0 0.0 -1.0))
-                (if (> (random) (math-const)) (rand-from-list consts) (sample-random prec)))]
-    [_ expr])))
+     (if let-assign?
+       (begin                                                                             ; first pass
+         (set! let-assign? #f)
+        `(let* ,(for/list ([i (in-naturals)] [var vars] [val vals])
+                    (list var (inner val (random-vars (take free i) (random 0 (add1 (max-unbound-in-expr val)))))))
+               ,(inner body (random-vars free (random 0 (add1 (length free)))))))
+       (let* ([args (list* body vals)]                                                    ; later pass
+              [distr (for/list ([arg args]) (max-unbound-in-expr arg))]               
+              [total (foldl + 0 distr)]
+              [svars (distribute-vars free distr total)])
+         `(let* (,@(map (λ (x y vs) (list x (inner y vs))) vars vals (drop svars 1)))
+               ,(inner body (first svars)))))]
+    [`(if ,cond ,ift, iff)
+     (let* ([args (list cond ift iff)]
+            [distr (for/list ([arg args]) (max-unbound-in-expr arg))]
+            [total (foldl + 0 distr)])
+      `(if ,@(map (curryr inner) args (distribute-vars free distr total))))]    
+    [`(,(? operator? op) ,args ...)
+     (let* ([distr (for/list ([arg args]) (max-unbound-in-expr arg))]
+            [total (foldl + 0 distr)])
+      `(,op ,@(map (curryr inner) args (distribute-vars free distr total))))]      
+    ['term (if (empty? free) subexpr (first free))]
+    [_  subexpr])))
+
+(define (assign-consts expr consts prec)
+  (let inner ([subexpr expr])
+   (match subexpr
+    [`(while ([,vars ,vals] ...) ,body) `(while (,@(map (λ (x y) (list x (inner y))) vars vals)) ,(inner body))]
+    [`(while* ([,vars ,vals] ...) ,body) `(while* (,@(map (λ (x y) (list x (inner y))) vars vals)) ,(inner body))]
+    [`(let ([,vars ,vals] ...) ,body) `(let (,@(map (λ (x y) (list x (inner y))) vars vals)) ,(inner body))]
+    [`(let* ([,vars ,vals] ...) ,body) `(let* (,@(map (λ (x y) (list x (inner y))) vars vals)) ,(inner body))]
+    [`(if ,cond ,ift, iff) `(if ,(inner cond) ,(inner ift) ,(inner iff))]
+    [`(,(? operator? op) ,args ...) `(,op ,@(map inner args))] 
+    ['term (if (exhaustive)
+               (rand-from-list '(1.0 0.0 -1.0))
+               (if (> (random) (math-const)) (rand-from-list consts) (sample-random prec)))]
+    [_  subexpr])))
 
 ; Returns a list of integers of size count such that all values are less than depth
 ; and at least one is one less than depth.
@@ -175,12 +182,12 @@
 
 (define (gen-expr-set ops precs rnd-modes consts depth)
   (for* ([expr (gen-set-layer ops depth)] [prec precs] [rnd rnd-modes])
-   (pretty-write
+   (pretty-display
     (let* ([max-vars (max-unbound-in-expr expr)]
            [min-vars (min-unbound-in-expr expr)]
            [free-count (if (unique-vars) max-vars (random min-vars (add1 max-vars)))]
            [args (gensyms free-count)])
-      `(FPCore ,args :precision ,prec :round ,rnd ,(assign-terminals expr consts prec args)))
+      `(FPCore ,args :precision ,prec :round ,rnd ,(assign-vars expr args)))
     (current-output-port))
     (newline)))
 
@@ -224,31 +231,37 @@
                                      (thunk (gen-rand-layer ops (random 0 depth))))])
           `(if ,cond ,(gen-rand-layer ops (first depths)) ,(gen-rand-layer ops (first depths))))]
         [(or 'let 'let*)
-          (let* ([body (gen-body-min-vars (thunk (gen-rand-layer ops (sub1 depth))))]
-                 [var-count (add1 (random 0 (max-unbound-in-expr body)))]
-                 [vars (for/list ([i (in-range var-count)]) 'var)]
-                 [vals (for/list ([i (in-range var-count)]) (gen-rand-layer ops (random 0 depth)))])
-            `(,op (,@(map list vars vals)) ,body))]
+          (let* ([body (gen-rand-layer ops (sub1 depth))]
+                 [free-count (add1 (random 0 (max-unbound-in-expr body)))] ; number terminals to be assigned as variables
+                 [vars (gensyms (if (zero? free-count) free-count (add1 (random 0 free-count))))])  ; number of unique variables
+            (assign-vars `(,op ,(for/list ([var vars]) (list var (gen-rand-layer ops (random 0 depth)))) ,body) (random-vars vars free-count) #t))]
+        [(or 'while 'while*)
+          (let* ([body (gen-rand-layer ops (sub1 depth))]
+                 [free-count (add1 (random 0 (max-unbound-in-expr body)))] ; number terminals to be assigned as variables
+                 [vars (gensyms (if (zero? free-count) free-count (add1 (random 0 free-count))))]  ; number of unique variables
+                 [cond (gen-rand-cond (filter (curryr member? bool-ops) ops) (thunk (gen-rand-layer ops 0)))])
+            (assign-vars
+              `(,op ,cond ,(for/list ([var vars]) (list var (gen-rand-layer ops 1) (gen-rand-layer ops (random 0 depth)))) ,body)
+              (random-vars vars free-count) #t))]
       ))]
-    [else (if (> (random) (var-odds)) 'const 'var)]))
+    [else 'term]))
 
 (define (gen-random-expr ops precs rnd-modes consts depth number)
   (for ([i (in-range number)])
-   (pretty-write
-    (let* ([expr (gen-rand-layer ops depth)]
-           [prec (rand-from-list precs)]
-           [rnd (rand-from-list rnd-modes)]
-           [max-vars (max-unbound-in-expr expr)]
-           [min-vars (min-unbound-in-expr expr)]
-           [free-count (if (unique-vars) max-vars (random min-vars (add1 max-vars)))]
-           [args (gensyms free-count)])
-      `(,(string->symbol (format "FPCore ~a" args)) 
-          ,(if (> depth 3) (string->symbol (format ":name \"Random ~a\"" (add1 i))) "")
-          ,(string->symbol (format ":prec ~a" prec))
-          ,(string->symbol (format ":round ~a" rnd))
-          ,(assign-terminals expr consts prec args)))
-    (current-output-port))
-    (newline)))
+   (parameterize ([gensym-count 1])
+    (pretty-display
+     (let* ([expr (gen-rand-layer ops depth)]
+            [prec (rand-from-list precs)]
+            [rnd (rand-from-list rnd-modes)]
+            [max-vars (max-unbound-in-expr expr)]
+            [min-vars (min-unbound-in-expr expr)]
+            [free-count (if (unique-vars) max-vars (random min-vars (add1 max-vars)))]    ; number terminals to be assigned as variables
+            [args (gensyms (if (or (unique-vars) (zero? free-count)) free-count (add1 (random 0 free-count))) 'arg 1)] ; number of unique variables
+            [props `(,(format ":prec ~a" prec) ,(format ":round ~a" rnd))]
+            [name-props (if (> depth 3) (list* (format ":name \"Random ~a\"" (add1 i)) props) props)])
+        `(,(format "FPCore ~a" args) ,@name-props ,(assign-consts (assign-vars expr (random-vars args free-count)) consts prec)))
+     (current-output-port))
+    (newline))))
 
 ;;; Command line
 
@@ -263,7 +276,7 @@
   [("-d" "--depth") _depth "expr depth. Default 1"
     (set! depth (string->number _depth))
     (when (not (exact-nonnegative-integer? depth)) (error 'main "Invalid depth: ~a" depth))]
-  [("-n" "--number") _number "Number of exprs to produce. This is overriden by --full-set. Default 1"
+  [("-n" "--number") _number "Number of exprs to produce. This is overriden by --exhaustive. Default 1"
     (set! number (string->number _number))]
   ["--var-odds" _chance "Odds of a terminal producing a variable [0, 1]"
     (if (<= 0.0 (string->number _chance) 1.0)
@@ -271,12 +284,12 @@
       (error 'main "--var-odds must be between 0 and 1, inclusive: ~a" _chance))]
   ["--unique-vars" "If this flag is set to #t, every variable will be unique"
     (unique-vars #t)]
-  ["--full-set" "If this flag is set to #t, this program will output a test for every operator, precision, and rounding mode combination"
-    (full-set #t)]
+  ["--exhaustive" "If this flag is set to #t, this program will output a test for every operator, precision, and rounding mode combination"
+    (exhaustive #t)]
   #:args ()
   (parameterize ([pretty-print-columns 160])
     ;(define ops (append (remove* '(cast and or not) operators) '(if)))
-    (define ops '(while + - >))
+    (define ops '(while + - * / < >))
     (define consts '(E LOG2E LOG10E LN2 LN10 PI PI_2 PI_4 M_1_PI M_2_PI M_2_SQRTPI SQRT2 SQRT1_2))
     ; (define precs '(binary80 binary64 binary32))
     ; (define rnd-modes '(nearestEven toPositive toNegative toZero))
@@ -286,7 +299,7 @@
     (when (not (terminal-port? (current-output-port)))
       (fprintf (current-output-port) ";; -*- mode: scheme -*-\n")
       (fprintf (current-output-port) ";; Count: ~a\n\n" number))
-    (if (full-set)
+    (if (exhaustive)
         (gen-expr-set ops precs rnd-modes consts depth)
         (gen-random-expr ops precs rnd-modes consts depth number)))))
     

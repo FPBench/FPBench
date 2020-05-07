@@ -68,34 +68,66 @@
     (let ([v (take (drop l used) c)])
       (values (list* (filter-not (curry equal? 'term) v) svars) (+ used c)))))
 
-(define (assign-vars expr free [let-assign? #f])
+(define (assign-vars expr free [first-pass? #f])
   (define varc (length free))
   (let inner ([subexpr expr] [free free])
    (match subexpr
-    [`(while ([,vars ,vals] ...) ,body) subexpr]
-    [`(let ([,vars ,vals] ...) ,body)
-     (if let-assign?
+    [`(while ,cond ([,vars ,vals ,updates] ...) ,body)
+     (if first-pass?
        (begin                                                                             ; first pass
-         (set! let-assign? #f)
-        `(let (,@(map (λ (x y) (list x (inner y '()))) vars vals)) ,(inner body free)))     
+         (set! first-pass? #f)
+        `(while ,(inner cond (remove-duplicates (random-vars vars (add1 (random 0 (max-unbound-in-expr cond))))))
+                ,(for/list ([var vars] [val vals] [update updates]) 
+                    (list var val (inner update (random-vars vars (add1 (random 0 (max-unbound-in-expr update)))))))
+                ,(inner body free)))     
+       (let* ([args (list* body cond (append vals updates))]                              ; later pass
+              [distr (for/list ([arg args]) (max-unbound-in-expr arg))]               
+              [total (foldl + 0 distr)]
+              [svars (distribute-vars free distr total)])
+         `(while ,(inner cond (second svars)) 
+                 ,(for/list ([var vars] [val vals] [update updates] [i (in-naturals)])
+                      (list var (inner val (list-ref svars (+ 2 i))) (inner update (list-ref svars (+ 2 (length vals) i)))))      
+                 ,(inner body (first svars)))))]
+    [`(while* ,cond ([,vars ,vals ,updates] ...) ,body)
+     (if first-pass?
+       (begin                                                                             ; first pass
+         (set! first-pass? #f)
+        `(while* ,(inner cond (remove-duplicates (random-vars vars (add1 (random 0 (max-unbound-in-expr cond))))))
+                 ,(for/list ([var vars] [val vals] [update updates] [i (in-naturals)])
+                    (list var (inner val (random-vars (take vars i) (random 0 (add1 (max-unbound-in-expr val)))))
+                          (inner update (random-vars vars (add1 (random 0 (max-unbound-in-expr update)))))))
+                 ,(inner body free)))        
+       (let* ([args (list* body cond (append vals updates))]                              ; later pass
+              [distr (for/list ([arg args]) (max-unbound-in-expr arg))]               
+              [total (foldl + 0 distr)]
+              [svars (distribute-vars free distr total)])
+         `(while* ,(inner cond (second svars)) 
+                  ,(for/list ([var vars] [val vals] [update updates] [i (in-naturals)])
+                      (list var (inner val (list-ref svars (+ 2 i))) (inner update (list-ref svars (+ 2 (length vals) i)))))      
+                  ,(inner body (first svars)))))]
+    [`(let ([,vars ,vals] ...) ,body)
+     (if first-pass?
+       (begin                                                                             ; first pass
+         (set! first-pass? #f)
+        `(let (,@(map list vars vals)) ,(inner body free)))     
        (let* ([args (list* body vals)]                                                    ; later pass
               [distr (for/list ([arg args]) (max-unbound-in-expr arg))]               
               [total (foldl + 0 distr)]
               [svars (distribute-vars free distr total)])
-         `(let (,@(map (λ (x y vs) (list x (inner y vs))) vars vals (drop svars 1)))
+         `(let (,@(map (λ (x y v) (list x (inner y v))) vars vals (drop svars 1)))
               ,(inner body (first svars)))))]
     [`(let* ([,vars ,vals] ...) ,body)
-     (if let-assign?
+     (if first-pass?
        (begin                                                                             ; first pass
-         (set! let-assign? #f)
+         (set! first-pass? #f)
         `(let* ,(for/list ([i (in-naturals)] [var vars] [val vals])
-                    (list var (inner val (random-vars (take free i) (random 0 (add1 (max-unbound-in-expr val)))))))
+                    (list var (inner val (random-vars (take vars i) (random 0 (add1 (max-unbound-in-expr val)))))))
                ,(inner body (random-vars free (random 0 (add1 (length free)))))))
        (let* ([args (list* body vals)]                                                    ; later pass
               [distr (for/list ([arg args]) (max-unbound-in-expr arg))]               
               [total (foldl + 0 distr)]
               [svars (distribute-vars free distr total)])
-         `(let* (,@(map (λ (x y vs) (list x (inner y vs))) vars vals (drop svars 1)))
+         `(let* (,@(map (λ (x y v) (list x (inner y v))) vars vals (drop svars 1)))
                ,(inner body (first svars)))))]
     [`(if ,cond ,ift, iff)
      (let* ([args (list cond ift iff)]
@@ -112,8 +144,10 @@
 (define (assign-consts expr consts prec)
   (let inner ([subexpr expr])
    (match subexpr
-    [`(while ([,vars ,vals] ...) ,body) `(while (,@(map (λ (x y) (list x (inner y))) vars vals)) ,(inner body))]
-    [`(while* ([,vars ,vals] ...) ,body) `(while* (,@(map (λ (x y) (list x (inner y))) vars vals)) ,(inner body))]
+    [`(while ,cond ([,vars ,vals ,updates] ...) ,body) 
+      `(while ,(inner cond) (,@(map (λ (x y z) (list x (inner y) (inner z))) vars vals updates)) ,(inner body))]
+    [`(while* ,cond ([,vars ,vals ,updates] ...) ,body) 
+      `(while* ,(inner cond) (,@(map (λ (x y z) (list x (inner y) (inner z))) vars vals updates)) ,(inner body))]
     [`(let ([,vars ,vals] ...) ,body) `(let (,@(map (λ (x y) (list x (inner y))) vars vals)) ,(inner body))]
     [`(let* ([,vars ,vals] ...) ,body) `(let* (,@(map (λ (x y) (list x (inner y))) vars vals)) ,(inner body))]
     [`(if ,cond ,ift, iff) `(if ,(inner cond) ,(inner ift) ,(inner iff))]
@@ -237,11 +271,12 @@
             (assign-vars `(,op ,(for/list ([var vars]) (list var (gen-rand-layer ops (random 0 depth)))) ,body) (random-vars vars free-count) #t))]
         [(or 'while 'while*)
           (let* ([body (gen-rand-layer ops (sub1 depth))]
+                 [cond (gen-rand-cond (filter (curryr member? bool-ops) ops) (thunk (gen-rand-layer ops 0)))]
                  [free-count (add1 (random 0 (max-unbound-in-expr body)))] ; number terminals to be assigned as variables
-                 [vars (gensyms (if (zero? free-count) free-count (add1 (random 0 free-count))))]  ; number of unique variables
-                 [cond (gen-rand-cond (filter (curryr member? bool-ops) ops) (thunk (gen-rand-layer ops 0)))])
+                 [var-count (if (zero? free-count) free-count (add1 (random 0 free-count)))] ; number of unique variables
+                 [vars (gensyms var-count)])
             (assign-vars
-              `(,op ,cond ,(for/list ([var vars]) (list var (gen-rand-layer ops 1) (gen-rand-layer ops (random 0 depth)))) ,body)
+              `(,op ,cond ,(for/list ([var vars]) (list var (gen-rand-layer ops (random 0 depth)) (gen-rand-layer ops (random 0 depth)))) ,body)
               (random-vars vars free-count) #t))]
       ))]
     [else 'term]))
@@ -288,11 +323,10 @@
     (exhaustive #t)]
   #:args ()
   (parameterize ([pretty-print-columns 160])
-    ;(define ops (append (remove* '(cast and or not) operators) '(if)))
-    (define ops '(while + - * / < >))
+    (define ops (append (remove* '(cast and or not) operators) '(if let let* while while*)))
     (define consts '(E LOG2E LOG10E LN2 LN10 PI PI_2 PI_4 M_1_PI M_2_PI M_2_SQRTPI SQRT2 SQRT1_2))
-    ; (define precs '(binary80 binary64 binary32))
-    ; (define rnd-modes '(nearestEven toPositive toNegative toZero))
+    (define precs '(binary80 binary64 binary32))
+    (define rnd-modes '(nearestEven toPositive toNegative toZero))
     (define precs '(binary64))
     (define rnd-modes '(nearestEven))
 

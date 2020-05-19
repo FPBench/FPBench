@@ -74,12 +74,16 @@
 
 (define (function->c name args arg-props body return ctx vars)
   (define type (type->c (ctx-lookup-prop ctx ':precision 'binary64)))
-  (format "~a ~a(~a) {\n~a\treturn ~a;\n}\n"
-          type name
-          (string-join
-           (map (λ (arg) (format "~a ~a" type arg)) args)
-           ", ")
-          body return))
+  (define rnd-mode (ctx-lookup-prop ctx ':round ''nearestEven))
+  (define-values (_ ret-var) (ctx-random-name ctx))
+  (if (equal? rnd-mode 'nearestEven) ; if not 'nearestEven, set round mode, then restore the original mode
+      (format "~a ~a(~a) {\n~a\treturn ~a;\n}\n"
+              type name (string-join (map (λ (arg) (format "~a ~a" type arg)) args) ", ")
+              body return)
+      (format "~a ~a(~a) {\n~a~a\t~a ~a = ~a;\n~a\treturn ~a;\n}\n"    
+              type name (string-join (map (λ (arg) (format "~a ~a" type arg)) args) ", ")
+              (round-mode->c rnd-mode "\t") body type ret-var return        
+              (round-mode->c 'nearestEven "\t") ret-var)))
 
 (define c-language (language (const "c") operator->c constant->c declaration->c assignment->c
                              round->c round-mode->c function->c))

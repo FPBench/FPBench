@@ -40,7 +40,7 @@
       (set! unused (remove name unused))
       name)))
 
-; Returns every combinations of terminals given a list of unique variables, the number of variable terminals, and the 
+; Returns every combination of terminals given a list of unique variables, the number of variable terminals, and the 
 ; number of total terminals
 (define (terminal-combinations vars var-terms total-terms)
   (define vars* (flatten (for/list ([i vars]) (make-list (add1 (- var-terms (length vars))) i))))
@@ -92,7 +92,7 @@
             [distr (for/list ([arg args]) (max-unbound-in-expr arg))]               
             [total (foldl + 0 distr)]
             [svars (distribute-vars free distr total)])
-       `(while ,(inner cond (second svars)) 
+       `(,op ,(inner cond (second svars)) 
                ,(for/list ([var vars] [val vals] [update updates] [i (in-naturals)])
                   (list var (inner val (list-ref svars (+ 2 i))) (inner update (list-ref svars (+ 2 (length vals) i)))))      
                ,(inner body (first svars))))]
@@ -117,12 +117,9 @@
 (define (assign-consts expr consts prec)
   (let inner ([subexpr expr])
    (match subexpr
-    [`(while ,cond ([,vars ,vals ,updates] ...) ,body) 
-      `(while ,(inner cond) (,@(map (λ (x y z) (list x (inner y) (inner z))) vars vals updates)) ,(inner body))]
-    [`(while* ,cond ([,vars ,vals ,updates] ...) ,body) 
-      `(while* ,(inner cond) (,@(map (λ (x y z) (list x (inner y) (inner z))) vars vals updates)) ,(inner body))]
-    [`(let ([,vars ,vals] ...) ,body) `(let (,@(map (λ (x y) (list x (inner y))) vars vals)) ,(inner body))]
-    [`(let* ([,vars ,vals] ...) ,body) `(let* (,@(map (λ (x y) (list x (inner y))) vars vals)) ,(inner body))]
+    [`(,op ,cond ([,vars ,vals ,updates] ...) ,body) 
+      `(,op ,(inner cond) (,@(map (λ (x y z) (list x (inner y) (inner z))) vars vals updates)) ,(inner body))]
+    [`(,op ([,vars ,vals] ...) ,body) `(,op (,@(map (λ (x y) (list x (inner y))) vars vals)) ,(inner body))]
     [`(if ,cond ,ift, iff) `(if ,(inner cond) ,(inner ift) ,(inner iff))]
     [`(,(? operator? op) ,args ...) `(,op ,@(map inner args))] 
     ['term (if (exhaustive)
@@ -139,7 +136,7 @@
                       (from-list (if allow-zero? (build-list (add1 max-vars) identity) (build-list max-vars add1)) exhaustive?))]                                           
       [var-count (if (unique-vars) (list free-count)                                      ; for 0 or [1, free-count] unique variables
                      (from-list (if (zero? free-count) (list 0) (build-list free-count add1)) exhaustive?))]
-      [terminals (if exhaustive? (terminal-combinations (take vars* var-count) free-count max-vars)
+      [terminals (if exhaustive? (remove-duplicates (terminal-combinations (take vars* var-count) free-count max-vars))
                                  (list (random-terminals (take vars* var-count) max-vars)))])
         (values (const-proc (assign-vars expr terminals)) (take vars* var-count))))
 
@@ -254,7 +251,7 @@
     (gensym-count 1)
     (let-values ([(exprs* args*) (assign-terminals expr (curryr assign-consts consts prec) 'arg exhaustive?)])
       (for ([expr* exprs*] [args args*])
-        (let* ([props `(,(format ":prec ~a" prec) ,(format ":round ~a" (rand-from-list rnd-modes)))]
+        (let* ([props `(,(format ":precision ~a" prec) ,(format ":round ~a" (rand-from-list rnd-modes)))]
                [name-props (if (> depth 3) (list* (format ":name \"Random ~a\"" i) props) props)]) 
           (set! i (add1 i))
           (pretty-display `(,(format "FPCore ~a" args) ,@name-props ,expr*) (current-output-port))

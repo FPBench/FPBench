@@ -90,7 +90,7 @@
             (printf "~a~a\n" indent 
                 (convert-declaration cx name (convert-expr val #:ctx ctx #:indent indent)))
             cx)))
-      (displayln (use-vars (for/list ([var vars]) (ctx-lookup-name ctx* var)) indent))
+      (printf "~a" (use-vars (for/list ([var vars]) (ctx-lookup-name ctx* var)) indent))
       (convert-expr body #:ctx ctx* #:indent indent)]
 
     [`(let* ([,vars ,vals] ...) ,body)
@@ -100,7 +100,7 @@
             (printf "~a~a\n" indent
                  (convert-declaration cx name (convert-expr val #:ctx ctx* #:indent indent)))
             cx)))
-      (displayln (use-vars (for/list ([var vars]) (ctx-lookup-name ctx* var)) indent))
+      (printf "~a" (use-vars (for/list ([var vars]) (ctx-lookup-name ctx* var)) indent))
       (convert-expr body #:ctx ctx* #:indent indent)]
 
     [`(if ,cond ,ift ,iff)
@@ -133,7 +133,7 @@
         (let-values ([(cx name) (ctx-random-name ctx)])
             (set! ctx cx)
             name))
-      (displayln (use-vars vars* indent))
+      (printf "~a" (use-vars vars* indent))
       (printf "~a~a\n" indent
           (convert-declaration
               (ctx-update-props ctx '(:precision boolean))
@@ -149,7 +149,7 @@
             (printf "~a\t~a\n" indent
                 (convert-declaration cx name (convert-expr update #:ctx ctx* #:indent indent*)))
           (values cx (flatten (cons vars** name))))))
-      (displayln (use-vars vars** indent*))
+      (printf "~a" (use-vars vars** indent*))
       (for ([var* vars*] [var** vars**])
           (printf "~a\t~a\n" indent (convert-assignment var* var**)))
       (printf "~a\t~a\n" indent
@@ -169,7 +169,7 @@
         (let-values ([(cx name) (ctx-random-name ctx)])
             (set! ctx cx)
             name))
-      (displayln (use-vars vars* indent))
+      (printf "~a" (use-vars vars* indent))
       (printf "~a~a\n" indent
           (convert-declaration
               (ctx-update-props ctx '(:precision boolean))
@@ -191,7 +191,7 @@
     [`(cast ,body) (round-expr (convert-expr body #:ctx ctx #:indent indent) ctx)]
 
     [`(! ,props ... ,body)
-      (define curr-round (ctx-lookup-prop ctx ':round 'binary64))
+      (define curr-round (ctx-lookup-prop ctx ':round 'nearestEven))
       (define new-round (dict-ref (apply hash-set* #hash() props) ':round curr-round))
       (if (and (equal? ((language-name (*lang*))) "c") (not (equal? curr-round new-round)))  ; Only C needs to emit a temporary variable
         (let-values ([(ctx* tmp-var) (ctx-random-name ctx)])

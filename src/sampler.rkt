@@ -2,7 +2,8 @@
 
 (require math/flonum racket/extflonum) 
 (require "../src/fpcore.rkt" "../src/range-analysis.rkt")
-(provide sample-float sample-by-rejection sample-random sample-tries)
+(provide sample-float sample-by-rejection sample-random sample-tries
+         float->ordinal ordinal->float)
 
 (module+ test
   (require rackunit))

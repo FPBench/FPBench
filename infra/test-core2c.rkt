@@ -1,7 +1,7 @@
 #lang racket
 
 (require math/flonum racket/extflonum math/bigfloat)
-(require "test-common.rkt" "../src/core2c.rkt")
+(require "test-common.rkt" "../src/core2c.rkt" "../src/sampler.rkt")
 
 (define (compile->c prog ctx type test-file)
   (call-with-output-file test-file #:exists 'replace
@@ -63,7 +63,10 @@
     [else
       (or (= a b)
           (and (nan? a) (nan? b))
-          (and (double-flonum? a) (double-flonum? b) (<= (abs (flonums-between a b)) ulps)))]))
+          (and (single-flonum? a)
+               (parameterize ([bf-precision 24])
+                 (<= (abs (- (float->ordinal a 'binary32) (float->ordinal b 'binary32))) ulps)))
+          (and (double-flonum? a) (<= (abs (flonums-between a b)) ulps)))]))
           
 (define (c-format-args var val type)
   (format "~a = ~a" var val))

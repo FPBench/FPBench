@@ -325,32 +325,36 @@
     [(single-flonum? arg) (parameterize ([bf-precision 24]) (bf arg))]
     [else                 (bf arg)]))
 
+(define (bf->float x bits)
+  (define real->fl
+    (match bits
+      [64 real->extfl]
+      [53 real->double-flonum]
+      [24 real->single-flonum]))
+  (define x*      ;; validate x > max or x < min for certain rounding modes
+   (parameterize ([bf-precision bits])
+    (define w (match bits [64 15] [53 11] [24 8]))
+    (define max (bf* (bf 1 (sub1 (expt 2 (sub1 w)))) (bf- 2.bf (bf 1 (- (sub1 bits))))))
+    (define min (bf* (bf 1 (- 2 (expt 2 (sub1 w)))) (bf 1 (- (sub1 bits)))))
+    (cond
+      [(or (bf= x +inf.bf) (bf= x -inf.bf) (bf= x +nan.bf)) x]
+      [(and (bf> x max) (or (equal? (bf-rounding-mode) 'down) (equal? (bf-rounding-mode) 'zero))) max]
+      [(and (bf> x 0.bf) (bf< x min) (equal? (bf-rounding-mode) 'up)) min]
+      [(and (bf< x 0.bf) (bf> x (bf- min)) (equal? (bf-rounding-mode) 'down)) (bf- min)]
+      [(and (bf< x (bf- max)) (or (equal? (bf-rounding-mode) 'up) (equal? (bf-rounding-mode) 'zero))) (bf- max)]
+      [else x])))
+  (real->fl (bigfloat->real x*)))
+  
 (define (compute-with-bf fn)
-  (lambda (arg)
-    (let ([bf->float 
-            (match (bf-precision)
-              [64 (compose real->extfl bigfloat->real)]
-              [53 (compose real->double-flonum bigfloat->real)]
-              [24 (compose real->single-flonum bigfloat->real)])])
-      (bf->float (fn (fl->bf arg))))))
+  (lambda (arg) (bf->float (fn (fl->bf arg)) (bf-precision))))
 
 (define (compute-with-bf-2 fn)
-  (lambda (arg1 arg2)
-    (let ([bf->float 
-            (match (bf-precision)
-              [64 (compose real->extfl bigfloat->real)]
-              [53 (compose real->double-flonum bigfloat->real)]
-              [24 (compose real->single-flonum bigfloat->real)])])
-        (bf->float (fn (fl->bf arg1) (fl->bf arg2))))))
+  (lambda (arg1 arg2) (bf->float (fn (fl->bf arg1) (fl->bf arg2)) (bf-precision))))
 
-(define (compute-with-bf-fma arg1 arg2 arg3)
-  (let ([bf->float 
-            (match (bf-precision)
-              [64 (compose real->extfl bigfloat->real)]
-              [53 (compose real->double-flonum bigfloat->real)]
-              [24 (compose real->single-flonum bigfloat->real)])])
+(define (compute-with-bf-fma arg1 arg2 arg3)   
+  (let ([old-prec (bf-precision)])
     (parameterize ([bf-precision (+ (* (bf-precision) 2) 1)])
-      (bf->float (bf+ (bf* (fl->bf arg1) (fl->bf arg2)) (fl->bf arg3))))))
+      (bf->float (bf+ (bf* (fl->bf arg1) (fl->bf arg2)) (fl->bf arg3)) old-prec))))
 
 (define (my!= #:cmp [cmp =] . args) (not (check-duplicates args cmp)))
 (define (my= #:cmp [cmp =] . args)
@@ -400,18 +404,31 @@
     [atan (compute-with-bf bfatan)] [atan2 (compute-with-bf-2 bfatan2)]
     [ceil (compute-with-bf bfceiling)] [floor (compute-with-bf bffloor)] 
     [trunc (λ (x) (if (< 0 x -1) -0.0 ((compute-with-bf bftruncate) x)))]
-    [fmax max] [fmin min]
     [< <] [> >] [<= <=] [>= >=] [== my=] [!= my!=]
     [and (λ (x y) (and x y))] [or (λ (x y) (or x y))] [not not]
     [isnan nan?] [isinf infinite?]
-    [nearbyint round]
+    [nearbyint 
+      (match (bf-rounding-mode)
+        ['nearest round]
+        ['up      ceiling]
+        ['down    floor]
+        ['zero    truncate])]
     [cast identity]
 
     ;; emulate behavior
+    [fmax (λ (x y)
+           (cond [(nan? x) y]
+                 [(nan? y) x] 
+                 [(max x y)]))]
+    [fmin (λ (x y)
+           (cond [(nan? x) y]
+                 [(nan? y) x] 
+                 [(min x y)]))]
+    [fdim (λ (x y)
+           (cond [(or (nan? x) (nan? y)) +nan.0]
+                 [(> x y) ((compute-with-bf-2 bf-) x y)]
+                 [else 0.0]))]
     [isfinite (λ (x) (not (or (nan? x) (infinite? x))))]
-    [fdim (λ (x y) (if (> x y)
-                       (- x y)
-                       +0.0))]
     [signbit (λ (x) (= (bigfloat-signbit (bf x)) 1))]
     [copysign (λ (x y) (if (= (bigfloat-signbit (bf y)) 1)
                            (- (abs x))
@@ -518,8 +535,6 @@
     [atan (compute-with-bf bfatan)] [atan2 (compute-with-bf-2 bfatan2)]
     [ceil (compute-with-bf bfceiling)] [floor (compute-with-bf bffloor)] 
     [trunc (compute-with-bf bftruncate)]
-    [fmax (λ (x y) (if (extfl-nan? x) y (if (extfl-nan? y) x (extflmax x y))))]
-    [fmin (λ (x y) (if (extfl-nan? x) y (if (extfl-nan? y) x (extflmin x y))))]
     [<  (λ (x y . rest) (extfl-cmp extfl< x y rest))]
     [>  (λ (x y . rest) (extfl-cmp extfl> x y rest))]
     [<= (λ (x y . rest) (extfl-cmp extfl<= x y rest))]
@@ -528,14 +543,30 @@
     [!= (λ (x y . rest) (extfl-cmp (compose not extfl=) x y rest))]
     [and (λ (x y) (and x y))] [or (λ (x y) (or x y))] [not not]
     [isnan extfl-nan?] [isinf extfl-inf?]
-    [nearbyint (λ (x) (if (extfl-nan? x) +nan.t (extflround x)))]
     [cast identity]
 
     ;; emulate behavior
     [isfinite (λ (x) (not (or (extfl-nan? x) (extfl-inf? x))))]
-    [fdim (λ (x y) (if (or (extfl-nan? x) (extfl-nan? y)) +nan.t (if (extfl> x y) ((compute-with-bf-2 bf-) x y) 0.0t0)))]
+    [fmax (λ (x y)
+           (cond [(equal? x +nan.t) y]
+                 [(equal? y +nan.t) x] 
+                 [(extflmax x y)]))]
+    [fmin (λ (x y)
+           (cond [(equal? x +nan.t) y]
+                 [(equal? y +nan.t) x] 
+                 [(extflmin x y)]))]
+    [fdim (λ (x y)
+           (cond [(or (equal? x +nan.t) (equal? y +nan.t)) +nan.t]
+                 [(extfl> x y) ((compute-with-bf-2 bf-) x y)]
+                 [else    0.0t0]))]
     [signbit extfl-signbit]
     [copysign (λ (x y) (if (extfl-signbit y) (extfl* (extflabs x) -1.0t0) (extflabs x)))]
+    [nearbyint 
+      (match (bf-rounding-mode)
+        ['nearest extflround]
+        ['up      extflceiling]
+        ['down    extflfloor]
+        ['zero    extfltruncate])]
 
     [cbrt (compute-with-bf bfcbrt)]
     [exp2 (compute-with-bf bfexp2)]
@@ -601,7 +632,8 @@
          (cons var* (string->float arg (dict-ref var-props ':precision base-precision)))]
         [(? symbol?)
          (cons var (string->float arg base-precision))])))
-  (define evaltor (match base-precision
+  (define evaltor 
+   (match base-precision
     ['binary80 racket-binary80-evaluator]
     ['binary64 racket-double-evaluator]
     ['binary32 racket-single-evaluator]

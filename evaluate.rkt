@@ -30,9 +30,8 @@
          (open-output-file (*out-file*) #:mode 'text #:exists 'truncate)))
 
    (port-count-lines! input-port)
-   (let ([vals (map string->number args)])
-     (for ([prog (in-port (curry read-fpcore input-port-name) input-port)])
-       (fprintf output-port "~a\n" (racket-run-fpcore prog vals))))))
+   (for ([prog (in-port (curry read-fpcore input-port-name) input-port)])
+     (fprintf output-port "~a\n" (racket-run-fpcore prog args)))))
 
 (module+ main
   (evaluate-main (current-command-line-arguments) (current-input-port) (current-output-port)))

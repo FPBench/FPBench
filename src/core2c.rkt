@@ -39,11 +39,11 @@
   (define type (type->c prec))
   (match expr
     [(or 'M_1_PI 'M_2_PI 'M_2_SQRTPI 'TRUE 'FALSE 'INFINITY 'NAN)
-     (format "((~a) ~a)" type expr)]
-    [(? hex?) (format "~a" expr)]
+      (format "((~a) ~a)" type expr)]
+    [(? hex?) (~a expr)]
     [(? number?)
       (match prec
-        ['integer   (format "~a" (inexact->exact expr))]
+        ['integer   (~a (inexact->exact expr))]
         ['binary80  (parameterize ([bf-precision 64]) 
                         (format "~a~a" (bigfloat->string (bf expr)) (type->c-suffix type)))]
         [_          (format "~a~a" (real->double-flonum expr) (type->c-suffix type))])]

@@ -304,12 +304,15 @@
     (error 'eval-expr "Unimplemented operation ~a"
            unsupported-value)]))
 
+;; float <==> bigfloat, TODO: separate location
+
 (define (extfl->real x)
   (cond
     [(equal? x +inf.t)  +inf.0] 
     [(equal? x -inf.t)  -inf.0]
     [(equal? x +nan.t)  +nan.0] 
     [(equal? x -nan.t)  -nan.0]
+    [(equal? x -0.0t0)  -0.bf]
     [else (extfl->exact x)])) 
 
 (define/match (prec->bf-bits prec)
@@ -318,14 +321,14 @@
   [('binary32)  24]
   [('integer)   128]) ; compute at high precision, then round
 
-(define (fl->bf arg)
+(define (fl->bf arg [override? #f]) ; override converts to bf at current precision rather than the precision of arg
   (cond
-    [(extflonum? arg)     (parameterize ([bf-precision 64]) (if (equal? arg -0.0t0) -0.bf (bf (extfl->real arg))))]
+    [override?            (bf (if (extflonum? arg) (extfl->real arg) arg))]
+    [(extflonum? arg)     (parameterize ([bf-precision 64]) (bf (extfl->real arg)))]
     [(double-flonum? arg) (parameterize ([bf-precision 53]) (bf arg))]
-    [(single-flonum? arg) (parameterize ([bf-precision 24]) (bf arg))]
-    [else                 (bf arg)]))
+    [(single-flonum? arg) (parameterize ([bf-precision 24]) (bf arg))]))
 
-(define (bf->float x bits)
+(define (bf->fl x [bits (bf-precision)])
   (define real->fl
     (match bits
       [64 real->extfl]
@@ -337,24 +340,53 @@
     (define max (bf* (bf 1 (sub1 (expt 2 (sub1 w)))) (bf- 2.bf (bf 1 (- (sub1 bits))))))
     (define min (bf* (bf 1 (- 2 (expt 2 (sub1 w)))) (bf 1 (- (sub1 bits)))))
     (cond
-      [(or (bf= x +inf.bf) (bf= x -inf.bf) (bf= x +nan.bf)) x]
+      [(or (bfinfinite? x) (bfnan? x)) x]
       [(and (bf> x max) (or (equal? (bf-rounding-mode) 'down) (equal? (bf-rounding-mode) 'zero))) max]
       [(and (bf> x 0.bf) (bf< x min) (equal? (bf-rounding-mode) 'up)) min]
       [(and (bf< x 0.bf) (bf> x (bf- min)) (equal? (bf-rounding-mode) 'down)) (bf- min)]
       [(and (bf< x (bf- max)) (or (equal? (bf-rounding-mode) 'up) (equal? (bf-rounding-mode) 'zero))) (bf- max)]
       [else x])))
   (real->fl (bigfloat->real x*)))
+
+;; float <==> bigfloat
+
+(define (constant-with-bf x)
+  (match x
+    ['NAN      +nan.0]
+    ['INFINITY +inf.0]
+    ['TRUE     #t]
+    ['FALSE    #f]
+    [_  
+     (bf->fl 
+       (fl->bf
+         ((table-fn
+            [E		2.71828182845904523540]
+            [LOG2E	1.44269504088896340740]
+            [LOG10E	0.43429448190325182765]
+            [LN2	0.69314718055994530942]
+            [LN10	2.30258509299404568402]
+            [PI		3.14159265358979323846]
+            [PI_2	1.57079632679489661923]
+            [PI_4	0.78539816339744830962]
+            [M_1_PI	0.31830988618379067154]
+            [M_2_PI	0.63661977236758134308]
+            [M_2_SQRTPI	1.12837916709551257390]
+            [SQRT2	1.41421356237309504880]
+            [SQRT1_2	0.70710678118654752440])
+          x)
+        #t))]))
   
 (define (compute-with-bf fn)
-  (lambda (arg) (bf->float (fn (fl->bf arg)) (bf-precision))))
+  (lambda (arg) 
+    (bf->fl (fn (fl->bf arg)))))
 
 (define (compute-with-bf-2 fn)
-  (lambda (arg1 arg2) (bf->float (fn (fl->bf arg1) (fl->bf arg2)) (bf-precision))))
+  (lambda (arg1 arg2) (bf->fl (fn (fl->bf arg1) (fl->bf arg2)))))
 
 (define (compute-with-bf-fma arg1 arg2 arg3)   
   (let ([old-prec (bf-precision)])
     (parameterize ([bf-precision (+ (* (bf-precision) 2) 1)])
-      (bf->float (bf+ (bf* (fl->bf arg1) (fl->bf arg2)) (fl->bf arg3)) old-prec))))
+      (bf->fl (bf+ (bf* (fl->bf arg1) (fl->bf arg2)) (fl->bf arg3)) old-prec))))
 
 (define (my!= #:cmp [cmp =] . args) (not (check-duplicates args cmp)))
 (define (my= #:cmp [cmp =] . args)
@@ -364,24 +396,8 @@
 
 (define/contract racket-double-evaluator evaluator?
   (evaluator
-   (λ (x) (if (real? x) (real->double-flonum x) (extfl->real x)))
-   (table-fn
-    [E		2.71828182845904523540]
-    [LOG2E	1.44269504088896340740]
-    [LOG10E	0.43429448190325182765]
-    [LN2	0.69314718055994530942]
-    [LN10	2.30258509299404568402]
-    [PI		3.14159265358979323846]
-    [PI_2	1.57079632679489661923]
-    [PI_4	0.78539816339744830962]
-    [M_1_PI	0.31830988618379067154]
-    [M_2_PI	0.63661977236758134308]
-    [M_2_SQRTPI	1.12837916709551257390]
-    [SQRT2	1.41421356237309504880]
-    [SQRT1_2	0.70710678118654752440]
-    [NAN	+nan.0]
-    [INFINITY	+inf.0]
-    [TRUE #t] [FALSE #f])
+   (λ (x) (if (real? x) (real->double-flonum x) (real->extfl x)))
+   constant-with-bf 
    (table-fn                      ; TODO: Bigfloat -> flonum causes -0.0 to become 0.0
     [+ (compute-with-bf-2 bf+)] 
     [- (λ (x [y #f]) (if (equal? y #f) (- x) ((compute-with-bf-2 bf-) x y)))]  ; distinguish between negation and subtraction
@@ -467,9 +483,7 @@
 
 (define/contract racket-single-evaluator evaluator?
   (struct-copy evaluator racket-double-evaluator
-               [real (λ (x) (if (real? x) (real->single-flonum x) (extfl->real x)))]
-               [constant (λ (x) (let ([v ((evaluator-constant racket-double-evaluator) x)])
-                                  (if (real? v) (real->single-flonum v) v)))]))
+               [real (λ (x) (if (real? x) (real->single-flonum x) (extfl->real x)))]))
 
 ;;; integer evaluator
 
@@ -514,7 +528,7 @@
 (define/contract racket-binary80-evaluator evaluator?
   (evaluator
    real->extfl
-   (λ (x) (let ([v ((evaluator-constant racket-double-evaluator) x)])
+   (λ (x) (let ([v ((evaluator-constant racket-double-evaluator) x)])extfl->real
             (if (real? v) (real->extfl v) v)))
    (table-fn    
     [+ (compute-with-bf-2 bf+)] 
@@ -602,18 +616,19 @@
 ;; Interpreter from command line
 
 (define (real->float x prec)
+  (define x* (if (extflonum? x) (extfl->real x) x))
   (match prec
-    ['binary80 (real->extfl x)]
-    ['binary64 (real->double-flonum x)]
-    ['binary32 (real->single-flonum x)]
-    ['integer  (inexact->exact x)]))
+    ['binary80 (real->extfl x*)]
+    ['binary64 (real->double-flonum x*)]
+    ['binary32 (real->single-flonum x*)]
+    ['integer  (inexact->exact x*)]))
 
 (define (string->float x prec)
   (match prec
     ['binary80  (parameterize ([bf-precision 64])
                   (let ([f (bf x)])
-                    (if (bf= x -0.bf) -0.0t0
-                        (real->extfl (bigfloat->real x)))))]
+                    (if (bf= f -0.bf) -0.0t0
+                        (real->extfl (bigfloat->real f)))))]
     ['binary64  (real->double-flonum (string->number x))]
     ['binary32  (real->single-flonum (string->number x))]
     ['integer   (bf->integer (bf x))]))

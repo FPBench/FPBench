@@ -63,9 +63,11 @@
     [(list 'atan2 a b)    (round->sollya (format "atan(~a / ~a)" a b) props)]
     [(list 'nearbyint a)  
         (let ([rm (round-str (dict-ref props ':round 'nearestEven))])
-          (if (equal? rm "RN")
-              (round->sollya (format "nearestint(~a)" a) props)
-              (error 'application->sollya "Unsupported rounding mode ~a for nearbyint" rm)))]
+          (match rm
+            ["RN" (round->sollya (format "nearestint(~a)" a) props)]
+            ["RU" (round->sollya (format "ceil(~a)" a) props)]
+            ["RD" (round->sollya (format "floor(~a)" a) props)]
+            ["RZ" (round->sollya (format "trunc(~a)" a) props)]))]
     [(list (or 'isnan 'isinf 'isfinite 'signbit) a)
         (format "~a(~a)" op a)]
     [(list (? operator? f) args ...)

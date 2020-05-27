@@ -143,7 +143,12 @@
                   ['integer inexact->exact])
                 result)]
               [(? extflonum? result)
-                result]
+                ((match type
+                  ['binary80 identity]
+                  ['binary64 extfl->inexact]
+                  ['binary32 (compose real->single-flonum extfl->inexact)]
+                  ['integer (compose inexact->exact extfl->inexact)])
+                result)]
               [(? complex? result)
                 (match type
                   ['binary64 +nan.0]

@@ -15,7 +15,7 @@
                (match type ['binary80 "20Lg"] ['binary64 "17g"] ['binary32 "17g"] ['integer "li"])
                (string-join (map (curry format strtox) (map add1 (range N))) ", "))))
   (define c-file (string-replace test-file ".c" ".bin"))
-  (system (format "cc ~a -lm -o ~a" test-file c-file))
+  (system (format "cc ~a -lm -frounding-math -o ~a" test-file c-file))
   c-file)
 
 (define (extfl->real x)

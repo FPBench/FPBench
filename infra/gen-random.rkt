@@ -3,6 +3,7 @@
 (require "../src/common.rkt" "../src/fpcore.rkt" "../src/sampler.rkt")
 
 (define math-const (make-parameter 0.5)) ; odds of generating a math constant
+(define random-const? (make-parameter #f))
 (define unique-vars (make-parameter #f))
 (define gensym-count (make-parameter 1))
 
@@ -15,9 +16,6 @@
 (define (member? v list)
   (for/or ([i list]) (equal? i v)))
 
-(define (clamp x low high)
-  (max low (min x high)))
-
 ; Combinations with repetition
 (define (combinationsr li k)
   (cond [(= k 0) '(())]
@@ -26,6 +24,7 @@
                  (map (lambda (x) (cons (first li) x))
                       (combinationsr li (sub1 k))))]))
 
+;; Returns a random list of variables
 (define (random-vars free count)
   (define unused free)
   (define bound 0)
@@ -66,9 +65,9 @@
     (string->symbol (format "~a~a" name (+ i start)))))
     
 ;; Generates a list of random constants. Will generate random floats in random mode
-(define (gen-consts count consts prec exhaustive?)
+(define (random-consts count consts prec exhaustive?)
   (for/list ([i (in-range count)])
-    (if exhaustive?
+    (if (random-const?)
         (rand-from-list consts) 
         (if (> (random) (math-const)) (rand-from-list consts) (sample-random prec)))))
 
@@ -121,9 +120,9 @@
     [_  subexpr])))
 
 ;; All possible expression with assigned terminals
-(define (assign-terminals expr const-proc var-name exhaustive? [allow-zero? #t])
+(define (assign-terminals expr gen-proc exhaustive? [allow-zero? #t]) ; gen-proc takes number of terminal 'names' to produce
   (define max-vars (unbound-in-expr expr))
-  (define vars* (gensyms max-vars var-name))         
+  (define vars* (gen-proc max-vars))    
   (for*/lists (exprs vars)
      ([free-count (if (unique-vars) (list max-vars)                                       ; for [0, max] or [1, max] variable terminals   
                       (from-list (if allow-zero? (build-list (add1 max-vars) identity) (build-list max-vars add1)) exhaustive?))]                                           
@@ -131,16 +130,23 @@
                      (from-list (if (zero? free-count) (list 0) (build-list free-count add1)) exhaustive?))]
       [terminals (if exhaustive? (remove-duplicates (terminal-combinations (take vars* var-count) free-count max-vars))
                                  (list (random-terminals (take vars* var-count) max-vars)))])
-        (values (assign-vars (assign-vars expr terminals) (const-proc (- max-vars var-count))) (take vars* var-count))))
+        (values (assign-vars expr terminals) (take vars* var-count))))
 
 ;; All possible expressions with assigned terminals given a set of known variables
-(define (assign-known expr vars exhaustive?)
+(define (assign-known expr vars exhaustive? [all? #f]) ; all? ensures that no terminals are left unbound
   (define max-vars (unbound-in-expr expr))
-  (for*/list ([free-count (if (unique-vars) (list max-vars) (from-list (build-list max-vars add1) exhaustive?))]
-              [vars* (if (> (length vars) free-count) (combinations vars free-count) (list vars))]
-              [terminals (if exhaustive? (remove-duplicates (terminal-combinations vars* free-count max-vars))
-                                         (list (random-terminals vars* max-vars)))])
-      (assign-vars expr terminals)))
+  (cond
+    [(zero? max-vars) (list expr)]
+    [all?
+      (for/list ([terminals (if exhaustive? (combinationsr vars max-vars) (list (random-terminals (random-vars vars max-vars) max-vars)))])
+        (assign-vars expr terminals))]
+    [else
+      (for*/list ([free-count (if (unique-vars) (list max-vars) (from-list (build-list max-vars add1) exhaustive?))]
+                  [vars* (if (> (length vars) free-count) (combinations vars free-count) (list vars))]
+                  [terminals (if exhaustive? (remove-duplicates (terminal-combinations vars* free-count max-vars))
+                                             (list (random-terminals vars* max-vars)))])
+        (assign-vars expr terminals))]))
+      
         
 ; Returns a list of integers of size count such that all values are less than depth
 ; and at least one is one less than depth.
@@ -184,6 +190,10 @@
     [(> depth 0)
       (for/fold ([exprs '()]) ([op (from-list (remove* bool-ops ops) exhaustive?)])
        (match op
+        ['-*    ; nice solution to unary minus
+         (append exprs
+          (for/list ([subexpr (gen-layer ops (sub1 depth) exhaustive?)])
+          `(- ,subexpr)))]
         [(or 'fabs 'exp 'exp2 'expm1 'log 'log10 'log2 'log1p 'sqrt 'cbrt 'sin 'cos 'tan 
              'asin 'acos 'atan 'sinh 'cosh 'tanh 'asinh 'acosh 'atanh 'erf 'erfc 'tgamma 'lgamma 
              'ceil 'floor 'trunc 'round 'nearbyint 'cast)
@@ -211,7 +221,7 @@
          (append exprs
           (for/fold ([exprs* '()])
                     ([body (gen-layer ops (sub1 depth) exhaustive?)])                                         ; for all possibe body exprs
-            (let-values ([(bodies varss) (assign-terminals body (λ (n) (make-list n 'term)) 'x exhaustive? #f)])
+            (let-values ([(bodies varss) (assign-terminals body (curryr gensyms 'x (gensym-count)) exhaustive? #f)])
               (append exprs*
                 (for/list ([body* bodies] [vars varss] #:when #t                                              ; for all possible vals combinations, see 'gen-let-vals'
                            [vals (gen-let-vals op vars (thunk (gen-layer ops (random 0 depth) exhaustive?)) exhaustive?)])                     
@@ -222,7 +232,7 @@
                      ([body (gen-layer ops (sub1 depth) exhaustive?)]                                         ; for all possibe body exprs
                       [cond (gen-cond (filter (curryr member? bool-ops) ops)                                  ; for all possible conds
                                       (thunk (gen-layer ops (sub1 depth) exhaustive?)) exhaustive?)])
-            (let*-values ([(bodies varss) (assign-terminals body (λ (n) (make-list n 'term)) 'x exhaustive? #f)])
+            (let*-values ([(bodies varss) (assign-terminals body (curryr gensyms 'x (gensym-count)) exhaustive? #f)])
               (append exprs*
                 (for/list ([body* bodies] [vars varss] #:when #t                                              ; for all possible vals combinations
                            [cond* (assign-known cond vars exhaustive?)] #:when #t
@@ -240,15 +250,20 @@
     [else (list 'term)]))
 
 ;; Top-level generator
-(define (gen-expr ops precs rnd-modes consts depth number exhaustive?)
+(define (gen-expr ops precs rnd-modes consts depth number exhaustive? prec? round?)
   (define i 1)
   (for* ([c (in-range number)]
          [expr (gen-layer ops depth exhaustive?)] [prec (from-list precs exhaustive?)] [rnd (from-list rnd-modes exhaustive?)])
-    (gensym-count 1)
-    (let-values ([(exprs* args*) (assign-terminals expr (curryr gen-consts consts prec exhaustive?) 'arg exhaustive?)])
+    (let-values ([(exprs* args*)  ; full expr list
+                    (let-values ([(exprs argss) (assign-terminals expr (curryr gensyms 'arg 1) exhaustive?)])
+                      (for/fold ([full-exprs '()] [arg-list '()] #:result (values full-exprs arg-list)) ; iterate through constant combinations
+                                ([expr* exprs] [args argss] #:when #t
+                                 [final (assign-known expr* (if exhaustive? consts (random-consts (unbound-in-expr expr*) consts prec exhaustive?)) exhaustive? #t)])
+                        (values (append full-exprs (list final)) (append arg-list (list args)))))])
       (for ([expr* exprs*] [args args*])
-        (let* ([props `(,(format ":precision ~a" prec) ,(format ":round ~a" (rand-from-list rnd-modes)))]
-               [name-props (if (> depth 3) (list* (format ":name \"Random ~a\"" i) props) props)]) 
+        (let* ([prec-prop (if prec? (list (format ":precision ~a" prec)) '())]
+               [round-prop (if round? (list (format ":round ~a" (rand-from-list rnd-modes))) '())]
+               [name-props (if (> depth 3) (append (list (format ":name \"Random ~a\"" i)) prec-prop round-prop) (append prec-prop round-prop))]) 
           (set! i (add1 i))
           (pretty-display `(,(format "FPCore ~a" args) ,@name-props ,expr*) (current-output-port))
           (newline)
@@ -259,12 +274,13 @@
   (define depth 1)
   (define number 1)
   (define exhaustive? #f)
-  (define ops (append (remove* '(and or not) operators) 
-                    '(if let let* while while*)))
-  (define consts (append (remove* '(MAXFLOAT HUGE_VAL INFINITY NAN TRUE FALSE) constants) 
-                      '(1.0 0.0 -1.0)))
+  (define ops (append '(-*) (remove* '(and or not) operators) '( if let let* while while*)))
+  (define consts (append (remove* '(MAXFLOAT HUGE_VAL INFINITY NAN TRUE FALSE) constants)))
   (define precs '(binary80 binary64 binary32))
   (define rnd-modes '(nearestEven toPositive toNegative toZero))
+  (define prec? #t)
+  (define round? #t)
+
   (command-line
     #:program "gen-random.rkt"
     #:once-each
@@ -278,27 +294,42 @@
     ["--unique-vars" "If this flag is set to #t, every variable will be unique"
       (unique-vars #t)]
     [("-e" "--exhaustive") "If this flag is set to #t, this program will output a test for every operator, precision, and rounding mode combination"
-      (set! exhaustive? #t)]
+      (set! exhaustive? #t)
+      (set! consts '(1.0))] ; simple constant list, very, very simple
 
     [("--operator") _ops "Generates expressions with the given operators. Must be a single string"
-      (set! ops (string-split _ops " "))]
+      (let ([ops* (map string->symbol (string-split _ops " "))])
+        (if (member? '- ops*)                ; unary minus is '-*' internally
+            (set! ops (append '(-*) ops*))
+            (set! ops ops*)))]
     [("--not-operator") _not-ops "Removes the given operators from the default list. Must be a single string"
-      (set! ops (remove* (map string->symbol (string-split _not-ops " ")) ops))]
+      (let ([not-ops (map string->symbol (string-split _not-ops " "))])
+        (if (member? '- not-ops)                ; unary minus is '-*' internally
+            (set! ops (remove* (append '(-*) not-ops) ops))
+            (set! ops (remove* not-ops ops))))]
 
     [("--const") _const "Generates expressions with the given constants. Must be a single string"
-      (set! consts (string-split _const " "))]
+      (set! consts (map string->symbol (string-split _const " ")))]
     [("--not-const") _not-consts "Removes the given constants from the default list. Must be a single string"
       (set! consts (remove* (map string->symbol (string-split _not-consts " ")) consts))]
-
-    [("--round") _round "Generates expressions with the given round modes. Must be a single string"
-      (set! rnd-modes (string-split _round " "))]
-    [("--not-round") _not-round "Removes the given round modes from the default list. Must be a single string"
-      (set! rnd-modes (remove* (map string->symbol (string-split _not-round " ")) rnd-modes))]
+    [("--random-const") "50% of constants are also generated from a 'random' sampler rather than from a list or the default list" ; 50% is abitrary
+      (random-const? #t)]
 
     [("--prec") _precs "Generates expressions with the given precisions. Must be a single string"
-      (set! precs (string-split _precs " "))]
+      (set! precs (map string->symbol (string-split _precs " ")))]
     [("--not-prec") _not-precs "Removes the given precisions from the default list. Must be a single string"
       (set! precs (remove* (map string->symbol (string-split _not-precs " ")) precs))]
+    [("--no-prec") "All generated expressions have no top-level rounding annotations. Not to be confused with '--not-prec'"
+      (set! prec? #f)
+      (set! precs '(binary64))] ; placeholder for loop
+
+    [("--round") _round "Generates expressions with the given round modes. Must be a single string"
+      (set! rnd-modes (map string->symbol (string-split _round " ")))]
+    [("--not-round") _not-round "Removes the given round modes from the default list. Must be a single string"
+      (set! rnd-modes (remove* (map string->symbol (string-split _not-round " ")) rnd-modes))]
+    [("--no-round") "All generated expressions have no top-level rounding annotations. Not to be confused with '--not-round'"
+      (set! round? #f)
+      (set! rnd-modes '(nearestEven))] ; placeholder for loop
 
     #:args ()
     (parameterize ([pretty-print-columns 200])
@@ -306,5 +337,5 @@
       (when (not (terminal-port? (current-output-port)))
         (fprintf (current-output-port) ";; -*- mode: scheme -*-\n")
         (fprintf (current-output-port) (if exhaustive? (format ";; Exhaustive at depth ~a\n\n" depth) (format ";; Count: ~a\n\n" number))))
-      (gen-expr ops precs rnd-modes consts depth number exhaustive?))))
+      (gen-expr ops precs rnd-modes consts depth number exhaustive? prec? round?))))
     

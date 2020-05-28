@@ -1,0 +1,351 @@
+;; -*- mode: scheme -*-
+;; Exhaustive at depth 1
+
+(FPCore (arg1 arg2 arg3 arg4) (if (< arg1 arg2) arg3 arg4))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (< arg2 arg1) arg3 arg4))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (< arg1 arg3) arg2 arg4))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (< arg3 arg1) arg2 arg4))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (< arg2 arg3) arg1 arg4))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (< arg3 arg2) arg1 arg4))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (< arg1 arg2) arg4 arg3))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (< arg2 arg1) arg4 arg3))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (< arg1 arg4) arg2 arg3))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (< arg4 arg1) arg2 arg3))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (< arg2 arg4) arg1 arg3))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (< arg4 arg2) arg1 arg3))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (< arg1 arg3) arg4 arg2))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (< arg3 arg1) arg4 arg2))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (< arg1 arg4) arg3 arg2))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (< arg4 arg1) arg3 arg2))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (< arg3 arg4) arg1 arg2))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (< arg4 arg3) arg1 arg2))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (< arg2 arg3) arg4 arg1))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (< arg3 arg2) arg4 arg1))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (< arg2 arg4) arg3 arg1))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (< arg4 arg2) arg3 arg1))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (< arg3 arg4) arg2 arg1))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (< arg4 arg3) arg2 arg1))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (> arg1 arg2) arg3 arg4))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (> arg2 arg1) arg3 arg4))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (> arg1 arg3) arg2 arg4))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (> arg3 arg1) arg2 arg4))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (> arg2 arg3) arg1 arg4))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (> arg3 arg2) arg1 arg4))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (> arg1 arg2) arg4 arg3))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (> arg2 arg1) arg4 arg3))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (> arg1 arg4) arg2 arg3))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (> arg4 arg1) arg2 arg3))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (> arg2 arg4) arg1 arg3))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (> arg4 arg2) arg1 arg3))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (> arg1 arg3) arg4 arg2))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (> arg3 arg1) arg4 arg2))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (> arg1 arg4) arg3 arg2))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (> arg4 arg1) arg3 arg2))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (> arg3 arg4) arg1 arg2))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (> arg4 arg3) arg1 arg2))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (> arg2 arg3) arg4 arg1))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (> arg3 arg2) arg4 arg1))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (> arg2 arg4) arg3 arg1))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (> arg4 arg2) arg3 arg1))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (> arg3 arg4) arg2 arg1))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (> arg4 arg3) arg2 arg1))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (<= arg1 arg2) arg3 arg4))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (<= arg2 arg1) arg3 arg4))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (<= arg1 arg3) arg2 arg4))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (<= arg3 arg1) arg2 arg4))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (<= arg2 arg3) arg1 arg4))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (<= arg3 arg2) arg1 arg4))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (<= arg1 arg2) arg4 arg3))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (<= arg2 arg1) arg4 arg3))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (<= arg1 arg4) arg2 arg3))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (<= arg4 arg1) arg2 arg3))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (<= arg2 arg4) arg1 arg3))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (<= arg4 arg2) arg1 arg3))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (<= arg1 arg3) arg4 arg2))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (<= arg3 arg1) arg4 arg2))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (<= arg1 arg4) arg3 arg2))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (<= arg4 arg1) arg3 arg2))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (<= arg3 arg4) arg1 arg2))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (<= arg4 arg3) arg1 arg2))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (<= arg2 arg3) arg4 arg1))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (<= arg3 arg2) arg4 arg1))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (<= arg2 arg4) arg3 arg1))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (<= arg4 arg2) arg3 arg1))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (<= arg3 arg4) arg2 arg1))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (<= arg4 arg3) arg2 arg1))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (>= arg1 arg2) arg3 arg4))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (>= arg2 arg1) arg3 arg4))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (>= arg1 arg3) arg2 arg4))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (>= arg3 arg1) arg2 arg4))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (>= arg2 arg3) arg1 arg4))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (>= arg3 arg2) arg1 arg4))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (>= arg1 arg2) arg4 arg3))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (>= arg2 arg1) arg4 arg3))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (>= arg1 arg4) arg2 arg3))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (>= arg4 arg1) arg2 arg3))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (>= arg2 arg4) arg1 arg3))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (>= arg4 arg2) arg1 arg3))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (>= arg1 arg3) arg4 arg2))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (>= arg3 arg1) arg4 arg2))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (>= arg1 arg4) arg3 arg2))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (>= arg4 arg1) arg3 arg2))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (>= arg3 arg4) arg1 arg2))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (>= arg4 arg3) arg1 arg2))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (>= arg2 arg3) arg4 arg1))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (>= arg3 arg2) arg4 arg1))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (>= arg2 arg4) arg3 arg1))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (>= arg4 arg2) arg3 arg1))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (>= arg3 arg4) arg2 arg1))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (>= arg4 arg3) arg2 arg1))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (== arg1 arg2) arg3 arg4))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (== arg2 arg1) arg3 arg4))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (== arg1 arg3) arg2 arg4))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (== arg3 arg1) arg2 arg4))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (== arg2 arg3) arg1 arg4))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (== arg3 arg2) arg1 arg4))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (== arg1 arg2) arg4 arg3))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (== arg2 arg1) arg4 arg3))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (== arg1 arg4) arg2 arg3))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (== arg4 arg1) arg2 arg3))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (== arg2 arg4) arg1 arg3))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (== arg4 arg2) arg1 arg3))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (== arg1 arg3) arg4 arg2))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (== arg3 arg1) arg4 arg2))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (== arg1 arg4) arg3 arg2))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (== arg4 arg1) arg3 arg2))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (== arg3 arg4) arg1 arg2))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (== arg4 arg3) arg1 arg2))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (== arg2 arg3) arg4 arg1))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (== arg3 arg2) arg4 arg1))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (== arg2 arg4) arg3 arg1))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (== arg4 arg2) arg3 arg1))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (== arg3 arg4) arg2 arg1))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (== arg4 arg3) arg2 arg1))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (!= arg1 arg2) arg3 arg4))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (!= arg2 arg1) arg3 arg4))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (!= arg1 arg3) arg2 arg4))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (!= arg3 arg1) arg2 arg4))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (!= arg2 arg3) arg1 arg4))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (!= arg3 arg2) arg1 arg4))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (!= arg1 arg2) arg4 arg3))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (!= arg2 arg1) arg4 arg3))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (!= arg1 arg4) arg2 arg3))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (!= arg4 arg1) arg2 arg3))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (!= arg2 arg4) arg1 arg3))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (!= arg4 arg2) arg1 arg3))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (!= arg1 arg3) arg4 arg2))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (!= arg3 arg1) arg4 arg2))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (!= arg1 arg4) arg3 arg2))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (!= arg4 arg1) arg3 arg2))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (!= arg3 arg4) arg1 arg2))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (!= arg4 arg3) arg1 arg2))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (!= arg2 arg3) arg4 arg1))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (!= arg3 arg2) arg4 arg1))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (!= arg2 arg4) arg3 arg1))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (!= arg4 arg2) arg3 arg1))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (!= arg3 arg4) arg2 arg1))
+
+(FPCore (arg1 arg2 arg3 arg4) (if (!= arg4 arg3) arg2 arg1))
+
+(FPCore (arg1 arg2 arg3) (if (isfinite arg1) arg2 arg3))
+
+(FPCore (arg1 arg2 arg3) (if (isfinite arg2) arg1 arg3))
+
+(FPCore (arg1 arg2 arg3) (if (isfinite arg1) arg3 arg2))
+
+(FPCore (arg1 arg2 arg3) (if (isfinite arg3) arg1 arg2))
+
+(FPCore (arg1 arg2 arg3) (if (isfinite arg2) arg3 arg1))
+
+(FPCore (arg1 arg2 arg3) (if (isfinite arg3) arg2 arg1))
+
+(FPCore (arg1 arg2 arg3) (if (isinf arg1) arg2 arg3))
+
+(FPCore (arg1 arg2 arg3) (if (isinf arg2) arg1 arg3))
+
+(FPCore (arg1 arg2 arg3) (if (isinf arg1) arg3 arg2))
+
+(FPCore (arg1 arg2 arg3) (if (isinf arg3) arg1 arg2))
+
+(FPCore (arg1 arg2 arg3) (if (isinf arg2) arg3 arg1))
+
+(FPCore (arg1 arg2 arg3) (if (isinf arg3) arg2 arg1))
+
+(FPCore (arg1 arg2 arg3) (if (isnan arg1) arg2 arg3))
+
+(FPCore (arg1 arg2 arg3) (if (isnan arg2) arg1 arg3))
+
+(FPCore (arg1 arg2 arg3) (if (isnan arg1) arg3 arg2))
+
+(FPCore (arg1 arg2 arg3) (if (isnan arg3) arg1 arg2))
+
+(FPCore (arg1 arg2 arg3) (if (isnan arg2) arg3 arg1))
+
+(FPCore (arg1 arg2 arg3) (if (isnan arg3) arg2 arg1))
+
+(FPCore (arg1 arg2 arg3) (if (isnormal arg1) arg2 arg3))
+
+(FPCore (arg1 arg2 arg3) (if (isnormal arg2) arg1 arg3))
+
+(FPCore (arg1 arg2 arg3) (if (isnormal arg1) arg3 arg2))
+
+(FPCore (arg1 arg2 arg3) (if (isnormal arg3) arg1 arg2))
+
+(FPCore (arg1 arg2 arg3) (if (isnormal arg2) arg3 arg1))
+
+(FPCore (arg1 arg2 arg3) (if (isnormal arg3) arg2 arg1))
+
+(FPCore (arg1 arg2 arg3) (if (signbit arg1) arg2 arg3))
+
+(FPCore (arg1 arg2 arg3) (if (signbit arg2) arg1 arg3))
+
+(FPCore (arg1 arg2 arg3) (if (signbit arg1) arg3 arg2))
+
+(FPCore (arg1 arg2 arg3) (if (signbit arg3) arg1 arg2))
+
+(FPCore (arg1 arg2 arg3) (if (signbit arg2) arg3 arg1))
+
+(FPCore (arg1 arg2 arg3) (if (signbit arg3) arg2 arg1))
+

@@ -101,7 +101,7 @@
     ['FALSE "false"]
     ['INFINITY (format "(_ +oo ~a ~a)" w p)]
     ['NAN (format "(_ NaN ~a ~a)" w p)]
-    [(? hex?) (error 'constant->smt "hex format unsupported")]
+    [(? hex?) (hex->racket expr)]
     [(? number?) (number->smt expr w p rm)]
     [(? symbol?) (format "~a" expr)]))
 

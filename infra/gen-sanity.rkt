@@ -110,11 +110,11 @@
     (signbit ((0.0) (1.0) (-1.0)))
     ))
 
+;;
+;; Sanity test generation
+;;
 
 (number-suite->tests sanity-numbers '() "../tests/sanity/numbers.fpcore")
 (constant-suite->tests sanity-constants '() "../tests/sanity/constants.fpcore")
 (op-suite->tests sanity-ops '() "../tests/sanity/ops.fpcore")
 (bool-op-suite->tests sanity-bool-ops '() "../tests/sanity/bool-ops.fpcore")
-
-(op-suite->arg-tests sanity-ops '() "../tests/ops.fpcore")
-(bool-op-suite->arg-tests sanity-bool-ops '() "../tests/bool-ops.fpcore")

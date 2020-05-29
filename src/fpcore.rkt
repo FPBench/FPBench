@@ -419,7 +419,7 @@
     [asin (compute-with-bf bfasin)] [acos (compute-with-bf bfacos)] 
     [atan (compute-with-bf bfatan)] [atan2 (compute-with-bf-2 bfatan2)]
     [ceil (compute-with-bf bfceiling)] [floor (compute-with-bf bffloor)] 
-    [trunc (λ (x) (if (< 0 x -1) -0.0 ((compute-with-bf bftruncate) x)))]
+    [trunc (λ (x) (if (< -1 x 0) -0.0 ((compute-with-bf bftruncate) x)))]
     [< <] [> >] [<= <=] [>= >=] [== my=] [!= my!=]
     [and (λ (x y) (and x y))] [or (λ (x y) (or x y))] [not not]
     [isnan nan?] [isinf infinite?]

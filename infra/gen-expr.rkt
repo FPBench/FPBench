@@ -1,6 +1,7 @@
 #lang racket
 
 (require "../src/common.rkt" "../src/fpcore.rkt" "../src/sampler.rkt")
+(provide gen-expr)
 
 (define math-const (make-parameter 0.5)) ; odds of generating a math constant
 (define random-const? (make-parameter #f))
@@ -185,11 +186,14 @@
         `(,cond ,subexpr)))])))
 
 ;; Layer generator
-(define (gen-layer ops depth exhaustive?)
+(define (gen-layer ops depth exhaustive? [allow-cond? #f])
   (cond
     [(> depth 0)
-      (for/fold ([exprs '()]) ([op (from-list (remove* bool-ops ops) exhaustive?)])
+      (for/fold ([exprs '()]) ([op (from-list (if allow-cond? (filter (curryr member? bool-ops) ops) (remove* bool-ops ops)) exhaustive?)])
        (match op
+        [(or '< '> '<= '>= '== '!= 'isfinite 'isinf 'isnan 'isnormal 'signbit) ; conditionals
+         (append exprs
+          (gen-cond (list op) (thunk (gen-layer ops (sub1 depth) exhaustive?)) exhaustive?))]
         ['-*    ; nice solution to unary minus
          (append exprs
           (for/list ([subexpr (gen-layer ops (sub1 depth) exhaustive?)])
@@ -250,10 +254,10 @@
     [else (list 'term)]))
 
 ;; Top-level generator
-(define (gen-expr ops precs rnd-modes consts depth number exhaustive? prec? round?)
+(define (gen-expr ops precs rnd-modes consts depth number exhaustive? prec? round? allow-cond? [out-proc expr->bare])
   (define i 1)
   (for* ([c (in-range number)]
-         [expr (gen-layer ops depth exhaustive?)] [prec (from-list precs exhaustive?)] [rnd (from-list rnd-modes exhaustive?)])
+         [expr (gen-layer ops depth exhaustive? allow-cond?)] [prec (from-list precs exhaustive?)] [rnd (from-list rnd-modes exhaustive?)])
     (let-values ([(exprs* args*)  ; full expr list
                     (let-values ([(exprs argss) (assign-terminals expr (curryr gensyms 'arg 1) exhaustive?)])
                       (for/fold ([full-exprs '()] [arg-list '()] #:result (values full-exprs arg-list)) ; iterate through constant combinations
@@ -263,23 +267,43 @@
       (for ([expr* exprs*] [args args*])
         (let* ([prec-prop (if prec? (list (format ":precision ~a" prec)) '())]
                [round-prop (if round? (list (format ":round ~a" (rand-from-list rnd-modes))) '())]
-               [name-props (if (> depth 3) (append (list (format ":name \"Random ~a\"" i)) prec-prop round-prop) (append prec-prop round-prop))]) 
+               [name (if (> depth 3) (format "\"Random ~a\"" i) "")]) 
           (set! i (add1 i))
-          (pretty-display `(,(format "FPCore ~a" args) ,@name-props ,expr*) (current-output-port))
-          (newline)
+          (out-proc expr* args name (append prec-prop round-prop))
           (gensym-count 1))))))
+
+;; Expression wrappers
+
+; No wrapper
+(define (expr->bare expr args name props)
+  (pretty-display expr (current-output-port))
+  (newline))
+
+; Normal test
+(define (expr->test expr args name props)
+  (let ([full-props (if (non-empty-string? name) (append (list (format ":name ~a" name)) props) props)])
+    (pretty-display `(,(format "FPCore ~a" args) ,@full-props ,expr) (current-output-port))
+    (newline)))
+
+; Test with 'if' statement, returning 1 on success, 0 on failure
+(define (expr->bool-test expr args name props)
+  (let ([full-props (if (non-empty-string? name) (append (list (format ":name ~a" name)) props) props)])
+    (pretty-display `(,(format "FPCore ~a" args) ,@props (if ,expr 1.0 0.0)) (current-output-port))
+    (newline)))
 
 ;;; Command line
 (module+ main
   (define depth 1)
   (define number 1)
   (define exhaustive? #f)
-  (define ops (append '(-*) (remove* '(and or not) operators) '( if let let* while while*)))
+  (define ops (append '(-*) (remove* '(and or not) operators) '(if let let* while while*)))
   (define consts (append (remove* '(MAXFLOAT HUGE_VAL INFINITY NAN TRUE FALSE) constants)))
   (define precs '(binary80 binary64 binary32))
   (define rnd-modes '(nearestEven toPositive toNegative toZero))
   (define prec? #t)
   (define round? #t)
+  (define allow-cond? #f)   ; allow conditionals at the top level
+  (define out-proc expr->test)
 
   (command-line
     #:program "gen-random.rkt"
@@ -296,6 +320,13 @@
     [("-e" "--exhaustive") "If this flag is set to #t, this program will output a test for every operator, precision, and rounding mode combination"
       (set! exhaustive? #t)
       (set! consts '(1.0))] ; simple constant list, very, very simple
+    [("-t" "--type") _type "Specifies what to wrap the expressions in. Default is 'test'. Options: 'bare', 'test' 'bool'"
+      (cond
+       [(equal? _type "bare")   (set! out-proc expr->bare)] ; no wrapper
+       [(equal? _type "test")   (set! out-proc expr->test)] ; normal FPCore
+       [(equal? _type "bool")   (set! out-proc expr->bool-test) ; if statement, generator only produces conditionals
+                                (set! allow-cond? #t)]
+       [else  (error 'gen-random "Invalid wrapper type")])]
 
     [("--operator") _ops "Generates expressions with the given operators. Must be a single string"
       (let ([ops* (map string->symbol (string-split _ops " "))])
@@ -334,8 +365,13 @@
     #:args ()
     (parameterize ([pretty-print-columns 200])
       (when exhaustive? (set! number 1)) ;; override number if exhaustive generation
+      (when (equal? out-proc expr->bare) ;; avoid redudancy when generating bare expressions
+        (set! prec? #f)
+        (set! precs '(binary64))
+        (set! round? #f)
+        (set! rnd-modes '(nearestEven)))  
       (when (not (terminal-port? (current-output-port)))
         (fprintf (current-output-port) ";; -*- mode: scheme -*-\n")
         (fprintf (current-output-port) (if exhaustive? (format ";; Exhaustive at depth ~a\n\n" depth) (format ";; Count: ~a\n\n" number))))
-      (gen-expr ops precs rnd-modes consts depth number exhaustive? prec? round?))))
+      (gen-expr ops precs rnd-modes consts depth number exhaustive? prec? round? allow-cond? out-proc))))
     

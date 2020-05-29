@@ -6,6 +6,9 @@
 
 (require "common.rkt")
 
+(provide (except-out (all-defined-out)
+                     vterm))
+
 ;; common visitor object
 
 (struct visitor
@@ -87,6 +90,9 @@
 (define-syntax-rule (visit/ctx vtor arg ctx)
   ((visitor-visit-expr vtor) vtor arg #:ctx ctx))
 
+(define-syntax-rule (reduce vtor args ...)
+  ((visitor-reduce vtor) args ...))
+
 ;; AST transformers
 
 (define (visit-if/transform visitor cond ift iff #:ctx [ctx '()])
@@ -98,11 +104,31 @@
   `(,let_ (,@(for/list ([var vars] [val vals]) (list var (visit/ctx visitor val ctx))))
           ,(visit/ctx visitor body ctx)))
 
+(define (visit-let/transform visitor vars vals body #:ctx [ctx '()])
+  `(let (,@(for/list ([var vars] [val vals]) (list var (visit/ctx visitor val ctx))))
+     ,(visit/ctx visitor body ctx)))
+
+(define (visit-let*/transform visitor vars vals body #:ctx [ctx '()])
+  `(let* (,@(for/list ([var vars] [val vals]) (list var (visit/ctx visitor val ctx))))
+     ,(visit/ctx visitor body ctx)))
+
 (define (visit-while_/transform visitor while_ cond vars inits updates body #:ctx [ctx '()])
   `(,while_ ,(visit/ctx visitor cond ctx)
             (,@(for/list ([var vars] [init inits] [update updates])
                  (list var (visit/ctx visitor init ctx) (visit/ctx visitor update ctx))))
             ,(visit/ctx visitor body ctx)))
+
+(define (visit-while/transform visitor cond vars inits updates body #:ctx [ctx '()])
+  `(while ,(visit/ctx visitor cond ctx)
+     (,@(for/list ([var vars] [init inits] [update updates])
+          (list var (visit/ctx visitor init ctx) (visit/ctx visitor update ctx))))
+     ,(visit/ctx visitor body ctx)))
+
+(define (visit-while*/transform visitor cond vars inits updates body #:ctx [ctx '()])
+  `(while* ,(visit/ctx visitor cond ctx)
+     (,@(for/list ([var vars] [init inits] [update updates])
+          (list var (visit/ctx visitor init ctx) (visit/ctx visitor update ctx))))
+     ,(visit/ctx visitor body ctx)))
 
 (define (visit-!/transform visitor props body #:ctx [ctx '()])
   `(! ,@props ,(visit/ctx visitor body ctx)))
@@ -110,7 +136,22 @@
 (define (visit-op_/transform visitor operator args #:ctx [ctx '()])
   `(,operator ,@(for/list ([arg args]) (visit/ctx visitor arg ctx))))
 
+(define (visit-cast/transform visitor body #:ctx [ctx '()])
+  `(cast ,(visit/ctx visitor body ctx)))
+
+(define (visit-op/transform visitor operator args #:ctx [ctx '()])
+  `(,operator ,@(for/list ([arg args]) (visit/ctx visitor arg ctx))))
+
 (define (visit-terminal_/transform visitor x #:ctx [ctx '()])
+  x)
+
+(define (visit-number/transform visitor x #:ctx [ctx '()])
+  x)
+
+(define (visit-constant/transform visitor x #:ctx [ctx '()])
+  x)
+
+(define (visit-symbol/transform visitor x #:ctx [ctx '()])
   x)
 
 ;; returns the AST unchanged
@@ -137,31 +178,71 @@
 ;; AST reductions
 
 (define (visit-if/reduce visitor cond ift iff #:ctx [ctx '()])
-  ((visitor-reduce visitor)
-   (list (visit/ctx visitor cond ctx)
-         (visit/ctx visitor ift ctx)
-         (visit/ctx visitor iff ctx))))
+  (reduce visitor
+          (list (visit/ctx visitor cond ctx)
+                (visit/ctx visitor ift ctx)
+                (visit/ctx visitor iff ctx))))
 
 (define (visit-let_/reduce visitor let_ vars vals body #:ctx [ctx '()])
-  ((visitor-reduce visitor)
-   (append (for/list ([val vals]) (visit/ctx visitor val ctx))
-           (list (visit/ctx visitor body ctx)))))
+  (reduce visitor
+          (append (for/list ([val vals]) (visit/ctx visitor val ctx))
+                  (list (visit/ctx visitor body ctx)))))
+
+(define (visit-let/reduce visitor vars vals body #:ctx [ctx '()])
+  (reduce visitor
+          (append (for/list ([val vals]) (visit/ctx visitor val ctx))
+                  (list (visit/ctx visitor body ctx)))))
+
+(define (visit-let*/reduce visitor vars vals body #:ctx [ctx '()])
+  (reduce visitor
+          (append (for/list ([val vals]) (visit/ctx visitor val ctx))
+                  (list (visit/ctx visitor body ctx)))))
 
 (define (visit-while_/reduce visitor while_ cond vars inits updates body #:ctx [ctx '()])
-  ((visitor-reduce visitor)
-   (append (list (visit/ctx visitor cond ctx))
-           (for/list ([init inits]) (visit/ctx visitor init ctx))
-           (for/list ([update updates]) (visit/ctx visitor update ctx))
-           (list (visit/ctx visitor body ctx)))))
+  (reduce visitor
+          (append (list (visit/ctx visitor cond ctx))
+                  (for/list ([init inits]) (visit/ctx visitor init ctx))
+                  (for/list ([update updates]) (visit/ctx visitor update ctx))
+                  (list (visit/ctx visitor body ctx)))))
+
+(define (visit-while/reduce visitor cond vars inits updates body #:ctx [ctx '()])
+  (reduce visitor
+          (append (list (visit/ctx visitor cond ctx))
+                  (for/list ([init inits]) (visit/ctx visitor init ctx))
+                  (for/list ([update updates]) (visit/ctx visitor update ctx))
+                  (list (visit/ctx visitor body ctx)))))
+
+(define (visit-while*/reduce visitor cond vars inits updates body #:ctx [ctx '()])
+  (reduce visitor
+          (append (list (visit/ctx visitor cond ctx))
+                  (for/list ([init inits]) (visit/ctx visitor init ctx))
+                  (for/list ([update updates]) (visit/ctx visitor update ctx))
+                  (list (visit/ctx visitor body ctx)))))
 
 (define (visit-!/reduce visitor props body #:ctx [ctx '()])
-  ((visitor-reduce visitor) (list (visit/ctx visitor body ctx))))
+  (reduce visitor (list (visit/ctx visitor body ctx))))
 
 (define (visit-op_/reduce visitor operator args #:ctx [ctx '()])
-  ((visitor-reduce visitor)
-   (for/list ([arg args]) (visit/ctx visitor arg ctx))))
+  (reduce visitor
+          (for/list ([arg args]) (visit/ctx visitor arg ctx))))
+
+(define (visit-cast/reduce visitor body #:ctx [ctx '()])
+  (reduce visitor (list (visit/ctx visitor body ctx))))
+
+(define (visit-op/reduce visitor operator args #:ctx [ctx '()])
+  (reduce visitor
+          (for/list ([arg args]) (visit/ctx visitor arg ctx))))
 
 (define (visit-terminal_/reduce visitor x #:ctx [ctx '()])
+  1)
+
+(define (visit-number/reduce visitor x #:ctx [ctx '()])
+  1)
+
+(define (visit-constant/reduce visitor x #:ctx [ctx '()])
+  1)
+
+(define (visit-symbol/reduce visitor x #:ctx [ctx '()])
   1)
 
 ;; counts terminals
@@ -257,46 +338,3 @@
    (for/list ([e es]) (visit default-reduce-visitor e))
    '(4 5 10 9 16))
 )
-
-
-;; canonicalizer, needs to be moved out to different file
-
-
-(define (visit-!/canon visitor props body #:ctx ctx)
-  (let*-values ([(_ properties) (parse-properties props)]
-                [(ctx*) (hash-union ctx (make-immutable-hash properties)
-                                    #:combine/key (lambda (k a b) b))])
-    (visit/ctx visitor body ctx*)))
-
-(define (canonicalize-expr expr ctx)
-  (if (hash-empty? ctx)
-      expr
-      `(! ,@(apply append (hash-map ctx (lambda (a b) (list a b)))) ,expr)))
-
-(define (visit-op/canon visitor operator args #:ctx ctx)
-  (canonicalize-expr (visit-op_/transform visitor operator args #:ctx ctx) ctx))
-
-(define (visit-const/canon visitor x #:ctx ctx)
-  (canonicalize-expr (visit-terminal_/transform visitor x #:ctx ctx) ctx))
-
-(define-transform-visitor canonicalize-visitor
-  [visit-! visit-!/canon]
-  [visit-op_ visit-op/canon]
-  [visit-number visit-const/canon]
-  [visit-constant visit-const/canon])
-
-(define/transform-expr (expr->canon expr ctx)
-  [(visit-! visitor props body #:ctx ctx)
-   (let*-values ([(_ properties) (parse-properties props)]
-                 [(ctx*) (hash-union ctx (make-immutable-hash properties)
-                                     #:combine/key (lambda (k a b) b))])
-     (visit/ctx visitor body ctx*))]
-  [(visit-op_ visitor operator args #:ctx ctx)
-   (canonicalize-expr (visit-op_/transform visitor operator args #:ctx ctx) ctx)]
-  [(visit-number visitor x #:ctx ctx)
-   (canonicalize-expr (visit-terminal_/transform visitor x #:ctx ctx) ctx)]
-  [(visit-constant visitor x #:ctx ctx)
-   (canonicalize-expr (visit-terminal_/transform visitor x #:ctx ctx) ctx)])
-
-canonicalize-visitor
-expr->canon

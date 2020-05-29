@@ -2,7 +2,8 @@
 
 (require "src/fpcore.rkt"
          "src/fpcore-extra.rkt"
-         "src/common-subexpr-elim.rkt")
+         "src/common-subexpr-elim.rkt"
+         "src/canonicalizer.rkt")
 
 (provide transform-main)
 
@@ -13,13 +14,27 @@
   (define (transform-passes)
     (reverse (unbox passes)))
 
+  (define default-to-propagate '(precision round math-library))
+  (define default-to-canonicalize '(pre spec))
+
+  (define canon-to-propagate (box default-to-propagate))
+  (define canon-to-canonicalize (box default-to-canonicalize))
+  (define (+p prop)
+    (set-box! canon-to-propagate (set-add (unbox canon-to-propagate) (string->symbol prop))))
+  (define (-p prop)
+    (set-box! canon-to-propagate (set-remove (unbox canon-to-propagate) (string->symbol prop))))
+  (define (+c prop)
+    (set-box! canon-to-canonicalize (set-add (unbox canon-to-canonicalize) (string->symbol prop))))
+  (define (-c prop)
+    (set-box! canon-to-canonicalize (set-remove (unbox canon-to-canonicalize) (string->symbol prop))))
+
   (command-line
    #:program "transform.rkt"
    #:argv argv
    #:multi
    ["--unroll" unroll_ "Unroll the first N iterations of each loop"
                (register-pass (curry fpcore-unroll-loops (string->number unroll_)) 'one-to-one)]
-   ["--skip-loops" "Replace loops with their bodies, as if the were executed zerotimes"
+   ["--skip-loops" "Replace loops with their bodies, as if the were executed zero times"
                    (register-pass fpcore-skip-loops 'one-to-one)]
    ["--precondition-ranges" "Weaken preconditions to a conjunction (one per argument) of a disjunction of ranges"
                             (register-pass (curry fpcore-precondition-ranges #:single-range #f) 'one-to-one)]
@@ -35,6 +50,35 @@
             (register-pass core-common-subexpr-elim 'one-to-one)]
    ["--subexprs" "Break an FPCore down into separate cores for each subexpression"
                  (register-pass fpcore-all-subexprs 'one-to-many)]
+   ;; all the crazy canonicalizer controls
+   [("+p" "++propagate-prop") prop_ "Propagate this property during canonicalization"
+                             (+p prop_)]
+   [("-p" "--propagate-prop") prop_ "Don't propagate this property during canonicalization"
+                             (-p prop_)]
+   [("+c" "++canonicalize-prop") prop_ "Recursively canonicalize this property during canonicalization"
+                                (+c prop_)]
+   [("-c" "--canonicalize-prop") prop_ "Don't recursively canonicalize this property during canonicalization"
+                                (-c prop_)]
+   ["--propagate-clear" "Clear the list of properties to propagate during canonicalization"
+                       (set-box! canon-to-propagate '())]
+   ["--propagate-default" "Restore the list of propertie to propagate to default: (precision round math-library)"
+                         (set-box! canon-to-propagate default-to-propagate)]
+   ["--canonicalize-clear" "Clear the list of properties to recursively canonicalize during canonicalization"
+                       (set-box! canon-to-canonicalize '())]
+   ["--canonicalize-default" "Restore the list of propertie to recursively canonicalize to default: (pre spec)"
+                            (set-box! canon-to-canonicalize default-to-canonicalize)]
+   ["--canonicalize" "Canonicalize rounding context annotations, according to previously supplied settings"
+                     (let* ([to-propagate (unbox canon-to-propagate)]
+                            [to-canonicalize (unbox canon-to-canonicalize)]
+                            [canonicalizer-pass (lambda (expr) (fpcore->canon expr
+                                                                              #:to-propagate to-propagate
+                                                                              #:to-canonicalize to-canonicalize))])
+                       (register-pass canonicalizer-pass 'one-to-one))]
+   ["--condense" "Condense rounding context annotations"
+                 (let* ([to-condense (unbox canon-to-canonicalize)]
+                        [condenser-pass (lambda (expr) (fpcore->condensed expr
+                                                                          #:to-condense to-condense))])
+                        (register-pass condenser-pass 'one-to-one))]
    #:args (in-file out-file)
 
    (define input-port

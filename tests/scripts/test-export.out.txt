@@ -1,0 +1,172 @@
+double ex0(double arg0, double arg1) {
+	return ((double) (arg0 + arg1));
+}
+
+double ex1(double arg0) {
+	return ((double) sqrt(arg0));
+}
+
+double ex2(double arg0, double arg1) {
+	double arg0_1 = arg1;
+	double arg1_2 = arg0;
+
+	return ((double) (arg0_1 - arg1_2));
+}
+
+package main
+
+import "math"
+
+// Helper function to get rid of annoying unused variable errors
+func Use(vals ...interface{}) {
+	for _, val := range vals {
+		_ = val
+	}
+}
+
+func Lgamma(x float64) float64 {
+	res, _ := math.Lgamma(x)
+	return res
+}
+
+func ex0(arg0 float64, arg1 float64) float64 {
+	return (arg0 + arg1)
+}
+
+func ex1(arg0 float64) float64 {
+	return math.Sqrt(arg0)
+}
+
+func ex2(arg0 float64, arg1 float64) float64 {
+	var arg0_1 = float64(arg1)
+	var arg1_2 = float64(arg0)
+	Use(arg0_1, arg1_2)
+
+	return (arg0_1 - arg1_2)
+}
+
+function ex0(arg0, arg1) {
+	return (arg0 + arg1);
+}
+
+function ex1(arg0) {
+	return Custom.sqrt(arg0);
+}
+
+function ex2(arg0, arg1) {
+	var arg0_1 = arg1;
+	var arg1_2 = arg0;
+
+	return (arg0_1 - arg1_2);
+}
+
+arg0 = float<ieee_64,ne>(Marg0);
+arg1 = float<ieee_64,ne>(Marg1);
+
+Mex0 = (Marg0 + Marg1);
+
+ex0 float<ieee_64,ne>= (arg0 + arg1);
+
+{ (((Marg0 >= 1) /\ (Marg0 <= 10)) /\ ((Marg1 >= 1) /\ (Marg1 <= 10))) /\ (Marg0 in [1, 10] /\ Marg1 in [1, 10])
+  -> ex0 -/ Mex0 in ? }
+
+arg0 = float<ieee_64,ne>(Marg0);
+
+Mex1 = sqrt(Marg0);
+
+ex1 float<ieee_64,ne>= sqrt(arg0);
+
+{ ((Marg0 >= 0) /\ (Marg0 <= 10)) /\ (Marg0 in [0, 10])
+  -> ex1 -/ Mex1 in ? }
+
+arg0 = float<ieee_64,ne>(Marg0);
+arg1 = float<ieee_64,ne>(Marg1);
+
+Marg01 = Marg1;
+Marg11 = Marg0;
+Mex2 = (Marg01 - Marg11);
+
+arg01 float<ieee_64,ne>= arg1;
+arg11 float<ieee_64,ne>= arg0;
+ex2 float<ieee_64,ne>= (arg01 - arg11);
+
+{ (((Marg0 >= 1) /\ (Marg0 <= 10)) /\ ((Marg1 >= 1) /\ (Marg1 <= 10))) /\ (Marg0 in [1, 10] /\ Marg1 in [1, 10])
+  -> ex2 -/ Mex2 in ? }
+
+{
+Variables
+	real arg0 in [1, 10];
+	real arg1 in [1, 10];
+
+Expressions
+	$43$ rnd64= (arg0 + arg1);
+}
+
+{
+Variables
+	real arg0 in [0, 10];
+
+Expressions
+	sqrt rnd64= sqrt(arg0);
+}
+
+{
+Variables
+	real arg0 in [1, 10];
+	real arg1 in [1, 10];
+
+Definitions
+	arg01 rnd64= arg1;
+	arg11 rnd64= arg0;
+
+Expressions
+	let rnd64= (arg01 - arg11);
+}
+
+ex0[arg0_, arg1_] := Block[{$MinPrecision=MachinePrecision, $MaxPrecision=MachinePrecision, $MaxExtraPrecision=0}, (arg0 + arg1)]
+
+ex1[arg0_] := Block[{$MinPrecision=MachinePrecision, $MaxPrecision=MachinePrecision, $MaxExtraPrecision=0}, Sqrt[arg0]]
+
+ex2[arg0_, arg1_] := Block[{$MinPrecision=MachinePrecision, $MaxPrecision=MachinePrecision, $MaxExtraPrecision=0}, With[{arg0$1 = arg1, arg1$2 = arg0}, (arg0$1 - arg1$2)]]
+
+procedure copysign(x, y) { var res; if (y < 0) then res = -abs(x) else res = abs(x); return res; };
+procedure fdim(x, y) { var res; if (x > y) then res = x - y else res = 0; return res; };
+procedure isfinite(x) { return (x == x && abs(x) != infty); };
+procedure isinf(x) { return (abs(x) == infty); };
+procedure isnan(x) { return (x != x); };
+procedure signbit(x) { return (x < 0); };
+procedure trunc(x) { var res; if (x < 0) then res = ceil(x) else res = floor(x); return res; };
+
+procedure ex0(arg0, arg1) {
+	arg0 = round(arg0, double, RN);
+	arg1 = round(arg1, double, RN);
+	round((arg0 + arg1), double, RN);
+};
+
+procedure ex1(arg0) {
+	arg0 = round(arg0, double, RN);
+	round(sqrt(arg0), double, RN);
+};
+
+procedure ex2(arg0, arg1) {
+	var arg0_1, arg1_2;
+	arg0 = round(arg0, double, RN);
+	arg1 = round(arg1, double, RN);
+	arg0_1 = arg1;
+	arg1_2 = arg0;
+
+	round((arg0_1 - arg1_2), double, RN);
+};
+
+fun ex0 (arg0 : word64) (arg1 : word64) = (Double.+ arg0 arg1) : word64;
+
+fun ex1 (arg0 : word64) = (Double.sqrt arg0) : word64;
+
+fun ex2 (arg0 : word64) (arg1 : word64) = 
+	let
+		val arg0_1 = arg1
+		val arg1_2 = arg0
+	in
+		(Double.- arg0_1 arg1_2)
+	end : word64;
+

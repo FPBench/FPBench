@@ -201,9 +201,9 @@
               (define range
                 (cond
                   [(and var-ranges (hash-has-key? var-ranges var)) (dict-ref var-ranges var)]
-                  [else (make-interval -inf.0 +inf.0)]))
+                  [else (list (make-interval -inf.0 +inf.0))]))
               (unless (= (length range) 1)
-                (error 'core->gappa "Gappa only accpets one sampling range"))
+                (error 'core->gappa "Gappa only accepts one sampling range"))
               (if (nonempty-bounded? range)
                   (format "~a in [~a, ~a]" (fix-name (dict-ref real-vars var))
                           ; Round down and up if necessary

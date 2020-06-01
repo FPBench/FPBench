@@ -132,6 +132,10 @@ else
 	$(warning skipping Go tests; unable to find Go compiler)
 endif
 
+test-tools:
+	tests/scripts/test-export.sh
+	tests/scripts/test-transform.sh
+
 test: c-test js-test go-test smtlib2-test sollya-test wls-test cml-test raco-test
 
 testsetup:

@@ -1,0 +1,9 @@
+(FPCore (arg1)
+        :name "Test while"
+        :pre (< 1 arg1 10)
+        (while* (<= a 3)
+               ([a 0.0 (+ a 1.0)]
+                [b 0.0 (+ arg1 a)])
+            (let* ([x (* b arg1)]
+                    [y (- arg1 x)])
+                (* x y))))

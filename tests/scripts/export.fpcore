@@ -1,0 +1,5 @@
+(FPCore (arg0 arg1) :name "+" :pre (and (< 1 arg0 10) (< 1 arg1 10)) (+ arg0 arg1))
+
+(FPCore (arg0) :name "sqrt" :pre (< 0 arg0 10) (sqrt arg0))
+
+(FPCore (arg0 arg1) :name "let" :pre (and (< 1 arg0 10) (< 1 arg1 10)) (let ([arg0 arg1] [arg1 arg0]) (- arg0 arg1)))

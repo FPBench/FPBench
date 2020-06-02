@@ -1,90 +1,117 @@
 #lang racket
 
-(require "common.rkt" "fpcore.rkt")
+(require "common.rkt" "fpcore.rkt" "fpcore-visitor.rkt")
 (require racket/hash)
-(provide canonicalize-core expr->canon)
+(provide fpcore->canon expr->canon fpcore->condensed expr->condensed)
 
-(define *to-canonicalize* (make-parameter '(:pre :spec)))
-(define *to-propagate* (make-parameter '(:precision :round :math-library)))
+(define (update-ctx ctx props)
+  (let-values ([(_ properties) (parse-properties props)])
+    (hash-union ctx (make-immutable-hash properties)
+                #:combine/key (lambda (k a b) b))))
 
-(define (flatten-context ctx)
-  (apply append (map (match-lambda [(cons prop val) (list prop val)]) (hash->list ctx))))
+(define (annotate expr ctx)
+  (if (hash-empty? ctx)
+      expr
+      `(! ,@(apply append (hash-map ctx list)) ,expr)))
 
-(define (update-ctx ctx updates)
-  (define new-hash (make-immutable-hash updates))
-  (hash-union ctx new-hash #:combine/key (λ (k a b) b)))
+(define (visit-op_/canon visitor operator args #:ctx ctx)
+  (annotate (visit-op_/transform visitor operator args #:ctx ctx) ctx))
 
-(define (expr->canon expr ctx)
-  (match expr
-    [`(let ([,vars ,vals] ...) ,body)
-     (define bindings (for/list ([var vars] [val vals])
-                        (list var (expr->canon val ctx))))
-     (define new-body (expr->canon body ctx))
-     `(let ,bindings ,new-body)]
-    [`(if ,condition ,then-branch ,else-branch)
-      (define new-cond (expr->canon condition ctx))
-      (define new-then (expr->canon then-branch ctx))
-      (define new-else (expr->canon else-branch ctx))
-      `(if ,new-cond ,new-then ,new-else)]
-    [`(while ,condition ([,vars ,inits ,updates] ...) ,return)
-     (define new-cond (expr->canon condition ctx))
-     (define new-loop (for/list ([var vars] [init inits] [update updates])
-       (list var (expr->canon init ctx) (expr->canon update ctx))))
-     (define new-ret (expr->canon return ctx))
-     `(while ,new-cond ,new-loop ,new-ret)]
-    [(? symbol?)
-     expr]
-    [(or (? constant?) (? number?))
-     (if (= (length (hash-keys ctx)) 0)
-       (if (= (inexact->exact (exact->inexact expr)) expr)
-         (exact->inexact expr)
-         expr)
-     `(! ,@(flatten-context ctx) ,expr))]
-    [(list '! props ... body)
-     (define-values (_ properties) (parse-properties props))
-     (expr->canon body (update-ctx ctx properties))]
-    [(list (? operator? operator) args ...)
-     (define new-args (for/list ([arg args])
-                        (expr->canon arg ctx)))
-     (if (= (length (hash-keys ctx)) 0)
-       (cons operator new-args)
-       `(! ,@(flatten-context ctx) ,(cons operator new-args)))]
-    [_ (error 'expr->smt "Unsupported expr ~a" expr)]))
+(define (visit-literal/canon visitor x #:ctx ctx)
+  (annotate (visit-terminal_/transform visitor x #:ctx ctx) ctx))
 
-(define (canonicalize-args args props)
-  (for/list ([arg args])
-    (if (list? arg)
-      (car (canonicalize-args (list (last arg))
-                              (append props (reverse (cdr (reverse (cdr arg)))))))
-      (if (null? props)
-        arg
-        (append (list '!) props (list arg))))))
+(define/transform-expr (expr->canon expr ctx)
+  [(visit-! visitor props body #:ctx ctx)
+   (visit/ctx visitor body (update-ctx ctx props))]
+  [visit-op_ visit-op_/canon]
+  [visit-number visit-literal/canon]
+  [visit-constant visit-literal/canon])
 
-(define (canonicalize-core prog #:name name)
-  (match-define (list 'FPCore (list args ...) props ... body) prog)
+(define (arg->canon arg ctx)
+  (match arg
+    [`(! ,props ... ,s)
+     (annotate s (update-ctx ctx props))]
+    [s (annotate s ctx)]))
+
+(define (keyify sym)
+  (let ([s (symbol->string sym)])
+    (if (equal? (string-ref s 0) #\:)
+        sym
+        (string->symbol (string-append ":" s)))))
+
+(define (fpcore->canon prog
+                       #:to-propagate [to-propagate '(precision round math-library)]
+                       #:to-canonicalize [to-canonicalize '(pre spec)])
+  (match-define `(FPCore (,args ...) ,props ... ,body) prog)
+  (define propagate-keys (map keyify to-propagate))
+  (define canonicalize-keys (map keyify to-canonicalize))
+
   (define-values (_ properties) (parse-properties props))
-  (define propagate-properties (for/list ([prop properties]
-                                          #:when (set-member? (*to-propagate*) (car prop)))
-                                 prop))
-  (define to-canonicalize-properties (for/list ([prop properties]
-                                             #:when (set-member? (*to-canonicalize*) (car prop)))
-                                       prop))
-  (define canonicalized-properties (for/list ([prop to-canonicalize-properties])
-                                     (if (list? prop)
-                                       (cons (car prop) (expr->canon (cadr prop) (make-immutable-hash propagate-properties)))
-                                       (cons (car prop) (cdr prop)))))
-  (define top-level-properties (append canonicalized-properties (set-subtract
-                                                                  properties
-                                                                  propagate-properties
-                                                                  to-canonicalize-properties)))
-  (define propagate-ctx (make-immutable-hash propagate-properties))
-  `(FPCore
-     ,(canonicalize-args args (flatten-context propagate-ctx))
-     ,@(flatten-context (make-immutable-hash top-level-properties))
-     ,(expr->canon body propagate-ctx)))
+  (define ctx (make-immutable-hash
+               (filter (lambda (pr) (set-member? propagate-keys (car pr))) properties)))
+  (define other-properties (filter (lambda (pr) (not (set-member? propagate-keys (car pr)))) properties))
 
+  `(FPCore
+    ,(for/list ([arg args]) (arg->canon arg ctx))
+    ,@(apply append (for/list ([pr other-properties])
+                      (if (set-member? canonicalize-keys (car pr))
+                          (list (car pr) (expr->canon (cdr pr) ctx))
+                          (list (car pr) (cdr pr)))))
+    ,(expr->canon body ctx)))
+
+(define (new-prop? pr ctx)
+  (let ([k (car pr)]
+        [v (cdr pr)])
+    (if (hash-has-key? ctx k)
+        (not (equal? (hash-ref ctx k) v))
+        #t)))
+
+(define (update-ctx/condense ctx props)
+  (let*-values ([(_ properties) (parse-properties props)]
+                [(properties*) (filter (curryr new-prop? ctx) properties)]
+                [(ctx*) (hash-union ctx (make-immutable-hash properties*)
+                                    #:combine/key (lambda (k a b) b))])
+    (values ctx* properties*)))
+
+(define (annotate/condense expr properties*)
+  (if (empty? properties*)
+      expr
+      `(! ,@(apply append (map (lambda (pr) (list (car pr) (cdr pr))) properties*)) ,expr)))
+
+(define (arg->condensed arg ctx)
+  (match arg
+    [`(! ,props ... ,s)
+     (let-values ([(_ properties*) (update-ctx/condense ctx props)])
+       (annotate/condense s properties*))]
+    [s s]))
+
+(define/transform-expr (expr->condensed expr ctx)
+  [(visit-! visitor props body #:ctx ctx)
+   (let-values ([(ctx* properties*) (update-ctx/condense ctx props)])
+     (annotate/condense (visit/ctx visitor body ctx*) properties*))])
+
+(define (fpcore->condensed prog
+                           #:to-condense [to-condense '(pre spec)])
+  (match-define `(FPCore (,args ...) ,props ... ,body) prog)
+  (define condense-keys (map keyify to-condense))
+
+  (define-values (_ properties) (parse-properties props))
+  (define ctx (make-immutable-hash properties))
+
+  `(FPCore
+    ,(for/list ([arg args]) (arg->condensed arg ctx))
+    ,@(apply append (for/list ([pr properties])
+                      (if (set-member? condense-keys (car pr))
+                          (list (car pr) (expr->condensed (cdr pr) ctx))
+                          (list (car pr) (cdr pr)))))
+    ,(expr->condensed body ctx)))
+
+;; legacy command line interface, only handles canonicalizer
 (module+ main
   (require racket/cmdline)
+
+  (define *to-canonicalize* (make-parameter '(:pre :spec)))
+  (define *to-propagate* (make-parameter '(:precision :round :math-library)))
 
   (define (custom-command-line command-line-args)
     (parse-command-line "canonicalizer" command-line-args
@@ -122,4 +149,4 @@
 
   (port-count-lines! (current-input-port))
   (for ([expr (in-port (curry read-fpcore "stdin"))] [n (in-naturals)])
-    (pretty-write (canonicalize-core expr #:name (format "ex~a" n)))))
+    (pretty-write (fpcore->canon expr #:to-propagate (*to-propagate*) #:to-canonicalize (*to-canonicalize*)))))

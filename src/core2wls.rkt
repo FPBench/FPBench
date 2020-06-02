@@ -5,8 +5,8 @@
 (provide core->wls wls-supported number->wls prec->wls)
 
 (define wls-supported (supported-list
-  (invert-op-list '())
-  (invert-const-list '())
+  fpcore-ops
+  fpcore-consts
   '(binary64 real integer)
   '(nearestEven)))
 
@@ -62,9 +62,10 @@
     [(list 'digits (? number? m) (? number? e) (? number? b))
      (format "N[~a * ~a ^ ~a, ~a]"
              (number->wls m)
-             (number->wls e)
              (number->wls b)
+             (number->wls e)
              wls-prec)]
+    [(? hex?) (hex->racket expr)]
     [(? number?) (format "N[~a, ~a]" (number->wls expr) wls-prec)]
     [(? symbol?) expr]))
 
@@ -190,7 +191,7 @@
     (format (nested-let->wls "With" vars vals body))
     (format (normal-let->wls "With" vars vals body))))                         
 
-(define (if->wls cond ift iff indent)
+(define (if->wls cond ift iff tmp indent)
   (format "If[~a, ~a, ~a]" cond ift iff))
 
 (define (while->wls vars inits cond updates updatevars body loop indent nested)

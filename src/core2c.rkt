@@ -6,10 +6,10 @@
 
 (define c-header (const "#include <fenv.h>\n#include <math.h>\n#include <stdint.h>\n#define TRUE 1\n#define FALSE 0\n\n"))
 (define c-supported (supported-list
-   fpcore-ops
-   fpcore-consts
-   '(binary32 binary64 binary80 integer)
-   (invert-round-modes-list '(nearestAway))))
+  fpcore-ops
+  fpcore-consts
+  '(binary32 binary64 binary80 integer)
+  (invert-round-modes-list '(nearestAway))))
 
 (define/match (type->c-suffix type)
   [("int64_t") ""]
@@ -24,31 +24,30 @@
   [('boolean) "int"]
   [('integer) "int64_t"])
 
-(define (operator->c props operator args)
+(define (operator->c props op args)
   (define type (type->c (dict-ref props ':precision 'binary64)))
-  (define op*
-    (match operator
-      ['isinf       "isinf"]
-      ['isnan       "isnan"]
-      ['isfinite    "isfinite"]
-      ['isnormal    "isnormal"]
-      ['signbit     "signbit"]
-      [_          (format "~a~a" operator (type->c-suffix type))]))
-  (format "((~a) ~a(~a))" type op* (string-join args ", ")))
+  (match op
+    ['isinf     (format "isinf(~a)" args)]
+    ['isnan     (format "isnan(~a)" args)]
+    ['isfinite  (format "isfinite(~a)" args)]
+    ['isnormal  (format "isnormal(~a)" args)]
+    ['signbit   (format "signbit(~a)" args)]
+    [_          (format "((~a) ~a~a(~a))" type op (type->c-suffix type) (string-join args ", "))]))
 
 (define (constant->c props expr)
   (define prec (dict-ref props ':precision 'binary64))
   (define type (type->c prec))
   (match expr
     [(or 'M_1_PI 'M_2_PI 'M_2_SQRTPI 'TRUE 'FALSE 'INFINITY 'NAN)
-     (format "((~a) ~a)" type expr)]
-    [(? symbol?) (format "((~a) M_~a)" type expr)]
+      (format "((~a) ~a)" type expr)]
+    [(? hex?) (~a expr)]
     [(? number?)
       (match prec
-        ['integer   (format "~a" (inexact->exact expr))]
+        ['integer   (~a (inexact->exact expr))]
         ['binary80  (parameterize ([bf-precision 64]) 
                         (format "~a~a" (bigfloat->string (bf expr)) (type->c-suffix type)))]
-        [_          (format "~a~a" (real->double-flonum expr) (type->c-suffix type))])]))
+        [_          (format "~a~a" (real->double-flonum expr) (type->c-suffix type))])]
+    [(? symbol?) (format "((~a) M_~a)" type expr)]))
 
 (define (declaration->c props var [val #f])
   (define type (type->c (dict-ref props ':precision 'binary64)))
@@ -59,7 +58,7 @@
 (define (assignment->c var val)
   (format "~a = ~a;" var val))
 
-(define (round->c val props) 
+(define (round->c val props)
   (define type (type->c (dict-ref props ':precision 'binary64)))
   (format "((~a) ~a)" type val))
 
@@ -75,12 +74,16 @@
 
 (define (function->c name args arg-props body return ctx vars)
   (define type (type->c (ctx-lookup-prop ctx ':precision 'binary64)))
-  (format "~a ~a(~a) {\n~a\treturn ~a;\n}\n"
-          type name
-          (string-join
-           (map (λ (arg) (format "~a ~a" type arg)) args)
-           ", ")
-          body return))
+  (define rnd-mode (ctx-lookup-prop ctx ':round ''nearestEven))
+  (define-values (_ ret-var) (ctx-random-name ctx))
+  (if (equal? rnd-mode 'nearestEven) ; if not 'nearestEven, set round mode, then restore the original mode
+      (format "~a ~a(~a) {\n~a\treturn ~a;\n}\n"
+              type name (string-join (map (λ (arg) (format "~a ~a" type arg)) args) ", ")
+              body return)
+      (format "~a ~a(~a) {\n~a~a\t~a ~a = ~a;\n~a\treturn ~a;\n}\n"    
+              type name (string-join (map (λ (arg) (format "~a ~a" type arg)) args) ", ")
+              (round-mode->c rnd-mode "\t") body type ret-var return        
+              (round-mode->c 'nearestEven "\t") ret-var)))
 
 (define c-language (language (const "c") operator->c constant->c declaration->c assignment->c
                              round->c round-mode->c function->c))

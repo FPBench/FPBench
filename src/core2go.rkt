@@ -40,25 +40,23 @@
 (define (constant->go props expr)
   (define type (type->go (dict-ref props ':precision 'binary64)))
   (match expr
+    ['E "math.E"]
+    ['LOG2E "math.Log2E"] 
+    ['LOG10E "math.Log10E"] 
+    ['LN2 "math.Ln2"] 
+    ['LN10 "math.Ln10"]
+    ['PI "math.Pi"] 
+    ['PI_2 "math.Pi/2"] 
+    ['PI_4 "math.Pi/4"] 
+    ['SQRT2 "math.Sqrt2"]
+    ['MAXFLOAT "math.MaxFloat64"] 
+    ['INFINITY "math.Inf(1)"] 
+    ['NAN "math.NaN()"]
     ['TRUE "true"]
     ['FALSE "false"]
-    [(? symbol?)
-     (define name
-       (match expr
-         ['E "E"]
-         ['LOG2E "Log2E"] 
-         ['LOG10E "Log10E"] 
-         ['LN2 "Ln2"] 
-         ['LN10 "Ln10"]
-         ['PI "Pi"] 
-         ['PI_2 "Pi/2"] 
-         ['PI_4 "Pi/4"] 
-         ['SQRT2 "Sqrt2"]
-         ['MAXFLOAT "MaxFloat64"] 
-         ['INFINITY "Inf(1)"] 
-         ['NAN "NaN()"]))
-     (format "~a(math.~a)" type name)]
-    [(? number?) (~a (real->double-flonum expr))]))
+    [(? hex?) (format "~a" expr)]
+    [(? number?) (~a (real->double-flonum expr))]
+    [(? symbol?) expr]))
 
 (define (declaration->go props var [val #f])
   (define type (type->go (dict-ref props ':precision 'binary64)))
@@ -69,7 +67,7 @@
 (define (assignment->go var val)
   (format "~a = ~a" var val))
 
-(define (round->go val props) (format "~a" val)) ; round(val) = val
+(define (round->go val props) (~a val)) ; round(val) = val
 
 (define (function->go name args arg-props body return ctx vars)
   (define type (type->go (ctx-lookup-prop ctx ':precision 'binary64)))

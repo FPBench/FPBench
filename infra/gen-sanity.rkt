@@ -9,21 +9,21 @@
              -1.0
              1.5
              0.75))
-    ;; (hexnum (0x0.0p+0
-    ;;          0x1.0p+0
-    ;;          -0x1.0p+0
-    ;;          0x1.0p-1
-    ;;          -0x1.0p+1
-    ;;          0xf.fp-4))
+    (hexnum (0x0.0p+0
+             0x1.0p+0
+             -0x1.0p+0
+             0x1.0p-1
+             -0x1.0p+1
+             0xf.fp-4))
     (rational (0/1
                1/1
                -1/1
                -1/2
                5/4))
-    ;; (digits ((digits 0 0 2)
-    ;;          (digits 1 0 2)
-    ;;          (digits -1 1 2)
-    ;;          (digits 3 -1 2)))
+    (digits ((digits 0 0 2)
+             (digits 1 0 2)
+             (digits -1 1 2)
+             (digits 3 -1 2)))
     ))
 
 (define sanity-constants
@@ -44,6 +44,7 @@
 
 (define sanity-ops
   '(
+    (- ((1.0) (-1.0)))
     (+ ((0.0 1.0) (1.0 1.0) (-1.0 1.0)))
     (- ((0.0 1.0) (1.0 1.0) (-1.0 1.0)))
     (* ((0.0 1.0) (2.0 -1.0) (2.0 2.0)))
@@ -89,7 +90,6 @@
     (trunc ((0.0) (0.25) (-0.75) (1.0)))
     (round ((0.0) (0.25) (0.75) (1.0)))
     (nearbyint ((0.0) (0.25) (0.75) (1.0)))
-    ;; (cast ((-1.0) (0.0) (1.0)))
     ))
 
 (define sanity-bool-ops
@@ -110,11 +110,11 @@
     (signbit ((0.0) (1.0) (-1.0)))
     ))
 
+;;
+;; Sanity test generation
+;;
 
 (number-suite->tests sanity-numbers '() "../tests/sanity/numbers.fpcore")
 (constant-suite->tests sanity-constants '() "../tests/sanity/constants.fpcore")
 (op-suite->tests sanity-ops '() "../tests/sanity/ops.fpcore")
 (bool-op-suite->tests sanity-bool-ops '() "../tests/sanity/bool-ops.fpcore")
-
-(op-suite->arg-tests sanity-ops '() "../tests/ops.fpcore")
-(bool-op-suite->arg-tests sanity-bool-ops '() "../tests/bool-ops.fpcore")

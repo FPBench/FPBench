@@ -101,6 +101,7 @@
     ['FALSE "false"]
     ['INFINITY (format "(_ +oo ~a ~a)" w p)]
     ['NAN (format "(_ NaN ~a ~a)" w p)]
+    [(? hex?) (hex->racket expr)]
     [(? number?) (number->smt expr w p rm)]
     [(? symbol?) (format "~a" expr)]))
 
@@ -230,8 +231,9 @@
 
     ;; Ignore all casts
     [`(cast ,body)
-      (let-values ([(body* w* p*) (expr->smt body ctx w p)])
-        (values body* w p))]
+      (define rm (ctx-lookup-prop ctx ':round 'nearestEven))
+      (let-values ([(body* w* p*)  (expr->smt body ctx w p)])
+        (values (format "((_ to_fp ~a ~a) ~a ~a)" w p (rm->smt rm) body*) w p))]
 
     [(list '! props ... body) 
       (define prec (dict-ref (apply hash-set* #hash() props) ':precision #f))
@@ -257,7 +259,9 @@
               (format "((_ to_fp ~a ~a) ~a ~a)" max-w max-p (rm->smt (ctx-lookup-prop ctx ':round 'nearestEven)) arg*))))
       (values (application->smt operator args_r ctx (and (equal? w max-w) (equal? p max-p))) w p)] 
 
+    [(list digits m e b) (values (constant->smt (digits->number m e b) ctx) w p)]
     [(? constant?) (values (constant->smt expr ctx) w p)]
+    [(? hex?) (values (constant->smt (hex->racket expr) ctx) w p)]
     [(? number?) (values (constant->smt expr ctx) w p)]
     [(? symbol?) 
       (let*-values ([(decl-prec) (ctx-lookup-prec ctx expr)]

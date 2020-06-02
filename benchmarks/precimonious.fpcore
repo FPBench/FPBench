@@ -6,7 +6,7 @@
  :precision binary64
  :pre (>= n 0)
  :fpbench-allowed-ulps 10
- :fpbench-pre-override (== n 82)
+ :fpbench-pre-override (<= 50 x 60)
  (let* ([dppi PI]
         [h (/ dppi n)]
         [t1 0])
@@ -40,7 +40,7 @@
  :cite (precimonious-2013)
  :precision binary64
  :pre (>= n 0)
- :fpbench-pre-override (<= 1 n 200)
+ :fpbench-pre-override (<= 50 x 60)
 
  (let ([dppi (acos -1.0)])
    (let ([h (/ dppi n)])

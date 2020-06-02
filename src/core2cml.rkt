@@ -4,7 +4,7 @@
 (provide core->cml cml-supported)
 
 (define cml-supported (supported-list
-   (append (set-subtract ieee754-ops '(fma)) '(! if let let* while while* not and or)) 
+   (append (set-subtract ieee754-ops '(fma)) '(! if let let* while while* not and or digits)) 
   '(TRUE FALSE INFINITY NAN)
   '(binary64)
   '(nearestEven))) ; bool
@@ -60,7 +60,9 @@
     ['INFINITY "(Double.fromString \"inf\")"]
     ['NAN "(Double.fromString \"nan\")"]
     [(or 'TRUE 'FALSE) (string-titlecase (format "~a" expr))]
-    [(? number?) (format "(Double.fromString \"~a\")" (real->double-flonum expr))]))
+    [(? hex?) (format "(Double.fromString \"~a\")" (real->double-flonum (hex->racket expr)))]
+    [(? number?) (format "(Double.fromString \"~a\")" (real->double-flonum expr))]
+    [_  expr]))
 
 (define (declaration->cml var [val 0])
   (format "val ~a = ~a" var val))
@@ -74,8 +76,9 @@
       (format "\n\t~a" indent))
     indent indent body indent)) ; todo fix
 
-(define (if->cml cond ift iff indent)
-  (format "if ~a\n~athen ~a\n~aelse ~a" cond indent ift indent iff))
+(define (if->cml cond ift iff tmp indent)
+  (format "let\n~a\tval ~a =\n~a\t\tif ~a\n~a\t\tthen ~a\n~a\t\telse ~a\n~ain\n~a\t~a\n~aend"
+          indent tmp indent cond indent ift indent iff indent indent tmp indent))
 
 (define (while->cml vars inits cond updates updatevars body loop indent nested)
   (define loopdef

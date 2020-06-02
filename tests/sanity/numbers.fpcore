@@ -8,6 +8,18 @@
 
 (FPCore () :name "Test decnum (5/5)" :spec 0.75 0.75)
 
+(FPCore () :name "Test hexnum (1/6)" :spec 0.0 0x0.0p+0)
+
+(FPCore () :name "Test hexnum (2/6)" :spec 1.0 0x1.0p+0)
+
+(FPCore () :name "Test hexnum (3/6)" :spec -1.0 -0x1.0p+0)
+
+(FPCore () :name "Test hexnum (4/6)" :spec 0.5 0x1.0p-1)
+
+(FPCore () :name "Test hexnum (5/6)" :spec -2.0 -0x1.0p+1)
+
+(FPCore () :name "Test hexnum (6/6)" :spec 0.99609375 0xf.fp-4)
+
 (FPCore () :name "Test rational (1/5)" :spec 0.0 0)
 
 (FPCore () :name "Test rational (2/5)" :spec 1.0 1)
@@ -17,4 +29,12 @@
 (FPCore () :name "Test rational (4/5)" :spec -0.5 -1/2)
 
 (FPCore () :name "Test rational (5/5)" :spec 1.25 5/4)
+
+(FPCore () :name "Test digits (1/4)" :spec 0.0 (digits 0 0 2))
+
+(FPCore () :name "Test digits (2/4)" :spec 1.0 (digits 1 0 2))
+
+(FPCore () :name "Test digits (3/4)" :spec -2.0 (digits -1 1 2))
+
+(FPCore () :name "Test digits (4/4)" :spec 1.5 (digits 3 -1 2))
 

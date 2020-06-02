@@ -20,8 +20,8 @@
 (define (convert-let vars vals body indent nested)
   ((functional-let (*func-lang*)) vars vals body indent nested))
 
-(define (convert-if cond ift iff indent)
-  ((functional-if (*func-lang*)) cond ift iff indent))
+(define (convert-if cond ift iff tmp indent)
+  ((functional-if (*func-lang*)) cond ift iff tmp indent))
 
 (define (convert-while vars inits cond updates updatevars body loop indent nested)
   ((functional-while (*func-lang*)) vars inits cond updates updatevars body loop indent nested))
@@ -59,10 +59,12 @@
         #t)]
 
     [`(if ,cond ,ift ,iff)
+      (define-values (ctx* temp) (ctx-unique-name ctx 'test))
       (convert-if
-        (convert-expr cond #:ctx ctx #:indent (format "\t~a" indent))
-        (convert-expr ift #:ctx ctx #:indent (format "\t~a" indent))
-        (convert-expr iff #:ctx ctx #:indent (format "\t~a" indent))
+        (convert-expr cond #:ctx ctx* #:indent (format "\t\t~a" indent))
+        (convert-expr ift #:ctx ctx* #:indent (format "\t\t~a" indent))
+        (convert-expr iff #:ctx ctx* #:indent (format "\t\t~a" indent))
+        temp
         indent)]        
     
     [`(while ,cond ([,vars ,inits ,updates] ...) ,body)
@@ -117,9 +119,9 @@
      (define args_c
        (map (λ (arg) (convert-expr arg #:ctx ctx #:indent indent)) args))
      (convert-operator operator args_c ctx)] 
-    [(list 'digits (? number? m) (? number? e) (? number? b)) (convert-constant expr ctx)] ; WLS
+    [(list 'digits m e b) (convert-constant (digits->number m e b) ctx)] ; WLS
     [(? constant?) (convert-constant expr ctx)]
-    [(? number?) (convert-constant expr ctx)]
+    [(or (? number?) (? hex?)) (convert-constant expr ctx)]
     [(? symbol?) (ctx-lookup-name ctx expr)]))
 
 (define (core->functional prog name)

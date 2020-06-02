@@ -14,7 +14,7 @@
    #:once-each
    [("-i" "--in-file") in_file_ "Input file to read FPCores from"
                        (*in-file* in_file_)]
-   [("-o" "--in-file") out_file_ "Output file to write evaluated results to"
+   [("-o" "--out-file") out_file_ "Output file to write evaluated results to"
                        (*out-file* out_file_)]
    ;; maybe a way to provide a context?
    ;; context override information?
@@ -30,9 +30,8 @@
          (open-output-file (*out-file*) #:mode 'text #:exists 'truncate)))
 
    (port-count-lines! input-port)
-   (let ([vals (map (compose real->double-flonum string->number) args)])
-     (for ([prog (in-port (curry read-fpcore input-port-name) input-port)])
-       (fprintf output-port "~a\n" (racket-run-fpcore prog vals))))))
+   (for ([prog (in-port (curry read-fpcore input-port-name) input-port)])
+     (fprintf output-port "~a\n" (racket-run-fpcore prog args)))))
 
 (module+ main
   (evaluate-main (current-command-line-arguments) (current-input-port) (current-output-port)))

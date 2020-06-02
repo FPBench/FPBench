@@ -1,7 +1,7 @@
 #lang racket
 
 (require math/flonum racket/extflonum math/bigfloat)
-(require "test-common.rkt" "../src/core2c.rkt")
+(require "test-common.rkt" "../src/core2c.rkt" "../src/sampler.rkt")
 
 (define (compile->c prog ctx type test-file)
   (call-with-output-file test-file #:exists 'replace
@@ -15,7 +15,7 @@
                (match type ['binary80 "20Lg"] ['binary64 "17g"] ['binary32 "17g"] ['integer "li"])
                (string-join (map (curry format strtox) (map add1 (range N))) ", "))))
   (define c-file (string-replace test-file ".c" ".bin"))
-  (system (format "cc ~a -lm -o ~a" test-file c-file))
+  (system (format "cc ~a -lm -frounding-math -o ~a" test-file c-file))
   c-file)
 
 (define (extfl->real x)
@@ -51,18 +51,22 @@
     ['integer  (cons (string->number out*) out*)]))
 
 (define (c-equality a b ulps)
-  (match (list a b)
-    ['(timeout timeout) true]
-    [(list (? extflonum?) (? extflonum?))
-      (or (extfl= a b)
-          (and (equal? a +nan.t) (equal? b +nan.t))
+  (cond
+    [(equal? a 'timeout) true]
+    [(extflonum? b)
+     (let ([a* (real->extfl a)])
+      (or (extfl= a* b)
+          (and (equal? a* +nan.t) (equal? b +nan.t))
           (and (parameterize ([bf-precision 64]) 
                   (<= (abs (bigfloats-between (bf (extfl->real a)) (bf (extfl->real b))))
-                      ulps))))]
+                      ulps)))))]
     [else
       (or (= a b)
           (and (nan? a) (nan? b))
-          (and (double-flonum? a) (double-flonum? b) (<= (abs (flonums-between a b)) ulps)))]))
+          (and (single-flonum? a)
+               (parameterize ([bf-precision 24])
+                 (<= (abs (- (float->ordinal a 'binary32) (float->ordinal b 'binary32))) ulps)))
+          (and (double-flonum? a) (<= (abs (flonums-between a b)) ulps)))]))
           
 (define (c-format-args var val type)
   (format "~a = ~a" var val))

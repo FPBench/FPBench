@@ -22,7 +22,7 @@
 (define (convert-assignment var val)
   ((language-assignment (*lang*)) var val))
 
-(define (round-expr val ctx) ; Sollya only
+(define (round-expr val ctx) ; Sollya will never ignore but C can
   ((language-round (*lang*)) val (ctx-props ctx)))
 
 (define (change-round-mode mode indent) ; C only
@@ -90,7 +90,7 @@
             (printf "~a~a\n" indent 
                 (convert-declaration cx name (convert-expr val #:ctx ctx #:indent indent)))
             cx)))
-      (displayln (use-vars (for/list ([var vars]) (ctx-lookup-name ctx* var)) indent))
+      (printf "~a" (use-vars (for/list ([var vars]) (ctx-lookup-name ctx* var)) indent))
       (convert-expr body #:ctx ctx* #:indent indent)]
 
     [`(let* ([,vars ,vals] ...) ,body)
@@ -100,7 +100,7 @@
             (printf "~a~a\n" indent
                  (convert-declaration cx name (convert-expr val #:ctx ctx* #:indent indent)))
             cx)))
-      (displayln (use-vars (for/list ([var vars]) (ctx-lookup-name ctx* var)) indent))
+      (printf "~a" (use-vars (for/list ([var vars]) (ctx-lookup-name ctx* var)) indent))
       (convert-expr body #:ctx ctx* #:indent indent)]
 
     [`(if ,cond ,ift ,iff)
@@ -133,7 +133,7 @@
         (let-values ([(cx name) (ctx-random-name ctx)])
             (set! ctx cx)
             name))
-      (displayln (use-vars vars* indent))
+      (printf "~a" (use-vars vars* indent))
       (printf "~a~a\n" indent
           (convert-declaration
               (ctx-update-props ctx '(:precision boolean))
@@ -149,7 +149,7 @@
             (printf "~a\t~a\n" indent
                 (convert-declaration cx name (convert-expr update #:ctx ctx* #:indent indent*)))
           (values cx (flatten (cons vars** name))))))
-      (displayln (use-vars vars** indent*))
+      (printf "~a" (use-vars vars** indent*))
       (for ([var* vars*] [var** vars**])
           (printf "~a\t~a\n" indent (convert-assignment var* var**)))
       (printf "~a\t~a\n" indent
@@ -169,7 +169,7 @@
         (let-values ([(cx name) (ctx-random-name ctx)])
             (set! ctx cx)
             name))
-      (displayln (use-vars vars* indent))
+      (printf "~a" (use-vars vars* indent))
       (printf "~a~a\n" indent
           (convert-declaration
               (ctx-update-props ctx '(:precision boolean))
@@ -188,10 +188,10 @@
       (convert-expr retexpr #:ctx ctx* #:indent indent)]
 
     ; Ignore all casts
-    [`(cast ,body) (convert-expr body #:ctx ctx #:indent indent)]
+    [`(cast ,body) (round-expr (convert-expr body #:ctx ctx #:indent indent) ctx)]
 
     [`(! ,props ... ,body)
-      (define curr-round (ctx-lookup-prop ctx ':round 'binary64))
+      (define curr-round (ctx-lookup-prop ctx ':round 'nearestEven))
       (define new-round (dict-ref (apply hash-set* #hash() props) ':round curr-round))
       (if (and (equal? ((language-name (*lang*))) "c") (not (equal? curr-round new-round)))  ; Only C needs to emit a temporary variable
         (let-values ([(ctx* tmp-var) (ctx-random-name ctx)])
@@ -206,12 +206,10 @@
       (define args_c
           (map (λ (arg) (convert-expr arg #:ctx ctx #:indent indent)) args))
      (convert-application ctx operator args_c)] 
-    [(? constant?)
-     (convert-constant ctx expr)]
-    [(? number?)
-     (convert-constant ctx expr)]
-    [(? symbol?)
-     (ctx-lookup-name ctx expr)]))
+    [(list digits m e b) (convert-constant ctx (digits->number m e b))]
+    [(? constant?) (convert-constant ctx expr)]
+    [(or (? number?) (? hex?)) (convert-constant ctx expr)]
+    [(? symbol?) (ctx-lookup-name ctx expr)]))
 
 (define (convert-core prog name)
   (match-define (list 'FPCore (list args ...) props ... body) prog)

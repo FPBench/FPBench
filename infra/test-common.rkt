@@ -53,7 +53,14 @@
   [('binary32) 24]
   [('integer)  128])
 
-(define (extfl->real x)
+(define/match (fpcore->bf-round roundmode) ; TODO: move to separate file
+  [('nearestEven) 'nearest]
+  [('nearestAway) (error 'fpcore->bf-round "math/bigfloat does not support 'nearestAway")]
+  [('toPositive)  'up]
+  [('toNegative)  'down]
+  [('toZero)      'zero])
+
+(define (extfl->real x) 
   (cond
     [(equal? x +inf.t)  +inf.0] 
     [(equal? x -inf.t)  -inf.0]
@@ -87,6 +94,7 @@
     (match-define (list 'FPCore (list vars ...) props* ... body) prog)
     (define-values (_ props) (parse-properties props*))
     (define type (dict-ref props ':precision 'binary64))
+    (define rnd-mode (dict-ref props ':round 'nearestEven))
     (define precond-override (dict-ref props ':fpbench-pre-override '()))
     (define ulps-override (dict-ref props ':fpbench-allowed-ulps #f))
     (define precond (if (empty? precond-override) (dict-ref props ':pre '()) precond-override)) 
@@ -94,22 +102,24 @@
     (define exec-name (compile-test prog '() type (test-file)))
     (define timeout 0)
     (define nans 0) ; wolfram only
+
     (define-values (vars* var-types)
       (for/lists (n t) ([var vars])
         (match var
           [(list '! props ... name) (values name (dict-ref (apply hash-set* #hash() props) ':precision 'binary64))]
           [name (values name type)])))
-    (when (not (equal? ulps-override #f)) (ulps ulps-override))
-
-    (define results  ; run test
-      (parameterize ([bf-precision (prec->bf-bits type)])
-        (for/list ([i (in-range (tests-to-run))])
-          (define evaltor 
+    (define evaltor 
             (match type 
               ['binary80 racket-binary80-evaluator]
               ['binary64 racket-double-evaluator] 
               ['binary32 racket-single-evaluator]
               ['integer racket-integer-evaluator]))
+
+    (define results  ; run test
+      (parameterize ([bf-precision (prec->bf-bits type)]
+                     [bf-rounding-mode (fpcore->bf-round rnd-mode)]
+                     [ulps (if (equal? ulps-override #f) ulps ulps-override)])
+        (for/list ([i (in-range (tests-to-run))])
           (define-values (ctx precond-met)
             (cond 
               [(or (not (use-precond)) (equal? precond '()))                  ; --no-precond flag or no precondition
@@ -128,13 +138,17 @@
             (match ((eval-fuel-expr evaltor (if precond-met (fuel-good-input) (fuel-bad-input)) 'timeout) body ctx)
               [(? real? result)
                 ((match type
-                  ['binary80 real->extfl]
                   ['binary64 real->double-flonum] 
                   ['binary32 real->single-flonum]
                   ['integer inexact->exact])
                 result)]
               [(? extflonum? result)
-                (extfl->real result)]
+                ((match type
+                  ['binary80 identity]
+                  ['binary64 extfl->inexact]
+                  ['binary32 (compose real->single-flonum extfl->inexact)]
+                  ['integer (compose inexact->exact extfl->inexact)])
+                result)]
               [(? complex? result)
                 (match type
                   ['binary64 +nan.0]

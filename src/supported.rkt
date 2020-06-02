@@ -18,7 +18,7 @@
 (define ieee754-ops '(+ - * / < > <= >= == != fabs fma sqrt))
 (define ieee754-rounding-modes '(nearestEven nearestAway toPositive toNegative toZero))
 
-(define fpcore-ops (append operators '(! if let let* while while*))) ; annotation, control constructs, and "operators" in common.rkt
+(define fpcore-ops (append operators '(! if let let* while while* digits)))
 (define fpcore-consts constants) ; same as "constants" in common.rkt
 
 ;;; Blacklist <==> Whitelist
@@ -84,6 +84,7 @@
      [`(! ,props ... ,body)
       (cons '! (operators-in-expr body))]
      [(list op args ...) (cons op (append-map operators-in-expr args))]
+     [(? hex?) '()]
      [(? symbol?) '()]
      [(? number?) '()])))
 
@@ -109,6 +110,7 @@
       (constants-in-expr body)]
      [(list op args ...) (append-map constants-in-expr args)]
      [(? constant?) (list expr)]
+     [(? hex?) '()]
      [(? symbol?) '()]
      [(? number?) '()])))
 
@@ -138,6 +140,7 @@
        (property-hash-add! out props)
        (loop body)]
       [(list op args ...) (for-each loop args)]
+      [(? hex?) (void)]
       [(? symbol?) (void)]
       [(? number?) (void)]))
   out)
@@ -168,6 +171,7 @@
                 (if (equal? rnd-mode #f) '() (list rnd-mode))))]
      [(list op args ...) (append-map round-modes-in-expr args)]
      [(? constant?) '()]
+     [(? hex?) '()]
      [(? symbol?) '()]
      [(? number?) '()])))
 
@@ -198,5 +202,6 @@
       (variables-in-expr body)]
      [(list op args ...) (append-map variables-in-expr args)]
      [(? constant?) '()]
+     [(? hex?) '()]
      [(? symbol?) '(list expr)]
      [(? number?) '()])))

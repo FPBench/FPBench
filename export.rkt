@@ -58,7 +58,7 @@
      (match extension
        ["fptaylor" (values (const "") (curry core->fptaylor #:inexact-scale (*scale*)) (const "") fptaylor-supported)]
        [(or "gappa" "g") (values (const "") (curry core->gappa #:rel-error (*rel-error*)) (const "") (supported-list (invert-op-list '()) (invert-const-list '()) '(binary32 binary64 binary128)))]
-       ["scala" (values (format scala-header (*namespace*)) core->scala scala-footer (supported-list (invert-op-list '()) (invert-const-list '()) '(binary32 binary64)))]
+       ["scala" (values (curry format scala-header) core->scala (const scala-footer) scala-supported)]
        [(or "smt" "smt2" "smtlib" "smtlib2") (values (const "") core->smtlib2 (const "") smt-supported)]
        ["wls" (values (const "") core->wls (const "") wls-supported)]
        ["cml" (values (const "") core->cml (const "") cml-supported)]

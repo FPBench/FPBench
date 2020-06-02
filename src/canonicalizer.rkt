@@ -66,26 +66,29 @@
         (not (equal? (hash-ref ctx k) v))
         #t)))
 
+(define (update-ctx/condense ctx props)
+  (let*-values ([(_ properties) (parse-properties props)]
+                [(properties*) (filter (curryr new-prop? ctx) properties)]
+                [(ctx*) (hash-union ctx (make-immutable-hash properties*)
+                                    #:combine/key (lambda (k a b) b))])
+    (values ctx* properties*)))
+
+(define (annotate/condense expr properties*)
+  (if (empty? properties*)
+      expr
+      `(! ,@(apply append (map (lambda (pr) (list (car pr) (cdr pr))) properties*)) ,expr)))
+
 (define (arg->condensed arg ctx)
   (match arg
     [`(! ,props ... ,s)
-     (let*-values ([(_ properties) (parse-properties props)]
-                   [(properties*) (filter (curryr new-prop? ctx) properties)])
-       (if (empty? properties*)
-           s
-           `(! ,@(apply append (map (lambda (pr) (list (car pr) (cdr pr))) properties*)) ,s)))]
+     (let-values ([(_ properties*) (update-ctx/condense ctx props)])
+       (annotate/condense s properties*))]
     [s s]))
 
 (define/transform-expr (expr->condensed expr ctx)
   [(visit-! visitor props body #:ctx ctx)
-   (let*-values ([(_ properties) (parse-properties props)]
-                 [(properties*) (filter (curryr new-prop? ctx) properties)]
-                 [(ctx*) (hash-union ctx (make-immutable-hash properties*)
-                                     #:combine/key (lambda (k a b) b))]
-                 [(expr*) (visit/ctx visitor body ctx*)])
-     (if (empty? properties*)
-         expr*
-         `(! ,@(apply append (map (lambda (pr) (list (car pr) (cdr pr))) properties*)) ,expr*)))])
+   (let-values ([(ctx* properties*) (update-ctx/condense ctx props)])
+     (annotate/condense (visit/ctx visitor body ctx*) properties*))])
 
 (define (fpcore->condensed prog
                            #:to-condense [to-condense '(pre spec)])

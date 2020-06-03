@@ -1,0 +1,11 @@
+(FPCore (x)
+  :name "Test"
+  :precision binary64
+  :round nearestEven
+  :pre (< 5 x 10)
+  (let ([a (+ x 1)]
+        [b (- x 1)])
+    (! :precision binary32 :round toPositive
+      (if (< b 0)
+          (! :precision binary80 :round toPositive (fma x a 1))
+          (! :precision binary80 :round toPositive (fma x b 1))))))

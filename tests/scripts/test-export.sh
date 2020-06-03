@@ -1,5 +1,10 @@
 #!/bin/sh
 
+# Arguments
+# (none)        test tool
+# 'generate'    generate expected output
+#
+
 script_dir="tests/scripts/"
 tmp_dir="/tmp/"
 
@@ -34,14 +39,17 @@ cat "${output}.gappa" >> $test
 racket export.rkt --scale 2 $target "${output}.fptaylor" 2>> $test
 cat "${output}.fptaylor" >> $test
 
-racket export.rkt --lang wls $target "${output}.wls" 2>> $test
-cat "${output}.wls" >> $test
+racket export.rkt --lang wls $target "${output}.m" 2>> $test
+cat "${output}.m" >> $test
 
 racket export.rkt $target "${output}.sollya" 2>> $test
 cat "${output}.sollya" >> $test
 
 racket export.rkt $target "${output}.cml" 2>> $test
 cat "${output}.cml" >> $test
+
+racket export.rkt $target "${output}.scala" 2>> $test
+cat "${output}.scala" >> $test
 
 # compare
 if [ "$1" != "generate" ]

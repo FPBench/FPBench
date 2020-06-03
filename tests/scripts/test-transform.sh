@@ -1,10 +1,16 @@
 #!/bin/sh
 
+# Arguments
+# (none)        test tool
+# 'generate'    generate expected output
+#
+
 script_dir="tests/scripts/"
 tmp_dir="/tmp/"
 
 target="${script_dir}transform.fpcore"
 target2="${script_dir}transform2.fpcore"
+target3="${script_dir}transform3.fpcore"
 output="${tmp_dir}transform.fpcore"
 test="${script_dir}test-transform.txt"
 expected="${script_dir}test-transform.out.txt"
@@ -29,16 +35,43 @@ cat $output >> $test
 racket transform.rkt --precondition-range $target $output 2>> $test
 cat $output >> $test
 
-racket transform.rkt --expand-while* --expand-let* $target $output 2>> $test
+racket transform.rkt --expand-while* $target $output 2>> $test
 cat $output >> $test
 
-racket transform.rkt --rational-constants --expand-let* $target $output 2>> $test
+racket transform.rkt --expand-let* $target $output 2>> $test
 cat $output >> $test
 
 racket transform.rkt --cse $target2 $output 2>> $test
 cat $output >> $test
 
 racket transform.rkt --subexprs $target2 $output 2>> $test
+cat $output >> $test
+
+racket transform.rkt --propagate-clear --canonicalize $target3 $output 2>> $test
+cat $output >> $test
+
+racket transform.rkt --canonicalize-clear --canonicalize $target3 $output 2>> $test
+cat $output >> $test
+
+racket transform.rkt --propagate-default --canonicalize $target3 $output 2>> $test
+cat $output >> $test
+
+racket transform.rkt --canonicalize-default --canonicalize $target3 $output 2>> $test
+cat $output >> $test
+
+racket transform.rkt --propagate-clear +p precision --canonicalize $target3 $output 2>> $test
+cat $output >> $test
+
+racket transform.rkt -p precision --canonicalize $target3 $output 2>> $test
+cat $output >> $test
+
+racket transform.rkt --canonicalize-clear +c pre --canonicalize $target3 $output 2>> $test
+cat $output >> $test
+
+racket transform.rkt -c pre --canonicalize $target3 $output 2>> $test
+cat $output >> $test
+
+racket transform.rkt -condense $target3 $output 2>> $test
 cat $output >> $test
 
 # compare

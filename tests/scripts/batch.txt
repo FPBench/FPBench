@@ -1,0 +1,12 @@
+export --bare EXPORT OUTNAME.c
+.
+export --lang sollya EXPORT OUTNAME.sol
+.
+export EXPORT OUTNAME.js
+.
+transform --unroll 5 TRANSFORM OUTNAME.fpcore
+.
+transform --skip-loops TRANSFORM OUTNAME.fpcore
+.
+transform --expand-while* TRANSFORM OUTNAME.fpcore
+.

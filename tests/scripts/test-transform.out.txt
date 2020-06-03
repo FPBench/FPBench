@@ -48,28 +48,19 @@
  (< 1 arg1 10)
  (while
   (<= a 3)
-  ((a
-    (let ((a 0)) (let ((b 0)) a))
-    (let ((a (+ a 1))) (let ((b (+ arg1 a))) a)))
-   (b
-    (let ((a 0)) (let ((b 0)) b))
-    (let ((a (+ a 1))) (let ((b (+ arg1 a))) b))))
+  ((a (let* ((a 0) (b 0)) a) (let* ((a (+ a 1)) (b (+ arg1 a))) a))
+   (b (let* ((a 0) (b 0)) b) (let* ((a (+ a 1)) (b (+ arg1 a))) b)))
+  (let* ((x (* b arg1)) (y (- arg1 x))) (* x y))))
+(FPCore
+ (arg1)
+ :name
+ "Test while"
+ :pre
+ (< 1 arg1 10)
+ (while*
+  (<= a 3)
+  ((a 0 (+ a 1)) (b 0 (+ arg1 a)))
   (let ((x (* b arg1))) (let ((y (- arg1 x))) (* x y)))))
-application: not a procedure;
- expected a procedure that can be applied to arguments
-  given: 'rational-constants
-  arguments...:
-   '(FPCore (arg1) :name "Test while" :pre (< 1 arg1 10) (while* (<= a 3) ((a 0 (+ a 1)) (b 0 (+ arg1 a))) (let* ((x (* b arg1)) (y (- arg1 x))) (* x y))))
-  context...:
-   /home/bksaiki/Documents/FPBench/repo/transform.rkt:100:32: for-loop
-   /home/bksaiki/Documents/FPBench/repo/transform.rkt:97:5: apply-pass
-   /home/bksaiki/Documents/FPBench/repo/transform.rkt:106:5: for-loop
-   /home/bksaiki/Documents/FPBench/repo/transform.rkt:94:3: for-loop
-   /usr/share/racket/collects/racket/cmdline.rkt:191:51
-   (submod "/home/bksaiki/Documents/FPBench/repo/transform.rkt" main): [running body]
-   temp37_0
-   for-loop
-   run-module-instance!125
 (FPCore
  (arg1)
  :name
@@ -95,3 +86,347 @@ application: not a procedure;
 (FPCore (arg1) :name "Test_expr3" :pre (< 1 arg1 10) (let ((x (+ arg1 1))) x))
 (FPCore (arg1) :name "Test_expr4" :pre (< 1 arg1 10) (let ((y (- arg1 1))) y))
 (FPCore (arg1) :name "Test_expr5" :pre (< 1 arg1 10) 1)
+(FPCore
+ (x)
+ :name
+ "Test"
+ :precision
+ binary64
+ :round
+ nearestEven
+ :pre
+ (< 5 x 10)
+ (let ((a (+ x 1)) (b (- x 1)))
+   (if (!
+        :precision
+        binary32
+        :round
+        toPositive
+        (< b (! :precision binary32 :round toPositive 0)))
+     (!
+      :precision
+      binary80
+      :round
+      toPositive
+      (fma x a (! :precision binary80 :round toPositive 1)))
+     (!
+      :precision
+      binary80
+      :round
+      toPositive
+      (fma x b (! :precision binary80 :round toPositive 1))))))
+(FPCore
+ ((! :precision binary64 :round nearestEven x))
+ :name
+ "Test"
+ :pre
+ (< 5 x 10)
+ (let ((a
+        (!
+         :precision
+         binary64
+         :round
+         nearestEven
+         (+ x (! :precision binary64 :round nearestEven 1))))
+       (b
+        (!
+         :precision
+         binary64
+         :round
+         nearestEven
+         (- x (! :precision binary64 :round nearestEven 1)))))
+   (if (!
+        :precision
+        binary32
+        :round
+        toPositive
+        (< b (! :precision binary32 :round toPositive 0)))
+     (!
+      :precision
+      binary80
+      :round
+      toPositive
+      (fma x a (! :precision binary80 :round toPositive 1)))
+     (!
+      :precision
+      binary80
+      :round
+      toPositive
+      (fma x b (! :precision binary80 :round toPositive 1))))))
+(FPCore
+ ((! :precision binary64 :round nearestEven x))
+ :name
+ "Test"
+ :pre
+ (!
+  :precision
+  binary64
+  :round
+  nearestEven
+  (<
+   (! :precision binary64 :round nearestEven 5)
+   x
+   (! :precision binary64 :round nearestEven 10)))
+ (let ((a
+        (!
+         :precision
+         binary64
+         :round
+         nearestEven
+         (+ x (! :precision binary64 :round nearestEven 1))))
+       (b
+        (!
+         :precision
+         binary64
+         :round
+         nearestEven
+         (- x (! :precision binary64 :round nearestEven 1)))))
+   (if (!
+        :precision
+        binary32
+        :round
+        toPositive
+        (< b (! :precision binary32 :round toPositive 0)))
+     (!
+      :precision
+      binary80
+      :round
+      toPositive
+      (fma x a (! :precision binary80 :round toPositive 1)))
+     (!
+      :precision
+      binary80
+      :round
+      toPositive
+      (fma x b (! :precision binary80 :round toPositive 1))))))
+(FPCore
+ ((! :precision binary64 :round nearestEven x))
+ :name
+ "Test"
+ :pre
+ (!
+  :precision
+  binary64
+  :round
+  nearestEven
+  (<
+   (! :precision binary64 :round nearestEven 5)
+   x
+   (! :precision binary64 :round nearestEven 10)))
+ (let ((a
+        (!
+         :precision
+         binary64
+         :round
+         nearestEven
+         (+ x (! :precision binary64 :round nearestEven 1))))
+       (b
+        (!
+         :precision
+         binary64
+         :round
+         nearestEven
+         (- x (! :precision binary64 :round nearestEven 1)))))
+   (if (!
+        :precision
+        binary32
+        :round
+        toPositive
+        (< b (! :precision binary32 :round toPositive 0)))
+     (!
+      :precision
+      binary80
+      :round
+      toPositive
+      (fma x a (! :precision binary80 :round toPositive 1)))
+     (!
+      :precision
+      binary80
+      :round
+      toPositive
+      (fma x b (! :precision binary80 :round toPositive 1))))))
+(FPCore
+ ((! :precision binary64 x))
+ :name
+ "Test"
+ :round
+ nearestEven
+ :pre
+ (!
+  :precision
+  binary64
+  (< (! :precision binary64 5) x (! :precision binary64 10)))
+ (let ((a (! :precision binary64 (+ x (! :precision binary64 1))))
+       (b (! :precision binary64 (- x (! :precision binary64 1)))))
+   (if (!
+        :precision
+        binary32
+        :round
+        toPositive
+        (< b (! :precision binary32 :round toPositive 0)))
+     (!
+      :precision
+      binary80
+      :round
+      toPositive
+      (fma x a (! :precision binary80 :round toPositive 1)))
+     (!
+      :precision
+      binary80
+      :round
+      toPositive
+      (fma x b (! :precision binary80 :round toPositive 1))))))
+(FPCore
+ ((! :round nearestEven x))
+ :name
+ "Test"
+ :precision
+ binary64
+ :pre
+ (!
+  :round
+  nearestEven
+  (< (! :round nearestEven 5) x (! :round nearestEven 10)))
+ (let ((a (! :round nearestEven (+ x (! :round nearestEven 1))))
+       (b (! :round nearestEven (- x (! :round nearestEven 1)))))
+   (if (!
+        :precision
+        binary32
+        :round
+        toPositive
+        (< b (! :precision binary32 :round toPositive 0)))
+     (!
+      :precision
+      binary80
+      :round
+      toPositive
+      (fma x a (! :precision binary80 :round toPositive 1)))
+     (!
+      :precision
+      binary80
+      :round
+      toPositive
+      (fma x b (! :precision binary80 :round toPositive 1))))))
+(FPCore
+ ((! :precision binary64 :round nearestEven x))
+ :name
+ "Test"
+ :pre
+ (!
+  :precision
+  binary64
+  :round
+  nearestEven
+  (<
+   (! :precision binary64 :round nearestEven 5)
+   x
+   (! :precision binary64 :round nearestEven 10)))
+ (let ((a
+        (!
+         :precision
+         binary64
+         :round
+         nearestEven
+         (+ x (! :precision binary64 :round nearestEven 1))))
+       (b
+        (!
+         :precision
+         binary64
+         :round
+         nearestEven
+         (- x (! :precision binary64 :round nearestEven 1)))))
+   (if (!
+        :precision
+        binary32
+        :round
+        toPositive
+        (< b (! :precision binary32 :round toPositive 0)))
+     (!
+      :precision
+      binary80
+      :round
+      toPositive
+      (fma x a (! :precision binary80 :round toPositive 1)))
+     (!
+      :precision
+      binary80
+      :round
+      toPositive
+      (fma x b (! :precision binary80 :round toPositive 1))))))
+(FPCore
+ ((! :precision binary64 :round nearestEven x))
+ :name
+ "Test"
+ :pre
+ (< 5 x 10)
+ (let ((a
+        (!
+         :precision
+         binary64
+         :round
+         nearestEven
+         (+ x (! :precision binary64 :round nearestEven 1))))
+       (b
+        (!
+         :precision
+         binary64
+         :round
+         nearestEven
+         (- x (! :precision binary64 :round nearestEven 1)))))
+   (if (!
+        :precision
+        binary32
+        :round
+        toPositive
+        (< b (! :precision binary32 :round toPositive 0)))
+     (!
+      :precision
+      binary80
+      :round
+      toPositive
+      (fma x a (! :precision binary80 :round toPositive 1)))
+     (!
+      :precision
+      binary80
+      :round
+      toPositive
+      (fma x b (! :precision binary80 :round toPositive 1))))))
+transform.rkt: unknown switch: -o
+(FPCore
+ ((! :precision binary64 :round nearestEven x))
+ :name
+ "Test"
+ :pre
+ (< 5 x 10)
+ (let ((a
+        (!
+         :precision
+         binary64
+         :round
+         nearestEven
+         (+ x (! :precision binary64 :round nearestEven 1))))
+       (b
+        (!
+         :precision
+         binary64
+         :round
+         nearestEven
+         (- x (! :precision binary64 :round nearestEven 1)))))
+   (if (!
+        :precision
+        binary32
+        :round
+        toPositive
+        (< b (! :precision binary32 :round toPositive 0)))
+     (!
+      :precision
+      binary80
+      :round
+      toPositive
+      (fma x a (! :precision binary80 :round toPositive 1)))
+     (!
+      :precision
+      binary80
+      :round
+      toPositive
+      (fma x b (! :precision binary80 :round toPositive 1))))))

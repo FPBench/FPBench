@@ -55,6 +55,21 @@
     (let ((a 0)) (let ((b 0)) b))
     (let ((a (+ a 1))) (let ((b (+ arg1 a))) b))))
   (let ((x (* b arg1))) (let ((y (- arg1 x))) (* x y)))))
+application: not a procedure;
+ expected a procedure that can be applied to arguments
+  given: 'rational-constants
+  arguments...:
+   '(FPCore (arg1) :name "Test while" :pre (< 1 arg1 10) (while* (<= a 3) ((a 0 (+ a 1)) (b 0 (+ arg1 a))) (let* ((x (* b arg1)) (y (- arg1 x))) (* x y))))
+  context...:
+   /home/bksaiki/Documents/FPBench/repo/transform.rkt:100:32: for-loop
+   /home/bksaiki/Documents/FPBench/repo/transform.rkt:97:5: apply-pass
+   /home/bksaiki/Documents/FPBench/repo/transform.rkt:106:5: for-loop
+   /home/bksaiki/Documents/FPBench/repo/transform.rkt:94:3: for-loop
+   /usr/share/racket/collects/racket/cmdline.rkt:191:51
+   (submod "/home/bksaiki/Documents/FPBench/repo/transform.rkt" main): [running body]
+   temp37_0
+   for-loop
+   run-module-instance!125
 (FPCore
  (arg1)
  :name

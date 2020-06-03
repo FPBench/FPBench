@@ -135,6 +135,7 @@ endif
 test-tools:
 	tests/scripts/test-export.sh
 	tests/scripts/test-transform.sh
+	tests/scripts/test-toolserver.sh
 
 test: c-test js-test go-test smtlib2-test sollya-test wls-test cml-test raco-test
 

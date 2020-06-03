@@ -9,8 +9,14 @@ test="${script_dir}test-export.txt"
 expected="${script_dir}test-export.out.txt"
 
 # setup
-rm -f $test
+
 cd "$(dirname "$0")/../.."
+if [ "$1" = "generate" ]
+then
+    echo "Generating expected output for test-export.sh..."
+    test=$expected
+fi
+rm -f $test
 
 # testing
 racket export.rkt --bare $target "${output}.c" 2>> $test
@@ -38,6 +44,16 @@ racket export.rkt $target "${output}.cml" 2>> $test
 cat "${output}.cml" >> $test
 
 # compare
-ret=$(cmp -s $test $expected)
-rm $test
-exit $ret
+if [ "$1" != "generate" ]
+then
+    cmp -s $test $expected
+    ret=$?
+    if [ "$ret" -ne 0 ]
+    then
+        diff $test $expected
+    fi
+    rm $test
+    exit $ret
+else
+    echo "Done"
+fi

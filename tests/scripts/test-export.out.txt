@@ -9,7 +9,6 @@ double ex1(double arg0) {
 double ex2(double arg0, double arg1) {
 	double arg0_1 = arg1;
 	double arg1_2 = arg0;
-
 	return ((double) (arg0_1 - arg1_2));
 }
 
@@ -41,7 +40,6 @@ func ex2(arg0 float64, arg1 float64) float64 {
 	var arg0_1 = float64(arg1)
 	var arg1_2 = float64(arg0)
 	Use(arg0_1, arg1_2)
-
 	return (arg0_1 - arg1_2)
 }
 
@@ -56,7 +54,6 @@ function ex1(arg0) {
 function ex2(arg0, arg1) {
 	var arg0_1 = arg1;
 	var arg1_2 = arg0;
-
 	return (arg0_1 - arg1_2);
 }
 
@@ -154,7 +151,6 @@ procedure ex2(arg0, arg1) {
 	arg1 = round(arg1, double, RN);
 	arg0_1 = arg1;
 	arg1_2 = arg0;
-
 	round((arg0_1 - arg1_2), double, RN);
 };
 

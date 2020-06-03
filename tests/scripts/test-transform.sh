@@ -10,8 +10,14 @@ test="${script_dir}test-transform.txt"
 expected="${script_dir}test-transform.out.txt"
 
 # setup
-rm -f $test
+
 cd "$(dirname "$0")/../.."
+if [ "$1" = "generate" ]
+then
+    echo "Generating expected output for test-transform.sh..."
+    test=$expected
+fi
+rm -f $test
 
 # testing
 racket transform.rkt --unroll 5 $target $output 2>> $test
@@ -26,6 +32,9 @@ cat $output >> $test
 racket transform.rkt --expand-while* --expand-let* $target $output 2>> $test
 cat $output >> $test
 
+racket transform.rkt --rational-constants --expand-let* $target $output 2>> $test
+cat $output >> $test
+
 racket transform.rkt --cse $target2 $output 2>> $test
 cat $output >> $test
 
@@ -33,6 +42,16 @@ racket transform.rkt --subexprs $target2 $output 2>> $test
 cat $output >> $test
 
 # compare
-ret=$(cmp -s $test $expected)
-rm $test
-exit $ret
+if [ "$1" != "generate" ]
+then
+    cmp -s $test $expected
+    ret=$?
+    if [ "$ret" -ne 0 ]
+    then
+        diff $test $expected
+    fi
+    rm $test
+    exit $ret
+else
+    echo "Done"
+fi

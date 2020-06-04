@@ -8,36 +8,36 @@
   :name "carthesianToPolar, theta"
   :pre (and (<= 1 x 100) (<= 1 y 100))
   :spec (* (atan2 y x) (/ 180 PI))
-  (let ([pi 3.14159265359] [radiant (atan (/ y x))])
-    (* radiant (/ 180.0 pi))))
+  (let ([_pi_ 3.14159265359] [radiant (atan (/ y x))])
+    (* radiant (/ 180.0 _pi_))))
 
 (FPCore (radius theta)
   :name "polarToCarthesian, x"
   :pre (and (<= 1 radius 10) (<= 0 theta 360))
   :spec (* radius (cos (* theta (/ 180 PI))))
-  (let* ([pi 3.14159265359] [radiant (* theta (/ pi 180.0))]) 
+  (let* ([_pi_ 3.14159265359] [radiant (* theta (/ _pi_ 180.0))]) 
     (* radius (cos radiant))))
 
 (FPCore (radius theta)
   :name "polarToCarthesian, y"
   :pre (and (<= 1 radius 10) (<= 0 theta 360))
   :spec (* radius (sin (* theta (/ 180 PI))))
-  (let* ([pi 3.14159265359] [radiant (* theta (/ pi 180.0))]) 
+  (let* ([_pi_ 3.14159265359] [radiant (* theta (/ _pi_ 180.0))]) 
     (* radius (sin radiant))))
 
-(FPCore (time resistance frequency inductance maxVoltage)
+(FPCore (t resistance frequency inductance maxVoltage)
   :name "instantaneousCurrent"
-  :pre (and (<= 0 time 300.0) (<= 1 resistance 50) (<= 1 frequency 100)
+  :pre (and (<= 0 t 300.0) (<= 1 resistance 50) (<= 1 frequency 100)
             (<= 0.001 inductance 0.004) (<= 1 maxVoltage 12))
-  (let* ([pi 3.14159265359]
+  (let* ([_pi_ 3.14159265359]
          [impedance_re resistance]
-         [impedance_im (* (* (* 2 pi) frequency) inductance)]
+         [impedance_im (* (* (* 2 _pi_) frequency) inductance)]
          [denom (+ (* impedance_re impedance_re) (* impedance_im impedance_im))]
          [current_re (/ (* maxVoltage impedance_re) denom)]
          [current_im (/ (- (* maxVoltage impedance_im)) denom)]
          [maxCurrent (sqrt (+ (* current_re current_re) (* current_im current_im)))]
          [theta (atan (/ current_im current_re))]) 
-    (* maxCurrent (cos (+ (* (* (* 2 pi) frequency) time) theta)))))
+    (* maxCurrent (cos (+ (* (* (* 2 _pi_) frequency) t) theta)))))
 
 (FPCore (a b c d e f g h i)
   :name "matrixDeterminant"

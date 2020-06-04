@@ -82,7 +82,7 @@
       (unless (set-empty? unsupported)
         (raise-user-error (format "Sorry, the *.~a exporter does not support ~a" extension
             (string-join (map ~a unsupported) ", ")))))
-     (fprintf output-port "~a\n" (export core "f")))
+     (fprintf output-port "~a\n" (export core (format "ex~a" n))))
    (unless (*bare*) (fprintf output-port (footer)))))
 
 (module+ main

@@ -15,14 +15,14 @@
   :name "polarToCarthesian, x"
   :pre (and (<= 1 radius 10) (<= 0 theta 360))
   :spec (* radius (cos (* theta (/ 180 PI))))
-  (let ([pi 3.14159265359] [radiant (* theta (/ pi 180.0))]) 
+  (let* ([pi 3.14159265359] [radiant (* theta (/ pi 180.0))]) 
     (* radius (cos radiant))))
 
 (FPCore (radius theta)
   :name "polarToCarthesian, y"
   :pre (and (<= 1 radius 10) (<= 0 theta 360))
   :spec (* radius (sin (* theta (/ 180 PI))))
-  (let ([pi 3.14159265359] [radiant (* theta (/ pi 180.0))]) 
+  (let* ([pi 3.14159265359] [radiant (* theta (/ pi 180.0))]) 
     (* radius (sin radiant))))
 
 (FPCore (time resistance frequency inductance maxVoltage)

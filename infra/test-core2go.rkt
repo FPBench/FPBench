@@ -16,7 +16,7 @@
       (fprintf p "func main(){")
       (fprintf p "fmt.Printf(\"%.20g\", f(~a))}\n" 
           (string-join (map (curry format "strtox(os.Args[~a])") (map add1 (range N))) ", "))))
-  (define bin-file (string-replace test-file ".go" ".bin"))
+  (define bin-file (string-replace test-file ".go" "-go.bin"))
   (system (format "go build -o ~a ~a" bin-file test-file))
   bin-file)
 

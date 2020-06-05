@@ -2,9 +2,9 @@
 
 (require "fpcore.rkt" "supported.rkt")
 (provide *used-names* *gensym-divider* *gensym-collisions* *gensym-fix-name*
-          make-compiler-ctx ctx-unique-name ctx-random-name ctx-lookup-name 
+          ctx-unique-name ctx-random-name ctx-lookup-name ctx-names
           ctx-update-props ctx-lookup-prop ctx-props ctx-lookup-prec
-          define-compiler)
+          make-compiler-ctx define-compiler)
 (provide
   (contract-out
     [struct compiler
@@ -91,3 +91,6 @@
 ; Returns the context struct's properties.
 (define (ctx-props ctx)
   (compiler-ctx-props ctx))
+
+(define (ctx-names ctx)
+  (compiler-ctx-name-map ctx))

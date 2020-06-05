@@ -2,7 +2,7 @@
 
 (require "fpcore.rkt" "supported.rkt")
 (provide *used-names* *gensym-divider* *gensym-collisions* *gensym-fix-name*
-          ctx-unique-name ctx-random-name ctx-lookup-name ctx-names
+          ctx-unique-name ctx-random-name ctx-lookup-name ctx-reserve-names ctx-names
           ctx-update-props ctx-lookup-prop ctx-props ctx-lookup-prec
           make-compiler-ctx define-compiler)
 (provide
@@ -29,14 +29,14 @@
 (define *used-names* (make-parameter (mutable-set)))
 (define *gensym-divider* (make-parameter #\_))
 (define *gensym-collisions* (make-parameter 1))
-(define *gensym-fix-name* (make-parameter (λ (x) (symbol->string x))))
+(define *gensym-fix-name* (make-parameter identity))
 
 ; Returns a unique, printable name based on the symbol and a fix-name procedure.
 (define (gensym sym) 
   (define name
     (for/fold ([gen ((*gensym-fix-name*) (if (symbol? sym) (symbol->string sym) sym))])
               ([i (in-naturals (*gensym-collisions*))]                      
-              #:break (not (set-member? (*used-names*) gen)))              
+              #:break (not (set-member? (*used-names*) gen)))            
         (*gensym-collisions* (add1 i))                                  
         ((*gensym-fix-name*) (format "~a~a~a" sym (*gensym-divider*) i))))
   (set-add! (*used-names*) name)
@@ -48,7 +48,7 @@
 (define (make-compiler-ctx) 
   (compiler-ctx (make-immutable-hash) (make-immutable-hash) (make-immutable-hash)))
 
-; Takes a given symbol and a fix-name procedure, maps it to a unique, printable name and returns both
+; Takes a given symbol maps it to a unique, printable name and returns both
 ; the updated ctx struct and the name
 (define (ctx-unique-name ctx name)
   (let ([unique (gensym name)]
@@ -69,6 +69,12 @@
                     (dict-set (compiler-ctx-prec-map ctx) name prec)
                     (compiler-ctx-props ctx))
       name)))
+
+; Reserves the list of names and returns the updated struct
+(define (ctx-reserve-names ctx names)
+  (for/fold ([ctx* ctx]) ([name names])
+    (let-values ([(cx name*) (ctx-unique-name ctx* name)])
+      cx)))
 
 ; Returns the unique, printable name currently mapped to by the given symbol.
 ; Returns the stringified version of the symbol otherwise.
@@ -92,5 +98,6 @@
 (define (ctx-props ctx)
   (compiler-ctx-props ctx))
 
+; Returns the context struct's hash names
 (define (ctx-names ctx)
   (compiler-ctx-name-map ctx))

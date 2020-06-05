@@ -13,6 +13,8 @@
    '(binary64)
    '(nearestEven)))
 
+(define go-reserved '()) ; Language-specific reserved names (avoid name collisions)
+
 (define/match (type->go type)
   [('binary64) "float64"]
   [('binary32) "float32"]
@@ -84,5 +86,5 @@
 
 ;;; Exports
 
-(define (core->go prog name) (parameterize ([*lang* go-language]) (convert-core prog name)))
+(define (core->go prog name) (parameterize ([*lang* go-language] [*reserved-names* go-reserved]) (convert-core prog name)))
 (define-compiler '("go") go-header core->go (const "") go-supported)

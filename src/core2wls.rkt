@@ -10,6 +10,8 @@
   '(binary64 real integer)
   '(nearestEven)))
 
+(define wls-reserved '(E Pi))  ; Language-specific reserved names (avoid name collisions)
+
 (define (fix-name name)
   (string-join
    (for/list ([char (~a name)])
@@ -230,5 +232,9 @@
 
 ;;; Exports
 
-(define (core->wls prog name) (parameterize ([*func-lang*  wls-language] [*gensym-divider* #\$] [*gensym-fix-name* fix-name]) (core->functional prog name)))
+(define (core->wls prog name) 
+  (parameterize ([*func-lang*  wls-language] [*gensym-divider* #\$] 
+                 [*gensym-fix-name* fix-name] [*reserved-names* wls-reserved])
+    (core->functional prog name)))
+
 (define-compiler '("wl" "wls") (const "") core->wls (const "") wls-supported)

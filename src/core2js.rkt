@@ -14,6 +14,8 @@
    '(binary64)
    '(nearestEven)))
 
+(define js-reserved '())  ; Language-specific reserved names (avoid name collisions)
+
 (define (type->js type) "var")
 
 (define (operator->js props op args)
@@ -72,5 +74,5 @@
 
 ;;; Exports
 
-(define (core->js prog name) (parameterize ([*lang* js-language]) (convert-core prog name)))
+(define (core->js prog name) (parameterize ([*lang* js-language] [*reserved-names* js-reserved]) (convert-core prog name)))
 (define-compiler '("js") js-header core->js (const "") js-supported)

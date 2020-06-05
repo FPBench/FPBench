@@ -9,6 +9,8 @@
   '(binary32 binary64 binary80 integer)
   ieee754-rounding-modes))
 
+(define sollya-reserved '(pi time)) ; Language-specific reserved names (avoid name collisions)
+
 (define sollya-header 
   (const
    (string-append
@@ -136,5 +138,8 @@
 
 ;;; Exports
 
-(define (core->sollya  prog name) (parameterize ([*lang* sollya-language]) (convert-core prog name)))
+(define (core->sollya prog name) 
+  (parameterize ([*lang* sollya-language] [*reserved-names* sollya-reserved])
+    (convert-core prog name)))
+
 (define-compiler '("sollya") sollya-header core->sollya (const "") sollya-supported)

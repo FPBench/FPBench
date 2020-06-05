@@ -1,7 +1,7 @@
 #lang racket
 
 (require "common.rkt" "compilers.rkt")
-(provide convert-core *lang* language)
+(provide convert-core *lang* language *reserved-names*)
 
 ;;; Abstraction for different languages
 
@@ -39,8 +39,9 @@
     (format "~aUse(~a)\n" indent (string-join vars ", "))
     ""))
 
-
 ;;; Compiler for imperative languages
+
+(define *reserved-names* (make-parameter '()))
 
 (define (fix-name name) ;; Common fix-name
   (string-join
@@ -212,13 +213,20 @@
     [(? symbol?) (ctx-lookup-name ctx expr)]))
 
 (define (convert-core prog name)
-  (match-define (list 'FPCore (list args ...) props ... body) prog)
-  (define ctx (ctx-update-props (make-compiler-ctx) (append '(:precision binary64 :round nearestEven) props)))
-  (parameterize ([*used-names* (mutable-set)] [*gensym-collisions* 1] [*gensym-fix-name* fix-name])
+  (parameterize ([*used-names* (mutable-set)] [*gensym-collisions* 1])
+    (match-define (list 'FPCore (list args ...) props ... body) prog)
+    (define default-ctx (ctx-update-props (make-compiler-ctx) (append '(:precision binary64 :round nearestEven) props)))
+    (define ctx (ctx-reserve-names default-ctx (*reserved-names*)))
+
     (define func-name 
       (let-values ([(cx fname) (ctx-unique-name ctx (string->symbol name))])
         (set! ctx cx)
         fname))
+
+    (define non-varnames 
+      (for/list ([name (*reserved-names*)]) 
+        (ctx-lookup-name ctx name)))
+
     (define-values (arg-names arg-props)
       (for/lists (n p) ([var args])
         (match var
@@ -234,9 +242,10 @@
                             (set! ctx cx)
                             name)
                 (ctx-props ctx))])))
+
     (define-values (body-out return-out) 
       (let ([p (open-output-string)])
         (parameterize ([current-output-port p])    
           (define out (convert-expr body #:ctx ctx))
           (values (get-output-string p) out))))
-    (convert-function func-name arg-names arg-props body-out return-out ctx (set->list (*used-names*)))))
+    (convert-function func-name arg-names arg-props body-out return-out ctx (remove* non-varnames (set->list (*used-names*))))))

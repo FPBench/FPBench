@@ -5,12 +5,13 @@
 # 'generate'    generate expected output
 #
 
+fpcore_dir="tests/scripts/fpcores/"
 script_dir="tests/scripts/"
 tmp_dir="/tmp/"
 
-target="${script_dir}transform.fpcore"
-target2="${script_dir}transform2.fpcore"
-target3="${script_dir}transform3.fpcore"
+target="${fpcore_dir}transform.fpcore"
+target2="${fpcore_dir}transform2.fpcore"
+target3="${fpcore_dir}transform3.fpcore"
 output="${tmp_dir}transform.fpcore"
 test="${script_dir}test-transform.txt"
 expected="${script_dir}test-transform.out.txt"

@@ -147,7 +147,7 @@ procedure ex1(arg0) {
 };
 
 procedure ex2(arg0, arg1) {
-	var arg0_1, arg1_2;
+	var arg1_2, arg0_1;
 	arg0 = round(arg0, double, RN);
 	arg1 = round(arg1, double, RN);
 	arg0_1 = arg1;

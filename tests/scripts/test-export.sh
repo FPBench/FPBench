@@ -5,10 +5,11 @@
 # 'generate'    generate expected output
 #
 
+fpcore_dir="tests/scripts/fpcores/"
 script_dir="tests/scripts/"
 tmp_dir="/tmp/"
 
-target="${script_dir}export.fpcore"
+target="${fpcore_dir}export.fpcore"
 output="${tmp_dir}export"
 test="${script_dir}test-export.txt"
 expected="${script_dir}test-export.out.txt"

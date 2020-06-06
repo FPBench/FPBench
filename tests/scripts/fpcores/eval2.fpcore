@@ -1,0 +1,3 @@
+(FPCore () (sqrt 0))
+(FPCore (x) (sqrt x))
+(FPCore (x y) (* x y))

@@ -145,15 +145,18 @@ transform-test:
 toolserver-test:
 	tests/scripts/test-toolserver.sh
 
-test-tools: export-test transform-test toolserver-test
+evaluate-test:
+	tests/scripts/test-evaluate.sh
 
-test: c-test js-test go-test smtlib2-test sollya-test wls-test cml-test export-test transform-test toolserver-test raco-test 
+test-tools: export-test transform-test toolserver-test evaluate-test
+
+test: c-test js-test go-test smtlib2-test sollya-test wls-test cml-test export-test transform-test toolserver-test evaluate-test raco-test 
 
 testsetup:
 	raco make infra/filter.rkt infra/test-core2c.rkt infra/test-core2fptaylor.rkt infra/test-core2js.rkt infra/test-core2smtlib2.rkt infra/test-core2sollya.rkt infra/test-core2wls.rkt
 
 setup:
-	raco make export.rkt transform.rkt toolserver.rkt
+	raco make export.rkt transform.rkt toolserver.rkt evaluate.rkt infra/gen-expr.rkt
 
 www/benchmarks.jsonp: $(wildcards benchmarks/*.fpcore)
 	racket infra/core2json.rkt --padding load_benchmarks $^

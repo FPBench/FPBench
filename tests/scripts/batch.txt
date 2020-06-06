@@ -10,3 +10,5 @@ transform --skip-loops TRANSFORM OUTNAME.fpcore
 .
 transform --expand-while* TRANSFORM OUTNAME.fpcore
 .
+evaluate -i EVALUATE -o OUTNAME.txt 1.0 2.0
+.

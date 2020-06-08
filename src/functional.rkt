@@ -1,7 +1,7 @@
 #lang racket 
 
 (require "common.rkt" "compilers.rkt")
-(provide core->functional *func-lang* functional)
+(provide core->functional *func-lang* functional *reserved-names*)
 
 ;;; Abstraction for different languages
 
@@ -30,6 +30,8 @@
   ((functional-function (*func-lang*)) name args body ctx names))
 
 ;;; Compiler for functional languages
+
+(define *reserved-names* (make-parameter '()))
 
 (define (convert-expr expr #:ctx [ctx (make-compiler-ctx)] #:indent [indent "\t"])
   (match expr
@@ -125,10 +127,10 @@
     [(? symbol?) (ctx-lookup-name ctx expr)]))
 
 (define (core->functional prog name)
-  (match-define (list 'FPCore (list args ...) props ... body) prog)
-  (define ctx (ctx-update-props (make-compiler-ctx) (append '(:precision binary64 :round nearestEven) props)))
-  
   (parameterize ([*used-names* (mutable-set)] [*gensym-collisions* 1])
+    (match-define (list 'FPCore (list args ...) props ... body) prog)
+    (define default-ctx (ctx-update-props (make-compiler-ctx) (append '(:precision binary64 :round nearestEven) props)))
+    (define ctx (ctx-reserve-names default-ctx (*reserved-names*)))
     (define func-name 
       (let-values ([(cx fname) (ctx-unique-name ctx (string->symbol name))])
         (set! ctx cx)
@@ -137,5 +139,4 @@
       (for/fold ([ctx* ctx] [args* '()]) ([arg args])
         (let-values ([(cx name) (ctx-unique-name ctx* arg)])
           (values cx (flatten (cons args* name))))))  
-
     (convert-function func-name args* (convert-expr body #:ctx ctx*) ctx* (set->list (*used-names*)))))

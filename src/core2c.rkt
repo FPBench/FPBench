@@ -11,6 +11,8 @@
   '(binary32 binary64 binary80 integer)
   (invert-round-modes-list '(nearestAway))))
 
+(define c-reserved '())  ; Language-specific reserved names (avoid name collisions)
+
 (define/match (type->c-suffix type)
   [("int64_t") ""]
   [("double") ""]
@@ -90,5 +92,5 @@
 
 ;;; Exports
 
-(define (core->c  prog name) (parameterize ([*lang*  c-language]) (convert-core prog name)))
+(define (core->c  prog name) (parameterize ([*lang* c-language] [*reserved-names* c-reserved]) (convert-core prog name)))
 (define-compiler '("c") c-header core->c (const "") c-supported)

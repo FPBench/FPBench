@@ -9,15 +9,19 @@
   '(binary32 binary64 binary80 integer)
   ieee754-rounding-modes))
 
-(define sollya-header (const
-  (string-append
+(define sollya-reserved '(pi time)) ; Language-specific reserved names (avoid name collisions)
+
+(define sollya-header 
+  (const
+   (string-append
     "procedure copysign(x, y) { var res; if (y < 0) then res = -abs(x) else res = abs(x); return res; };\n"
-    "procedure fdim(x, y) { var res; if (x > y) then res = x - y else res = 0; return res; };\n"
+    "procedure fdim(x, y) { var res; if (x != x || y != y) then res = nan else if (x > y) then res = x - y else res = 0; return res; };\n"
     "procedure isfinite(x) { return (x == x && abs(x) != infty); };\n"
     "procedure isinf(x) { return (abs(x) == infty); };\n"
     "procedure isnan(x) { return (x != x); };\n"
     "procedure signbit(x) { return (x < 0); };\n"
-    "procedure trunc(x) { var res; if (x < 0) then res = ceil(x) else res = floor(x); return res; };\n\n")))
+    "procedure trunc(x) { var res; if (x < 0) then res = ceil(x) else res = floor(x); return res; };\n"
+    "procedure pow(x, y) { var res; if (x == 1 && y != y) then res = 1 else res = (x ^ y); return res; };\n\n")))
 
 (define (precision-str prec)
   (match prec
@@ -57,7 +61,6 @@
     [(list 'fmin a b)     (round->sollya (format "min(~a, ~a)" a b) props)]
     [(list 'fma a b c)    (round->sollya (format "((~a * ~a) + ~a)" a b c) props)]
     [(list 'exp2 a)       (round->sollya (format "(2 ^ ~a)" a) props)]
-    [(list 'pow a b)      (round->sollya (format "(~a ^ ~a)" a b) props)]
     [(list 'cbrt a)       (round->sollya (format "(~a ^ (1/3))" a) props)]
     [(list 'hypot a b)    (round->sollya (format "sqrt((~a ^ 2) + (~a ^ 2))" a b) props)]
     [(list 'atan2 a b)    (round->sollya (format "atan(~a / ~a)" a b) props)]
@@ -135,5 +138,8 @@
 
 ;;; Exports
 
-(define (core->sollya  prog name) (parameterize ([*lang* sollya-language]) (convert-core prog name)))
+(define (core->sollya prog name) 
+  (parameterize ([*lang* sollya-language] [*reserved-names* sollya-reserved])
+    (convert-core prog name)))
+
 (define-compiler '("sollya") sollya-header core->sollya (const "") sollya-supported)

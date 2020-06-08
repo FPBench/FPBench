@@ -12,6 +12,8 @@
   '(binary32 binary64)
    ieee754-rounding-modes))
 
+(define smt-reserved '())  ; Language-specific reserved names (avoid name collisions)
+
 ;; Extremely simple html-inspired escapes. The understanding is that the
 ;; only difference between symbols is that FPCore allows : in names,
 ;; while SML-LIB does not.
@@ -275,7 +277,8 @@
                  [*used-names* (mutable-set)] 
                  [*gensym-collisions* 1]) 
     (match-define (list 'FPCore (list args ...) props ... body) prog)
-    (define ctx (ctx-update-props (make-compiler-ctx) (append '(:precision binary64 :round nearestEven) props)))
+    (define default-ctx (ctx-update-props (make-compiler-ctx) (append '(:precision binary64 :round nearestEven) props)))
+    (define ctx (ctx-reserve-names default-ctx smt-reserved))
     (define prec (ctx-lookup-prop ctx ':precision 'binary64))
     (define type-str (fptype prec))
     (define-values (w p) (fpbits prec))

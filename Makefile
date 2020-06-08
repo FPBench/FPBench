@@ -74,14 +74,14 @@ else
 endif
 
 # Core to C???
-fptaylor-test:
-ifneq (, $(shell which fptaylor))
-	cat benchmarks/*.fpcore tests/*.fpcore | $(FILTER) not-operators $(known_inaccurate) \
-	| racket infra/test-core2c.rkt --error 3
-	$(RM) -r log tmp
-else
-	$(warning skipping fptaylor tests; unable to find fptaylor)
-endif
+#fptaylor-test:
+#ifneq (, $(shell which fptaylor))
+#	cat benchmarks/*.fpcore tests/*.fpcore | $(FILTER) not-operators $(known_inaccurate) \
+#	| racket infra/test-core2c.rkt --error 3
+#	$(RM) -r log tmp
+#else
+#	$(warning skipping fptaylor tests; unable to find fptaylor)
+#endif
 
 js-test:
 ifneq (, $(shell which node))
@@ -132,15 +132,34 @@ else
 	$(warning skipping Go tests; unable to find Go compiler)
 endif
 
-test: c-test js-test go-test smtlib2-test sollya-test wls-test cml-test raco-test
+update-tool-tests:
+	tests/scripts/test-export.sh generate	
+	tests/scripts/test-transform.sh generate
+	tests/scripts/test-evaluate.sh generate
+
+export-test:
+	tests/scripts/test-export.sh
+
+transform-test:
+	tests/scripts/test-transform.sh
+
+toolserver-test:
+	tests/scripts/test-toolserver.sh
+
+evaluate-test:
+	tests/scripts/test-evaluate.sh
+
+test-tools: export-test transform-test toolserver-test evaluate-test
+
+test: c-test js-test go-test smtlib2-test sollya-test wls-test cml-test export-test transform-test toolserver-test evaluate-test raco-test 
 
 testsetup:
-	raco make infra/filter.rkt infra/test-core2c.rkt infra/test-core2fptaylor.rkt infra/test-core2js.rkt infra/test-core2smtlib2.rkt infra/test-core2sollya.rkt infra/test-core2wls.rkt
+	raco make infra/filter.rkt infra/test-core2c.rkt infra/test-core2fptaylor.rkt infra/test-core2js.rkt infra/test-core2go.rkt infra/test-core2smtlib2.rkt infra/test-core2sollya.rkt infra/test-core2wls.rkt infra/test-core2cml.rkt
 
 setup:
-	raco make export.rkt transform.rkt
+	raco make export.rkt transform.rkt toolserver.rkt evaluate.rkt infra/gen-expr.rkt
 
 www/benchmarks.jsonp: $(wildcards benchmarks/*.fpcore)
 	racket infra/core2json.rkt --padding load_benchmarks $^
 
-.PHONY: c-sanity c-test fptaylor-sanity fptaylor-test js-sanity js-test smtlib2-sanity smtlib2-test sollya-sanity sollya-test wls-sanity wls-test raco-test sanity test testsetup setup
+.PHONY: c-sanity c-test fptaylor-sanity fptaylor-test js-sanity js-test smtlib2-sanity smtlib2-test sollya-sanity sollya-test wls-sanity wls-test raco-test export-test transform-test toolserver-test evaluate-test test-tools sanity test testsetup setup update-tool-tests

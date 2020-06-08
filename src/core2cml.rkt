@@ -9,6 +9,8 @@
   '(binary64)
   '(nearestEven))) ; bool
 
+(define cml-reserved '()) ; Language-specific reserved names (avoid name collisions)
+
 (define (fix-name name)
   (define str 
     (string-join
@@ -124,5 +126,8 @@
 
 ;;; Exports
 
-(define (core->cml prog name) (parameterize ([*func-lang*  cml-language] [*gensym-fix-name* fix-name]) (core->functional prog name)))
+(define (core->cml prog name) 
+  (parameterize ([*func-lang*  cml-language] [*gensym-fix-name* fix-name] [*reserved-names* cml-reserved])
+    (core->functional prog name)))
+
 (define-compiler '("cml") (const "") core->cml (const "") cml-supported)

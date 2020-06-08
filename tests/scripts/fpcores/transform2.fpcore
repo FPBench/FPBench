@@ -1,0 +1,6 @@
+(FPCore (arg1)
+  :name "Test"
+  :pre (< 1 arg1 10)
+  (let ([x (+ arg1 1)]
+        [y (- arg1 1)])
+    (+ (* arg1 x) y)))

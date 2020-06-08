@@ -1,7 +1,14 @@
 #lang racket
 
-(require "common.rkt" "fpcore.rkt" "fpcore-extra.rkt" "range-analysis.rkt")
-(provide core->gappa)
+(require "common.rkt" "fpcore.rkt" "fpcore-extra.rkt" "range-analysis.rkt" "supported.rkt")
+(provide core->gappa gappa-supported)
+
+(define gappa-supported
+  (supported-list 
+    (append ieee754-ops '(let not and or)) 
+    '(SQRT2 SQRT1_2 TRUE FALSE)
+    '(binary32 binary64 binary80 binary128)
+    '(nearestEven)))
 
 (define (fix-name name)
   (string-join
@@ -201,7 +208,7 @@
               (define range
                 (cond
                   [(and var-ranges (hash-has-key? var-ranges var)) (dict-ref var-ranges var)]
-                  [else (make-interval -inf.0 +inf.0)]))
+                  [else (list (make-interval -inf.0 +inf.0))]))
               (unless (= (length range) 1)
                 (error 'core->gappa "Gappa only accpets one sampling range"))
               (if (nonempty-bounded? range)

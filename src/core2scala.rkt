@@ -3,6 +3,13 @@
 (require "common.rkt" "fpcore.rkt" "supported.rkt")
 (provide scala-header scala-footer core->scala scala-supported)
 
+(define scala-supported
+  (supported-list
+   (invert-op-list '(! cast))
+   (invert-const-list '())
+   '(binary32 binary64)
+   '(nearestEven)))
+
 (define (fix-name name)
   (string-join
    (for/list ([char (~a name)])
@@ -165,10 +172,3 @@
           (printf "\t\trequire(~a)\n" (expr->scala (dict-ref properties ':pre) #:indent "\t\t")))
         (printf "\t\t~a;\n" (expr->scala body #:indent "\t\t")))
       (printf "\t}\n"))))
-
-(define scala-supported
-  (supported-list
-   (invert-op-list '())
-   (invert-const-list '())
-   '(binary32 binary64 binary128)
-   '(nearestEven)))

@@ -288,7 +288,7 @@
       (for/fold ([ctx* ctx] [args* '()]) 
                 ([arg args])
         (let-values ([(cx name) (ctx-unique-name ctx* arg)])
-            (values cx (flatten (cons args* (format "(~a ~a)" (if (list? arg) (car arg) arg) type-str)))))))  
+            (values cx (flatten (cons args* (format "(~a ~a)" name type-str)))))))  
     (define-values (body_c w* p*) (expr->smt body ctx* w p))
   
     (format "(define-fun ~a (~a) ~a\n ~a)\n"

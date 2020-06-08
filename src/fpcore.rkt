@@ -528,7 +528,7 @@
 (define/contract racket-binary80-evaluator evaluator?
   (evaluator
    real->extfl
-   (λ (x) (let ([v ((evaluator-constant racket-double-evaluator) x)])extfl->real
+   (λ (x) (let ([v ((evaluator-constant racket-double-evaluator) x)])
             (if (real? v) (real->extfl v) v)))
    (table-fn    
     [+ (compute-with-bf-2 bf+)] 

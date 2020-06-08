@@ -135,6 +135,7 @@ endif
 update-tool-tests:
 	tests/scripts/test-export.sh generate	
 	tests/scripts/test-transform.sh generate
+	tests/scripts/test-evaluate.sh generate
 
 export-test:
 	tests/scripts/test-export.sh
@@ -153,7 +154,7 @@ test-tools: export-test transform-test toolserver-test evaluate-test
 test: c-test js-test go-test smtlib2-test sollya-test wls-test cml-test export-test transform-test toolserver-test evaluate-test raco-test 
 
 testsetup:
-	raco make infra/filter.rkt infra/test-core2c.rkt infra/test-core2fptaylor.rkt infra/test-core2js.rkt infra/test-core2smtlib2.rkt infra/test-core2sollya.rkt infra/test-core2wls.rkt
+	raco make infra/filter.rkt infra/test-core2c.rkt infra/test-core2fptaylor.rkt infra/test-core2js.rkt infra/test-core2go.rkt infra/test-core2smtlib2.rkt infra/test-core2sollya.rkt infra/test-core2wls.rkt infra/test-core2cml.rkt
 
 setup:
 	raco make export.rkt transform.rkt toolserver.rkt evaluate.rkt infra/gen-expr.rkt
@@ -161,4 +162,4 @@ setup:
 www/benchmarks.jsonp: $(wildcards benchmarks/*.fpcore)
 	racket infra/core2json.rkt --padding load_benchmarks $^
 
-.PHONY: c-sanity c-test fptaylor-sanity fptaylor-test js-sanity js-test smtlib2-sanity smtlib2-test sollya-sanity sollya-test wls-sanity wls-test raco-test  export-test transform-test toolserver-test test-tools sanity test testsetup setup update-tool-tests
+.PHONY: c-sanity c-test fptaylor-sanity fptaylor-test js-sanity js-test smtlib2-sanity smtlib2-test sollya-sanity sollya-test wls-sanity wls-test raco-test export-test transform-test toolserver-test evaluate-test test-tools sanity test testsetup setup update-tool-tests

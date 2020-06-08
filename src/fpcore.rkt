@@ -1,6 +1,7 @@
 #lang racket
 
-(require "common.rkt" math/flonum racket/extflonum math/bigfloat math/special-functions math/base)
+(require math/flonum racket/extflonum math/bigfloat math/special-functions math/base)
+(require "common.rkt" "tensor.rkt")
 (provide
  (struct-out evaluator) racket-integer-evaluator
   racket-binary80-evaluator racket-double-evaluator racket-single-evaluator
@@ -32,6 +33,7 @@
     [(? symbol? arg) true]
     [`(! ,props ... ,(? symbol?))
      (properties? props)]
+    [`(,(? symbol?) ,(? symbol?) ...) true]
     [_ false]))
 
 (define (expr? expr)
@@ -39,21 +41,25 @@
     [(? number?) true]
     [(? extflonum?) true]
     [(? constant?) true]
+    [(? tensor?) true]
     [(? symbol?) true]
     [(list (? operator?) (? expr?) ...) true]
     [`(if ,(? expr?) ,(? expr?) ,(? expr?)) true]
     [`(,(or 'let 'let*) ([,(? symbol?) ,(? expr?)] ...) ,(? expr?)) true]
-    [`(,(or 'while 'while*) ,(? expr?) ([,(? symbol?) ,(? expr?) ,(? expr?)] ...) ,(? expr?))
-     true]
+    [`(,(or 'while 'while*) ,(? expr?) ([,(? symbol?) ,(? expr?) ,(? expr?)] ...) ,(? expr?)) true]
+    [`(tensor ([,(? symbol?) ,(? expr?)] ...) ,(? expr?)) true]
+    [`(,(or 'for 'for*) ([,(? symbol?) ,(? expr?)] ...) ([,(? symbol?) ,(? expr?) ,(? expr?)] ...) ,(? expr?)) true]
     [`(cast ,(? expr?)) true]
     [`(! ,props ... ,(? expr?))
       (properties? props)]
     [`(digits ,(? number?) ,(? number?) ,(? number?)) true]
     [_ false]))
 
-(define type? (symbols 'boolean 'real))
+(define fpcore-types '(boolean real tensor))
+(define type? (apply symbols fpcore-types))
 
-(define/match (operator-type op args)
+; TODO: (multiple types i.e. ref -> any)
+(define/match (operator-type-1-to-1 op args)
   [((or '- 'fabs 'exp 'exp2 'expm1 'log 'log10 'log2 'log1p 'sqrt
         'cbrt 'sin 'cos 'tan 'asin 'acos 'atan 'sinh 'cosh 'tanh
         'asinh 'acosh 'atanh 'erf 'erfc 'tgamma 'lgamma 'ceil 'floor
@@ -68,7 +74,19 @@
   [((or 'isfinite 'isinf 'isnan 'isnormal 'signbit) (list 'real)) 'boolean]
   [((or 'and 'or) (list 'boolean ...)) 'boolean]
   [('not (list 'boolean)) 'boolean]
+  [('array (list (or 'real 'boolean 'tensor) ...)) 'tensor]
+  [('dim (list 'tensor)) 'real]
+  [('size (list 'tensor 'real)) 'real]
+  [('ref (list 'tensor 'real ...)) 'any]
   [(_ _) #f])
+
+;; check arg type combinations mutiple types and return first (hopefully, only)
+;; this might cause issues. better type checking needed?
+(define (operator-type op args)  
+  (define types (for/list ([arg args]) (if (equal? arg 'any) fpcore-types (list arg))))
+  (define arg-coords (apply cartesian-product types))
+  (for/fold ([res #f]) ([args* arg-coords]) #:break res
+    (operator-type-1-to-1 op args*)))
 
 (define/contract (check-expr stx ctx)
   (-> syntax? (dictof argument? type?) (cons/c expr? type?))
@@ -79,12 +97,14 @@
      (cons val 'real)]
     [(? constant? val)
      (cons val (match val [(or 'TRUE 'FALSE) 'boolean] [_ 'real]))]
+    [(? tensor? val)
+     (cons val 'tensor)]
     [(? symbol? var)
      (unless (dict-has-key? ctx var)
        (raise-syntax-error #f "Undefined variable" stx))
      (cons var (dict-ref ctx var))]
-    [(list (app syntax-e 'digits) m e b)
-     (define m* (check-expr m ctx))
+    [(list (app syntax-e 'digits) m e b)      ; (digits m e b)
+     (define m* (check-expr m ctx)) 
      (define e* (check-expr e ctx))
      (define b* (check-expr b ctx))
      (unless (and (integer? (car m*)) (integer? (car e*)) (integer? (car b*)))
@@ -92,7 +112,7 @@
       (unless (>= (car b*) 2)
         (raise-syntax-error #f "Base of digits must be greater than 1" stx))
      (cons `(digits ,(car m*) ,(car e*) ,(car b*)) 'real)]
-    [(list (app syntax-e 'if) test ift iff)
+    [(list (app syntax-e 'if) test ift iff) ; if 
      (define test* (check-expr test ctx))
      (unless (equal? (cdr test*) 'boolean)
        (raise-syntax-error #f "Conditional test must return a boolean" stx test))
@@ -101,9 +121,9 @@
      (unless (equal? (cdr ift*) (cdr iff*))
        (raise-syntax-error #f "Conditional branches must have same type" stx))
      (cons `(if ,(car test*) ,(car ift*) ,(car iff*)) (cdr ift*))]
-    [(cons (app syntax-e 'if) _)
+    [(cons (app syntax-e 'if) _)            ; if (invalid)
      (raise-syntax-error #f "Invalid conditional statement" stx)]
-    [(list (app syntax-e 'let) (app syntax-e (list (app syntax-e (list vars vals)) ...)) body)
+    [(list (app syntax-e 'let) (app syntax-e (list (app syntax-e (list vars vals)) ...)) body)  ; let
      (define vars*
        (for/list ([var vars])
          (unless (symbol? (syntax-e var))
@@ -113,11 +133,11 @@
      (define ctx* (apply dict-set* ctx (append-map list vars* (map cdr vals*))))
      (define body* (check-expr body ctx*))
      (cons `(let (,@(map list vars* (map car vals*))) ,(car body*)) (cdr body*))]
-    [(list (app syntax-e 'let*) (app syntax-e (list (app syntax-e (list vars vals)) ...)) body)
+    [(list (app syntax-e 'let*) (app syntax-e (list (app syntax-e (list vars vals)) ...)) body)  ; let*
      (define vars*
        (for/list ([var vars])
          (unless (symbol? (syntax-e var))
-           (raise-syntax-error #f "Only variables may be bound by let binding" stx var))
+           (raise-syntax-error #f "Only variables may be bound by let* binding" stx var))
          (syntax-e var)))
      (define-values (ctx* vals*)
        (for/fold ([ctx ctx] [vals '()]) ([var vars*] [val vals])
@@ -126,9 +146,9 @@
          (values ctx* (cons val* vals))))
      (define body* (check-expr body ctx*))
      (cons `(let* (,@(map list vars* (map car (reverse vals*)))) ,(car body*)) (cdr body*))]
-    [(cons (app syntax-e (or 'let 'let*)) _)
+    [(cons (app syntax-e (or 'let 'let*)) _)                                                   ; let, let* (invalid)
      (raise-syntax-error #f "Invalid let bindings" stx)]
-    [(list (app syntax-e 'while) test (app syntax-e (list (app syntax-e (list vars inits updates)) ...)) body)
+    [(list (app syntax-e 'while) test (app syntax-e (list (app syntax-e (list vars inits updates)) ...)) body) ; while
      (define vars*
        (for/list ([var vars])
          (unless (symbol? (syntax-e var))
@@ -145,7 +165,7 @@
          (raise-syntax-error #f "Initialization and update must have the same type in while loop" stx var)))
      (define body* (check-expr body ctx*))
      (cons `(while ,(car test*) (,@(map list vars* (map car inits*) (map car updates*))) ,(car body*)) (cdr body*))]
-    [(list (app syntax-e 'while*) test (app syntax-e (list (app syntax-e (list vars inits updates)) ...)) body)
+    [(list (app syntax-e 'while*) test (app syntax-e (list (app syntax-e (list vars inits updates)) ...)) body) ; while*
      (define vars*
        (for/list ([var vars])
          (unless (symbol? (syntax-e var))
@@ -166,17 +186,53 @@
          (raise-syntax-error #f "Initialization and update must have the same type in while loop" stx var)))
      (define body* (check-expr body ctx*))
      (cons `(while* ,(car test*) (,@(map list vars* (map car inits*) (map car updates*))) ,(car body*)) (cdr body*))]
-    [(cons (app syntax-e (or 'while 'while*)) _)
+    [(cons (app syntax-e (or 'while 'while*)) _)                 ; while, while* (invalid)
      (raise-syntax-error #f "Invalid while loop" stx)]
-    [(list (app syntax-e '!) props ... expr)
+    [(list (app syntax-e 'for) (app syntax-e (list (app syntax-e (list vars vals)) ...)) (app syntax-e (list (app syntax-e (list accums inits updates)) ...)) body) ; for
+     (define vars*
+       (for/list ([var vars])
+         (unless (symbol? (syntax-e var))
+           (raise-syntax-error #f "Only variables may be bound by for binding" stx var))
+         (syntax-e var)))
+     (define vals* (map (curryr check-expr ctx) vals))
+     (define ctx* (apply dict-set* ctx (append-map list vars* (map cdr vals*))))
+     (define accums*
+       (for/list ([accum accums])
+         (unless (symbol? (syntax-e accum))
+           (raise-syntax-error #f "Only variables may be bound by for binding" stx accum))
+         (syntax-e accum)))
+     (define inits* (map (curryr check-expr ctx) inits))
+     (define ctx** (apply dict-set* ctx* (append-map list accums* (map cdr inits*))))
+     (define updates* (map (curryr check-expr ctx**) updates))
+     (for ([accum accums] [init inits*] [update updates*])
+       (unless (equal? (cdr init) (cdr update))
+         (raise-syntax-error #f "Initialization and update must have the same type in for loop" stx accum)))
+     (define body* (check-expr body ctx**))
+     (cons `(for (,@(map list vars* (map car (reverse vals*)))) (,@(map list accums* (map car inits*) (map car updates*))) ,(car body*)) (cdr body*))]
+    [(cons (app syntax-e (or 'for 'for*)) _)               ; for, for* (invalid)
+     (raise-syntax-error #f "Invalid for loop" stx)]
+    [(list (app syntax-e 'tensor) (app syntax-e (list (app syntax-e (list vars vals)) ...)) body)  ; tensor
+     (define vars*
+       (for/list ([var vars])
+         (unless (symbol? (syntax-e var))
+           (raise-syntax-error #f "Only variables may be bound by tensor binding" stx var))
+         (syntax-e var)))
+     (define vals* (map (curryr check-expr ctx) vals))
+     (define ctx* (apply dict-set* ctx (append-map list vars* (map cdr vals*))))
+     (define body* (check-expr body ctx*))
+     (cons `(tensor (,@(map list vars* (map car vals*))) ,(car body*)) 'tensor)]
+    [(cons (app syntax-e (or 'tensor 'tensor*)) _)               ; tensor tensor* (invalid)
+     (raise-syntax-error #f "Invalid tensor construction" stx)]
+    [(list (app syntax-e '!) props ... expr)                     ; !
      (define expr* (check-expr expr ctx))
      (define props* (map syntax-e props))
      (cons `(! ,@props* ,(car expr*)) (cdr expr*))]
-    [(list op args ...)
+    [(list op args ...)                                         ; ops
      (unless (set-member? operators (syntax-e op))
        (raise-syntax-error #f "Unknown operator" op))
      (define children (map (curryr check-expr ctx) args))
-     (define rtype (operator-type (syntax-e op) (map cdr children)))
+     (define rtype 
+       (operator-type (syntax-e op) (map cdr children)))
      (unless rtype
        (raise-syntax-error #f (format "Invalid types for operator ~a" op) stx))
      (cons (list* (syntax-e op) (map car children)) rtype)]))
@@ -190,17 +246,19 @@
   (-> syntax? fpcore?)
   (match (syntax-e stx)
     [(list (app syntax-e 'FPCore) (app syntax-e (list vars ...)) properties ... body)
-     (define-values (annotated-args args)
-       (for/lists (annotated-args args) ([var vars])
+     (define-values (annotated-args args ctx)
+       (for/fold ([annot-args '()] [args '()] [ctx (hash)])
+                 ([var vars])
          (let ([var* (syntax-e-rec var)])
            (unless (argument? var*)
              (raise-syntax-error #f "FPCore parameters must be variables" stx var))
-           (values var*
-                   (if (list? var*) (last var*) var*)))))
-
-     (define ctx
-       (for/hash ([arg args])
-         (values arg 'real)))
+           (match var*
+            [`(,(? symbol? name) ,(or (? number? sizes) (? symbol? sizes)) ...) 
+              (values (append annot-args (list var*)) (append args (list name) sizes) 
+                      (apply hash-set* (hash-set* ctx name 'tensor) (flatten (map (curryr cons 'real) (filter symbol? sizes)))))]
+            [(? list?) 
+              (values (append annot-args (list var*)) (append args (list (last var*))) (hash-set* ctx (list (last var*)) 'real))]
+            [_ (values (append annot-args (list var*)) (append args (list var*)) (hash-set* ctx var* 'real))]))))
 
      (define properties*
        (let loop ([properties properties])
@@ -218,7 +276,7 @@
          (raise-syntax-error #f "FPCore precondition must return a boolean" pre)))
 
      (define body* (check-expr body ctx))
-     (unless (equal? (cdr body*) 'real)
+     (unless (or (equal? (cdr body*) 'real) (equal? (cdr body*) 'tensor))
        (raise-syntax-error #f "FPCore benchmark must return a real number" body))
 
      `(FPCore (,@annotated-args)
@@ -243,7 +301,12 @@
     [`(digits ,m ,e ,b) (digits->number m e b)]
     [(? extflonum?) expr]
     [(? constant?) ((evaluator-constant evaltor) expr)]
-    [(? symbol?) ((evaluator-real evaltor) (dict-ref ctx expr))]
+    [(? tensor?) expr]
+    [(? symbol?)
+     (let ([val (dict-ref ctx expr)])
+      (match val
+       [(? tensor?) val]
+       [_ ((evaluator-real evaltor) val)]))]
     [`(if ,test ,ift ,iff)
      (if (rec test ctx) (rec ift ctx) (rec iff ctx))]
     [`(let ([,vars ,vals] ...) ,body)
@@ -276,6 +339,27 @@
                                   (list var update update)) ,res))
               ctx*)
          (rec res ctx*))]
+
+    [`(for ([,vars ,vals] ...) ([,accums ,inits ,updates] ...) ,body)
+     (define sizes (map (curryr rec ctx) vals))
+     (define ranges (map (compose stream->list in-range) sizes))
+     (define coords (apply cartesian-product ranges))
+     (define inits* (for/list ([init inits]) (rec init ctx)))
+     (define ctx* (apply dict-set* ctx (append-map list accums inits*))) ; should these be added before? or after?
+     (displayln coords)
+     (for/fold ([cx ctx*] #:result (rec body cx)) ([coord coords])
+       (let ([cx* (apply dict-set* cx (append-map list vars coord))])
+         (for/fold ([cx** cx*]) ([accum accums] [update updates])
+           (dict-set cx** accum (rec update cx**)))))]
+    [`(tensor ([,vars ,vals] ...) ,body)
+     (define sizes (map (curryr rec ctx) vals))
+     (define ranges (map (compose stream->list in-range) sizes))
+     (define coords (apply cartesian-product ranges))
+     (define vals* 
+      (for/list ([coord coords])
+        (let ([ctx* (apply dict-set* ctx (append-map list vars coord))])
+          (rec body ctx*))))
+     (tabulate->tensor (map inexact->exact sizes) vals*)]
     [`(! ,props* ... ,body)
      (define-values (_ props) (parse-properties props*))
      (define-values (p evaltor*)
@@ -289,6 +373,10 @@
                      [bf-precision p])
           ((eval-expr* evaltor* rec) body ctx))]
     [`(cast ,expr) ((evaluator-real evaltor) ((eval-expr* evaltor rec) expr ctx))]
+    [`(array ,vals ...) (for/list ([i vals]) ((eval-expr* evaltor rec) i ctx))]
+    [`(dim ,val) (tensor-dim (rec val ctx))]
+    [`(size ,val ,dim) (tensor-size (rec val ctx) (inexact->exact dim))]
+    [`(ref ,val ,elems ...) (apply (curry tensor-ref (rec val ctx)) (map (compose inexact->exact (curryr rec ctx)) elems))]
     [(list (? operator? op) args ...)
       (apply ((evaluator-function evaltor) op) (map (curryr rec ctx) args))]))
 
@@ -458,11 +546,6 @@
     [log2 (compute-with-bf bflog2)]
 
     [fma compute-with-bf-fma]
-    [hypot (compute-with-bf-2 bfhypot)]
-
-    [sinh (compute-with-bf bfsinh)]
-    [cosh (compute-with-bf bfcosh)]
-    [tanh (compute-with-bf bftanh)]
     [asinh (compute-with-bf bfasinh)]
     [acosh (compute-with-bf bfacosh)]
     [atanh (compute-with-bf bfatanh)]
@@ -633,29 +716,40 @@
     ['binary32  (real->single-flonum (string->number x))]
     ['integer   (bf->integer (bf x))]))
 
+(define (capture-tensor name sizes arg evaltor)
+  (printf "~a ~a ~a\n" name sizes arg)
+  (define ten ((eval-expr evaltor) (string->symbol arg) (hash)))
+  (displayln ten)
+  (error "Unimplemented"))
+
 (define/contract (racket-run-fpcore prog args)
-  (-> fpcore? (listof string?) (or/c real? extflonum?))
+  (-> fpcore? (listof string?) (or/c real? extflonum? tensor?))
   (match-define `(FPCore (,vars ...) ,props* ... ,body) prog)
   (define-values (_ props) (parse-properties props*))
   (define base-precision (dict-ref props ':precision 'binary64))
   (define base-rounding (dict-ref props ':round 'nearestEven))
-  (define vars*
-    (for/list ([var vars] [arg args])
-      (match var
-        [`(! ,var-props* ... ,(? symbol? var*))
-         (define-values (_ var-props) (parse-properties var-props*))
-         (cons var* (string->float arg (dict-ref var-props ':precision base-precision)))]
-        [(? symbol?)
-         (cons var (string->float arg base-precision))])))
   (define evaltor 
    (match base-precision
     ['binary80 racket-binary80-evaluator]
     ['binary64 racket-double-evaluator]
     ['binary32 racket-single-evaluator]
     ['integer  racket-integer-evaluator]))
+  (define vars*
+    (for/list ([var vars] [arg args])
+      (match var
+        [`(,(? symbol? name) ,(or (? number? sizes) (? symbol? sizes)) ...)
+         (capture-tensor name sizes arg evaltor)]
+        [`(! ,var-props* ... ,(? symbol? var*))
+         (define-values (_ var-props) (parse-properties var-props*))
+         (cons var* (string->float arg (dict-ref var-props ':precision base-precision)))]
+        [(? symbol?)
+         (cons var (string->float arg base-precision))])))
   (parameterize ([bf-rounding-mode (fpcore->bf-round base-rounding)] 
                  [bf-precision (prec->bf-bits base-precision)])
-        (real->float ((eval-expr evaltor) body vars*) base-precision)))
+    (let ([ret ((eval-expr evaltor) body vars*)])
+      (match ret
+        [(? tensor?) ret]
+        [_ (real->float ret base-precision)]))))
 
 (module+ main
   (command-line

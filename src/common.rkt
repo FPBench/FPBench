@@ -27,6 +27,7 @@
        cbrt hypot sin cos tan asin acos atan atan2 sinh cosh tanh
        asinh acosh atanh erf erfc tgamma lgamma ceil floor fmod
        remainder fmax fmin fdim copysign trunc round nearbyint cast)
+   '(array dim size ref)
    '(< > <= >= == != and or not isfinite isinf isnan isnormal signbit)))
 
 (define (operator? x)

@@ -344,10 +344,10 @@
              (,@(for/list ([var vars])
                   (list var
                         `(let* (,@(for/list ([var* vars] [init* inits])
-                                    (list var* init*)))
+                                    (list var* (expand-while* init*))))
                                ,var)
                         `(let* (,@(for/list ([var* vars] [update* updates])
-                                    (list var* update*)))
+                                    (list var* (expand-while* update*))))
                                ,var))))
              ,(expand-while* retexpr))]
     [`(! ,props ... ,body)

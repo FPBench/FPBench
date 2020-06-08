@@ -143,6 +143,9 @@
     [(? number?) expr]
     [(? symbol?) expr]))
 
+(define scala-header "import daisy.lang._\nimport Real._\n\nobject ~a {\n")
+(define scala-footer "}\n")
+
 (define (core->scala prog name)
   (match-define (list 'FPCore (list args ...) props ... body) prog)
   (define-values (_ properties) (parse-properties props))
@@ -170,5 +173,3 @@
    '(binary32 binary64 binary128)
    '(nearestEven)))
 
-(define scala-header "import daisy.lang._\nimport Real._\n\nobject ~a {\n")
-(define scala-footer "}\n")

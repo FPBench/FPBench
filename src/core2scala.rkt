@@ -172,4 +172,3 @@
    (invert-const-list '())
    '(binary32 binary64 binary128)
    '(nearestEven)))
-

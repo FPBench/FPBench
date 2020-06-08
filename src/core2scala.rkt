@@ -68,7 +68,7 @@
 (define (expr->scala expr #:names [names #hash()] #:indent [indent "\t"])
   ;; Takes in an expression. Returns an expression and a new set of names
   (match expr
-    [`(let ([,vars ,vals] ...) ,body)
+    [[or `(let ([,vars ,vals] ...) ,body) `(let* ([,vars ,vals] ...) ,body)]
      (define vars* (map gensym vars))
      (for ([var vars] [var* vars*] [val vals])
        (printf "~aval ~a : Real = ~a\n" indent (fix-name var*)
@@ -89,7 +89,7 @@
              (expr->scala iff #:names names #:indent (format "~a\t" indent)))
      (printf "~a}\n" indent)
      (fix-name outvar)]
-    [`(while ,cond ([,vars ,inits ,updates] ...) ,retexpr)
+    [[or `(while ,cond ([,vars ,inits ,updates] ...) ,retexpr) `(while* ,cond ([,vars ,inits ,updates] ...) ,retexpr)]
      (define vars* (map gensym vars))
      (for ([var vars] [var* vars*] [val inits])
        (printf "~avar ~a : Real = ~a\n" indent (fix-name var*)
@@ -143,9 +143,6 @@
     [(? number?) expr]
     [(? symbol?) expr]))
 
-(define scala-header "import daisy.lang._\nimport Real._\n\nobject ~a {\n")
-(define scala-footer "}\n")
-
 (define (core->scala prog name)
   (match-define (list 'FPCore (list args ...) props ... body) prog)
   (define-values (_ properties) (parse-properties props))
@@ -172,3 +169,6 @@
    (invert-const-list '())
    '(binary32 binary64 binary128)
    '(nearestEven)))
+
+(define scala-header "import daisy.lang._\nimport Real._\n\nobject ~a {\n")
+(define scala-footer "}\n")

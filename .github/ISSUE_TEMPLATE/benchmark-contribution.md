@@ -1,9 +1,9 @@
 ---
 name: Benchmark contribution
 about: Contribute benchmarks to FPBench
-title: "[Benchmarks]"
+title: ''
 labels: ''
-assignees: pavpanchekha
+assignees: ''
 
 ---
 

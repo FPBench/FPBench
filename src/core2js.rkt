@@ -1,15 +1,23 @@
 #lang racket
 
 (require "common.rkt" "compilers.rkt" "imperative.rkt" "supported.rkt")
-(provide core->js js-runtime js-supported)
+(provide js-header core->js js-runtime js-supported)
 
 (define js-runtime (make-parameter "Math"))
 
 ;; JS
 
-(define js-header (const "")) ; empty
+(define js-header
+  (λ (x) 
+   (apply string-append
+    (append
+      (map (curryr format x)
+          '("function fmax(x , y) { if (x != x) { return y; } else if (y != y) { return x; } else { return ~a.max(x, y); }}\n"
+            "function fmin(x , y) { if (x != x) { return y; } else if (y != y) { return x; } else { return ~a.min(x, y); }}\n"))
+     '("function fdim(x , y) { if (x != x || y != y) { return NaN; } else if (x > y) { return x - y; } else { return 0; }}\n\n")))))
+
 (define js-supported (supported-list
-   (invert-op-list '(!= copysign exp2 erf erfc fdim fma fmod isfinite isnormal lgamma nearbyint remainder signbit tgamma))
+   (invert-op-list '(!= copysign exp2 erf erfc fma fmod isfinite isnormal lgamma nearbyint remainder signbit tgamma))
    fpcore-consts
    '(binary64)
    '(nearestEven)))
@@ -22,8 +30,9 @@
   (define arg-list (string-join args ", "))
   (match op
     ['fabs  (format "~a.abs(~a)" (js-runtime) arg-list)]
-    ['fmax  (format "~a.max(~a)" (js-runtime) arg-list)]
-    ['fmin  (format "~a.min(~a)" (js-runtime) arg-list)]
+    ['fmax  (format "fmax(~a)" arg-list)]
+    ['fmin  (format "fmin(~a)" arg-list)]
+    ['fdim  (format "fdim(~a)" arg-list)]
     ['isinf (format "(~a.abs(~a) === Infinity)" (js-runtime) arg-list)]
     ['isnan (format "isNaN(~a)" arg-list)]
     [_      (format "~a.~a(~a)" (js-runtime) op arg-list)]))

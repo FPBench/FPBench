@@ -1,12 +1,22 @@
 #lang racket
 
 (require "common.rkt" "compilers.rkt" "imperative.rkt" "supported.rkt")
-(provide go-header core->go go-supported)
+(provide go-header go-func-header core->go go-supported)
 
-; convoluted solution to deal with Go's hatred of unused variables
-(define go-header (curry format (string-append "package ~a\n\nimport \"math\"\n\n// Helper function to get rid of annoying unused variable errors\n"
-                                               "func Use(vals ...interface{}) {\n\tfor _, val := range vals {\n\t\t_ = val\n\t}\n}\n\n"
-                                               "func Lgamma(x float64) float64 {\n\tres, _ := math.Lgamma(x)\n\treturn res\n}\n\n")))
+(define go-func-header
+  (string-append
+    "func Lgamma(x float64) float64 { res, _ := math.Lgamma(x); return res; }\n"
+    "func Fmax(x float64, y float64) float64 { if x != x { return y; } else if y != y { return x; } else { return math.Max(x, y); }}\n"
+    "func Fmin(x float64, y float64) float64 { if x != x { return y; } else if y != y { return x; } else { return math.Min(x, y); }}\n\n"))
+
+(define go-header 
+  (curry format 
+    (string-append 
+      "package ~a\n\nimport \"math\"\n\n// Helper function to get rid of annoying unused variable errors\n"
+      "func Use(vals ...interface{}) { for _, val := range vals { _ = val }}\n"  ; convoluted solution to deal with Go's hatred of unused variables
+      go-func-header)))
+                   
+
 (define go-supported (supported-list
    (invert-op-list '(isnormal isfinite)) 
    (invert-const-list '(M_1_PI M_2_PI M_2_SQRTPI SQRT1_2))
@@ -29,9 +39,10 @@
     ['lgamma (format "Lgamma(~a)" arg-list)]
     ['log1p (format "math.Log1p(~a)" arg-list)]
     ['fma (format "math.FMA(~a)" arg-list)]
-    ['fmod (format "math.Mod(~a)" arg-list)]
+    ['fmax (format "Fmax(~a)" arg-list)]
+    ['fmin (format "Fmin(~a)" arg-list)]
     ['nearbyint (format "math.RoundToEven(~a)" arg-list)]
-    [(or 'fabs 'fmax 'fmin 'fdim 'fmod)
+    [(or 'fabs 'fdim 'fmod)
       (format "math.~a(~a)" (string-titlecase (substring (~a operator) 1)) arg-list)]
     [(or 'exp 'exp2 'expm1 'log 'log10 'log2 'log1p 'pow 'sqrt 'cbrt 'hypot
          'sin 'cos 'tan 'asin 'acos 'atan 'atan2 'sinh 'cosh 'tanh

@@ -76,7 +76,7 @@
 
    (when (and (equal? extension "js") (*runtime*)) (js-runtime (*runtime*)))
    (port-count-lines! input-port)
-   (unless (*bare*) (fprintf output-port (header (if (equal? extension "js") (*runtime*) (*namespace*)))))
+   (unless (*bare*) (fprintf output-port (header (if (equal? extension "js") (js-runtime) (*namespace*)))))
 
    (for ([core (in-port (curry read-fpcore (if (equal? in-file "-") "stdin" in-file)) input-port)] [n (in-naturals)])
      (let ([unsupported (unsupported-features core supported)])

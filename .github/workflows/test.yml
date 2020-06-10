@@ -54,56 +54,59 @@ jobs:
       - name: "Byte-compile repo"
         run: make setup testsetup
 
-      - name: "C sanity tests"
+      - name: "C sanity"
         run: make c-sanity
 
-      - name: "JS sanity tests"
+      - name: "JS sanity"
         run: make js-sanity  
       
-      - name: "Go sanity tests"
+      - name: "Go sanity"
         run: make go-sanity  
       
-      - name: "Sollya sanity tests"
+      - name: "Sollya sanity"
         run: make sollya-sanity  
       
-      - name: "Z3 sanity tests"
+      - name: "Z3 sanity"
         run: make smtlib2-sanity 
 
-      - name: "CakeML sanity tests"
+      - name: "CakeML sanity"
         run: make cml-sanity 
 
-      - name: "Wolfram/Mathematica sanity tests"
+      - name: "Wolfram/Mathematica sanity"
         run: make wls-sanity
 
-      - name: "C tests"
+      - name: "C test"
         run: make c-test
 
-      - name: "JS tests"
+      - name: "JS test"
         run: make js-test  
       
-      - name: "Go tests"
+      - name: "Go test"
         run: make go-test  
       
-      - name: "Sollya tests"
+      - name: "Sollya test"
         run: make sollya-test  
       
-      - name: "Z3 tests"
+      - name: "Z3 test"
         run: make smtlib2-test 
 
-      - name: "CakeML tests"
+      - name: "CakeML test"
         run: make cml-test 
 
-      - name: "Wolfram/Mathematica tests"
+      - name: "Wolfram/Mathematica test"
         run: make wls-test 
 
-      - name: "Export tool tests"
+      - name: "Export tool"
         run: make export-test
 
-      - name: "Transform tool tests"
+      - name: "Transform tool"
         run: make transform-test
 
-      - name: "Toolserver tool tests"
+      - name: "Toolserver tool"
         run: make toolserver-test
+
+      - name: "Evaluate tool"
+        run: make evaluate-test
 
       - name: "Raco tests"
         run: make raco-test

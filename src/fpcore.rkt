@@ -1,7 +1,7 @@
 #lang racket
 
 (require math/flonum racket/extflonum math/bigfloat math/special-functions math/base)
-(require "common.rkt" "tensor.rkt")
+(require "common.rkt" "fpcore-types.rkt" "tensor.rkt")
 (provide
  (struct-out evaluator) racket-integer-evaluator
   racket-binary80-evaluator racket-double-evaluator racket-single-evaluator
@@ -55,50 +55,71 @@
     [`(digits ,(? number?) ,(? number?) ,(? number?)) true]
     [_ false]))
 
-(define fpcore-types '(boolean real tensor))
-(define type? (apply symbols fpcore-types))
+;; Types
 
-; TODO: (multiple types i.e. ref -> any)
-(define/match (operator-type-1-to-1 op args)
+(define fpcore-types '(boolean real tensor))
+(define typename? (apply symbols fpcore-types))
+
+(define/contract (type? type)
+  (-> list? boolean?)
+  (typename? (first type)))
+
+(define (typename-equal? type1 name)
+  (-> type? typename? (or/c #t #f))
+  (equal? (first type1) name))
+
+(define (make-type name . data)
+  (-> typename? list? type?)
+  (list* name data))
+
+(define/match (operator-type* op args)
   [((or '- 'fabs 'exp 'exp2 'expm1 'log 'log10 'log2 'log1p 'sqrt
         'cbrt 'sin 'cos 'tan 'asin 'acos 'atan 'sinh 'cosh 'tanh
         'asinh 'acosh 'atanh 'erf 'erfc 'tgamma 'lgamma 'ceil 'floor
         'trunc 'round 'nearbyint 'cast)
-    (list 'real))
-   'real]
+    (list '(real)))
+   '(real)]
   [((or '+ '- '* '/ 'pow 'hypot 'atan2 'fmod 'remainder 'fmax 'fmin 'fdim 'copysign)
-    (list 'real 'real))
-   'real]
-  [('fma (list 'real 'real 'real)) 'real]
-  [((or '< '> '<= '>= '== '!=) (list 'real ...)) 'boolean]
-  [((or 'isfinite 'isinf 'isnan 'isnormal 'signbit) (list 'real)) 'boolean]
-  [((or 'and 'or) (list 'boolean ...)) 'boolean]
-  [('not (list 'boolean)) 'boolean]
-  [('array (list (or 'real 'boolean 'tensor) ...)) 'tensor]
-  [('dim (list 'tensor)) 'real]
-  [('size (list 'tensor 'real)) 'real]
-  [('ref (list 'tensor 'real ...)) 'any]
+    (list '(real) '(real)))
+   '(real)]
+  [('fma (list '(real) '(real) '(real))) '(real)]
+  [((or '< '> '<= '>= '== '!=) (list '(real) ...)) '(boolean)]
+  [((or 'isfinite 'isinf 'isnan 'isnormal 'signbit) (list '(real))) '(boolean)]
+  [((or 'and 'or) (list '(boolean) ...)) '(boolean)]
+  [('not (list '(boolean))) '(boolean)]
+  [('array (list (or (? (curryr typename-equal? 'real) elems) (? (curryr typename-equal? 'boolean) elems) (? (curryr typename-equal? 'tensor) elems)) ...))
+    (cond [(for/and ([i elems]) (typename-equal? i 'tensor))  '(tensor (argmin (λ (x) (second x)) elems))]
+          [else '(tensor 1)])]
+  [('dim (list (? (curryr typename-equal? 'tensor)))) '(real)]
+  [('size (list (? (curryr typename-equal? 'tensor)) '(real) ...)) '(real)]
+  [('ref (list (list tensor (? integer? n)) (? (curryr typename-equal? 'real) sizes) ...)) 
+    (let ([d (- n (length sizes))])
+      (cond [(negative? d) (error 'operator-type* "Ref out of bounds")]
+            [(zero? d) '((real) (boolean))]
+            [else '(tensor d)]))]
   [(_ _) #f])
 
-;; check arg type combinations mutiple types and return first (hopefully, only)
+;; optimistic type checker. If a single arg type combination is valid and return first (hopefully, only)
 ;; this might cause issues. better type checking needed?
 (define (operator-type op args)  
-  (define types (for/list ([arg args]) (if (equal? arg 'any) fpcore-types (list arg))))
+  (define types (for/list ([arg args])
+                  (match arg
+                    [`(any) fpcore-types]
+                    [(? type?) (list arg)]
+                    [`(,(? type?) ...) arg])))
   (define arg-coords (apply cartesian-product types))
   (for/fold ([res #f]) ([args* arg-coords]) #:break res
-    (operator-type-1-to-1 op args*)))
+    (operator-type* op args*)))
 
 (define/contract (check-expr stx ctx)
   (-> syntax? (dictof argument? type?) (cons/c expr? type?))
   (match (syntax-e stx)
     [(? number? val)
-     (cons val 'real)]
+     (cons val '(real))]
     [(? hex? val)
-     (cons val 'real)]
+     (cons val '(real))]
     [(? constant? val)
-     (cons val (match val [(or 'TRUE 'FALSE) 'boolean] [_ 'real]))]
-    [(? tensor? val)
-     (cons val 'tensor)]
+     (cons val (match val [(or 'TRUE 'FALSE) '(boolean)] [_ '(real)]))]
     [(? symbol? var)
      (unless (dict-has-key? ctx var)
        (raise-syntax-error #f "Undefined variable" stx))
@@ -111,10 +132,10 @@
       (raise-syntax-error #f "Values of digits must be integers" stx))
       (unless (>= (car b*) 2)
         (raise-syntax-error #f "Base of digits must be greater than 1" stx))
-     (cons `(digits ,(car m*) ,(car e*) ,(car b*)) 'real)]
+     (cons `(digits ,(car m*) ,(car e*) ,(car b*)) '(real))]
     [(list (app syntax-e 'if) test ift iff) ; if 
      (define test* (check-expr test ctx))
-     (unless (equal? (cdr test*) 'boolean)
+     (unless (equal?(cdr test*) '(boolean))
        (raise-syntax-error #f "Conditional test must return a boolean" stx test))
      (define ift* (check-expr ift ctx))
      (define iff* (check-expr iff ctx))
@@ -157,7 +178,7 @@
      (define inits* (map (curryr check-expr ctx) inits))
      (define ctx* (apply dict-set* ctx (append-map list vars* (map cdr inits*))))
      (define test* (check-expr test ctx*))
-     (unless (equal? (cdr test*) 'boolean)
+     (unless (equal?(cdr test*) '(boolean))
        (raise-syntax-error #f "While loop conditions must return a boolean" test))
      (define updates* (map (curryr check-expr ctx*) updates))
      (for ([var vars] [init inits*] [update updates*])
@@ -178,7 +199,7 @@
          (values ctx* (cons init* inits*))))
      (define inits* (reverse inits-rev))
      (define test* (check-expr test ctx*))
-     (unless (equal? (cdr test*) 'boolean)
+     (unless (equal?(cdr test*) '(boolean))
        (raise-syntax-error #f "While loop conditions must return a boolean" test))
      (define updates* (map (curryr check-expr ctx*) updates))
      (for ([var vars] [init inits*] [update updates*])
@@ -245,7 +266,7 @@
      (define vals* (map (curryr check-expr ctx) vals))
      (define ctx* (apply dict-set* ctx (append-map list vars* (map cdr vals*))))
      (define body* (check-expr body ctx*))
-     (cons `(tensor (,@(map list vars* (map car vals*))) ,(car body*)) 'tensor)]
+     (cons `(tensor (,@(map list vars* (map car vals*))) ,(car body*)) `(tensor ,(length vars)))]
     [(list (app syntax-e 'tensor*) (app syntax-e (list (app syntax-e (list vars vals)) ...)) (app syntax-e (list (app syntax-e (list accums inits updates)) ...)) body)  ; tensor*
      (define vars*
        (for/list ([var vars])
@@ -270,7 +291,7 @@
        (unless (equal? (cdr init) (cdr update))
          (raise-syntax-error #f "Initialization and update must have the same type in tensor loop" stx accum)))
      (define body* (check-expr body ctx**))
-     (cons `(tensor* (,@(map list vars* (map car vals*))) (,@(map list accums* (map car inits*) (map car updates*))) ,(car body*)) 'tensor)]
+     (cons `(tensor* (,@(map list vars* (map car vals*))) (,@(map list accums* (map car inits*) (map car updates*))) ,(car body*)) `(tensor ,(length vars)))]
     [(cons (app syntax-e (or 'tensor 'tensor*)) _)               ; tensor tensor* (invalid)
      (raise-syntax-error #f "Invalid tensor construction" stx)]
     [(list (app syntax-e '!) props ... expr)                     ; !
@@ -304,11 +325,12 @@
              (raise-syntax-error #f "FPCore parameters must be variables" stx var))
            (match var*
             [`(,(? symbol? name) ,(or (? number? sizes) (? symbol? sizes)) ...) 
-              (values (append annot-args (list var*)) (append args (list name) sizes) 
-                      (apply hash-set* (hash-set* ctx name 'tensor) (flatten (map (curryr cons 'real) (filter symbol? sizes)))))]
+              (let ([dim-sizes (for/list ([i (filter symbol? sizes)]) (list i (make-type 'real)))])
+                (values (append annot-args (list var*)) (append args (list name) sizes) 
+                        (apply hash-set* (hash-set* ctx name (make-type 'tensor (length sizes))) (apply append dim-sizes))))]
             [(? list?) 
-              (values (append annot-args (list var*)) (append args (list (last var*))) (hash-set* ctx (list (last var*)) 'real))]
-            [_ (values (append annot-args (list var*)) (append args (list var*)) (hash-set* ctx var* 'real))]))))
+              (values (append annot-args (list var*)) (append args (list (last var*))) (hash-set* ctx (list (last var*)) '(real)))]
+            [_ (values (append annot-args (list var*)) (append args (list var*)) (hash-set* ctx var* '(real)))]))))
 
      (define properties*
        (let loop ([properties properties])
@@ -322,12 +344,12 @@
      (when (dict-has-key? properties* ':pre)
        (define pre (dict-ref properties* ':pre))
        (define pre* (check-expr pre ctx))
-       (unless (equal? (cdr pre*) 'boolean)
+       (unless (equal? (cdr pre*) '(boolean))
          (raise-syntax-error #f "FPCore precondition must return a boolean" pre)))
 
      (define body* (check-expr body ctx))
-     (unless (or (equal? (cdr body*) 'real) (equal? (cdr body*) 'tensor))
-       (raise-syntax-error #f "FPCore benchmark must return a real number" body))
+     (unless (or (equal? (cdr body*) '(real)) (typename-equal? (cdr body*) 'tensor))
+       (raise-syntax-error #f "FPCore benchmark must return a real number or tensor" body))
 
      `(FPCore (,@annotated-args)
               ,@(apply append
@@ -817,7 +839,7 @@
   (unless (tensor? ten*)
     (error 'arg->tensor "Expected a tensor"))
   (unless (= (tensor-dim ten*) (length sizes))
-    (error 'arg->tensor (format "Tensor argument has incorrect dimension. Expected: ~a. Actual: ~a" (length sizes) (tensor-dim ten*))))
+    (error 'arg->tensor (format "Tensor argument has i mutiple typesncorrect dimension. Expected: ~a. Actual: ~a" (length sizes) (tensor-dim ten*))))
   (append
     (let loop ([ten** ten*] [sizes* sizes])
      (cond 

@@ -1,20 +1,23 @@
 #lang racket
 
 (require math/flonum racket/extflonum math/bigfloat math/special-functions math/base)
-(require "common.rkt" "fpcore-types.rkt" "tensor.rkt")
+(require "common.rkt" "tensor.rkt")
 (provide
  (struct-out evaluator) racket-integer-evaluator
   racket-binary80-evaluator racket-double-evaluator racket-single-evaluator
  fpcore? expr? context/c eval-expr* eval-expr racket-run-fpcore
- read-fpcore)
+ read-fpcore *fpcores*)
+
+(define *fpcores* (make-parameter '()))  ; previously run fpcores
+(define fpcore-recursive #f)  ; 'check-expr sets this true if a recursive call is encountered
 
 (struct evaluator (real constant function))
 
 (define/contract (fpcore? thing)
   contract?
   (match thing
-    [`(FPCore (,(? argument?) ...) ,props ... ,(? expr?))
-     (properties? props)]
+    [`(FPCore (,(? argument?) ...) ,props ... ,(? expr?)) (properties? props)]
+    [`(FPCore ,(? symbol?) (,(? argument?) ...) ,props ... ,(? expr?)) (properties? props)]
     [_ false]))
 
 (define (properties? props)
@@ -44,6 +47,7 @@
     [(? tensor?) true]
     [(? symbol?) true]
     [(list (? operator?) (? expr?) ...) true]
+    [(list (? (curry dict-has-key? (*fpcores*))) (? expr?) ...) true]
     [`(if ,(? expr?) ,(? expr?) ,(? expr?)) true]
     [`(,(or 'let 'let*) ([,(? symbol?) ,(? expr?)] ...) ,(? expr?)) true]
     [`(,(or 'while 'while*) ,(? expr?) ([,(? symbol?) ,(? expr?) ,(? expr?)] ...) ,(? expr?)) true]
@@ -65,7 +69,7 @@
   (typename? (first type)))
 
 (define (typename-equal? type1 name)
-  (-> type? typename? (or/c #t #f))
+  (-> type? typename? boolean?)
   (equal? (first type1) name))
 
 (define (make-type name . data)
@@ -88,7 +92,7 @@
   [((or 'and 'or) (list '(boolean) ...)) '(boolean)]
   [('not (list '(boolean))) '(boolean)]
   [('array (list (or (? (curryr typename-equal? 'real) elems) (? (curryr typename-equal? 'boolean) elems) (? (curryr typename-equal? 'tensor) elems)) ...))
-    (cond [(for/and ([i elems]) (typename-equal? i 'tensor))  '(tensor (argmin (λ (x) (second x)) elems))]
+    (cond [(for/and ([i elems]) (typename-equal? i 'tensor)) `(tensor ,(add1 (second (argmin (λ (x) (second x)) elems))))]
           [else '(tensor 1)])]
   [('dim (list (? (curryr typename-equal? 'tensor)))) '(real)]
   [('size (list (? (curryr typename-equal? 'tensor)) '(real) ...)) '(real)]
@@ -104,17 +108,28 @@
 (define (operator-type op args)  
   (define types (for/list ([arg args])
                   (match arg
-                    [`(any) fpcore-types]
                     [(? type?) (list arg)]
                     [`(,(? type?) ...) arg])))
   (define arg-coords (apply cartesian-product types))
   (for/fold ([res #f]) ([args* arg-coords]) #:break res
     (operator-type* op args*)))
 
+(define (fpcore-as-operator-type ident args)
+  (match-define (list core (list in-type ...) out-type) (dict-ref (*fpcores*) ident))
+  (define match? (for/and ([i in-type] [j args]) (equal? i j)))
+  (cond 
+    [(and match? (empty? out-type))   ; match recursive fpcore
+      (set! fpcore-recursive #t)
+      '((real) (boolean) (tensor))]   ; match previous fpcore
+    [match? out-type]
+    [else #f]))                       ; no match
+
 (define/contract (check-expr stx ctx)
-  (-> syntax? (dictof argument? type?) (cons/c expr? type?))
+  (-> syntax? (dictof argument? type?) (cons/c expr? (or/c type? (listof type?))))
   (match (syntax-e stx)
     [(? number? val)
+     (cons val '(real))]
+    [(? extflonum? val)
      (cons val '(real))]
     [(? hex? val)
      (cons val '(real))]
@@ -139,9 +154,17 @@
        (raise-syntax-error #f "Conditional test must return a boolean" stx test))
      (define ift* (check-expr ift ctx))
      (define iff* (check-expr iff ctx))
-     (unless (equal? (cdr ift*) (cdr iff*))
+     (define ift-type
+      (match (cdr ift*)
+        [(? type? type) (list type)]
+        [`(,(? type?) ...) (cdr ift*)]))
+     (define iff-type
+      (match (cdr iff*)
+        [(? type? type) (list type)]
+        [`(,(? type?) ...) (cdr iff*)]))
+     (unless (for/or ([i ift-type]) (set-member? iff-type i))
        (raise-syntax-error #f "Conditional branches must have same type" stx))
-     (cons `(if ,(car test*) ,(car ift*) ,(car iff*)) (cdr ift*))]
+     (cons `(if ,(car test*) ,(car ift*) ,(car iff*)) (for/first ([i ift-type] #:when (set-member? iff-type i)) i))]
     [(cons (app syntax-e 'if) _)            ; if (invalid)
      (raise-syntax-error #f "Invalid conditional statement" stx)]
     [(list (app syntax-e 'let) (app syntax-e (list (app syntax-e (list vars vals)) ...)) body)  ; let
@@ -299,70 +322,105 @@
      (define props* (map syntax-e props))
      (cons `(! ,@props* ,(car expr*)) (cdr expr*))]
     [(list op args ...)                                         ; ops
-     (unless (set-member? operators (syntax-e op))
+     (unless (or (set-member? operators (syntax-e op)) (dict-has-key? (*fpcores*) (syntax-e op)))
        (raise-syntax-error #f "Unknown operator" op))
+     (define op* (syntax-e op))
      (define children (map (curryr check-expr ctx) args))
      (define rtype 
-       (operator-type (syntax-e op) (map cdr children)))
+       (if (set-member? operators op*)
+           (operator-type op* (map cdr children))
+           (fpcore-as-operator-type op* (map cdr children))))
      (unless rtype
        (raise-syntax-error #f (format "Invalid types for operator ~a" op) stx))
-     (cons (list* (syntax-e op) (map car children)) rtype)]))
+     (cons (list* op* (map car children)) rtype)]))
 
 (define (syntax-e-rec stx)
   (match (syntax-e stx)
     [`(,stx-elem ...) (map syntax-e-rec stx-elem)]
     [stx* stx*]))
 
+(define (check-fpcore* name vars properties body stx)
+  (define-values (annotated-args args in-types ctx)
+    (for/fold ([annot-args '()] [args '()] [in-types '()] [ctx (hash)])
+              ([var vars])
+      (let ([var* (syntax-e-rec var)])
+        (unless (argument? var*)
+          (raise-syntax-error #f "FPCore parameters must be variables" stx var))
+        (match var*
+         [`(,(? symbol? name) ,(or (? number? sizes) (? symbol? sizes)) ...) 
+          (let ([dim-sizes (for/list ([i (filter symbol? sizes)]) (list i (make-type 'real)))])
+            (values (append annot-args (list var*)) 
+                    (append args (list name) (filter symbol? sizes))
+                    (append in-types (list (make-type 'tensor (length sizes)))) 
+                    (apply hash-set* (hash-set* ctx name (make-type 'tensor (length sizes))) (apply append dim-sizes))))]
+         [(? list?) 
+          (values (append annot-args (list var*)) (append args (list (last var*))) 
+                  (append in-types (list '(real))) (hash-set* ctx (list (last var*)) '(real)))]
+         [_ (values (append annot-args (list var*)) (append args (list var*)) 
+                    (append in-types (list '(real))) (hash-set* ctx var* '(real)))]))))
+
+  (define properties*
+    (let loop ([properties properties])
+      (match properties
+        [(list) (list)]
+        [(list prop) (raise-syntax-error #f "Property with no value" prop)]
+        [(list (app syntax-e (? property? prop)) value rest ...)
+        (cons (cons prop value) (loop rest))]
+        [(list prop _ ...) (raise-syntax-error #f "Invalid property" prop)])))
+
+  (when (dict-has-key? properties* ':pre)
+    (define pre (dict-ref properties* ':pre))
+    (define pre* (check-expr pre ctx))
+    (unless (equal? (cdr pre*) '(boolean))
+      (raise-syntax-error #f "FPCore precondition must return a boolean" pre)))
+  
+  (when (non-empty-string? name)
+    (*fpcores* (dict-set* (*fpcores*) (string->symbol name) (list '() in-types '()))))
+
+  (define body* (check-expr body ctx)) ; Any type
+  (define core*
+    `(FPCore (,@annotated-args)
+          ,@(apply append
+                    (for/list ([(prop val) (in-dict properties*)])
+                      (list prop (syntax->datum val))))
+          ,(car body*)))
+
+  (when (non-empty-string? name)  ; update hash with full core information
+    (*fpcores* (dict-set* (*fpcores*) (string->symbol name) (list core* in-types (cdr body*)))))
+  (when fpcore-recursive    ; check again, if recursive call encountered
+    (set! fpcore-recursive #f)
+    (check-expr body ctx))
+  core*)
+
 (define/contract (check-fpcore stx)
   (-> syntax? fpcore?)
   (match (syntax-e stx)
-    [(list (app syntax-e 'FPCore) (app syntax-e (list vars ...)) properties ... body)
-     (define-values (annotated-args args ctx)
-       (for/fold ([annot-args '()] [args '()] [ctx (hash)])
-                 ([var vars])
-         (let ([var* (syntax-e-rec var)])
-           (unless (argument? var*)
-             (raise-syntax-error #f "FPCore parameters must be variables" stx var))
-           (match var*
-            [`(,(? symbol? name) ,(or (? number? sizes) (? symbol? sizes)) ...) 
-              (let ([dim-sizes (for/list ([i (filter symbol? sizes)]) (list i (make-type 'real)))])
-                (values (append annot-args (list var*)) (append args (list name) sizes) 
-                        (apply hash-set* (hash-set* ctx name (make-type 'tensor (length sizes))) (apply append dim-sizes))))]
-            [(? list?) 
-              (values (append annot-args (list var*)) (append args (list (last var*))) (hash-set* ctx (list (last var*)) '(real)))]
-            [_ (values (append annot-args (list var*)) (append args (list var*)) (hash-set* ctx var* '(real)))]))))
-
-     (define properties*
-       (let loop ([properties properties])
-         (match properties
-           [(list) (list)]
-           [(list prop) (raise-syntax-error #f "Property with no value" prop)]
-           [(list (app syntax-e (? property? prop)) value rest ...)
-            (cons (cons prop value) (loop rest))]
-           [(list prop _ ...) (raise-syntax-error #f "Invalid property" prop)])))
-
-     (when (dict-has-key? properties* ':pre)
-       (define pre (dict-ref properties* ':pre))
-       (define pre* (check-expr pre ctx))
-       (unless (equal? (cdr pre*) '(boolean))
-         (raise-syntax-error #f "FPCore precondition must return a boolean" pre)))
-
-     (define body* (check-expr body ctx))
-     (unless (or (equal? (cdr body*) '(real)) (typename-equal? (cdr body*) 'tensor))
-       (raise-syntax-error #f "FPCore benchmark must return a real number or tensor" body))
-
-     `(FPCore (,@annotated-args)
-              ,@(apply append
-                       (for/list ([(prop val) (in-dict properties*)])
-                         (list prop (syntax->datum val))))
-              ,(car body*))]))
-
+   [(list (app syntax-e 'FPCore) (app syntax-e name) (app syntax-e (list vars ...)) properties ... body)
+    (unless (symbol? name)
+      (raise-syntax-error #f "FPCore identifier must be a symbol" stx name))
+    (check-fpcore* (symbol->string name) vars properties body stx)]
+   [(list (app syntax-e 'FPCore) (app syntax-e (list vars ...)) properties ... body)
+    (check-fpcore* "" vars properties body stx)]))
+  
 (define/contract (read-fpcore name p)
   (-> any/c input-port? (or/c fpcore? eof-object?))
   (parameterize ([read-decimal-as-inexact #f])
-    (define p* (open-input-bytes (regexp-replace* #rx"#" (port->bytes p) "! :precision integer"))) ; expand '#' since this is special in Racket
-    (define stx (read-syntax name p*))
+    ;(define p* (open-input-bytes (regexp-replace* #rx"#" (port->bytes p) "! :precision integer"))) ; expand '#' since this is special in Racket
+    ;(define stx (read-syntax name p*))
+    (define stx (read-syntax name p))
     (if (eof-object? stx) stx (check-fpcore stx))))
+
+;;
+;; Evaluation
+;;
+
+(define (real->float x prec)
+  (define x* (if (extflonum? x) (extfl->real x) x))
+  (match prec
+    ['binary80 (real->extfl x*)]
+    ['binary64 (real->double-flonum x*)]
+    ['binary32 (real->single-flonum x*)]
+    ['integer  (inexact->exact x*)]))
 
 (define/contract context/c contract? (dictof symbol? any/c))
 
@@ -471,6 +529,10 @@
     [`(dim ,val) (tensor-dim (rec val ctx))]
     [`(size ,val ,dim) (tensor-size (rec val ctx) (inexact->exact dim))]
     [`(ref ,val ,elems ...) (apply (curry tensor-ref (rec val ctx)) (map (compose inexact->exact (curryr rec ctx)) elems))]
+    [(list (? (curry dict-has-key? (*fpcores*)) ident) args ...)
+      (define args* (map (curryr rec ctx) args))
+      (define core* (first (dict-ref (*fpcores*) ident)))
+      (racket-run-fpcore core* (map ~a args*))]
     [(list (? operator? op) args ...)
       (apply ((evaluator-function evaltor) op) (map (curryr rec ctx) args))]))
 
@@ -792,14 +854,6 @@
 
 ;; Interpreter from command line
 
-(define (real->float x prec)
-  (define x* (if (extflonum? x) (extfl->real x) x))
-  (match prec
-    ['binary80 (real->extfl x*)]
-    ['binary64 (real->double-flonum x*)]
-    ['binary32 (real->single-flonum x*)]
-    ['integer  (inexact->exact x*)]))
-
 (define (string->float x prec)
   (define x* (string->number x))
   (unless (or (number? x*) (extflonum? x*))
@@ -829,8 +883,7 @@
    [_  (error 'tensor-layer->size (format "Size of array must be a variable or number. Given ~a") size)]))
 
 (define (arg->tensor name sizes arg evaltor ctx)
-  (define arg* (string-replace arg "#" "! :precision integer"))  ;; '#' is a special character in Racket, but syntantic sugar in the FPCore standard
-  (define p (open-input-string arg*))
+  (define p (open-input-string arg))
   (define syn (read-syntax 'str p))
   (when (eof-object? syn)
     (error 'arg->tensor "Couldn't read tensor. Check input expression."))
@@ -882,11 +935,3 @@
       (match ret
         [(? tensor?) ret]
         [_ (real->float ret base-precision)]))))
-
-(module+ main
-  (command-line
-   #:program "fpcore.rkt"
-   #:args args
-    (port-count-lines! (current-input-port))
-    (for ([prog (in-port (curry read-fpcore "stdin"))])
-        (printf "~a\n" (racket-run-fpcore prog args)))))

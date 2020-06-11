@@ -19,7 +19,7 @@
    ;; maybe a way to provide a context?
    ;; context override information?
    #:args args
-
+   
    (define-values (input-port input-port-name)
      (if (equal? (*in-file*) "-")
          (values stdin-port "stdin")
@@ -30,8 +30,14 @@
          (open-output-file (*out-file*) #:mode 'text #:exists 'truncate)))
 
    (port-count-lines! input-port)
-   (for ([prog (in-port (curry read-fpcore input-port-name) input-port)])
-     (fprintf output-port "~a\n" (racket-run-fpcore prog args)))))
-
+   (parameterize ([*fpcores* '()])
+     (define last
+       (for/last ([prog (in-port (curry read-fpcore input-port-name) input-port)]
+            #:when #t)
+          prog))
+     (if (dict-has-key? (*fpcores*) 'main)
+         (fprintf output-port "~a\n" (racket-run-fpcore (first (dict-ref (*fpcores*) 'main)) args))
+         (fprintf output-port "~a\n" (racket-run-fpcore last args))))))
+   
 (module+ main
   (evaluate-main (current-command-line-arguments) (current-input-port) (current-output-port)))

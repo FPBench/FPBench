@@ -1,5 +1,5 @@
 #lang racket
-(require "common.rkt" "fpcore.rkt")
+(require "common.rkt" "fpcore-checker.rkt")
 (provide valid-core unsupported-features 
          invert-op-list invert-const-list invert-round-modes-list
          ieee754-ops ieee754-rounding-modes fpcore-ops fpcore-consts

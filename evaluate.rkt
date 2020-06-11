@@ -1,6 +1,6 @@
 #lang racket
 
-(require "src/fpcore.rkt")
+(require "src/fpcore-checker.rkt" "src/fpcore-interpreter.rkt" "src/fpcore-reader.rkt")
 
 (provide evaluate-main)
 

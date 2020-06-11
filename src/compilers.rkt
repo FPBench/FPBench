@@ -1,6 +1,6 @@
 #lang racket
 
-(require "fpcore.rkt" "supported.rkt")
+(require "supported.rkt" "fpcore-checker.rkt")
 (provide *used-names* *gensym-divider* *gensym-collisions* *gensym-fix-name*
           ctx-unique-name ctx-random-name ctx-lookup-name ctx-reserve-names ctx-names
           ctx-update-props ctx-lookup-prop ctx-props ctx-lookup-prec

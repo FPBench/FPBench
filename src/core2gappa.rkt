@@ -1,6 +1,6 @@
 #lang racket
 
-(require "common.rkt" "fpcore.rkt" "fpcore-extra.rkt" "range-analysis.rkt" "supported.rkt")
+(require "common.rkt" "fpcore-reader.rkt" "fpcore-extra.rkt" "range-analysis.rkt" "supported.rkt")
 (provide core->gappa gappa-supported)
 
 (define gappa-supported

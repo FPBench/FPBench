@@ -1,6 +1,6 @@
 #lang racket
 
-(require "common.rkt" "fpcore.rkt")
+(require "common.rkt")
 (provide (struct-out interval) make-interval nonempty-bounded? condition->range-table interval->condition
          range-table-ref)
 

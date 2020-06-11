@@ -1,6 +1,6 @@
 #lang racket
 
-(require "common.rkt" "fpcore.rkt" "range-analysis.rkt")
+(require "common.rkt" "fpcore-checker.rkt" "range-analysis.rkt")
 (provide fix-file-name round-decimal format-number
          free-variables remove-let canonicalize
          split-expr to-dnf all-subexprs unroll-loops skip-loops

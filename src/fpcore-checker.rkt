@@ -2,10 +2,11 @@
 
 (require racket/extflonum)
 (require "common.rkt" "tensor.rkt")
-(provide *fpcores* fpcore-recursive
+(provide *fpcores* *unknown-fpcores* check-unknown
          fpcore? expr? check-fpcore syntax-e-rec)
 
 (define *fpcores* (make-parameter '()))  ; previously run fpcores
+(define *unknown-fpcores* (make-parameter '()))  ; future fpcores (for mutually recursive fpcores)
 (define fpcore-recursive #f)  ; 'check-expr sets this true if a recursive call is encountered
 
 (define/contract (fpcore? thing)
@@ -36,6 +37,7 @@
     [(? symbol?) true]
     [(list (? operator?) (? expr?) ...) true]
     [(list (? (curry dict-has-key? (*fpcores*))) (? expr?) ...) true]
+    [(list (? (curry dict-has-key? (*unknown-fpcores*))) (? expr?) ...) true]
     [`(if ,(? expr?) ,(? expr?) ,(? expr?)) true]
     [`(,(or 'let 'let*) ([,(? symbol?) ,(? expr?)] ...) ,(? expr?)) true]
     [`(,(or 'while 'while*) ,(? expr?) ([,(? symbol?) ,(? expr?) ,(? expr?)] ...) ,(? expr?)) true]
@@ -106,6 +108,11 @@
   (for/fold ([res #f]) ([args* arg-coords]) #:break res
     (operator-type* op args*)))
 
+(define (type-match? t1 t2)
+  (define t1* (if (type? t1) (list t1) t1))
+  (define t2* (if (type? t2) (list t1) t2))
+  (for/or ([v t1*]) (set-member? t2* v)))
+
 ;; Returns true if the tensor types are equal. Scalar types must only share on type, not be completely equal
 (define (tensor-type-equal? t1 t2)
   (define s1 (last t1))
@@ -121,20 +128,27 @@
       [else (equal? s2 s2)])))
 
 ;; type checker when calling fpcores
-(define (fpcore-as-operator-type ident args)
-  (match-define (list core (list in-type ...) out-type) (dict-ref (*fpcores*) ident))
+(define (fpcore-as-operator-type* prog args)
+  (match-define (list core (list in-types ...) out-type) prog)
   (define match? 
-    (for/and ([i in-type] [j args])
-      (if (typename-equal? i 'tensor)
+    (for/and ([i in-types] [j args])
+      (if (typename-equal? i 'tensor) 
           (tensor-type-equal? (drop i 1) (drop j 1))
-          (equal? i j))))
+          (type-match? i j))))
   (cond 
     [(and match? (empty? out-type))   ; match recursive fpcore
       (set! fpcore-recursive #t)
       '((real) (boolean) (tensor))]   ; match previous fpcore
     [match? out-type]
-    [else #f]))                       ; no match
+    [else #f]))
 
+(define (fpcore-as-operator-type ident args)
+  (define core (dict-ref (*fpcores*) ident #f))
+  (cond
+   [core (fpcore-as-operator-type* core args)]
+   [else (*unknown-fpcores* (dict-set* (*unknown-fpcores*) ident (list '() args '())))
+         '((real) (boolean) (tensor))]))
+   
 (define/contract (check-expr stx ctx)
   (-> syntax? (dictof argument? type?) (cons/c expr? (or/c type? (listof type?))))
   (match (syntax-e stx)
@@ -335,8 +349,6 @@
      (define props* (map syntax-e props))
      (cons `(! ,@props* ,(car expr*)) (cdr expr*))]
     [(list op args ...)                                         ; ops
-     (unless (or (set-member? operators (syntax-e op)) (dict-has-key? (*fpcores*) (syntax-e op)))
-       (raise-syntax-error #f "Unknown operator" op))
      (define op* (syntax-e op))
      (define children (map (curryr check-expr ctx) args))
      (define rtype 
@@ -415,3 +427,14 @@
     (check-fpcore* (symbol->string name) vars properties body stx)]
    [(list (app syntax-e 'FPCore) (app syntax-e (list vars ...)) properties ... body)
     (check-fpcore* "" vars properties body stx)]))
+
+; After parsing a multiple fpcores, a list of unrecognized symbols will be stored. This procedure throws an error if
+; any of those symbols are truly unrecognized or declared before it's definition.
+(define (check-unknown)
+  (for ([name (dict-keys (*unknown-fpcores*))])
+    (when (dict-has-key? (*fpcores*) name)
+      (check-fpcore (datum->syntax #f (first (dict-ref (*fpcores*) name))))   ; check again
+      (*unknown-fpcores* (dict-remove (*unknown-fpcores*) name))))
+  (unless (empty? (*unknown-fpcores*))
+    (error (format "Unrecognized operator(s) or fpcore(s): ~a" 
+                   (string-join (map (curry format "'~a'") (dict-keys (*unknown-fpcores*))) ", ")))))

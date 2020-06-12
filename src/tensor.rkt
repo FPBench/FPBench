@@ -8,7 +8,7 @@
   (cond
     [(list? x)
       (for/and ([i x])
-        (or (number? i) (extflonum? i) (constant? i) (tensor? i)))]
+        (or (number? i) (extflonum? i) (boolean? i) (constant? i) (tensor? i)))]
     [else #f]))
 
 (define (tensor-ref x n . rest)

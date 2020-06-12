@@ -35,6 +35,7 @@
        (for/last ([prog (in-port (curry read-fpcore input-port-name) input-port)]
             #:when #t)
           prog))
+     (check-unknown)
      (if (dict-has-key? (*fpcores*) 'main)
          (fprintf output-port "~a\n" (racket-run-fpcore (first (dict-ref (*fpcores*) 'main)) args))
          (fprintf output-port "~a\n" (racket-run-fpcore last args))))))

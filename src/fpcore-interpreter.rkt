@@ -525,7 +525,7 @@
     ((eval-expr evaltor) expr (hash))))
 
 (define/contract (racket-run-fpcore prog args)
-  (-> fpcore? (listof string?) (or/c real? extflonum? tensor?))
+  (-> fpcore? (listof string?) (or/c real? extflonum? tensor? boolean?))
   (match-define `(FPCore (,vars ...) ,props* ... ,body) prog)
   (define-values (_ props) (parse-properties props*))
   (define base-precision (dict-ref props ':precision 'binary64))
@@ -551,5 +551,5 @@
                  [bf-precision (prec->bf-bits base-precision)])
     (let ([ret ((eval-expr evaltor) body ctx)])
       (match ret
-        [(or 'TRUE 'FALSE (? tensor?)) ret]
+        [(or (? boolean?) (? tensor?)) ret]
         [_ (real->float ret base-precision)]))))

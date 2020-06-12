@@ -303,6 +303,11 @@
     [log2 (compute-with-bf bflog2)]
 
     [fma compute-with-bf-fma]
+    [hypot (compute-with-bf-2 bfhypot)]
+
+    [sinh (compute-with-bf bfsinh)]
+    [cosh (compute-with-bf bfcosh)]
+    [tanh (compute-with-bf bftanh)]
     [asinh (compute-with-bf bfasinh)]
     [acosh (compute-with-bf bfacosh)]
     [atanh (compute-with-bf bfatanh)]
@@ -483,13 +488,16 @@
     '()]
    [_  (error 'tensor-layer->size (format "Size of array must be a variable or number. Given ~a") size)]))
 
-(define (arg->tensor name sizes arg evaltor ctx)
+(define (arg->tensor name sizes arg evaltor ctx base-rounding base-precision)
   (define p (open-input-string arg))
   (define syn (read-syntax 'str p))
   (when (eof-object? syn)
     (error 'arg->tensor "Couldn't read tensor. Check input expression."))
   (define ten (syntax-e-rec syn))
-  (define ten* ((eval-expr evaltor) ten (hash))) 
+  (define ten* 
+    (parameterize ([bf-rounding-mode (fpcore->bf-round base-rounding)] 
+                   [bf-precision (prec->bf-bits base-precision)])
+      ((eval-expr evaltor) ten (hash)))) 
   (unless (tensor? ten*)
     (error 'arg->tensor "Expected a tensor"))
   (unless (= (tensor-dim ten*) (length sizes))
@@ -505,7 +513,16 @@
           (unless (for/and ([i (drop ten** 1)]) (equal? ctx* (loop i (drop sizes* 1))))
             (error 'arg->tensor "Ragged tensors not supported"))
           ctx*))]))
-    (list (cons name ten*))))         
+    (list (cons name ten*))))
+
+(define (arg->expr arg evaltor base-rounding base-precision)
+  (define syn (read-syntax 'str (open-input-string arg)))
+  (when (eof-object? syn)
+    (error 'arg->expr "Couldn't read expression"))
+  (define expr (syntax-e-rec syn))
+  (parameterize ([bf-rounding-mode (fpcore->bf-round base-rounding)] 
+                 [bf-precision (prec->bf-bits base-precision)])
+    ((eval-expr evaltor) expr (hash))))
 
 (define/contract (racket-run-fpcore prog args)
   (-> fpcore? (listof string?) (or/c real? extflonum? tensor?))
@@ -524,15 +541,15 @@
      (append ctx
       (match var
         [`(,(? symbol? name) ,(or (? number? sizes) (? symbol? sizes)) ...)
-         (arg->tensor name sizes arg evaltor ctx)]
+         (arg->tensor name sizes arg evaltor ctx base-rounding base-precision)]
         [`(! ,var-props* ... ,(? symbol? var*))
          (define-values (_ var-props) (parse-properties var-props*))
          (list (cons var* (string->float arg (dict-ref var-props ':precision base-precision))))]
         [(? symbol?)
-         (list (cons var (string->float arg base-precision)))]))))
+         (list (cons var (arg->expr arg evaltor base-rounding base-precision)))]))))
   (parameterize ([bf-rounding-mode (fpcore->bf-round base-rounding)] 
                  [bf-precision (prec->bf-bits base-precision)])
     (let ([ret ((eval-expr evaltor) body ctx)])
       (match ret
-        [(? tensor?) ret]
+        [(or 'TRUE 'FALSE (? tensor?)) ret]
         [_ (real->float ret base-precision)]))))

@@ -1,6 +1,6 @@
 #lang racket
 
-(require "common.rkt" "fpcore.rkt" "supported.rkt")
+(require "common.rkt" "fpcore-checker.rkt" "supported.rkt")
 (provide scala-header scala-footer core->scala scala-supported)
 
 (define scala-supported

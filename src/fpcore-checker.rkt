@@ -79,16 +79,20 @@
   [((or 'isfinite 'isinf 'isnan 'isnormal 'signbit) (list '(real))) '(boolean)]
   [((or 'and 'or) (list '(boolean) ...)) '(boolean)]
   [('not (list '(boolean))) '(boolean)]
-  [('array (list (or (? (curryr typename-equal? 'real) elems) (? (curryr typename-equal? 'boolean) elems) (? (curryr typename-equal? 'tensor) elems)) ...))
-    (cond [(for/and ([i elems]) (typename-equal? i 'tensor)) `(tensor ,(add1 (second (argmin (λ (x) (second x)) elems))))]
-          [else '(tensor 1)])]
+  [('array (list (? (curryr typename-equal? 'real) elems) ...)) `(tensor 1 ,(length elems) real)]
+  [('array (list (? (curryr typename-equal? 'boolean) elems) ...)) `(tensor 1 ,(length elems) boolean)]
+  [('array (list (? (curryr typename-equal? 'tensor) elems) ...))
+    (if (for/and ([i (drop elems 1)]) (equal? (last i) (last (first elems))))
+      `(tensor ,(add1 (second (first elems))) ,(length elems) ,@(drop (first elems) 2))
+       #f)]
   [('dim (list (? (curryr typename-equal? 'tensor)))) '(real)]
   [('size (list (? (curryr typename-equal? 'tensor)) '(real) ...)) '(real)]
-  [('ref (list (list tensor (? integer? n)) (? (curryr typename-equal? 'real) sizes) ...)) 
+  [('ref (list (list tensor (? integer? n) (or (? integer? s) (? symbol? s)) ... (or (? typename? types) (? (listof typename?) types)))
+               (? (curryr typename-equal? 'real) sizes) ...))  
     (let ([d (- n (length sizes))])
       (cond [(negative? d) (error 'operator-type* "Ref out of bounds")]
-            [(zero? d) '((real) (boolean))]
-            [else '(tensor d)]))]
+            [(zero? d) (if ((listof typename?) types) (map list types) (list types))]
+            [else `(tensor ,d ,@(drop s (length sizes)) ,types)]))]
   [(_ _) #f])
 
 ;; optimistic type checker. If a single arg type combination is valid and return first (hopefully, only)
@@ -102,9 +106,28 @@
   (for/fold ([res #f]) ([args* arg-coords]) #:break res
     (operator-type* op args*)))
 
+;; Returns true if the tensor types are equal. Scalar types must only share on type, not be completely equal
+(define (tensor-type-equal? t1 t2)
+  (define s1 (last t1))
+  (define s2 (last t2))
+  (and
+    (for/and ([i (take t1 (sub1 (length t1)))]
+              [j (take t2 (sub1 (length t2)))])
+      (if (or (symbol? i) (symbol? j)) #t (equal? i j)))  
+    (cond
+      [(and ((listof typename?) s1) ((listof typename?) s2)) (for/or ([i s1]) (set-member? s2 i))]
+      [((listof typename?) s1) (for/or ([i s1]) (equal? i s2))]
+      [((listof typename?) s2) (for/or ([i s2]) (equal? i s1))]
+      [else (equal? s2 s2)])))
+
+;; type checker when calling fpcores
 (define (fpcore-as-operator-type ident args)
   (match-define (list core (list in-type ...) out-type) (dict-ref (*fpcores*) ident))
-  (define match? (for/and ([i in-type] [j args]) (equal? i j)))
+  (define match? 
+    (for/and ([i in-type] [j args])
+      (if (typename-equal? i 'tensor)
+          (tensor-type-equal? (drop i 1) (drop j 1))
+          (equal? i j))))
   (cond 
     [(and match? (empty? out-type))   ; match recursive fpcore
       (set! fpcore-recursive #t)
@@ -237,7 +260,8 @@
      (define ctx** (apply dict-set* ctx* (append-map list accums* (map cdr inits*))))
      (define updates* (map (curryr check-expr ctx**) updates))
      (for ([accum accums] [init inits*] [update updates*])
-       (unless (equal? (cdr init) (cdr update))
+       (unless 
+         (if (typename-equal? (cdr init) 'tensor) (tensor-type-equal? (cdr init) (cdr update)) (equal? (cdr init) (cdr update)))
          (raise-syntax-error #f "Initialization and update must have the same type in for loop" stx accum)))
      (define body* (check-expr body ctx**))
      (cons `(for (,@(map list vars* (map car (reverse vals*)))) (,@(map list accums* (map car inits*) (map car updates*))) ,(car body*)) (cdr body*))]
@@ -262,7 +286,8 @@
      (define inits* (reverse inits-rev))
      (define updates* (map (curryr check-expr ctx**) updates))
      (for ([accum accums] [init inits*] [update updates*])
-       (unless (equal? (cdr init) (cdr update))
+       (unless 
+         (if (typename-equal? (cdr init) 'tensor) (tensor-type-equal? (cdr init) (cdr update)) (equal? (cdr init) (cdr update)))
          (raise-syntax-error #f "Initialization and update must have the same type in for loop" stx accum)))
      (define body* (check-expr body ctx**))
      (cons `(for* (,@(map list vars* (map car (reverse vals*)))) (,@(map list accums* (map car inits*) (map car updates*))) ,(car body*)) (cdr body*))]
@@ -277,7 +302,7 @@
      (define vals* (map (curryr check-expr ctx) vals))
      (define ctx* (apply dict-set* ctx (append-map list vars* (map cdr vals*))))
      (define body* (check-expr body ctx*))
-     (cons `(tensor (,@(map list vars* (map car vals*))) ,(car body*)) `(tensor ,(length vars)))]
+     (cons `(tensor (,@(map list vars* (map car vals*))) ,(car body*)) `(tensor ,(length vars) ,@(map car vals*) ,@(cdr body*)))]
     [(list (app syntax-e 'tensor*) (app syntax-e (list (app syntax-e (list vars vals)) ...)) (app syntax-e (list (app syntax-e (list accums inits updates)) ...)) body)  ; tensor*
      (define vars*
        (for/list ([var vars])
@@ -302,7 +327,7 @@
        (unless (equal? (cdr init) (cdr update))
          (raise-syntax-error #f "Initialization and update must have the same type in tensor loop" stx accum)))
      (define body* (check-expr body ctx**))
-     (cons `(tensor* (,@(map list vars* (map car vals*))) (,@(map list accums* (map car inits*) (map car updates*))) ,(car body*)) `(tensor ,(length vars)))]
+     (cons `(tensor* (,@(map list vars* (map car vals*))) (,@(map list accums* (map car inits*) (map car updates*))) ,(car body*)) `(tensor ,(length vars) ,@(map car vals*) ,@(cdr body*)))]
     [(cons (app syntax-e (or 'tensor 'tensor*)) _)               ; tensor tensor* (invalid)
      (raise-syntax-error #f "Invalid tensor construction" stx)]
     [(list (app syntax-e '!) props ... expr)                     ; !
@@ -319,7 +344,7 @@
            (operator-type op* (map cdr children))
            (fpcore-as-operator-type op* (map cdr children))))
      (unless rtype
-       (raise-syntax-error #f (format "Invalid types for operator ~a" op) stx))
+       (raise-syntax-error #f (format "Invalid types for operator '~a': ~a" op* (map cdr children)) stx))
      (cons (list* op* (map car children)) rtype)]))
 
 (define (syntax-e-rec stx)
@@ -336,11 +361,12 @@
           (raise-syntax-error #f "FPCore parameters must be variables" stx var))
         (match var*
          [`(,(? symbol? name) ,(or (? number? sizes) (? symbol? sizes)) ...) 
-          (let ([dim-sizes (for/list ([i (filter symbol? sizes)]) (list i (make-type 'real)))])
+          (let* ([dim-sizes (for/list ([i (filter symbol? sizes)]) (list i '(real)))]
+                 [type `(tensor ,(length sizes) ,@sizes (real boolean))])
             (values (append annot-args (list var*)) 
                     (append args (list name) (filter symbol? sizes))
-                    (append in-types (list (make-type 'tensor (length sizes)))) 
-                    (apply hash-set* (hash-set* ctx name (make-type 'tensor (length sizes))) (apply append dim-sizes))))]
+                    (append in-types (list type)) 
+                    (apply hash-set* (hash-set* ctx name type) (apply append dim-sizes))))]
          [(? list?) 
           (values (append annot-args (list var*)) (append args (list (last var*))) 
                   (append in-types (list '(real))) (hash-set* ctx (list (last var*)) '(real)))]
@@ -372,7 +398,7 @@
                     (for/list ([(prop val) (in-dict properties*)])
                       (list prop (syntax->datum val))))
           ,(car body*)))
-
+          
   (when (non-empty-string? name)  ; update hash with full core information
     (*fpcores* (dict-set* (*fpcores*) (string->symbol name) (list core* in-types (cdr body*)))))
   (when fpcore-recursive    ; check again, if recursive call encountered

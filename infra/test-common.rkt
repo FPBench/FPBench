@@ -1,7 +1,7 @@
 #lang racket
 
 (require math/flonum racket/extflonum math/bigfloat)
-(require "../src/common.rkt" "../src/fpcore.rkt" "../src/range-analysis.rkt" "../src/sampler.rkt" "../src/supported.rkt")
+(require "../src/common.rkt" "../src/fpcore-reader.rkt" "../src/fpcore-interpreter.rkt" "../src/range-analysis.rkt" "../src/sampler.rkt" "../src/supported.rkt")
 (provide tester *tester* test-core *prog*)
 
 (module+ test

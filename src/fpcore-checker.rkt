@@ -2,12 +2,19 @@
 
 (require racket/extflonum)
 (require "common.rkt" "tensor.rkt")
-(provide *fpcores* *unknown-fpcores* check-unknown
+(provide *fpcores* *unknown-fpcores* *check-level* check-unknown
          fpcore? expr? check-fpcore syntax-e-rec)
 
 (define *fpcores* (make-parameter '()))  ; previously run fpcores
 (define *unknown-fpcores* (make-parameter '()))  ; future fpcores (for mutually recursive fpcores)
 (define fpcore-recursive #f)  ; 'check-expr sets this true if a recursive call is encountered
+
+; Controls level of type checking
+; 1 - Parsing only
+; 2 - Scalar types
+; 3 - Tensor dimensions (raggedness)
+; 4 - Tensor array raggedness
+(define *check-level* (make-parameter 2  (λ (x) (if (<= 1 x 4) x (error "Invalid *check-level* parameter value")))))
 
 (define/contract (fpcore? thing)
   contract?
@@ -113,28 +120,36 @@
   (define t2* (if (type? t2) (list t1) t2))
   (for/or ([v t1*]) (set-member? t2* v)))
 
-;; Returns true if the tensor types are equal. Scalar types must only share on type, not be completely equal
+;; Returns true if the tensor types are equal. Scalar types must only share one type, not be completely equal.
 (define (tensor-type-equal? t1 t2)
-  (define s1 (last t1))
-  (define s2 (last t2))
-  (and
-    (for/and ([i (take t1 (sub1 (length t1)))]
-              [j (take t2 (sub1 (length t2)))])
-      (if (or (symbol? i) (symbol? j)) #t (equal? i j)))  
-    (cond
-      [(and ((listof typename?) s1) ((listof typename?) s2)) (for/or ([i s1]) (set-member? s2 i))]
-      [((listof typename?) s1) (for/or ([i s1]) (equal? i s2))]
-      [((listof typename?) s2) (for/or ([i s2]) (equal? i s1))]
-      [else (equal? s2 s2)])))
+  (cond
+   [(equal? t2 '(tensor)) #t]   ; Unknown fpcores have a return type of '((real) (boolean) (tensor)), just assume it's valid
+   [else 
+    (define s1 (last t1))
+    (define s2 (last t2))
+    (and
+      (= (length t1) (length t2))
+      (for/and ([i (take t1 (sub1 (length t1)))]
+                [j (take t2 (sub1 (length t2)))])
+        (if (or (symbol? i) (symbol? j)) #t (equal? i j)))  
+      (cond
+        [(and ((listof typename?) s1) ((listof typename?) s2)) (for/or ([i s1]) (set-member? s2 i))]
+        [((listof typename?) s1) (for/or ([i s1]) (equal? i s2))]
+        [((listof typename?) s2) (for/or ([i s2]) (equal? i s1))]
+        [else (equal? s2 s2)]))]))
 
 ;; type checker when calling fpcores
 (define (fpcore-as-operator-type* prog args)
   (match-define (list core (list in-types ...) out-type) prog)
   (define match? 
-    (for/and ([i in-types] [j args])
-      (if (typename-equal? i 'tensor) 
-          (tensor-type-equal? (drop i 1) (drop j 1))
-          (type-match? i j))))
+    (for/and ([i in-types] [j args])   ;; i - expected type, j - actual type
+     (cond
+      [(and (typename-equal? i 'tensor) (type? j)) ;; j may be a type or a list of types
+        (tensor-type-equal? i j)]
+      [(and (typename-equal? i 'tensor) ((listof type?) j))
+        (for/or ([v j]) (tensor-type-equal? i v))]
+      [(type? j) (tensor-type-equal? i j)]
+      [else (for/or ([v j]) (type-match? i v))])))
   (cond 
     [(and match? (empty? out-type))   ; match recursive fpcore
       (set! fpcore-recursive #t)
@@ -148,7 +163,7 @@
    [core (fpcore-as-operator-type* core args)]
    [else (*unknown-fpcores* (dict-set* (*unknown-fpcores*) ident (list '() args '())))
          '((real) (boolean) (tensor))]))
-   
+
 (define/contract (check-expr stx ctx)
   (-> syntax? (dictof argument? type?) (cons/c expr? (or/c type? (listof type?))))
   (match (syntax-e stx)
@@ -338,7 +353,8 @@
      (define inits* (reverse inits-rev))
      (define updates* (map (curryr check-expr ctx**) updates))
      (for ([accum accums] [init inits*] [update updates*])
-       (unless (equal? (cdr init) (cdr update))
+       (unless 
+         (if (typename-equal? (cdr init) 'tensor) (tensor-type-equal? (cdr init) (cdr update)) (equal? (cdr init) (cdr update)))
          (raise-syntax-error #f "Initialization and update must have the same type in tensor loop" stx accum)))
      (define body* (check-expr body ctx**))
      (cons `(tensor* (,@(map list vars* (map car vals*))) (,@(map list accums* (map car inits*) (map car updates*))) ,(car body*)) `(tensor ,(length vars) ,@(map car vals*) ,@(cdr body*)))]

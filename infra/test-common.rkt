@@ -91,7 +91,10 @@
   (when (equal? (test-file) #f) (test-file default-file))
   (for ([prog (in-port (curry read-fpcore source) curr-in-port)]
         #:when (valid-core prog (tester-supported (*tester*))))
-    (match-define (list 'FPCore (list vars ...) props* ... body) prog)
+    (define-values (vars props* body)
+     (match prog
+      [(list 'FPCore (list args ...) props ... body) (values args props body)]
+      [(list 'FPCore name (list args ...) props ... body) (values args props body)]))
     (define-values (_ props) (parse-properties props*))
     (define type (dict-ref props ':precision 'binary64))
     (define rnd-mode (dict-ref props ':round 'nearestEven))

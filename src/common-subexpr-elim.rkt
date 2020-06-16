@@ -22,10 +22,15 @@
 
 (define (core-common-subexpr-elim prog)
   (*names* (mutable-set))
-  (match-define (list 'FPCore (list args ...) props ... body) prog)
+  (define-values (name args props body)
+    (match prog
+     [(list 'FPCore (list args ...) props ... body) (values #f args props body)]
+     [(list 'FPCore name (list args ...) props ... body) (values name args props body)]))
   (define cs-hash (count-common-subexpr body))
   (define cse-body (common-subexpr-elim cs-hash body))
-  `(FPCore ,args ,@props ,cse-body))
+  (if name
+    `(FPCore ,name ,args ,@props ,cse-body)
+    `(FPCore ,args ,@props ,cse-body)))
 
 (define (combine-common-subexpr-hash h1 h2)
   (for ([(k v) (in-hash h2)])

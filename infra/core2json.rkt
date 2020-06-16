@@ -16,8 +16,10 @@
 
 (define/contract (core->json core)
   (-> fpcore? jsexpr?)
-
-  (match-define (list 'FPCore (list args ...) props ... body) core)
+  (define-values (args props body)
+   (match core
+    [(list 'FPCore (list args ...) props ... body) (values args props body)]
+    [(list 'FPCore name (list args ...) props ... body) (values args props body)]))
   (define-values (_ prop-dict) (parse-properties props))
   (define prop-hash
     (for/hash ([(prop value) (in-dict prop-dict)])

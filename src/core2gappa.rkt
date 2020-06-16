@@ -149,7 +149,10 @@
                          #:precision [precision #f]
                          #:var-precision [var-precision #f]
                          #:rel-error [rel-error #f])
-  (match-define (list 'FPCore (list args ...) props ... body) prog)
+  (define-values (args props body)
+   (match prog
+    [(list 'FPCore (list args ...) props ... body) (values args props body)]
+    [(list 'FPCore name (list args ...) props ... body) (values args props body)]))
   (define-values (_ properties) (parse-properties props))
   (define type
     (if precision precision (dict-ref properties ':precision 'binary64)))

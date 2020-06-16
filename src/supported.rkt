@@ -90,7 +90,10 @@
 
 (define/contract (operators-in core)
   (-> fpcore? (listof symbol?))
-  (match-define (list 'FPCore (list args ...) props ... body) core)
+  (define-values (args props body)
+    (match core
+     [(list 'FPCore (list args ...) props ... body) (values args props body)]
+    [(list 'FPCore name (list args ...) props ... body) (values args props body)]))
   (operators-in-expr body))
 
 (define/contract (constants-in-expr expr)
@@ -116,7 +119,10 @@
 
 (define/contract (constants-in core)
   (-> fpcore? (listof symbol?))
-  (match-define (list 'FPCore (list args ...) props ... body) core)
+  (define-values (args props body)
+    (match core
+     [(list 'FPCore (list args ...) props ... body) (values args props body)]
+     [(list 'FPCore name (list args ...) props ... body) (values args props body)]))
   (constants-in-expr body))  
 
 (define property-hash? (hash/c symbol? (set/c any/c)))
@@ -147,7 +153,10 @@
 
 (define/contract (property-values core)
   (-> fpcore? property-hash?)
-  (match-define (list 'FPCore (list args ...) props ... body) core)
+  (define-values (args props body)
+    (match core
+     [(list 'FPCore (list args ...) props ... body) (values args props body)]
+     [(list 'FPCore name (list args ...) props ... body) (values args props body)]))
   (define prop-hash (property-values-expr body))
   (property-hash-add! prop-hash props)
   prop-hash)
@@ -177,7 +186,10 @@
 
 (define/contract (round-modes-in core)
   (-> fpcore? (listof symbol?))
-  (match-define (list 'FPCore (list args ...) props ... body) core)
+  (define-values (args props body)
+    (match core
+     [(list 'FPCore (list args ...) props ... body) (values args props body)]
+     [(list 'FPCore name (list args ...) props ... body) (values args props body)]))
   (remove-duplicates
     (let ([rnd-mode (dict-ref (apply hash-set* #hash() props) ':round #f)]
           [in-body (round-modes-in-expr body)])

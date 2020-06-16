@@ -78,7 +78,7 @@
 (define (smt-format-output result)
   (format "~a" result))
 
-(define smt-tester (tester "smt" translate->smt run<-smt smt-equality smt-format-args smt-format-output smt-supported))
+(define smt-tester (tester "smt" translate->smt run<-smt smt-equality smt-format-args smt-format-output (const #t) smt-supported))
 
 ; Command line
 (module+ main (parameterize ([*tester* smt-tester])

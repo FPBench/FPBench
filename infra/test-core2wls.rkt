@@ -53,7 +53,8 @@
 (define (wls-format-output result)
   (format "~a" result))
 
-(define wls-tester (tester "wls" translate->wls run<-wls wls-equality wls-format-args wls-format-output wls-supported))
+(define wls-tester (tester "wls" translate->wls run<-wls wls-equality wls-format-args
+                           wls-format-output (const #t) wls-supported))
 
 ; Command line
 (module+ main (parameterize ([*tester* wls-tester])

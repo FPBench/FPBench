@@ -118,7 +118,7 @@ endif
 wls-test:
 ifneq (, $(shell which wolframscript))
 	cat benchmarks/*.fpcore tests/*.fpcore  | $(FILTER) not-operators $(known_inaccurate) \
-  | racket infra/test-core2wls.rkt -s --error 3
+    | racket infra/test-core2wls.rkt -s --error 3
 
 else
 	$(warning skipping wolframscript tests; unable to find wolframscript interpreter)
@@ -130,6 +130,16 @@ ifneq (, $(shell which go))
 	| racket infra/test-core2go.rkt -s --error 150
 else
 	$(warning skipping Go tests; unable to find Go compiler)
+endif
+
+scala-test:
+ifneq (, $(shell which daisy))
+	cp -r $(DAISY_BASE)/library .
+	cat benchmarks/*.fpcore tests/*.fpcore | $(FILTER) not-operators $(known_inaccurate) \
+	| racket infra/test-core2scala.rkt --repeat 5
+	rm -r library
+else
+	$(warning skipping Scala tests; unable to find Scala compiler)
 endif
 
 update-tool-tests:
@@ -154,12 +164,18 @@ tools-test: export-test transform-test toolserver-test evaluate-test
 test: c-test js-test go-test smtlib2-test sollya-test wls-test cml-test export-test transform-test toolserver-test evaluate-test raco-test 
 
 testsetup:
-	raco make infra/filter.rkt infra/test-core2c.rkt infra/test-core2fptaylor.rkt infra/test-core2js.rkt infra/test-core2go.rkt infra/test-core2smtlib2.rkt infra/test-core2sollya.rkt infra/test-core2wls.rkt infra/test-core2cml.rkt
+	raco make infra/filter.rkt infra/gen-expr.rkt \
+			  infra/test-core2c.rkt infra/test-core2fptaylor.rkt infra/test-core2js.rkt infra/test-core2go.rkt infra/test-core2smtlib2.rkt infra/test-core2sollya.rkt \
+			  infra/test-core2wls.rkt infra/test-core2cml.rkt infra/test-core2scala.rkt
 
 setup:
-	raco make export.rkt transform.rkt toolserver.rkt evaluate.rkt infra/gen-expr.rkt
+	raco make export.rkt transform.rkt toolserver.rkt evaluate.rkt 
+
+clean:
+	$(RM) -r library tmp
 
 www/benchmarks.jsonp: $(wildcard benchmarks/*.fpcore)
 	racket infra/core2json.rkt --padding load_benchmarks $^
 
-.PHONY: c-sanity c-test fptaylor-sanity fptaylor-test js-sanity js-test smtlib2-sanity smtlib2-test sollya-sanity sollya-test wls-sanity wls-test raco-test export-test transform-test toolserver-test evaluate-test test-tools sanity test testsetup setup update-tool-tests
+.PHONY: c-sanity c-test fptaylor-sanity fptaylor-test js-sanity js-test smtlib2-sanity smtlib2-test sollya-sanity sollya-test wls-sanity wls-test cml-sanity cml-test go-sanity go-test \
+		scala-testraco-test export-test transform-test toolserver-test evaluate-test test-tools sanity test testsetup setup update-tool-tests clean

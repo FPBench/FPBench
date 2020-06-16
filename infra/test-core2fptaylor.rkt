@@ -72,7 +72,10 @@
 (define (fptaylor-format-output result)
   (format "[~a, ~a]" (car result) (cdr result)))
 
-(define fptaylor-tester (tester "fptaylor" compile->fptaylor run<-fptaylor fptaylor-equality fptaylor-format-args fptaylor-format-output fptaylor-supported))
+(define (fptaylor-filter core) #t)
+
+(define fptaylor-tester (tester "fptaylor" compile->fptaylor run<-fptaylor fptaylor-equality fptaylor-format-args
+                                fptaylor-format-output fptaylor-filter fptaylor-supported))
 
 ; Command line
 (module+ main (parameterize ([*tester* fptaylor-tester])

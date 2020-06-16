@@ -21,7 +21,7 @@
 (define *prog* (make-parameter #f))   ; interpreted languages can store converted core here
 
 ; Common test structure
-(struct tester (name compile run equality format-args format-output supported))
+(struct tester (name compile run equality format-args format-output filter supported))
 (define *tester* (make-parameter #f))
 
 (define (compile-test prog ctx type test-file)
@@ -35,6 +35,9 @@
 
 (define (format-output result)
   ((tester-format-output (*tester*)) result))
+  
+(define (filter-core prog)    ; allows a tester to reject an fpcore based on precondition, property, etc.
+  ((tester-filter (*tester*)) prog))
 
 (define (=* a b [ignore? #f])
   ((tester-equality (*tester*)) a b (ulps) ignore?))
@@ -91,8 +94,12 @@
   (define err 0)
   (when (equal? (test-file) #f) (test-file default-file))
   (for ([prog (in-port (curry read-fpcore source) curr-in-port)]
+<<<<<<< HEAD
         #:when (valid-core prog (tester-supported (*tester*))))
    (parameterize ([*ignore-by-run* (make-list (tests-to-run) #f)])
+=======
+        #:when (and (valid-core prog (tester-supported (*tester*))) (filter-core prog)))
+>>>>>>> Added scala tester, all testers adapted
     (match-define (list 'FPCore (list vars ...) props* ... body) prog)
     (define-values (_ props) (parse-properties props*))
     (define type (dict-ref props ':precision 'binary64))

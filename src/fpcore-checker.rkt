@@ -2,19 +2,11 @@
 
 (require racket/extflonum)
 (require "common.rkt" "tensor.rkt")
-(provide *fpcores* *unknown-fpcores* *check-level*
-         fpcore? expr? argument? check-fpcore check-unknown)
+(provide *fpcores* *check-types*
+         fpcore? expr? argument? check-fpcore)
 
 (define *fpcores* (make-parameter '()))  ; previously run fpcores, dictionary value is a list (core, in-types, out-type)
-(define *unknown-fpcores* (make-parameter '()))  ; future fpcores, dictionary value is a list (core, in-types, out-type)
-(define fpcore-recursive #f)  ; 'check-types sets this true if a recursive call is encountered
-
-; Controls level of type checking
-; 1 - No checking
-; 2 - Scalar types
-; 3 - Tensor dimensions (raggedness)
-; 4 - Tensor array raggedness
-(define *check-level* (make-parameter 2  (λ (x) (if (<= 1 x 4) x (error "Invalid *check-level* parameter value")))))
+(define *check-types* (make-parameter #f))
 
 (define/contract (fpcore? thing)
   contract?
@@ -55,8 +47,6 @@
     [`(digits ,(? number?) ,(? number?) ,(? number?)) true]
     [_ false]))
 
-;; Types
-
 (define fpcore-types '(boolean real tensor))
 (define typename? (apply symbols fpcore-types))
 
@@ -91,8 +81,8 @@
   [('array (list (? (curryr typename-equal? 'boolean) elems) ...)) `(tensor 1 ,(length elems) boolean)]
   [('array (list (? (curryr typename-equal? 'tensor) elems) ...))
     (if (for/and ([i (drop elems 1)]) (equal? (last i) (last (first elems))))
-      `(tensor ,(add1 (second (first elems))) ,(length elems) ,@(drop (first elems) 2))
-       #f)]
+       `(tensor ,(add1 (second (first elems))) ,(length elems) ,@(drop (first elems) 2))
+        #f)]
   [('dim (list (? (curryr typename-equal? 'tensor)))) '(real)]
   [('size (list (? (curryr typename-equal? 'tensor)) '(real) ...)) '(real)]
   [('ref (list (list tensor (? integer? n) (or (? integer? s) (? symbol? s)) ... (or (? typename? types) (? (listof typename?) types)))
@@ -103,16 +93,23 @@
             [else `(tensor ,d ,@(drop s (length sizes)) ,types)]))]
   [(_ _) #f])
 
-;; optimistic type checker. If a single arg type combination is valid and return first (hopefully, only)
-;; this might cause issues. better type checking needed?
+;; optimistic type checker. Returns every valid return type
 (define (operator-type op args)  
   (define types (for/list ([arg args])
                   (match arg
                     [(? type?) (list arg)]
                     [`(,(? type?) ...) arg])))
   (define arg-coords (apply cartesian-product types))
-  (for/fold ([res #f]) ([args* arg-coords]) #:break res
-    (operator-type* op args*)))
+  (define out-types
+    (for/fold ([out-types '()]) ([args* arg-coords])
+      (let ([out (operator-type* op args*)])
+        (if out
+            (append out-types (list out))
+            out-types))))
+  (cond
+    [(empty? out-types) #f]
+    [(= (length out-types) 1) (first out-types)]
+    [else out-types]))
 
 (define (type-match? t1 t2)
   (define t1* (if (type? t1) (list t1) t1))
@@ -150,18 +147,14 @@
       [(type? j) (tensor-type-equal? i j)]
       [else (for/or ([v j]) (type-match? i v))])))
   (cond 
-    [(and match? (empty? out-type))   ; match recursive fpcore
-      (set! fpcore-recursive #t)
-      '((real) (boolean) (tensor))]   ; match previous fpcore
     [match? out-type]
     [else #f]))
 
 (define (fpcore-as-operator-type ident args)
   (define value (dict-ref (*fpcores*) ident #f))
-  (cond
-   [value (fpcore-as-operator-type* value args)]
-   [else (*unknown-fpcores* (dict-set* (*unknown-fpcores*) ident (list '() args '())))
-         '((real) (boolean) (tensor))]))
+  (if value
+      (fpcore-as-operator-type* value args)
+      #f))
 
 (define/contract (check-types expr ctx)
   (-> expr? (dictof argument? type?) (or/c type? (listof type?)))
@@ -312,19 +305,14 @@
       (error 'check-fpcore* "FPCore precondition must return a boolean: ~a" pre)))
   
   (cond
-    [(= (*check-level*) 1)    ;; no type checking
-      (when name  ; update hash with name
-        (*fpcores* (dict-set* (*fpcores*) name) (list core '() '())))
-      #t]
-    [else
-      (when name    ; load basic info in case of recursive call
-        (*fpcores* (dict-set* (*fpcores*) name (list core in-types '()))))
+    [(*check-types*)
       (define out-type (check-types body ctx))
       (when name  ; update hash with full core information
         (*fpcores* (dict-set* (*fpcores*) name (list core in-types out-type))))
-      (when fpcore-recursive    ; check again, if recursive call encountered
-        (set! fpcore-recursive #f)
-        (*fpcores* (dict-set* (*fpcores*) name (list core in-types (check-types body ctx)))))
+      #t]
+    [else   ; no type checking
+      (when name  ; update hash with name
+        (*fpcores* (dict-set* (*fpcores*) name (list core '() '()))))
       #t]))
 
 (define/contract (check-fpcore core)
@@ -334,15 +322,3 @@
     (check-fpcore* name core vars properties body)]
    [`(FPCore (,vars ...) ,properties ... ,body)
     (check-fpcore* #f core vars properties body)]))
-
-; After parsing a multiple fpcores, a list of unrecognized symbols will be stored. This procedure throws an error if
-; any of those symbols are never declared as fpcores
-(define (check-unknown)
-  (for ([name (dict-keys (*unknown-fpcores*))])
-    (when (dict-has-key? (*fpcores*) name)
-      (let ([val (dict-ref (*fpcores*) name)])
-        (check-fpcore (first val))   ; check again
-        (*unknown-fpcores* (dict-remove (*unknown-fpcores*) name)))))
-  (unless (empty? (*unknown-fpcores*))
-    (error (format "Unrecognized operator(s) or fpcore(s): ~a" 
-                   (string-join (map (curry format "'~a'") (dict-keys (*unknown-fpcores*))) ", ")))))

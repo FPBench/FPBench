@@ -7,15 +7,17 @@
 (define (evaluate-main argv stdin-port stdout-port)
   (define *in-file* (make-parameter "-"))
   (define *out-file* (make-parameter "-"))
-
+  (define check-types? #t)
   (command-line
    #:program "evaluate.rkt"
    #:argv argv
    #:once-each
    [("-i" "--in-file") in_file_ "Input file to read FPCores from"
-                       (*in-file* in_file_)]
+     (*in-file* in_file_)]
    [("-o" "--out-file") out_file_ "Output file to write evaluated results to"
-                       (*out-file* out_file_)]
+     (*out-file* out_file_)]
+   ["--no-check" "Disables type checking altogether (check level 1). Recursive, mutually recursive, and out-of-order FPCores can be evaluated in this mode"
+     (set! check-types? #f)]
    ;; maybe a way to provide a context?
    ;; context override information?
    #:args args
@@ -30,12 +32,11 @@
          (open-output-file (*out-file*) #:mode 'text #:exists 'truncate)))
 
    (port-count-lines! input-port)
-   (parameterize ([*fpcores* '()])
+   (parameterize ([*fpcores* '()] [*check-types* check-types?])
      (define last
        (for/last ([prog (in-port (curry read-fpcore input-port-name) input-port)] #:when #t)
           (check-fpcore prog)
           prog))
-     (check-unknown)
      (if (dict-has-key? (*fpcores*) 'main)
          (fprintf output-port "~a\n" (racket-run-fpcore (first (dict-ref (*fpcores*) 'main)) args))
          (fprintf output-port "~a\n" (racket-run-fpcore last args))))))

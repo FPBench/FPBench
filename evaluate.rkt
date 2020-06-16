@@ -32,8 +32,8 @@
    (port-count-lines! input-port)
    (parameterize ([*fpcores* '()])
      (define last
-       (for/last ([prog (in-port (curry read-fpcore input-port-name) input-port)]
-            #:when #t)
+       (for/last ([prog (in-port (curry read-fpcore input-port-name) input-port)] #:when #t)
+          (check-fpcore prog)
           prog))
      (check-unknown)
      (if (dict-has-key? (*fpcores*) 'main)

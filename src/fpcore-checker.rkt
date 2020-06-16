@@ -2,15 +2,15 @@
 
 (require racket/extflonum)
 (require "common.rkt" "tensor.rkt")
-(provide *fpcores* *unknown-fpcores* *check-level* check-unknown
-         fpcore? expr? check-fpcore syntax-e-rec)
+(provide *fpcores* *unknown-fpcores* *check-level*
+         fpcore? expr? argument? check-fpcore check-unknown)
 
-(define *fpcores* (make-parameter '()))  ; previously run fpcores
-(define *unknown-fpcores* (make-parameter '()))  ; future fpcores (for mutually recursive fpcores)
-(define fpcore-recursive #f)  ; 'check-expr sets this true if a recursive call is encountered
+(define *fpcores* (make-parameter '()))  ; previously run fpcores, dictionary value is a list (core, in-types, out-type)
+(define *unknown-fpcores* (make-parameter '()))  ; future fpcores, dictionary value is a list (core, in-types, out-type)
+(define fpcore-recursive #f)  ; 'check-types sets this true if a recursive call is encountered
 
 ; Controls level of type checking
-; 1 - Parsing only
+; 1 - No checking
 ; 2 - Scalar types
 ; 3 - Tensor dimensions (raggedness)
 ; 4 - Tensor array raggedness
@@ -43,8 +43,7 @@
     [(? tensor?) true]
     [(? symbol?) true]
     [(list (? operator?) (? expr?) ...) true]
-    [(list (? (curry dict-has-key? (*fpcores*))) (? expr?) ...) true]
-    [(list (? (curry dict-has-key? (*unknown-fpcores*))) (? expr?) ...) true]
+    [(list (? symbol?) (? expr?) ...) true]     ; fpcore calling
     [`(if ,(? expr?) ,(? expr?) ,(? expr?)) true]
     [`(,(or 'let 'let*) ([,(? symbol?) ,(? expr?)] ...) ,(? expr?)) true]
     [`(,(or 'while 'while*) ,(? expr?) ([,(? symbol?) ,(? expr?) ,(? expr?)] ...) ,(? expr?)) true]
@@ -139,12 +138,12 @@
         [else (equal? s2 s2)]))]))
 
 ;; type checker when calling fpcores
-(define (fpcore-as-operator-type* prog args)
-  (match-define (list core (list in-types ...) out-type) prog)
+(define (fpcore-as-operator-type* value args)
+  (match-define (list core (list in-types ...) out-type) value)
   (define match? 
-    (for/and ([i in-types] [j args])   ;; i - expected type, j - actual type
+    (for/and ([i in-types] [j args])  ;; j may be a type or a list of types (TODO: i can also be a list)
      (cond
-      [(and (typename-equal? i 'tensor) (type? j)) ;; j may be a type or a list of types
+      [(and (typename-equal? i 'tensor) (type? j))
         (tensor-type-equal? i j)]
       [(and (typename-equal? i 'tensor) ((listof type?) j))
         (for/or ([v j]) (tensor-type-equal? i v))]
@@ -158,299 +157,192 @@
     [else #f]))
 
 (define (fpcore-as-operator-type ident args)
-  (define core (dict-ref (*fpcores*) ident #f))
+  (define value (dict-ref (*fpcores*) ident #f))
   (cond
-   [core (fpcore-as-operator-type* core args)]
+   [value (fpcore-as-operator-type* value args)]
    [else (*unknown-fpcores* (dict-set* (*unknown-fpcores*) ident (list '() args '())))
          '((real) (boolean) (tensor))]))
 
-(define/contract (check-expr stx ctx)
-  (-> syntax? (dictof argument? type?) (cons/c expr? (or/c type? (listof type?))))
-  (match (syntax-e stx)
-    [(? number? val)
-     (cons val '(real))]
-    [(? extflonum? val)
-     (cons val '(real))]
-    [(? hex? val)
-     (cons val '(real))]
-    [(? constant? val)
-     (cons val (match val [(or 'TRUE 'FALSE) '(boolean)] [_ '(real)]))]
-    [(? symbol? var)
-     (unless (dict-has-key? ctx var)
-       (raise-syntax-error #f "Undefined variable" stx))
-     (cons var (dict-ref ctx var))]
-    [(list (app syntax-e 'digits) m e b)      ; (digits m e b)
-     (define m* (check-expr m ctx)) 
-     (define e* (check-expr e ctx))
-     (define b* (check-expr b ctx))
-     (unless (and (integer? (car m*)) (integer? (car e*)) (integer? (car b*)))
-      (raise-syntax-error #f "Values of digits must be integers" stx))
-      (unless (>= (car b*) 2)
-        (raise-syntax-error #f "Base of digits must be greater than 1" stx))
-     (cons `(digits ,(car m*) ,(car e*) ,(car b*)) '(real))]
-    [(list (app syntax-e 'if) test ift iff) ; if 
-     (define test* (check-expr test ctx))
-     (unless (equal?(cdr test*) '(boolean))
-       (raise-syntax-error #f "Conditional test must return a boolean" stx test))
-     (define ift* (check-expr ift ctx))
-     (define iff* (check-expr iff ctx))
+(define/contract (check-types expr ctx)
+  (-> expr? (dictof argument? type?) (or/c type? (listof type?)))
+  (match expr
+   [(? number? val)       '(real)]
+   [(? extflonum? val)    '(real)]
+   [(? hex? val)          '(real)]
+   [(? constant? val)     (match val [(or 'TRUE 'FALSE) '(boolean)] [_ '(real)])]
+   [(? symbol? var)       (dict-ref ctx var)]
+   [`(digits ,m ,e ,b)    '(real)]
+   [`(if ,test ,ift, iff)           ; if
+     (unless (typename-equal? (check-types test ctx) 'boolean)
+       (error 'check-types "Conditional test must return a boolean ~a" expr))
      (define ift-type
-      (match (cdr ift*)
+      (match (check-types ift ctx)
         [(? type? type) (list type)]
-        [`(,(? type?) ...) (cdr ift*)]))
+        [`(,(? type? types) ...) types]))
      (define iff-type
-      (match (cdr iff*)
+      (match (check-types iff ctx)
         [(? type? type) (list type)]
-        [`(,(? type?) ...) (cdr iff*)]))
+        [`(,(? type? types) ...) types]))
      (unless (for/or ([i ift-type]) (set-member? iff-type i))
-       (raise-syntax-error #f "Conditional branches must have same type" stx))
-     (cons `(if ,(car test*) ,(car ift*) ,(car iff*)) (for/first ([i ift-type] #:when (set-member? iff-type i)) i))]
-    [(cons (app syntax-e 'if) _)            ; if (invalid)
-     (raise-syntax-error #f "Invalid conditional statement" stx)]
-    [(list (app syntax-e 'let) (app syntax-e (list (app syntax-e (list vars vals)) ...)) body)  ; let
-     (define vars*
-       (for/list ([var vars])
-         (unless (symbol? (syntax-e var))
-           (raise-syntax-error #f "Only variables may be bound by let binding" stx var))
-         (syntax-e var)))
-     (define vals* (map (curryr check-expr ctx) vals))
-     (define ctx* (apply dict-set* ctx (append-map list vars* (map cdr vals*))))
-     (define body* (check-expr body ctx*))
-     (cons `(let (,@(map list vars* (map car vals*))) ,(car body*)) (cdr body*))]
-    [(list (app syntax-e 'let*) (app syntax-e (list (app syntax-e (list vars vals)) ...)) body)  ; let*
-     (define vars*
-       (for/list ([var vars])
-         (unless (symbol? (syntax-e var))
-           (raise-syntax-error #f "Only variables may be bound by let* binding" stx var))
-         (syntax-e var)))
+       (error 'check-types "Conditional branches must have same type ~a" expr))
+     (for/first ([i ift-type] #:when (set-member? iff-type i)) i)]
+   [`(let ([,vars ,vals] ...) ,body)    ; let
+     (define vals* (map (curryr check-types ctx) vals))
+     (define ctx* (apply dict-set* ctx (append-map list vars vals*)))
+     (check-types body ctx*)]
+   [`(let* ([,vars ,vals] ...) ,body)    ; let*
      (define-values (ctx* vals*)
-       (for/fold ([ctx ctx] [vals '()]) ([var vars*] [val vals])
-         (define val* (check-expr val ctx))
-         (define ctx* (dict-set ctx var (cdr val*)))
+       (for/fold ([ctx ctx] [vals '()]) ([var vars] [val vals])
+         (define val* (check-types val ctx))
+         (define ctx* (dict-set ctx var val*))
          (values ctx* (cons val* vals))))
-     (define body* (check-expr body ctx*))
-     (cons `(let* (,@(map list vars* (map car (reverse vals*)))) ,(car body*)) (cdr body*))]
-    [(cons (app syntax-e (or 'let 'let*)) _)                                                   ; let, let* (invalid)
-     (raise-syntax-error #f "Invalid let bindings" stx)]
-    [(list (app syntax-e 'while) test (app syntax-e (list (app syntax-e (list vars inits updates)) ...)) body) ; while
-     (define vars*
-       (for/list ([var vars])
-         (unless (symbol? (syntax-e var))
-           (raise-syntax-error #f "Only variables may be bound by while loop" stx var))
-         (syntax-e var)))
-     (define inits* (map (curryr check-expr ctx) inits))
-     (define ctx* (apply dict-set* ctx (append-map list vars* (map cdr inits*))))
-     (define test* (check-expr test ctx*))
-     (unless (equal?(cdr test*) '(boolean))
-       (raise-syntax-error #f "While loop conditions must return a boolean" test))
-     (define updates* (map (curryr check-expr ctx*) updates))
+     (check-types body ctx*)]
+   [`(while ,test ([,vars ,inits ,updates] ...) ,body)   ; while
+     (define inits* (map (curryr check-types ctx) inits))
+     (define ctx* (apply dict-set* ctx (append-map list vars inits*)))
+     (unless (typename-equal? (check-types test ctx*) 'boolean)
+       (error 'check-types "While loop conditions must return a boolean ~a" expr))
+     (define updates* (map (curryr check-types ctx*) updates))
      (for ([var vars] [init inits*] [update updates*])
-       (unless (equal? (cdr init) (cdr update))
-         (raise-syntax-error #f "Initialization and update must have the same type in while loop" stx var)))
-     (define body* (check-expr body ctx*))
-     (cons `(while ,(car test*) (,@(map list vars* (map car inits*) (map car updates*))) ,(car body*)) (cdr body*))]
-    [(list (app syntax-e 'while*) test (app syntax-e (list (app syntax-e (list vars inits updates)) ...)) body) ; while*
-     (define vars*
-       (for/list ([var vars])
-         (unless (symbol? (syntax-e var))
-           (raise-syntax-error #f "Only variables may be bound by while loop" stx var))
-         (syntax-e var)))
-     (define-values (ctx* inits-rev)
-       (for/fold ([ctx ctx] [inits* '()]) ([var vars*] [init inits])
-         (define init* (check-expr init ctx))
-         (define ctx* (dict-set ctx var (cdr init*)))
+       (unless (equal? init update)
+         (error 'check-types "Initialization and update must have the same type in while loop ~a" expr)))
+     (check-types body ctx*)]
+   [`(while* ,test ([,vars ,inits ,updates] ...) ,body)   ; while*
+     (define-values (ctx* inits*)
+       (for/fold ([ctx ctx] [inits* '()] #:result (values ctx (reverse inits*)))
+                 ([var vars] [init inits])
+         (define init* (check-types init ctx))
+         (define ctx* (dict-set ctx var init*))
          (values ctx* (cons init* inits*))))
-     (define inits* (reverse inits-rev))
-     (define test* (check-expr test ctx*))
-     (unless (equal?(cdr test*) '(boolean))
-       (raise-syntax-error #f "While loop conditions must return a boolean" test))
-     (define updates* (map (curryr check-expr ctx*) updates))
+     (unless (typename-equal? (check-types test ctx*) 'boolean)
+       (error 'check-types "While loop conditions must return a boolean ~a" expr))
+     (define updates* (map (curryr check-types ctx*) updates))
      (for ([var vars] [init inits*] [update updates*])
-       (unless (equal? (cdr init) (cdr update))
-         (raise-syntax-error #f "Initialization and update must have the same type in while loop" stx var)))
-     (define body* (check-expr body ctx*))
-     (cons `(while* ,(car test*) (,@(map list vars* (map car inits*) (map car updates*))) ,(car body*)) (cdr body*))]
-    [(cons (app syntax-e (or 'while 'while*)) _)                 ; while, while* (invalid)
-     (raise-syntax-error #f "Invalid while loop" stx)]
-    [(list (app syntax-e 'for) (app syntax-e (list (app syntax-e (list vars vals)) ...)) (app syntax-e (list (app syntax-e (list accums inits updates)) ...)) body) ; for
-     (define vars*
-       (for/list ([var vars])
-         (unless (symbol? (syntax-e var))
-           (raise-syntax-error #f "Only variables may be bound by for binding" stx var))
-         (syntax-e var)))
-     (define vals* (map (curryr check-expr ctx) vals))
-     (define ctx* (apply dict-set* ctx (append-map list vars* (map cdr vals*))))
-     (define accums*
-       (for/list ([accum accums])
-         (unless (symbol? (syntax-e accum))
-           (raise-syntax-error #f "Only variables may be bound by for binding" stx accum))
-         (syntax-e accum)))
-     (define inits* (map (curryr check-expr ctx) inits))
-     (define ctx** (apply dict-set* ctx* (append-map list accums* (map cdr inits*))))
-     (define updates* (map (curryr check-expr ctx**) updates))
+       (unless (equal? init update)
+         (error 'check-types "Initialization and update must have the same type in while loop ~a" expr)))
+     (check-types body ctx*)]
+   [`(for ([,vars ,vals] ...) ([,accums ,inits ,updates] ...) ,body)  ; for
+     (define vals* (map (curryr check-types ctx) vals))
+     (define ctx* (apply dict-set* ctx (append-map list vars vals*)))
+     (define inits* (map (curryr check-types ctx*) inits))
+     (define ctx** (apply dict-set* ctx* (append-map list accums inits*)))
+     (define updates* (map (curryr check-types ctx**) updates))
      (for ([accum accums] [init inits*] [update updates*])
        (unless 
-         (if (typename-equal? (cdr init) 'tensor) (tensor-type-equal? (cdr init) (cdr update)) (equal? (cdr init) (cdr update)))
-         (raise-syntax-error #f "Initialization and update must have the same type in for loop" stx accum)))
-     (define body* (check-expr body ctx**))
-     (cons `(for (,@(map list vars* (map car (reverse vals*)))) (,@(map list accums* (map car inits*) (map car updates*))) ,(car body*)) (cdr body*))]
-    [(list (app syntax-e 'for*) (app syntax-e (list (app syntax-e (list vars vals)) ...)) (app syntax-e (list (app syntax-e (list accums inits updates)) ...)) body) ; for*
-     (define vars*
-       (for/list ([var vars])
-         (unless (symbol? (syntax-e var))
-           (raise-syntax-error #f "Only variables may be bound by for binding" stx var))
-         (syntax-e var)))
-     (define vals* (map (curryr check-expr ctx) vals))
-     (define ctx* (apply dict-set* ctx (append-map list vars* (map cdr vals*))))
-     (define accums*
-       (for/list ([accum accums])
-         (unless (symbol? (syntax-e accum))
-           (raise-syntax-error #f "Only variables may be bound by for binding" stx accum))
-         (syntax-e accum)))
-     (define-values (ctx** inits-rev)
-       (for/fold ([ctx* ctx*] [inits* '()]) ([var accums*] [init inits])
-         (define init* (check-expr init ctx*))
-         (define ctx** (dict-set ctx* var (cdr init*)))
+         (if (typename-equal? init 'tensor) (tensor-type-equal? init update) (equal? init update))
+         (error 'check-types "Initialization and update must have the same type in for loop ~a" expr)))
+     (check-types body ctx**)]
+   [`(for* ([,vars ,vals] ...) ([,accums ,inits ,updates] ...) ,body)   ; for*
+     (define vals* (map (curryr check-types ctx) vals))
+     (define ctx* (apply dict-set* ctx (append-map list vars vals*)))
+     (define-values (ctx** inits*)
+       (for/fold ([ctx* ctx*] [inits* '()] #:result (values ctx* (reverse inits*)))
+                 ([var accums] [init inits])
+         (define init* (check-types init ctx*))
+         (define ctx** (dict-set ctx* var init*))
          (values ctx** (cons init* inits*))))
-     (define inits* (reverse inits-rev))
-     (define updates* (map (curryr check-expr ctx**) updates))
+     (define updates* (map (curryr check-types ctx**) updates))
      (for ([accum accums] [init inits*] [update updates*])
        (unless 
-         (if (typename-equal? (cdr init) 'tensor) (tensor-type-equal? (cdr init) (cdr update)) (equal? (cdr init) (cdr update)))
-         (raise-syntax-error #f "Initialization and update must have the same type in for loop" stx accum)))
-     (define body* (check-expr body ctx**))
-     (cons `(for* (,@(map list vars* (map car (reverse vals*)))) (,@(map list accums* (map car inits*) (map car updates*))) ,(car body*)) (cdr body*))]
-    [(cons (app syntax-e (or 'for 'for*)) _)               ; for, for* (invalid)
-     (raise-syntax-error #f "Invalid for loop" stx)]
-    [(list (app syntax-e 'tensor) (app syntax-e (list (app syntax-e (list vars vals)) ...)) body)  ; tensor
-     (define vars*
-       (for/list ([var vars])
-         (unless (symbol? (syntax-e var))
-           (raise-syntax-error #f "Only variables may be bound by tensor binding" stx var))
-         (syntax-e var)))
-     (define vals* (map (curryr check-expr ctx) vals))
-     (define ctx* (apply dict-set* ctx (append-map list vars* (map cdr vals*))))
-     (define body* (check-expr body ctx*))
-     (cons `(tensor (,@(map list vars* (map car vals*))) ,(car body*)) `(tensor ,(length vars) ,@(map car vals*) ,@(cdr body*)))]
-    [(list (app syntax-e 'tensor*) (app syntax-e (list (app syntax-e (list vars vals)) ...)) (app syntax-e (list (app syntax-e (list accums inits updates)) ...)) body)  ; tensor*
-     (define vars*
-       (for/list ([var vars])
-         (unless (symbol? (syntax-e var))
-           (raise-syntax-error #f "Only variables may be bound by tensor binding" stx var))
-         (syntax-e var)))
-     (define vals* (map (curryr check-expr ctx) vals))
-     (define ctx* (apply dict-set* ctx (append-map list vars* (map cdr vals*))))
-     (define accums*
-       (for/list ([accum accums])
-         (unless (symbol? (syntax-e accum))
-           (raise-syntax-error #f "Only variables may be bound by tensor binding" stx accum))
-         (syntax-e accum)))
-     (define-values (ctx** inits-rev)
-       (for/fold ([ctx* ctx*] [inits* '()]) ([var accums*] [init inits])
-         (define init* (check-expr init ctx*))
-         (define ctx** (dict-set ctx* var (cdr init*)))
+         (if (typename-equal? init 'tensor) (tensor-type-equal? init update) (equal? init update))
+         (error 'check-types "Initialization and update must have the same type in for loop ~a" expr)))
+     (check-types body ctx**)]
+   [`(tensor ([,vars ,vals] ...) ,body)     ; tensor*
+     (define vals* (map (curryr check-types ctx) vals))
+     (define ctx* (apply dict-set* ctx (append-map list vars vals*)))
+    `(tensor ,(length vars) ,@vals ,@(check-types body ctx*))]
+   [`(tensor* ([,vars ,vals] ...) ([,accums ,inits ,updates] ...) ,body)    ; tensor**
+     (define vals* (map (curryr check-types ctx) vals))
+     (define ctx* (apply dict-set* ctx (append-map list vars vals*)))
+     (define-values (ctx** inits*)
+       (for/fold ([ctx* ctx*] [inits* '()] #:result (values ctx* (reverse inits*)))
+                 ([var accums] [init inits])
+         (define init* (check-types init ctx*))
+         (define ctx** (dict-set ctx* var init*))
          (values ctx** (cons init* inits*))))
-     (define inits* (reverse inits-rev))
-     (define updates* (map (curryr check-expr ctx**) updates))
+     (define updates* (map (curryr check-types ctx**) updates))
      (for ([accum accums] [init inits*] [update updates*])
        (unless 
-         (if (typename-equal? (cdr init) 'tensor) (tensor-type-equal? (cdr init) (cdr update)) (equal? (cdr init) (cdr update)))
-         (raise-syntax-error #f "Initialization and update must have the same type in tensor loop" stx accum)))
-     (define body* (check-expr body ctx**))
-     (cons `(tensor* (,@(map list vars* (map car vals*))) (,@(map list accums* (map car inits*) (map car updates*))) ,(car body*)) `(tensor ,(length vars) ,@(map car vals*) ,@(cdr body*)))]
-    [(cons (app syntax-e (or 'tensor 'tensor*)) _)               ; tensor tensor* (invalid)
-     (raise-syntax-error #f "Invalid tensor construction" stx)]
-    [(list (app syntax-e '!) props ... expr)                     ; !
-     (define expr* (check-expr expr ctx))
-     (define props* (map syntax-e props))
-     (cons `(! ,@props* ,(car expr*)) (cdr expr*))]
-    [(list op args ...)                                         ; ops
-     (define op* (syntax-e op))
-     (define children (map (curryr check-expr ctx) args))
-     (define rtype 
-       (if (set-member? operators op*)
-           (operator-type op* (map cdr children))
-           (fpcore-as-operator-type op* (map cdr children))))
+         (if (typename-equal? init 'tensor) (tensor-type-equal? init update) (equal? init update))
+         (error 'check-types "Initialization and update must have the same type in for loop ~a" expr)))
+    `(tensor ,(length vars) ,@vals ,@(check-types body ctx**))]
+   [`(! ,props* ... ,body)    ; !
+     (check-types body ctx)]
+   [`( ,op ,args ...)
+     (define children (map (curryr check-types ctx) args))
+     (define rtype
+       (if (set-member? operators op)
+           (operator-type op children)
+           (fpcore-as-operator-type op children)))
      (unless rtype
-       (raise-syntax-error #f (format "Invalid types for operator '~a': ~a" op* (map cdr children)) stx))
-     (cons (list* op* (map car children)) rtype)]))
+       (error 'check-types "Invalid types for operator '~a': ~a" op children))
+     rtype]))
 
-(define (syntax-e-rec stx)
-  (match (syntax-e stx)
-    [`(,stx-elem ...) (map syntax-e-rec stx-elem)]
-    [stx* stx*]))
-
-(define (check-fpcore* name vars properties body stx)
+(define (check-fpcore* name core vars properties body)
   (define-values (annotated-args args in-types ctx)
     (for/fold ([annot-args '()] [args '()] [in-types '()] [ctx (hash)])
               ([var vars])
-      (let ([var* (syntax-e-rec var)])
-        (unless (argument? var*)
-          (raise-syntax-error #f "FPCore parameters must be variables" stx var))
-        (match var*
-         [`(,(? symbol? name) ,(or (? number? sizes) (? symbol? sizes)) ...) 
-          (let* ([dim-sizes (for/list ([i (filter symbol? sizes)]) (list i '(real)))]
-                 [type `(tensor ,(length sizes) ,@sizes (real boolean))])
-            (values (append annot-args (list var*)) 
-                    (append args (list name) (filter symbol? sizes))
-                    (append in-types (list type)) 
-                    (apply hash-set* (hash-set* ctx name type) (apply append dim-sizes))))]
-         [(? list?) 
-          (values (append annot-args (list var*)) (append args (list (last var*))) 
-                  (append in-types (list '(real))) (hash-set* ctx (list (last var*)) '(real)))]
-         [_ (values (append annot-args (list var*)) (append args (list var*)) 
-                    (append in-types (list '(real))) (hash-set* ctx var* '(real)))]))))
+      (unless (argument? var)
+        (error 'check-fpcore* "FPCore parameters must be variables: ~a" var))
+      (match var
+        [`(,(? symbol? name) ,(or (? number? sizes) (? symbol? sizes)) ...) 
+        (let* ([dim-sizes (for/list ([i (filter symbol? sizes)]) (list i '(real)))]
+               [type `(tensor ,(length sizes) ,@sizes (real boolean))])
+          (values (append annot-args (list var)) 
+                  (append args (list name) (filter symbol? sizes))
+                  (append in-types (list type)) 
+                  (apply hash-set* (hash-set* ctx name type) (apply append dim-sizes))))]
+        [(? list?) 
+        (values (append annot-args (list var)) (append args (list (last var))) 
+                (append in-types (list '(real))) (hash-set* ctx (list (last var)) '(real)))]
+        [_ (values (append annot-args (list var)) (append args (list var)) 
+                  (append in-types (list '(real))) (hash-set* ctx var '(real)))])))
 
   (define properties*
     (let loop ([properties properties])
       (match properties
         [(list) (list)]
-        [(list prop) (raise-syntax-error #f "Property with no value" prop)]
-        [(list (app syntax-e (? property? prop)) value rest ...)
-        (cons (cons prop value) (loop rest))]
-        [(list prop _ ...) (raise-syntax-error #f "Invalid property" prop)])))
+        [(list (? property? prop) value rest ...)
+          (cons (cons prop value) (loop rest))])))
 
   (when (dict-has-key? properties* ':pre)
     (define pre (dict-ref properties* ':pre))
-    (define pre* (check-expr pre ctx))
-    (unless (equal? (cdr pre*) '(boolean))
-      (raise-syntax-error #f "FPCore precondition must return a boolean" pre)))
+    (define pre* (check-types pre ctx))
+    (unless (typename-equal? pre* 'boolean)
+      (error 'check-fpcore* "FPCore precondition must return a boolean: ~a" pre)))
   
-  (when (non-empty-string? name)
-    (*fpcores* (dict-set* (*fpcores*) (string->symbol name) (list '() in-types '()))))
+  (cond
+    [(= (*check-level*) 1)    ;; no type checking
+      (when name  ; update hash with name
+        (*fpcores* (dict-set* (*fpcores*) name) (list core '() '())))
+      #t]
+    [else
+      (when name    ; load basic info in case of recursive call
+        (*fpcores* (dict-set* (*fpcores*) name (list core in-types '()))))
+      (define out-type (check-types body ctx))
+      (when name  ; update hash with full core information
+        (*fpcores* (dict-set* (*fpcores*) name (list core in-types out-type))))
+      (when fpcore-recursive    ; check again, if recursive call encountered
+        (set! fpcore-recursive #f)
+        (*fpcores* (dict-set* (*fpcores*) name (list core in-types (check-types body ctx)))))
+      #t]))
 
-  (define body* (check-expr body ctx)) ; Any type
-  (define core*
-    `(FPCore (,@annotated-args)
-          ,@(apply append
-                    (for/list ([(prop val) (in-dict properties*)])
-                      (list prop (syntax->datum val))))
-          ,(car body*)))
-          
-  (when (non-empty-string? name)  ; update hash with full core information
-    (*fpcores* (dict-set* (*fpcores*) (string->symbol name) (list core* in-types (cdr body*)))))
-  (when fpcore-recursive    ; check again, if recursive call encountered
-    (set! fpcore-recursive #f)
-    (check-expr body ctx))
-  core*)
-
-(define/contract (check-fpcore stx)
-  (-> syntax? fpcore?)
-  (match (syntax-e stx)
-   [(list (app syntax-e 'FPCore) (app syntax-e name) (app syntax-e (list vars ...)) properties ... body)
-    (unless (symbol? name)
-      (raise-syntax-error #f "FPCore identifier must be a symbol" stx name))
-    (check-fpcore* (symbol->string name) vars properties body stx)]
-   [(list (app syntax-e 'FPCore) (app syntax-e (list vars ...)) properties ... body)
-    (check-fpcore* "" vars properties body stx)]))
+(define/contract (check-fpcore core)
+  (-> fpcore? boolean?)
+  (match core
+   [`(FPCore ,name (,vars ...) ,properties ... ,body)
+    (check-fpcore* name core vars properties body)]
+   [`(FPCore (,vars ...) ,properties ... ,body)
+    (check-fpcore* #f core vars properties body)]))
 
 ; After parsing a multiple fpcores, a list of unrecognized symbols will be stored. This procedure throws an error if
-; any of those symbols are truly unrecognized or declared before it's definition.
+; any of those symbols are never declared as fpcores
 (define (check-unknown)
   (for ([name (dict-keys (*unknown-fpcores*))])
     (when (dict-has-key? (*fpcores*) name)
-      (check-fpcore (datum->syntax #f (first (dict-ref (*fpcores*) name))))   ; check again
-      (*unknown-fpcores* (dict-remove (*unknown-fpcores*) name))))
+      (let ([val (dict-ref (*fpcores*) name)])
+        (check-fpcore (first val))   ; check again
+        (*unknown-fpcores* (dict-remove (*unknown-fpcores*) name)))))
   (unless (empty? (*unknown-fpcores*))
     (error (format "Unrecognized operator(s) or fpcore(s): ~a" 
                    (string-join (map (curry format "'~a'") (dict-keys (*unknown-fpcores*))) ", ")))))

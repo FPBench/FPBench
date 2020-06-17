@@ -8,6 +8,7 @@
   (define *in-file* (make-parameter "-"))
   (define *out-file* (make-parameter "-"))
   (define check-types? #t)
+  (define ragged-check? #t)
   (command-line
    #:program "evaluate.rkt"
    #:argv argv
@@ -18,6 +19,8 @@
      (*out-file* out_file_)]
    ["--no-check" "Disables type checking altogether (check level 1). Recursive, mutually recursive, and out-of-order FPCores can be evaluated in this mode"
      (set! check-types? #f)]
+   ["--no-ragged-check" "Disables checking for ragged dimension sizes"
+     (set! ragged-check? #f)]
    ;; maybe a way to provide a context?
    ;; context override information?
    #:args args
@@ -32,7 +35,7 @@
          (open-output-file (*out-file*) #:mode 'text #:exists 'truncate)))
 
    (port-count-lines! input-port)
-   (parameterize ([*fpcores* '()] [*check-types* check-types?])
+   (parameterize ([*fpcores* '()] [*check-types* check-types?] [*ragged-check* ragged-check?])
      (define last
        (for/last ([prog (in-port (curry read-fpcore input-port-name) input-port)] #:when #t)
           (check-fpcore prog)

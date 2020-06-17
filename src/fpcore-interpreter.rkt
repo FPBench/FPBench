@@ -480,7 +480,7 @@
       (cond
        [(equal? size* #f) (list (cons size (exact->inexact (length arr))))]
        [else (unless (= (length arr) size*)
-              (error 'tensor-layer->size (format "Dimension of tensor argument has incorrect size. Expected: ~a, Actual: ~a" (inexact->exact size*) (length arr))))
+              (error 'tensor-layer->size (format "Dimension of tensor argument has incorrect size. Expected: ~a=~a, Actual: ~a" size (inexact->exact size*) (length arr))))
              '()]))]      
    [(? number?)
     (unless (= (length arr) size)
@@ -501,7 +501,7 @@
   (unless (tensor? ten*)
     (error 'arg->tensor "Expected a tensor"))
   (unless (= (tensor-dim ten*) (length sizes))
-    (error 'arg->tensor (format "Tensor argument has i mutiple typesncorrect dimension. Expected: ~a. Actual: ~a" (length sizes) (tensor-dim ten*))))
+    (error 'arg->tensor "Tensor argument has incorrect dimension. Expected: ~a. Actual: ~a" (length sizes) (tensor-dim ten*)))
   (append
     (let loop ([ten** ten*] [sizes* sizes])
      (cond 

@@ -2,11 +2,13 @@
 
 (require racket/extflonum)
 (require "common.rkt" "tensor.rkt")
-(provide *fpcores* *check-types*
+(provide *fpcores* *check-types* *ragged-check*
          fpcore? expr? argument? check-fpcore)
 
-(define *fpcores* (make-parameter '()))  ; previously run fpcores, dictionary value is a list (core, in-types, out-type)
+(define *fpcores* (make-parameter '()))  ; previously run fpcores, dictionary value is a list (core, in-types, rtype)
 (define *check-types* (make-parameter #f))
+(define *ragged-check* (make-parameter #f))
+(define *dim-sizes* (make-parameter #f))
 
 (define/contract (fpcore? thing)
   contract?
@@ -47,6 +49,8 @@
     [`(digits ,(? number?) ,(? number?) ,(? number?)) true]
     [_ false]))
 
+;; Types
+
 (define fpcore-types '(boolean real tensor))
 (define typename? (apply symbols fpcore-types))
 
@@ -61,6 +65,120 @@
 (define (make-type name . data)
   (-> typename? list? type?)
   (list* name data))
+
+;; Ragged tensor check
+
+(define (subst key val)
+  (define changed? #f)
+  (for ([key2 (hash-keys (*dim-sizes*))])
+    (let* ([val2 (hash-ref (*dim-sizes*) key2)]
+           [idx-of-key (index-of val2 key)])
+      (when idx-of-key 
+        (let ([new-list (list-set val2 idx-of-key val)])
+          (set! changed? #t)
+          (hash-set*! (*dim-sizes*) key2 new-list)))))
+  changed?)
+
+(define (subst-elim)
+  (let loop ()
+    (define changed? #f)
+    (for ([key (hash-keys (*dim-sizes*))])    ; substitute
+      (let ([val (hash-ref (*dim-sizes*) key)])
+        (when (= (length val) 1)
+          (set! changed? (or changed? (subst key (first val)))))))
+    (for ([key (hash-keys (*dim-sizes*))])    ; eliminate
+      (let ([val (hash-ref (*dim-sizes*) key)])
+        (hash-set*! (*dim-sizes*) key (remove-duplicates val))))
+    (when changed? (loop))))
+
+(define (add-equations eqs [var? symbol?] [val? number?])
+  (define eqs*
+    (filter
+      (λ (x)
+        (and
+          (not (empty? x))
+          (not (hash-has-key? (*dim-sizes*) (cdr x)))))
+      (for/list ([eq eqs])
+       (match eq
+        [(list (? number? num1) (? number? num2))
+          (unless (equal? num1 num2)
+            (error 'add-equations "Dimension size mismatch. ~a != ~a" num1 num2 ))
+          '()]
+        [(list x x) '()]    
+        [(list (? symbol? var) (? number? num)) (cons var num)]
+        [(list (? number? num) (? symbol? var)) (cons var num)]
+        [(list (? symbol? var1) (? symbol? var2)) (cons var1 var2)]))))
+  (for ([eq eqs*])
+    (cond
+     [(hash-has-key? (*dim-sizes*) (car eq))
+      (let ([val (hash-ref (*dim-sizes*) (car eq))])
+        (hash-set*! (*dim-sizes*) (car eq) (cons (cdr eq) val)))]
+     [else (hash-set*! (*dim-sizes*) (car eq) (list (cdr eq)))]))
+  (when (not (empty? eqs*))
+    (subst-elim)))
+
+(define (check-sizes tensors)
+  (define tensors* (map (λ (x) (drop (take x (sub1 (length x))) 2)) tensors))
+  (define dim (length (first tensors*)))
+  (add-equations
+    (for/fold ([eqs '()]) ([i (in-range dim)])
+      (append 
+        eqs
+        (combinations 
+          (build-list (length tensors*) (λ (x) (list-ref (list-ref tensors* x) i))) 
+          2)))))
+
+(define (update-sizes types [dim-sizes (*dim-sizes*)])
+  (for/list ([type types])
+    (if (typename-equal? type 'tensor)
+      (let* ([dim (second type)]
+             [sizes (drop (take type (sub1 (length type))) 2)]
+             [scalar (last type)]
+             [sizes*
+              (for/list ([size sizes])
+                (if (and (hash-has-key? dim-sizes size) (= (length (hash-ref dim-sizes size)) 1))
+                  (first (hash-ref dim-sizes size))
+                  size))])
+       `(tensor ,dim ,@sizes* ,scalar))       
+      type)))
+
+(define (reassign-sizes eqs)
+  (for/fold ([eqs* '()]) ([key (dict-keys eqs)])
+    (append eqs* (combinations (dict-ref eqs key) 2))))
+
+;; Ragged check when function calling, returns a updated return type in terms of new dimension size variables
+(define (check-rtype in-types args size-hash rtype)
+  (define in-types* (filter (curryr typename-equal? 'tensor) in-types))
+  (define args* (filter (curryr typename-equal? 'tensor) args))
+  (define in-sizes (map (λ (x) (drop (take x (sub1 (length x))) 2)) in-types*))
+  (define arg-sizes (map (λ (x) (drop (take x (sub1 (length x))) 2)) args*))
+
+  (define eqs
+    (for/fold ([eqs '()]) ([in-size in-sizes] [arg-size arg-sizes])
+      (for/fold ([eqs* eqs]) ([in in-size] [arg arg-size])
+        (cond
+         [(number? in) eqs*]
+         [(dict-has-key? eqs* in) (dict-set* eqs* in (cons arg (dict-ref eqs* in)))]
+         [else (dict-set* eqs* in (list arg))]))))
+  (define eqs* (reassign-sizes eqs))
+  (add-equations eqs* (curry hash-has-key? (*dim-sizes*)) symbol?)
+
+  (define update-hash
+    (for/hash ([key (dict-keys eqs)])
+      (values key (filter (λ (x) (not (dict-has-key? eqs* x))) (dict-ref eqs key)))))
+  (first (update-sizes (list rtype) update-hash)))
+
+(define (check-precond expr)    ; TODO: support '!='
+ (match expr
+  [(list 'and (? expr? subs) ...)
+    (for/and ([i subs]) (check-precond i))]
+  [(list '== (? expr? subs) ...)
+    (when (for/or ([i subs]) (symbol? i))
+      (add-equations (combinations subs 2)))
+    #t]
+  [_ #f]))
+
+;; input types -> out type
 
 (define/match (operator-type* op args)
   [((or '- 'fabs 'exp 'exp2 'expm1 'log 'log10 'log2 'log1p 'sqrt
@@ -80,9 +198,13 @@
   [('array (list (? (curryr typename-equal? 'real) elems) ...)) `(tensor 1 ,(length elems) real)]
   [('array (list (? (curryr typename-equal? 'boolean) elems) ...)) `(tensor 1 ,(length elems) boolean)]
   [('array (list (? (curryr typename-equal? 'tensor) elems) ...))
-    (if (for/and ([i (drop elems 1)]) (equal? (last i) (last (first elems))))
-       `(tensor ,(add1 (second (first elems))) ,(length elems) ,@(drop (first elems) 2))
-        #f)]
+    (cond
+      [(for/or ([i (cdr elems)]) (not (equal? (second i) (second (car elems)))))
+        (error 'operator-type* "Dimensionally inconsistent elements not allowed for 'array'")]
+      [(for/and ([i (cdr elems)]) (equal? (last i) (last (car elems))))
+        (when (*ragged-check*) (check-sizes elems))
+       `(tensor ,(add1 (second (car elems))) ,(length elems) ,@(drop (car elems) 2))]
+      [else #f])]
   [('dim (list (? (curryr typename-equal? 'tensor)))) '(real)]
   [('size (list (? (curryr typename-equal? 'tensor)) '(real) ...)) '(real)]
   [('ref (list (list tensor (? integer? n) (or (? integer? s) (? symbol? s)) ... (or (? typename? types) (? (listof typename?) types)))
@@ -100,16 +222,16 @@
                     [(? type?) (list arg)]
                     [`(,(? type?) ...) arg])))
   (define arg-coords (apply cartesian-product types))
-  (define out-types
-    (for/fold ([out-types '()]) ([args* arg-coords])
+  (define rtypes
+    (for/fold ([rtypes '()]) ([args* arg-coords])
       (let ([out (operator-type* op args*)])
         (if out
-            (append out-types (list out))
-            out-types))))
+            (append rtypes (list out))
+            rtypes))))
   (cond
-    [(empty? out-types) #f]
-    [(= (length out-types) 1) (first out-types)]
-    [else out-types]))
+    [(empty? rtypes) #f]
+    [(= (length rtypes) 1) (first rtypes)]
+    [else rtypes]))
 
 (define (type-match? t1 t2)
   (define t1* (if (type? t1) (list t1) t1))
@@ -117,6 +239,7 @@
   (for/or ([v t1*]) (set-member? t2* v)))
 
 ;; Returns true if the tensor types are equal. Scalar types must only share one type, not be completely equal.
+;; Does not check dimension sizes
 (define (tensor-type-equal? t1 t2)
   (cond
    [(equal? t2 '(tensor)) #t]   ; Unknown fpcores have a return type of '((real) (boolean) (tensor)), just assume it's valid
@@ -125,9 +248,6 @@
     (define s2 (last t2))
     (and
       (= (length t1) (length t2))
-      (for/and ([i (take t1 (sub1 (length t1)))]
-                [j (take t2 (sub1 (length t2)))])
-        (if (or (symbol? i) (symbol? j)) #t (equal? i j)))  
       (cond
         [(and ((listof typename?) s1) ((listof typename?) s2)) (for/or ([i s1]) (set-member? s2 i))]
         [((listof typename?) s1) (for/or ([i s1]) (equal? i s2))]
@@ -136,19 +256,20 @@
 
 ;; type checker when calling fpcores
 (define (fpcore-as-operator-type* value args)
-  (match-define (list core (list in-types ...) out-type) value)
+  (match-define (list core (list in-types ...) rtype sizes) value)
   (define match? 
     (for/and ([i in-types] [j args])  ;; j may be a type or a list of types (TODO: i can also be a list)
-     (cond
+      (cond
       [(and (typename-equal? i 'tensor) (type? j))
         (tensor-type-equal? i j)]
       [(and (typename-equal? i 'tensor) ((listof type?) j))
         (for/or ([v j]) (tensor-type-equal? i v))]
       [(type? j) (tensor-type-equal? i j)]
       [else (for/or ([v j]) (type-match? i v))])))
-  (cond 
-    [match? out-type]
-    [else #f]))
+  (cond
+   [(and match? (*ragged-check*)) (check-rtype in-types args sizes rtype)]
+   [match? rtype]
+   [else #f]))
 
 (define (fpcore-as-operator-type ident args)
   (define value (dict-ref (*fpcores*) ident #f))
@@ -243,7 +364,8 @@
    [`(tensor ([,vars ,vals] ...) ,body)     ; tensor*
      (define vals* (map (curryr check-types ctx) vals))
      (define ctx* (apply dict-set* ctx (append-map list vars vals*)))
-    `(tensor ,(length vars) ,@vals ,@(check-types body ctx*))]
+     (define body* (check-types body ctx*))
+    `(tensor ,(length vars) ,@vals ,@body*)]
    [`(tensor* ([,vars ,vals] ...) ([,accums ,inits ,updates] ...) ,body)    ; tensor**
      (define vals* (map (curryr check-types ctx) vals))
      (define ctx* (apply dict-set* ctx (append-map list vars vals*)))
@@ -302,23 +424,28 @@
     (define pre (dict-ref properties* ':pre))
     (define pre* (check-types pre ctx))
     (unless (typename-equal? pre* 'boolean)
-      (error 'check-fpcore* "FPCore precondition must return a boolean: ~a" pre)))
+      (error 'check-fpcore* "FPCore precondition must return a boolean: ~a" pre))
+    (when (*ragged-check*)
+      (check-precond pre))) ;; puts contraints on dimension sizes
   
-  (cond
+  (cond   ; w/ type checking
     [(*check-types*)
-      (define out-type (check-types body ctx))
-      (when name  ; update hash with full core information
-        (*fpcores* (dict-set* (*fpcores*) name (list core in-types out-type))))
+      (define rtype (check-types body ctx))
+      (define in-types* (update-sizes in-types))
+      (define rtype* (first (update-sizes (list rtype))))
+      (when name
+        (*fpcores* (dict-set* (*fpcores*) name (list core in-types* rtype* (*dim-sizes*)))))
       #t]
     [else   ; no type checking
-      (when name  ; update hash with name
-        (*fpcores* (dict-set* (*fpcores*) name (list core '() '()))))
+      (when name 
+        (*fpcores* (dict-set* (*fpcores*) name (list core '() '() (make-hash)))))
       #t]))
 
 (define/contract (check-fpcore core)
   (-> fpcore? boolean?)
-  (match core
-   [`(FPCore ,name (,vars ...) ,properties ... ,body)
-    (check-fpcore* name core vars properties body)]
-   [`(FPCore (,vars ...) ,properties ... ,body)
-    (check-fpcore* #f core vars properties body)]))
+  (parameterize ([*dim-sizes* (make-hash)])
+    (match core
+     [`(FPCore ,name (,vars ...) ,properties ... ,body)
+      (check-fpcore* name core vars properties body)]
+     [`(FPCore (,vars ...) ,properties ... ,body)
+      (check-fpcore* #f core vars properties body)])))

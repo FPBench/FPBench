@@ -92,8 +92,8 @@
          (for/fold ([cx** cx*]) ([accum accums] [update updates])
            (dict-set cx** accum (rec update cx**)))))]
     [`(tensor ([,vars ,vals] ...) ,body)
-     (define sizes (map (curryr rec ctx) vals))
-     (define ranges (map (compose stream->list in-range) sizes))
+     (define sizes (map (compose inexact->exact (curryr rec ctx)) vals))
+     (define ranges (map (λ (x) (build-list x identity)) sizes))
      (define coords (apply cartesian-product ranges))
      (define vals* 
       (for/list ([coord coords])
@@ -101,8 +101,8 @@
           (rec body ctx*))))
      (tabulate->tensor (map inexact->exact sizes) vals*)]
     [`(tensor* ([,vars ,vals] ...) ([,accums ,inits ,updates] ...) ,body)
-     (define sizes (map (curryr rec ctx) vals))
-     (define ranges (map (compose stream->list in-range) sizes))
+     (define sizes (map (compose inexact->exact (curryr rec ctx)) vals))
+     (define ranges (map (λ (x) (build-list x identity)) sizes))
      (define coords (apply cartesian-product ranges))
      (define inits* (for/list ([init inits]) (rec init ctx)))
      (define ctx* (apply dict-set* ctx (append-map list accums inits*))) ; should these be added before or after?

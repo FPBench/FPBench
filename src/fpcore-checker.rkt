@@ -3,9 +3,9 @@
 (require racket/extflonum)
 (require "common.rkt" "tensor.rkt")
 (provide *fpcores* *check-types* *ragged-check*
-         fpcore? expr? argument? check-fpcore)
+         fpcore? expr? argument? check-fpcore check-argument)
 
-(define *fpcores* (make-parameter '()))  ; previously run fpcores, dictionary value is a list (core, in-types, rtype)
+(define *fpcores* (make-parameter '()))  ; previously run fpcores, dictionary value is a list (core, vars, in-types, rtype, size-equations)
 (define *check-types* (make-parameter #f))
 (define *ragged-check* (make-parameter #f))
 (define *dim-sizes* (make-parameter #f))        ;; tensor dimension sizes equations
@@ -118,6 +118,7 @@
   (when (not (empty? eqs*))
     (subst-elim)))
 
+;; Adds equations to the dimension sizes hash based on 'array' elements
 (define (check-sizes tensors)
   (define tensors* (map (λ (x) (drop (take x (sub1 (length x))) 2)) tensors))
   (define dim (length (first tensors*)))
@@ -129,6 +130,7 @@
           (build-list (length tensors*) (λ (x) (list-ref (list-ref tensors* x) i)))
           2)))))
 
+;; Updates types based on known dimension sizes
 (define (update-sizes types [dim-sizes (*dim-sizes*)])
   (for/list ([type types])
     (if (typename-equal? type 'tensor)
@@ -169,6 +171,7 @@
       (values key (filter (λ (x) (not (dict-has-key? eqs* x))) (dict-ref eqs key)))))
   (first (update-sizes (list rtype) update-hash)))
 
+;; Adds equations to the dimension sizes hash according to the precondition
 (define (check-precond expr)    ; TODO: support '!='
  (match expr
   [(list 'and (? expr? subs) ...)
@@ -182,7 +185,7 @@
 
 ;; Tensor scalar type inference
 
-(define (tensor-scalar? type)
+(define (ref-scalar? type)
   (match type
    [`((real ,(? symbol?)) (boolean ,(? symbol?))) #t]
    [_ #f]))
@@ -192,10 +195,9 @@
   (for ([tensor tensors])
     (if (hash-has-key? (*tensor-scalars*) tensor)
       (unless (equal? (hash-ref (*tensor-scalars*) tensor) rtype*)
-        (error 'update-tensors "Inconsistent tensor scalar types. Assumed ~a was of type ~a, but encountered ~a"
+        (error 'set-scalar-types "Inconsistent tensor scalar types. Assumed ~a was of type ~a, but encountered ~a"
                                 tensor (hash-ref (*tensor-scalars*) tensor) rtype*))
       (hash-set*! (*tensor-scalars*) tensor rtype*)))
-  (displayln rtype)
   rtype)
 
 (define (update-scalars in-types args)
@@ -243,7 +245,7 @@
             [else `(tensor ,d ,@(drop s (length sizes)) ,types)]))]
   [(_ _) #f])
 
-;; optimistic type checker. Returns every valid return type
+;; Type checker for operators. Returns every valid return type
 (define (operator-type op args)  
   (define types (for/list ([arg args])
                   (match arg
@@ -251,7 +253,7 @@
                     [`(,(? type?) ...) arg])))
   (define-values (types* tensors)
     (for/fold ([types* '()] [tensors '()]) ([type types])
-      (if (tensor-scalar? type)
+      (if (ref-scalar? type)
         (let ([sym (cdar type)])
           (values (append types* (list `((real) (boolean)))) (append tensors sym)))
         (values (append types* (list type)) tensors))))
@@ -291,21 +293,20 @@
        [else (equal? s2 s2)]))]))
 
 ;; runs an fpcore again to see if it gets a more specific return type
-(define (fpcore-rtype core arg-types)
+(define (fpcore-rtype core in-vars arg-types)
   (define-values (vars body)
     (match core
-     [`(FPCore ,name (,vars ...) ,properties ... ,body)  (values vars body)]
+     [`(FPCore ,name (,vars ...) ,properties ... ,body) (values vars body)]
      [`(FPCore (,vars ...) ,properties ... ,body) (values vars body)]))
-  (define-values (ctx in-vars)
-    (for/fold ([ctx (hash)] [in-vars '()]) ([var vars])
+  (define ctx
+    (for/fold ([ctx (hash)]) ([var vars])
       (match var
        [`(,(? symbol? name) ,(or (? number? sizes) (? symbol? sizes)) ...) 
         (let* ([dim-sizes (for/list ([i (filter symbol? sizes)]) (list i '(real)))]
                [type `(tensor ,(length sizes) ,@sizes (real boolean))])
-          (values (apply hash-set* (hash-set* ctx name type) (apply append dim-sizes))
-                  (append in-vars (list name))))]
-       [(? list?) (values (hash-set* ctx (list (last var)) '(real)) (append in-vars (list (last var))))]
-       [_ (values (hash-set* ctx var '(real)) (append in-vars (list var)))])))
+          (apply hash-set* (hash-set* ctx name type) (apply append dim-sizes)))]
+       [(? list?) (hash-set* ctx (list (last var)) '(real))]
+       [_ (hash-set* ctx var '(real))])))
   (define ctx*
     (for/fold ([ctx* ctx]) ([var in-vars] [type arg-types])
       (dict-set* ctx* var type)))
@@ -313,7 +314,7 @@
 
 ;; type checker when calling fpcores
 (define (fpcore-as-operator-type* value arg-types vars)
-  (match-define (list core (list in-types ...) rtype sizes) value)
+  (match-define (list core in-vars (list in-types ...) rtype sizes) value)
   (define match? 
     (for/and ([i in-types] [j arg-types])  ;; j may be a type or a list of types (TODO: i can also be a list)
      (cond
@@ -329,7 +330,7 @@
       (set-scalar-types (list var) (list (last in)))))
   (define rtype*
     (if (and (typename-equal? rtype 'tensor) ((listof typename?) (last rtype)))
-      (fpcore-rtype core arg-types)
+      (fpcore-rtype core in-vars arg-types)
       rtype))
   (cond
    [(and match? (*ragged-check*)) (check-rtype in-types arg-types sizes rtype*)]
@@ -342,6 +343,7 @@
       (fpcore-as-operator-type* value arg-types vars)
       #f))
 
+;; type checker for each expression
 (define/contract (check-types expr ctx)
   (-> expr? (dictof argument? type?) (or/c type? (listof type?)))
   (match expr
@@ -432,7 +434,7 @@
      (define body* (check-types body ctx*))
      (match body*
       [(or '(real) '(boolean))  `(tensor ,(length vars) ,@vals ,(first body*))]
-      [(? tensor-scalar?)  `(tensor ,(length vars) ,@vals (real boolean))]
+      [(? ref-scalar?)  `(tensor ,(length vars) ,@vals (real boolean))]
       [(? (curryr typename-equal? 'tensor))
         (let ([dim (second body*)]
               [sizes (drop (take body* (sub1 (length body*))) 2)]
@@ -455,7 +457,7 @@
      (define body* (check-types body ctx**))
      (match body*
       [(or '(real) '(boolean))  `(tensor ,(length vars) ,@vals ,(first body*))]
-      [(? tensor-scalar?)  `(tensor ,(length vars) ,@vals (real boolean))]
+      [(? ref-scalar?)  `(tensor ,(length vars) ,@vals (real boolean))]
       [(? (curryr typename-equal? 'tensor))
         (let ([dim (second body*)]
               [sizes (drop (take body* (sub1 (length body*))) 2)]
@@ -487,6 +489,10 @@
        (error 'check-types "Invalid types for FPCore '~a': ~a" fpcore children))
      rtype]))
 
+;;
+;; type checker
+;;
+
 (define (check-fpcore* name core vars properties body)
   (define-values (annotated-args args in-vars in-types ctx)
     (for/fold ([annot-args '()] [args '()] [in-vars '()] [in-types '()] [ctx (hash)])
@@ -502,10 +508,10 @@
                   (apply hash-set* (hash-set* ctx name type) (apply append dim-sizes))))]
        [(? list?) 
         (values (append annot-args (list var)) (append args (list (last var))) 
-                (append in-vars (list name)) (append in-types (list '(real))) 
+                (append in-vars (list (last var))) (append in-types (list '(real))) 
                 (hash-set* ctx (list (last var)) '(real)))]
        [_ (values (append annot-args (list var)) (append args (list var)) 
-                  (append in-vars (list name)) (append in-types (list '(real)))
+                  (append in-vars (list var)) (append in-types (list '(real)))
                   (hash-set* ctx var '(real)))])))
 
   (define properties*
@@ -525,15 +531,19 @@
   
   (cond   ; w/ type checking
     [(*check-types*)
-      (define rtype (check-types body ctx))
+      (define rtype 
+        (let ([rtype (check-types body ctx)])
+          (if (ref-scalar? rtype)
+            '((real) (boolean))
+            rtype)))
       (define in-types* (update-scalars (update-sizes in-types) in-vars))
       (define rtype* (first (update-sizes (list rtype))))
       (when name
-        (*fpcores* (dict-set* (*fpcores*) name (list core in-types* rtype* (*dim-sizes*)))))
+        (*fpcores* (dict-set* (*fpcores*) name (list core in-vars in-types* rtype* (*dim-sizes*)))))
       #t]
     [else   ; no type checking
       (when name 
-        (*fpcores* (dict-set* (*fpcores*) name (list core '() '() (make-hash)))))
+        (*fpcores* (dict-set* (*fpcores*) name (list core in-vars '() '() (make-hash)))))
       #t]))
 
 (define/contract (check-fpcore core)
@@ -545,3 +555,53 @@
       (check-fpcore* name core vars properties body)]
      [`(FPCore (,vars ...) ,properties ... ,body)
       (check-fpcore* #f core vars properties body)])))
+
+;;
+;;  Argument checker
+;;
+
+(define (check-scalar-arg val typename)
+  (match typename
+   ['real (or (number? val) (extflonum? val) (hex? val) (set-member? (remove* '(TRUE FALSE) constants) val))]
+   ['boolean (or (boolean? val) (equal? val 'TRUE) (equal? val 'FALSE))]
+   [(list real boolean) (or (check-scalar-arg val 'real) (check-scalar-arg val 'boolean))]))
+
+(define (check-tensor-sizes tensor sizes stype)
+  (let loop ([ten tensor] [sizes* sizes])
+    (cond
+     [(empty? sizes*) 
+      (unless (check-scalar-arg ten stype)
+        (error 'check-tensor-sizes "Expected a ~a tensor element. Received: ~a" stype ten))]
+     [else
+      (unless (= (length ten) (car sizes*))
+        (error 'check-tensor-sizes "Expected a tensor dimension of size: ~a. Received: ~a" (car sizes*) (length ten)))
+      (for ([elem ten]) (loop elem (cdr sizes*)))])))
+
+(define (check-argument name ctx)
+  (define core-info (dict-ref (*fpcores*) name))
+  (define vars (second core-info))
+  (define in-types (third core-info))
+  (for ([var vars] [type in-types])
+    (let ([val (dict-ref ctx var #f)])
+      (unless val
+        (error 'check-types "~a not provided as an argument" var))
+      (cond
+       [(typename-equal? type 'real) 
+        (unless (check-scalar-arg val 'real)
+          (error 'check-argument "Expected a real argument. Received: ~a" val))]
+       [(typename-equal? type 'boolean)
+        (unless (check-scalar-arg val 'boolean)
+          (error 'check-argument "Expected a boolean argument. Received: ~a" val))]
+       [(typename-equal? type 'tensor)
+        (let ([dim (second type)]
+              [sizes 
+                (for/list ([elem (drop (take type (sub1 (length type))) 2)])
+                  (if (symbol? elem)
+                    (inexact->exact (dict-ref ctx elem))
+                    elem))]
+              [stype (last type)])
+          (unless (= (tensor-dim val) dim)
+            (error 'check-argument "Expected a tensor of dimension ~a. Got ~a" dim (tensor-dim val)))
+          (check-tensor-sizes val sizes stype)
+        )]
+  ))))

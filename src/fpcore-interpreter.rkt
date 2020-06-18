@@ -458,20 +458,7 @@
                                (extfl- x (extfl* y n))))]
     )))
 
-;;; Main interpreter
-
-(define (string->float x prec)
-  (define x* (string->number x))
-  (unless (or (number? x*) (extflonum? x*))
-    (error 'string->float "Expected a float"))
-  (match prec
-    ['binary80  (parameterize ([bf-precision 64])
-                  (let ([f (bf x)])
-                    (if (bf= f -0.bf) -0.0t0
-                        (real->extfl (bigfloat->real f)))))]
-    ['binary64  (real->double-flonum x*)]
-    ['binary32  (real->single-flonum x*)]
-    ['integer   (bf->integer (bf x))]))
+;; Main interpreter
 
 (define (tensor-layer->size arr size ctx)
   (match size
@@ -524,7 +511,7 @@
                  [bf-precision (prec->bf-bits base-precision)])
     ((eval-expr evaltor) expr (hash))))
 
-(define (racket-run-fpcore* vars props* body args)
+(define (racket-run-fpcore* name vars props* body args)
   (-> fpcore? (listof string?) (or/c real? extflonum? tensor? boolean?))
   (define-values (_ props) (parse-properties props*))
   (define base-precision (dict-ref props ':precision 'binary64))
@@ -543,9 +530,16 @@
          (arg->tensor name sizes arg evaltor ctx base-rounding base-precision)]
         [`(! ,var-props* ... ,(? symbol? var*))
          (define-values (_ var-props) (parse-properties var-props*))
-         (list (cons var* (string->float arg (dict-ref var-props ':precision base-precision))))]
+         (list (cons var* (arg->expr arg (dict-ref var-props ':precision base-precision))))]
         [(? symbol?)
          (list (cons var (arg->expr arg evaltor base-rounding base-precision)))]))))
+
+  (when name (check-argument name ctx))
+  (when (dict-has-key? props ':pre)
+    (define pre (dict-ref props ':pre))
+    (unless ((eval-expr evaltor) pre ctx)
+      (error 'racket-run-fpcore* "Precondtition not met: ~a" pre)))
+
   (parameterize ([bf-rounding-mode (fpcore->bf-round base-rounding)] 
                  [bf-precision (prec->bf-bits base-precision)])
     (let ([ret ((eval-expr evaltor) body ctx)])
@@ -556,5 +550,5 @@
 (define/contract (racket-run-fpcore prog args)
   (-> fpcore? (listof string?) (or/c real? extflonum? tensor? boolean?))
   (match prog
-   [`(FPCore ,name (,vars ...) ,properties ... ,body)  (racket-run-fpcore* vars properties body args)]
-   [`(FPCore (,vars ...) ,properties ... ,body) (racket-run-fpcore* vars properties body args)]))
+   [`(FPCore ,name (,vars ...) ,properties ... ,body)  (racket-run-fpcore* name vars properties body args)]
+   [`(FPCore (,vars ...) ,properties ... ,body) (racket-run-fpcore* #f vars properties body args)]))

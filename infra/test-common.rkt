@@ -170,8 +170,8 @@
 
     (unless (null? results) ; display results
       (define successful 
-        (for/fold ([success 0]) ([result results] [i (in-naturals)])
-          (if (=* (second result) (car (third result)) (list-ref (*ignore-by-run*) i))
+        (for/fold ([success 0]) ([result results] [ignore? (*ignore-by-run*)])
+          (if (=* (second result) (car (third result)) ignore?)
             (add1 success)
             success)))
       (define result-len (length results))
@@ -187,11 +187,11 @@
             [1 " (1 nan)"]
             [_ (format " (~a nans)" nans)])))
       (set! err (+ err (- result-len successful)))
-      (for ([i (in-naturals)] [x (in-list results)])   
-        (define test-passed (=* (second x) (car (third x)) (list-ref (*ignore-by-run*) i)))
+      (for ([i (in-naturals 1)] [x (in-list results)] [ignore? (*ignore-by-run*)])
+        (define test-passed (=* (second x) (car (third x)) ignore?))
         (unless (and (not (verbose)) test-passed)
           (printf "\t~a\t~a\t(Expected) ~a\t(Output) ~a\t(Args) ~a\n" 
-                  (add1 i) (if test-passed "Pass" "Fail") (second x)                                                    
+                  i (if test-passed "Pass" "Fail") (second x)                          
                   (format-output (if (exact-out) (cdr (third x)) (car (third x))))
                   (string-join (map (λ (p) (format-args (car p) (cdr p) type)) (first x)) ", ")))))))
   (cond

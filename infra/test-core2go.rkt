@@ -20,7 +20,7 @@
   (system (format "go build -o ~a ~a" bin-file test-file))
   bin-file)
 
-(define (run<-go exec-name ctx type)
+(define (run<-go exec-name ctx type number)
   (define out
     (with-output-to-string
      (λ ()
@@ -45,7 +45,7 @@
       ['binary32 real->single-flonum])
     (string->number out*)) out*))
 
-(define (go-equality a b ulps)
+(define (go-equality a b ulps ignore?)
   (match (list a b)
     ['(timeout timeout) true]
     [else

@@ -12,8 +12,9 @@
    (apply string-append
     (append
       (map (curryr format x)
-          '("function fmax(x , y) { if (x != x) { return y; } else if (y != y) { return x; } else { return ~a.max(x, y); }}\n"
-            "function fmin(x , y) { if (x != x) { return y; } else if (y != y) { return x; } else { return ~a.min(x, y); }}\n"))
+          '("function fmax(x, y) { if (x != x) { return y; } else if (y != y) { return x; } else { return ~a.max(x, y); }}\n"
+            "function fmin(x, y) { if (x != x) { return y; } else if (y != y) { return x; } else { return ~a.min(x, y); }}\n"
+            "function pow(x, y) { if (x == 1.0 && isNaN(y)) { return 1.0; } else { return ~a.pow(x, y); }}\n"))
      '("function fdim(x , y) { if (x != x || y != y) { return NaN; } else if (x > y) { return x - y; } else { return 0; }}\n\n")))))
 
 (define js-supported (supported-list
@@ -29,10 +30,12 @@
 (define (operator->js props op args)
   (define arg-list (string-join args ", "))
   (match op
+    ['/     (format "(~a / ~a)" (first args) (second args))]
     ['fabs  (format "~a.abs(~a)" (js-runtime) arg-list)]
     ['fmax  (format "fmax(~a)" arg-list)]
     ['fmin  (format "fmin(~a)" arg-list)]
     ['fdim  (format "fdim(~a)" arg-list)]
+    ['pow   (format "pow(~a)" arg-list)]
     ['isinf (format "(~a.abs(~a) === Infinity)" (js-runtime) arg-list)]
     ['isnan (format "isNaN(~a)" arg-list)]
     [_      (format "~a.~a(~a)" (js-runtime) op arg-list)]))

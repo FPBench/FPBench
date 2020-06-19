@@ -2,7 +2,7 @@
 
 (require math/flonum racket/extflonum math/bigfloat)
 (require "../src/common.rkt" "../src/fpcore-reader.rkt" "../src/fpcore-interpreter.rkt" "../src/range-analysis.rkt" "../src/sampler.rkt" "../src/supported.rkt")
-(provide tester *tester* test-core *prog*)
+(provide tester *tester* test-core *prog* *ignore-by-run*)
 
 (module+ test
   (require rackunit))
@@ -17,6 +17,7 @@
 (define exact-out (make-parameter #f))
 (define use-precond (make-parameter #t))
 (define suppress-failures (make-parameter #f))
+(define *ignore-by-run* (make-parameter #f))  ; list of booleans that specify if a specific run should be ignored
 (define *prog* (make-parameter #f))   ; interpreted languages can store converted core here
 
 ; Common test structure
@@ -26,8 +27,8 @@
 (define (compile-test prog ctx type test-file)
   ((tester-compile (*tester*)) prog ctx type test-file))
 
-(define (run-test exec-name ctx type)
-  ((tester-run (*tester*)) exec-name ctx type))
+(define (run-test exec-name ctx type number)
+  ((tester-run (*tester*)) exec-name ctx type number))
 
 (define (format-args var val type)
   ((tester-format-args (*tester*)) var val type))
@@ -35,8 +36,8 @@
 (define (format-output result)
   ((tester-format-output (*tester*)) result))
 
-(define (=* a b)
-  ((tester-equality (*tester*)) a b (ulps)))
+(define (=* a b [ignore? #f])
+  ((tester-equality (*tester*)) a b (ulps) ignore?))
   
 ;;; Evaluator
 
@@ -91,6 +92,7 @@
   (when (equal? (test-file) #f) (test-file default-file))
   (for ([prog (in-port (curry read-fpcore source) curr-in-port)]
         #:when (valid-core prog (tester-supported (*tester*))))
+   (parameterize ([*ignore-by-run* (make-list (tests-to-run) #f)])
     (define-values (vars props* body)
      (match prog
       [(list 'FPCore (list args ...) props ... body) (values args props body)]
@@ -163,14 +165,18 @@
             (set! timeout (+ timeout 1)))
           (define out* (if (equal? out 'timeout) 
                             (cons 'timeout "") 
-                            (run-test exec-name ctx type)))
+                            (run-test exec-name ctx type i)))
           (when (equal? (tester-name (*tester*)) "wls")
             (when (and (not (equal? out 'timeout)) (not (nan? out)) (nan? (car out*)))
               (set! nans (+ nans 1))))
           (list ctx out out*))))
 
     (unless (null? results) ; display results
-      (define successful (count (λ (x) (=* (second x) (car (third x)))) results))
+      (define successful 
+        (for/fold ([success 0]) ([result results] [ignore? (*ignore-by-run*)])
+          (if (=* (second result) (car (third result)) ignore?)
+            (add1 success)
+            success)))
       (define result-len (length results))
       (unless (and (quiet) (equal? successful result-len))
         (printf "~a/~a: ~a~a~a\n" successful result-len
@@ -184,15 +190,15 @@
             [1 " (1 nan)"]
             [_ (format " (~a nans)" nans)])))
       (set! err (+ err (- result-len successful)))
-      (for ([i (in-naturals 1)] [x (in-list results)])   
-        (define test-passed (=* (second x) (car (third x))))
+      (for ([i (in-naturals 1)] [x (in-list results)] [ignore? (*ignore-by-run*)])
+        (define test-passed (=* (second x) (car (third x)) ignore?))
         (unless (and (not (verbose)) test-passed)
           (printf "\t~a\t~a\t(Expected) ~a\t(Output) ~a\t(Args) ~a\n" 
-                  i (if test-passed "Pass" "Fail") (second x)                                                    
+                  i (if test-passed "Pass" "Fail") (second x)                          
                   (format-output (if (exact-out) (cdr (third x)) (car (third x))))
-                  (string-join (map (λ (p) (format-args (car p) (cdr p) type)) (first x)) ", "))))))
-  (if (and (suppress-failures) (> err 0))
-    (begin
+                  (string-join (map (λ (p) (format-args (car p) (cdr p) type)) (first x)) ", ")))))))
+  (cond
+   [(and (suppress-failures) (> err 0))
       (printf "Suppressing failures. Total failed: ~a\n" err)
-      0)
-    err)))
+      0]
+   [else err])))

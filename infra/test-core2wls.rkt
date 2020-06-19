@@ -7,7 +7,7 @@
   (*prog* (core->wls prog "f"))
   test-file)
 
-(define (run<-wls exec-name ctx type)
+(define (run<-wls exec-name ctx type number)
   (define wls-prec (prec->wls type))
   (call-with-output-file exec-name #:exists 'replace
     (lambda (port)
@@ -40,7 +40,7 @@
       ['binary32 (real->single-flonum (string->number out*))])
     out*))
 
-(define (wls-equality a b ulps)
+(define (wls-equality a b ulps ignore?)
   (match (list a b)
     ['(timeout timeout) true]
     [else

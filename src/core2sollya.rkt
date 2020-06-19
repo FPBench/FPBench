@@ -1,27 +1,32 @@
 #lang racket
 
 (require "common.rkt" "compilers.rkt" "imperative.rkt" "supported.rkt")
-(provide core->sollya sollya-supported sollya-header)
+(provide core->sollya sollya-supported sollya-header *sollya-warnings*)
 
 (define sollya-supported (supported-list
-  (invert-op-list '(isnormal tgamma lgamma remainder fmod round cbrt atan2 erf))
+  (invert-op-list '(isnormal tgamma lgamma remainder fmod round cbrt atan2 erf signbit))
   fpcore-consts
   '(binary32 binary64 binary80 integer)
   ieee754-rounding-modes))
 
+(define *sollya-warnings* (make-parameter #t))
+
 (define sollya-reserved '(pi time)) ; Language-specific reserved names (avoid name collisions)
 
-(define sollya-header 
-  (const
-   (string-append
+(define (sollya-header . rest)
+  (string-append
     "procedure copysign(x, y) { var res; if (y < 0) then res = -abs(x) else res = abs(x); return res; };\n"
     "procedure fdim(x, y) { var res; if (x != x || y != y) then res = nan else if (x > y) then res = x - y else res = 0; return res; };\n"
     "procedure isfinite(x) { return (x == x && abs(x) != infty); };\n"
     "procedure isinf(x) { return (abs(x) == infty); };\n"
     "procedure isnan(x) { return (x != x); };\n"
-    "procedure signbit(x) { return (x < 0); };\n"
     "procedure trunc(x) { var res; if (x < 0) then res = ceil(x) else res = floor(x); return res; };\n"
-    "procedure pow(x, y) { var res; if (x == 1 && y != y) then res = 1 else res = (x ^ y); return res; };\n\n")))
+    "procedure pow(x, y) { var res; if (x == 1 && y != y) then res = 1 else res = (x ^ y); return res; };\n"
+    (format "procedure div_warn(x, y) { ~areturn (x / y); };\n\n"   ;; prints a warning if division by zero occurs, alters testing behavior
+      (if (*sollya-warnings*) 
+          "if (x != 0 && y == 0) then print(\"[WARNING] FPBench: Division by zero. Sollya always returns NaN.\"); "
+          ""))
+))
 
 (define (precision-str prec)
   (match prec
@@ -56,6 +61,7 @@
 
 (define (operator->sollya props op args)
   (match (cons op args)
+    [(list '/ a b)        (round->sollya (format "div_warn(~a, ~a)" a b) props)]
     [(list 'fabs a)       (round->sollya (format "abs(~a)" a) props)]
     [(list 'fmax a b)     (round->sollya (format "max(~a, ~a)" a b) props)]
     [(list 'fmin a b)     (round->sollya (format "min(~a, ~a)" a b) props)]
@@ -71,7 +77,7 @@
             ["RU" (round->sollya (format "ceil(~a)" a) props)]
             ["RD" (round->sollya (format "floor(~a)" a) props)]
             ["RZ" (round->sollya (format "trunc(~a)" a) props)]))]
-    [(list (or 'isnan 'isinf 'isfinite 'signbit) a)
+    [(list (or 'isnan 'isinf 'isfinite) a)
         (format "~a(~a)" op a)]
     [(list (? operator? f) args ...)
         (round->sollya (format "~a(~a)" f (string-join args ", ")) props)]))

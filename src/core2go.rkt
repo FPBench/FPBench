@@ -33,6 +33,7 @@
 (define (operator->go type operator args)
   (define arg-list (string-join args ", "))
   (match operator
+    ['/     (format "(~a / ~a)" (first args) (second args))]
     ['isinf (format "math.IsInf(~a, 0)" arg-list)]
     ['isnan (format "math.IsNaN(~a)" arg-list)]
     ['tgamma (format "math.Gamma(~a)" arg-list)]

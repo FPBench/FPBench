@@ -37,8 +37,9 @@ func ex2(arg0 float64, arg1 float64) float64 {
 	return (arg0_1 - arg1_2)
 }
 
-function fmax(x , y) { if (x != x) { return y; } else if (y != y) { return x; } else { return Custom.max(x, y); }}
-function fmin(x , y) { if (x != x) { return y; } else if (y != y) { return x; } else { return Custom.min(x, y); }}
+function fmax(x, y) { if (x != x) { return y; } else if (y != y) { return x; } else { return Custom.max(x, y); }}
+function fmin(x, y) { if (x != x) { return y; } else if (y != y) { return x; } else { return Custom.min(x, y); }}
+function pow(x, y) { if (x == 1.0 && isNaN(y)) { return 1.0; } else { return Custom.pow(x, y); }}
 function fdim(x , y) { if (x != x || y != y) { return NaN; } else if (x > y) { return x - y; } else { return 0; }}
 
 function ex0(arg0, arg1) {
@@ -129,9 +130,9 @@ procedure fdim(x, y) { var res; if (x != x || y != y) then res = nan else if (x 
 procedure isfinite(x) { return (x == x && abs(x) != infty); };
 procedure isinf(x) { return (abs(x) == infty); };
 procedure isnan(x) { return (x != x); };
-procedure signbit(x) { return (x < 0); };
 procedure trunc(x) { var res; if (x < 0) then res = ceil(x) else res = floor(x); return res; };
 procedure pow(x, y) { var res; if (x == 1 && y != y) then res = 1 else res = (x ^ y); return res; };
+procedure div_warn(x, y) { if (x != 0 && y == 0) then print("[WARNING] FPBench: Division by zero. Sollya always returns NaN."); return (x / y); };
 
 procedure ex0(arg0, arg1) {
 	arg0 = round(arg0, double, RN);

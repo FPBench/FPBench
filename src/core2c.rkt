@@ -29,6 +29,7 @@
 (define (operator->c props op args)
   (define type (type->c (dict-ref props ':precision 'binary64)))
   (match op
+    ['/         (format "(~a / ~a)" (first args) (second args))]
     ['isinf     (format "isinf(~a)" args)]
     ['isnan     (format "isnan(~a)" args)]
     ['isfinite  (format "isfinite(~a)" args)]

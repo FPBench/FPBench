@@ -26,7 +26,7 @@
     [(equal? x -nan.t)  -nan.0]
     [else (extfl->exact x)]))  
 
-(define (run<-c exec-name ctx type)
+(define (run<-c exec-name ctx type number)
   (define real->float
     (match type
       ['binary80 (λ (x) (parameterize ([bf-precision 64]) (bigfloat->string (bf (extfl->real x)))))]
@@ -50,7 +50,7 @@
     ['binary32 (cons (real->single-flonum (string->number out*)) out*)]
     ['integer  (cons (string->number out*) out*)]))
 
-(define (c-equality a b ulps)
+(define (c-equality a b ulps ignore?)
   (cond
     [(equal? a 'timeout) true]
     [(extflonum? b)

@@ -83,32 +83,42 @@
 (define (subst-elim)
   (let loop ()
     (define changed? #f)
-    (for ([key (hash-keys (*dim-sizes*))])    ; substitute
-      (let ([val (hash-ref (*dim-sizes*) key)])
-        (when (= (length val) 1)
-          (set! changed? (or changed? (subst key (first val)))))))
-    (for ([key (hash-keys (*dim-sizes*))])    ; eliminate
-      (let ([val (hash-ref (*dim-sizes*) key)])
-        (hash-set*! (*dim-sizes*) key (remove-duplicates val))))
+    (for ([key (hash-keys (*dim-sizes*))])    ; if x = a, substitute a for every x
+      (let ([vals (hash-ref (*dim-sizes*) key)])
+        (when (= (length vals) 1)
+          (set! changed? (or changed? (subst key (first vals)))))))
+
+    (for ([key (hash-keys (*dim-sizes*))])    ;; if x a = b = ..., where a, b, ... are independent variables: substitute a = x, b = x, ...
+      (let ([vals (hash-ref (*dim-sizes*) key)])
+        (when (and (> (length vals) 1)                              
+                   (for/and ([val vals])  
+                      (and (symbol? val) (not (hash-has-key? (*dim-sizes*) val)))))
+          (hash-remove! (*dim-sizes*) key)
+          (for ([val vals]) (hash-set*! (*dim-sizes*) val (list key)))
+          (set! changed? #t))))
+
+    (for ([key (hash-keys (*dim-sizes*))])    ; eliminate duplicates, check numbers for inequality
+      (let* ([vals (hash-ref (*dim-sizes*) key)] 
+             [nums (filter number? vals)])
+        (when (> (length nums) 1)
+          (unless (for/and ([val (cdr nums)]) (equal? (car nums) val))
+            (error 'subst-elim "Inconsistent tensor sizes. Deduced two or more different sizes for the same dimension")))
+        (hash-set*! (*dim-sizes*) key (remove-duplicates vals))))
     (when changed? (loop))))
 
-(define (add-equations eqs [var? symbol?] [val? number?])
+
+(define (add-equations eqs)
   (define eqs*
-    (filter
-      (λ (x)
-        (and
-          (not (empty? x))
-          (not (hash-has-key? (*dim-sizes*) (cdr x)))))
-      (for/list ([eq eqs])
-       (match eq
-        [(list (? number? num1) (? number? num2))
-          (unless (equal? num1 num2)
-            (error 'add-equations "Dimension size mismatch. ~a != ~a" num1 num2 ))
-          '()]
-        [(list x x) '()]    
-        [(list (? symbol? var) (? number? num)) (cons var num)]
-        [(list (? number? num) (? symbol? var)) (cons var num)]
-        [(list (? symbol? var1) (? symbol? var2)) (cons var1 var2)]))))
+    (for/fold ([eqs* '()]) ([eq eqs])
+      (match eq
+       [(list (? number? num1) (? number? num2))
+        (unless (equal? num1 num2)
+          (error 'add-equations "Dimension size mismatch. ~a != ~a" num1 num2 ))
+        eqs*]
+       [(list x x) eqs*]  
+       [(list (? symbol? var) (? number? num)) (cons (cons var num) eqs*)]
+       [(list (? number? num) (? symbol? var)) (cons (cons var num) eqs*)]
+       [(list (? symbol? var1) (? symbol? var2)) (cons (cons var1 var2) eqs*)])))
   (for ([eq eqs*])
     (cond
      [(hash-has-key? (*dim-sizes*) (car eq))
@@ -163,16 +173,25 @@
          [(number? in) eqs*]
          [(dict-has-key? eqs* in) (dict-set* eqs* in (cons arg (dict-ref eqs* in)))]
          [else (dict-set* eqs* in (list arg))]))))
-  (define eqs* (reassign-sizes eqs))
-  (add-equations eqs* (curry hash-has-key? (*dim-sizes*)) symbol?)
+  
+  (define eqs* (reassign-sizes eqs)) 
+  (add-equations eqs*)      ;; check if equations are consistent, if not, ragged tensor
 
-  (define update-hash
-    (for/hash ([key (dict-keys eqs)])
-      (values key (filter (λ (x) (not (dict-has-key? eqs* x))) (dict-ref eqs key)))))
+  (define new->old
+    (for/fold ([new->old '()]) ([key (dict-keys eqs)])
+      (let* ([vals (remove-duplicates (dict-ref eqs key))]
+             [nums (filter number? vals)])
+        (if (empty? nums)
+            (dict-set* new->old key vals)
+            (dict-set* new->old key nums)))))
+
+  (define update-hash                       ; hash of old size variables in terms of known sizes
+    (for/hash ([key (dict-keys new->old)])
+      (values key (filter (λ (x) (not (and (symbol? x) (dict-has-key? eqs* x)))) (dict-ref new->old key)))))
   (first (update-sizes (list rtype) update-hash)))
 
 ;; Adds equations to the dimension sizes hash according to the precondition
-(define (check-precond expr)    ; TODO: support '!='
+(define (check-precond expr)
  (match expr
   [(list 'and (? expr? subs) ...)
     (for/and ([i subs]) (check-precond i))]
@@ -181,7 +200,6 @@
       (add-equations (combinations subs 2)))
     #t]
   [_ #f]))
-
 
 ;; Tensor scalar type inference
 
@@ -232,6 +250,7 @@
       [(for/or ([i (cdr elems)]) (not (equal? (second i) (second (car elems)))))
         (error 'operator-type* "Dimensionally inconsistent elements not allowed for 'array'")]
       [(for/and ([i (cdr elems)]) (equal? (last i) (last (car elems))))
+        (when (*ragged-check*) (check-sizes elems))
         (let ([first (car elems)])
           `(tensor ,(add1 (second first)) ,(length elems) ,@(drop (take first (sub1 (length first))) 2) ,(last first)))]
       [else #f])]
@@ -324,16 +343,27 @@
         (for/or ([v j]) (tensor-type-equal? i v))]
       [(type? j) (tensor-type-equal? i j)]
       [else (for/or ([v j]) (type-match? i v))])))
-  (when match?
+
+  (when match?          ;; update scalar type of an input tensor when using it in a function call
     (for ([in in-types] [var vars]
           #:when (and (typename-equal? in 'tensor) (typename? (last in))))
       (set-scalar-types (list var) (list (last in)))))
+      
+  (define arg-types*    ;; update scalar type of an input tensor when using its scalar value in a function call
+    (for/fold ([arg-types* '()]) ([in-type in-types] [type arg-types])
+      (if (ref-scalar? type)
+        (let ([sym (cdar type)])
+          (when (or (typename-equal? in-type 'real) (typename-equal? in-type 'boolean))
+            (hash-set*! (*tensor-scalars*) (first sym) (first in-type)))
+          (append arg-types* (list in-type)))
+        (append arg-types* (list type)))))
+
   (define rtype*
     (if (and (typename-equal? rtype 'tensor) ((listof typename?) (last rtype)))
-      (fpcore-rtype core in-vars arg-types)
+      (fpcore-rtype core in-vars arg-types*)
       rtype))
   (cond
-   [(and match? (*ragged-check*)) (check-rtype in-types arg-types sizes rtype*)]
+   [(and match? (*ragged-check*)) (check-rtype in-types arg-types* sizes rtype*)]
    [match? rtype*]
    [else #f]))
 
@@ -486,7 +516,7 @@
      (define children (map (curryr check-types ctx) args))
      (define rtype (fpcore-as-operator-type fpcore children args))
      (unless rtype
-       (error 'check-types "Invalid types for FPCore '~a': ~a" fpcore children))
+       (error 'check-types "Invalid types for FPCore '~a': ~a. Use '--no-check' if your file contains recursive FPCores" fpcore children))
      rtype]))
 
 ;;

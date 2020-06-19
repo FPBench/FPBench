@@ -25,7 +25,7 @@
     [(equal? x -nan.t)  -nan.0]
     [else (extfl->exact x)]))  
 
-(define (run<-sollya exec-name ctx type)
+(define (run<-sollya exec-name ctx type number)
   (call-with-output-file exec-name #:exists 'replace
     (lambda (port)
       (fprintf port "~a~a\n\n" (sollya-header) (*prog*))
@@ -45,14 +45,15 @@
                         [(infinite? value) (if (>= value 0) "infty" "-infty")]
                         [else (~a (inexact->exact value))])))
                 ", "))))
-  (define out 
+  (define res
+    (with-output-to-string
+      (lambda ()
+        (system (format "sollya ~a" exec-name)))))
+  (define out
     (last
       (string-split
-      (string-trim
-        (with-output-to-string
-          (lambda ()
-            (system (format "sollya ~a" exec-name)))))
-      "\n")))
+        (string-trim res)
+        "\n")))
   (define out*
     (cond
       [(regexp-match #rx"(?i:error)" out)
@@ -76,25 +77,30 @@
          ['binary80 +inf.0])]
       [else
        (dyadic->exact out)]))
+  (when (regexp-match #rx"WARNING" res) ;; checks if division by zero was encountered
+    (*ignore-by-run* (list-set (*ignore-by-run*) number #t)))
   (cons 
     (match type
       ['binary32 (real->single-flonum out*)]
       ['binary64 (real->double-flonum out*)]
       ['binary80 (parameterize ([bf-precision 64]) (real->extfl (bigfloat->real (bf out*))))])
     (format "~a" out*)))
-    
 
 ;; In some cases, such as division by zero, sollya does not distinguish
 ;; between inf and nan. So for infinite results from the reference interpreter,
 ;; or for zero, as seen in the probabilities in a clustering algorithm benchmark,
 ;; allow a NaN answer from sollya.
-(define (sollya-equality a b ulps)
-  (if (extflonum? b)
+(define (sollya-equality a b ulps ignore?)
+  (cond 
+   [ignore? #t]    ;; If division by zero occurs, ignore the result and pass the test  
+   [(extflonum? b)
       (let ([a* (real->extfl a)])
-        (or (equal? a* b) (extfl= a* b) 
-            (and (or (extfl= a* 0.0t0) (or (equal? a* +inf.t) (equal? a* -inf.t)) (equal? a* +nan.t)) 
-                 (or (equal? b +nan.t)))))
-      (or (equal? a b) (= a b) (and (or (= a 0) (infinite? a) (nan? a)) (or (nan? b))))))
+        (or (equal? a* b) 
+            (extfl= a* b) 
+            (and (or (extfl= a* 0.0t0) (or (equal? a* +inf.t) (equal? a* -inf.t)) (equal? a* +nan.t)) (equal? b +nan.t))))]
+   [else (or (equal? a b)
+             (= a b) 
+             (and (or (= a 0) (infinite? a) (nan? a)) (nan? b)))]))
 
 (define (sollya-format-args var val type)
   (format "~a = ~a\n\t~a = ~a" var val var 

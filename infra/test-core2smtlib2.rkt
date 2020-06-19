@@ -6,7 +6,7 @@
     (*prog* (core->smtlib2 prog "f"))
     test-file)
 
-(define (run<-smt exec-name ctx type)
+(define (run<-smt exec-name ctx type number)
   (call-with-output-file exec-name #:exists 'replace
     (lambda (port)
       (define-values (w p)
@@ -65,7 +65,7 @@
                                          8 #f))]))]))
   (cons out* (format "~a" out*)))
 
-(define (smt-equality a b ulps)
+(define (smt-equality a b ulps ignore?)
   (or (equal? a b) (= a b) (and (nan? a) (nan? b))))
 
 (define (smt-format-args var val type)

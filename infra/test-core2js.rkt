@@ -14,7 +14,7 @@
                              ", "))))
   test-file)
 
-(define (run<-js exec-name ctx type)
+(define (run<-js exec-name ctx type number?)
   (define out
     (with-output-to-string
       (λ ()
@@ -28,7 +28,7 @@
       [(? string->number x) x]))
   (cons (real->double-flonum (string->number out*)) out*))
 
-(define (js-equality a b ulps)
+(define (js-equality a b ulps ignore?)
   (match (list a b)
     ['(timeout timeout) true]
     [else

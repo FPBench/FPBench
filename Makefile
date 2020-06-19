@@ -149,7 +149,7 @@ toolserver-test:
 evaluate-test:
 	tests/scripts/test-evaluate.sh
 
-test-tools: export-test transform-test toolserver-test evaluate-test
+tools-test: export-test transform-test toolserver-test evaluate-test
 
 test: c-test js-test go-test smtlib2-test sollya-test wls-test cml-test export-test transform-test toolserver-test evaluate-test raco-test 
 

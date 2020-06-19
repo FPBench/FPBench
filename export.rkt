@@ -25,6 +25,8 @@
   (define *rel-error* (make-parameter #f))
   (define *scale* (make-parameter 1))
 
+  (define suppress-warnings #f)
+
   (command-line
    #:program "export.rkt"
    #:argv argv
@@ -41,6 +43,8 @@
     (*rel-error* #t)]
    ["--scale" scale_ "For FPTaylor export, the scale factor for operations which are not correctly rounded"
     (*scale* (string->number scale_))]
+   ["--suppress" "For Sollya, division by zero will not produce a warning"
+    (set! suppress-warnings #t)]
    #:args (in-file out-file)
 
    (define input-port
@@ -75,6 +79,8 @@
            (raise-user-error "Unsupported output language" (*lang*))))]))
 
    (when (and (equal? extension "js") (*runtime*)) (js-runtime (*runtime*)))
+   (when (and (equal? extension "sollya") suppress-warnings) (*sollya-warnings* #f))
+
    (port-count-lines! input-port)
    (unless (*bare*) (fprintf output-port (header (if (equal? extension "js") (js-runtime) (*namespace*)))))
 

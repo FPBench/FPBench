@@ -56,7 +56,7 @@
     [(list '- a) (round-expr (format "-(~a)" a) ctx)]
     [(list 'not a) (format "!~a" a)]
     [(list (or '== '!= '< '> '<= '>=)) "TRUE"]
-    [(list (or '+ '- '* '/) a b) (round-expr (format "(~a ~a ~a)" a operator b) ctx)]
+    [(list (or '+ '- '*) a b) (round-expr (format "(~a ~a ~a)" a operator b) ctx)]  ; Division not included!! (Sollya issues)
     [(list (or '== '< '> '<= '>=) head args ...)
      (format "(~a)"
              (string-join

@@ -27,7 +27,7 @@
 ; translates it back into a value that can be compared to the result from the
 ; reference interpreter. Arguments to the core can be provided here, or baked in
 ; during the compilation step.
-(define (run<-fptaylor exec-name ctx type)
+(define (run<-fptaylor exec-name ctx type number)
   (begin
     (define out
       (with-output-to-string
@@ -61,7 +61,7 @@
 ; =*
 ; Equality is hard for computer number systems; we may need to define a custom
 ; way to compare numbers to determine if the test has passed.
-(define (fptaylor-equality a bound ulps)
+(define (fptaylor-equality a bound ulps ignore?)
   (if (nan? a)
       (and (nan? (car bound)) (nan? (cdr bound)))
       (<= (car bound) a (cdr bound))))

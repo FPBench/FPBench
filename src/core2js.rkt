@@ -30,6 +30,7 @@
 (define (operator->js props op args)
   (define arg-list (string-join args ", "))
   (match op
+    ['/     (format "(~a / ~a)" (first args) (second args))]
     ['fabs  (format "~a.abs(~a)" (js-runtime) arg-list)]
     ['fmax  (format "fmax(~a)" arg-list)]
     ['fmin  (format "fmin(~a)" arg-list)]

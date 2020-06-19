@@ -21,7 +21,7 @@
   (system (format "cc $CAKEML_BASE/basis_ffi.o ~a -o ~a" s-file cake-file))
   cake-file)
 
-(define (run<-cml exec-name ctx types)
+(define (run<-cml exec-name ctx types number?)
   (define out
     (with-output-to-string
      (λ ()
@@ -29,7 +29,7 @@
   (define out* (floating-point-bytes->real (integer->integer-bytes (string->number out) 8 #f)))
   (cons (real->double-flonum out*) (number->string out*)))
 
-(define (cml-equality a b ulps)
+(define (cml-equality a b ulps ignore?)
   (match (list a b)
     ['(timeout timeout) true]
     [else

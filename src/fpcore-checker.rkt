@@ -88,7 +88,7 @@
         (when (= (length vals) 1)
           (set! changed? (or changed? (subst key (first vals)))))))
 
-    (for ([key (hash-keys (*dim-sizes*))])    ;; if x a = b = ..., where a, b, ... are independent variables: substitute a = x, b = x, ...
+    (for ([key (hash-keys (*dim-sizes*))])    ;; if x = a = b, where a, b, ... are independent variables: substitute a = x, b = x, ...
       (let ([vals (hash-ref (*dim-sizes*) key)])
         (when (and (> (length vals) 1)                              
                    (for/and ([val vals])  
@@ -100,13 +100,18 @@
     (for ([key (hash-keys (*dim-sizes*))])    ; eliminate duplicates, check numbers for inequality
       (let* ([vals (hash-ref (*dim-sizes*) key)] 
              [nums (filter number? vals)])
-        (when (> (length nums) 1)
+        (when (> (length nums) 1)               ; if the key x is associated with a, b, ... and a, b, ... are numbers, check that a = b = ...
           (unless (for/and ([val (cdr nums)]) (equal? (car nums) val))
             (error 'subst-elim "Inconsistent tensor sizes. Deduced two or more different sizes for the same dimension")))
-        (hash-set*! (*dim-sizes*) key (remove-duplicates vals))))
+        (let ([vals* (remove-duplicates vals)])
+          (if (and (= (length vals*) 1) (equal? key (first vals*)))  ; eliminate x = x
+            (begin
+              (hash-remove! (*dim-sizes*) key)
+              (set! changed? #t))
+            (hash-set*! (*dim-sizes*) key vals*)))))
     (when changed? (loop))))
 
-
+;; Adds a list of length two lists that represent equations '(x a) : x = a
 (define (add-equations eqs)
   (define eqs*
     (for/fold ([eqs* '()]) ([eq eqs])
@@ -175,11 +180,16 @@
          [else (dict-set* eqs* in (list arg))]))))
   
   (define eqs* (reassign-sizes eqs)) 
-  (add-equations eqs*)      ;; check if equations are consistent, if not, ragged tensor
+  (add-equations eqs*)      ;; check if equations are consistent, if not, sizes do not match
 
   (define new->old
     (for/fold ([new->old '()]) ([key (dict-keys eqs)])
-      (let* ([vals (remove-duplicates (dict-ref eqs key))]
+      (let* ([vals 
+              (remove-duplicates
+                (for/list ([val (dict-ref eqs key)])
+                  (if (and (dict-has-key? (*dim-sizes*) val) (= (length (dict-ref (*dim-sizes*) val)) 1))
+                      (first (dict-ref (*dim-sizes*) val))
+                      val)))]
              [nums (filter number? vals)])
         (if (empty? nums)
             (dict-set* new->old key vals)
@@ -187,7 +197,7 @@
 
   (define update-hash                       ; hash of old size variables in terms of known sizes
     (for/hash ([key (dict-keys new->old)])
-      (values key (filter (λ (x) (not (and (symbol? x) (dict-has-key? eqs* x)))) (dict-ref new->old key)))))
+      (values key (filter symbol? (dict-ref new->old key)))))
   (first (update-sizes (list rtype) update-hash)))
 
 ;; Adds equations to the dimension sizes hash according to the precondition
@@ -290,11 +300,6 @@
     [(= (length rtypes) 1) (first rtypes)]
     [else rtypes]))
 
-(define (type-match? t1 t2)
-  (define t1* (if (type? t1) (list t1) t1))
-  (define t2* (if (type? t2) (list t1) t2))
-  (for/or ([v t1*]) (set-member? t2* v)))
-
 ;; Returns true if the tensor types are equal. Scalar types must only share one type, not be completely equal.
 ;; Does not check dimension sizes
 (define (tensor-type-equal? t1 t2)
@@ -311,25 +316,38 @@
        [((listof typename?) s2) (for/or ([i s2]) (equal? i s1))]
        [else (equal? s2 s2)]))]))
 
-;; runs an fpcore again to see if it gets a more specific return type
+;; Returns true if the type/type lists share a common element
+(define (type-match? t1 t2)
+  (define t1* (if (type? t1) (list t1) t1))
+  (define t2* (if (type? t2) (list t1) t2))
+  (for/or ([v t1*]) (set-member? t2* v)))
+
+;; runs an fpcore again to see if it gets a more specific return type with known argument types
 (define (fpcore-rtype core in-vars arg-types)
   (define-values (vars body)
     (match core
      [`(FPCore ,name (,vars ...) ,properties ... ,body) (values vars body)]
      [`(FPCore (,vars ...) ,properties ... ,body) (values vars body)]))
-  (define ctx
-    (for/fold ([ctx (hash)]) ([var vars])
+  (define-values (ctx size-hash)
+    (for/fold ([ctx (hash)] [size-hash (hash)]) ([var vars] [type arg-types])
       (match var
        [`(,(? symbol? name) ,(or (? number? sizes) (? symbol? sizes)) ...) 
-        (let* ([dim-sizes (for/list ([i (filter symbol? sizes)]) (list i '(real)))]
-               [type `(tensor ,(length sizes) ,@sizes (real boolean))])
-          (apply hash-set* (hash-set* ctx name type) (apply append dim-sizes)))]
-       [(? list?) (hash-set* ctx (list (last var)) '(real))]
-       [_ (hash-set* ctx var '(real))])))
-  (define ctx*
-    (for/fold ([ctx* ctx]) ([var in-vars] [type arg-types])
-      (dict-set* ctx* var type)))
-  (check-types body ctx*))  ; runs with updated context
+        (let ([dim-sizes (for/list ([i (filter symbol? sizes)]) (list i '(real)))]
+              [known-sizes   ; for dim-sizes, get the known size
+                (for/fold ([known-sizes '()])
+                          ([size sizes] [val (drop (take type (sub1 (length type))) 2)]
+                          #:when (symbol? size))
+                  (append known-sizes (list size (list val))))])
+          (values (apply hash-set* (hash-set* ctx name type) (apply append dim-sizes))
+                  (apply hash-set* size-hash known-sizes)))]
+       [(? list?) 
+        (values (hash-set* ctx (list (last var)) '(real)) size-hash)]
+       [_ 
+        (values (hash-set* ctx var '(real)) size-hash)])))
+  (parameterize ([*dim-sizes* (make-hash)]     ; runs with updated context
+                 [*tensor-scalars* (make-hash)])
+    (let ([rtype (check-types body ctx)])
+      (first (update-sizes (list rtype) size-hash)))))
 
 ;; type checker when calling fpcores
 (define (fpcore-as-operator-type* value arg-types vars)
@@ -348,7 +366,7 @@
     (for ([in in-types] [var vars]
           #:when (and (typename-equal? in 'tensor) (typename? (last in))))
       (set-scalar-types (list var) (list (last in)))))
-      
+
   (define arg-types*    ;; update scalar type of an input tensor when using its scalar value in a function call
     (for/fold ([arg-types* '()]) ([in-type in-types] [type arg-types])
       (if (ref-scalar? type)
@@ -357,11 +375,7 @@
             (hash-set*! (*tensor-scalars*) (first sym) (first in-type)))
           (append arg-types* (list in-type)))
         (append arg-types* (list type)))))
-
-  (define rtype*
-    (if (and (typename-equal? rtype 'tensor) ((listof typename?) (last rtype)))
-      (fpcore-rtype core in-vars arg-types*)
-      rtype))
+  (define rtype* (fpcore-rtype core in-vars arg-types*))
   (cond
    [(and match? (*ragged-check*)) (check-rtype in-types arg-types* sizes rtype*)]
    [match? rtype*]
@@ -369,9 +383,13 @@
 
 (define (fpcore-as-operator-type ident arg-types vars)
   (define value (dict-ref (*fpcores*) ident #f))
-  (if value
-      (fpcore-as-operator-type* value arg-types vars)
-      #f))
+  (when (not value)
+    (error 'fpcore-as-operator-type "Unknown FPCore ~a. Use '--no-check' if your file contains FPCores that are recursive or used before they are declared" ident))
+  (fpcore-as-operator-type* value arg-types vars))
+
+;;
+;; type checker
+;;
 
 ;; type checker for each expression
 (define/contract (check-types expr ctx)
@@ -516,13 +534,10 @@
      (define children (map (curryr check-types ctx) args))
      (define rtype (fpcore-as-operator-type fpcore children args))
      (unless rtype
-       (error 'check-types "Invalid types for FPCore '~a': ~a. Use '--no-check' if your file contains recursive FPCores" fpcore children))
+       (error 'check-types "Invalid types for FPCore '~a': ~a" fpcore children))
      rtype]))
 
-;;
-;; type checker
-;;
-
+;; checks core
 (define (check-fpcore* name core vars properties body)
   (define-values (annotated-args args in-vars in-types ctx)
     (for/fold ([annot-args '()] [args '()] [in-vars '()] [in-types '()] [ctx (hash)])

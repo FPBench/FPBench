@@ -60,6 +60,15 @@ else
 	$(warning skipping Go sanity tests; unable to find go)
 endif
 
+scala-sanity:
+ifneq (, $(shell which daisy))
+	cp -r $(DAISY_BASE)/library .
+	cat tests/sanity/*.fpcore | racket infra/test-core2scala.rkt --repeat 1
+	rm -r library
+else
+	$(warning skipping Scala tests; unable to find Scala compiler)
+endif
+
 sanity: c-sanity fptaylor-sanity js-sanity go-sanity smtlib2-sanity sollya-sanity wls-sanity cml-sanity
 
 raco-test:
@@ -165,17 +174,17 @@ test: c-test js-test go-test smtlib2-test sollya-test wls-test cml-test export-t
 
 testsetup:
 	raco make infra/filter.rkt infra/gen-expr.rkt \
-			  infra/test-core2c.rkt infra/test-core2fptaylor.rkt infra/test-core2js.rkt infra/test-core2go.rkt infra/test-core2smtlib2.rkt infra/test-core2sollya.rkt \
-			  infra/test-core2wls.rkt infra/test-core2cml.rkt infra/test-core2scala.rkt
+		infra/test-core2c.rkt infra/test-core2fptaylor.rkt infra/test-core2js.rkt infra/test-core2go.rkt infra/test-core2smtlib2.rkt infra/test-core2sollya.rkt \
+		infra/test-core2wls.rkt infra/test-core2cml.rkt infra/test-core2scala.rkt
 
 setup:
 	raco make export.rkt transform.rkt toolserver.rkt evaluate.rkt 
 
 clean:
-	$(RM) -r library tmp
+	$(RM) -r library tmp log
 
 www/benchmarks.jsonp: $(wildcard benchmarks/*.fpcore)
 	racket infra/core2json.rkt --padding load_benchmarks $^
 
 .PHONY: c-sanity c-test fptaylor-sanity fptaylor-test js-sanity js-test smtlib2-sanity smtlib2-test sollya-sanity sollya-test wls-sanity wls-test cml-sanity cml-test go-sanity go-test \
-		scala-testraco-test export-test transform-test toolserver-test evaluate-test test-tools sanity test testsetup setup update-tool-tests clean
+		scala-sanity scala-test raco-test export-test transform-test toolserver-test evaluate-test test-tools sanity test testsetup setup update-tool-tests clean

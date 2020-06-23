@@ -5,7 +5,8 @@
 
 (define scala-supported
   (supported-list
-   (invert-op-list '(! cast let* while*))
+   '(+ - * / sqrt sin cos tan asin acos atan exp log fma      ;; pow has partial support
+     < > <= >= == != and or not isfinite isinf isnan isnormal signbit let digits)
    (invert-const-list '())
    '(binary32 binary64)
    '(nearestEven)))
@@ -21,13 +22,13 @@
 (define (application->scala operator args)
   (match (cons operator args)
     [(list '- a)
-     (format "-~a" a)]
+     (format "-(~a)" a)]
     [(list 'not a)
      (format "!~a" a)]
     [(list (or '+ '- '* '/) a b)
      (format "(~a ~a ~a)" a operator b)]
     [(list (or '== '!= '< '> '<= '>=))
-     "TRUE"]
+     "true"]
     [(list (or '== '< '> '<= '>=) head args ...)
      (format "(~a)"
              (string-join
@@ -86,16 +87,11 @@
      (expr->scala body #:names names* #:indent indent)]
     [`(if ,cond ,ift ,iff)
      (define test (expr->scala cond #:names names #:indent indent))
-     (define outvar (gensym 'temp))
-     (printf "~avar ~a : Real = 0.0\n" indent (fix-name outvar))
      (printf "~aif (~a) {\n" indent test)
-     (printf "~a\t~a = ~a\n" indent (fix-name outvar)
-             (expr->scala ift #:names names #:indent (format "~a\t" indent)))
+     (printf "~a\t~a\n" indent (expr->scala ift #:names names #:indent (format "~a\t" indent)))
      (printf "~a} else {\n" indent)
-     (printf "~a\t~a = ~a\n" indent (fix-name outvar)
-             (expr->scala iff #:names names #:indent (format "~a\t" indent)))
-     (printf "~a}\n" indent)
-     (fix-name outvar)]
+     (printf "~a\t~a\n" indent (expr->scala iff #:names names #:indent (format "~a\t" indent)))
+     (printf "~a}\n" indent)]
     [`(while ,cond ([,vars ,inits ,updates] ...) ,retexpr)
      (define vars* (map gensym vars))
      (for ([var vars] [var* vars*] [val inits])
@@ -122,8 +118,9 @@
      (define args_c
        (map (λ (arg) (expr->scala arg #:names names #:indent indent)) args))
      (application->scala operator args_c)]
-    [(? constant?)
-     (format "~a" expr)]
+    [(? constant?) (format "~a" expr)]
+    [(? hex?) (hex->racket expr)]
+    [(list digits m e b) (digits->number m e b)]
     [(? symbol?)
      (fix-name (dict-ref names expr expr))]
     [(? number?)

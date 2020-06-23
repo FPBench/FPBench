@@ -15,23 +15,28 @@
       (system (format "daisy ~a" exec-name)))))
   (define out*
    (cond
-    [(regexp-match #rx"(Cannot continue)|(Warning)" out)
-      (cons "nan" "nan")]
-    [else
+    [(regexp-match #rx"(Cannot continue)|(Warning)|(Fatal)" out)
+      (cons "+nan.0" "+nan.0")]
+    [(regexp-match #rx"Real range:" out)
       (define bounds_line (regexp-match #rx"Real range: [^\n]*" out))
       (define bounds (regexp-match*
                             #rx"([+-]?[0-9]+[.][0-9]+([eE][-]?[0-9]+)?)|([-]?inf)|([-]?nan)"
                             (car bounds_line)))
-      (cons (car bounds) (cadr bounds))]))
-  (cons 
-    (match type
-     ['binary64 (cons (real->double-flonum (string->number (car out*)))
-                      (real->double-flonum (string->number (cdr out*))))]
-     ['binary32 (cons (real->single-flonum (string->number (car out*)))
-                      (real->single-flonum (string->number (cdr out*))))])
-    out*))
+      (cons (car bounds) (cadr bounds))]
+    [else
+      (cons "-inf.0" "+inf.0")]))
+  (let ([res
+          (cons 
+           (match type
+            ['binary64 (cons (real->double-flonum (string->number (car out*)))
+                              (real->double-flonum (string->number (cdr out*))))]
+            ['binary32 (cons (real->single-flonum (string->number (car out*)))
+                              (real->single-flonum (string->number (cdr out*))))])
+            out*)])
+    (*last-run* res)
+    res))
 
-(define (scala-equality a bound ulps)
+(define (scala-equality a bound ulps ignore?)
   (if (nan? a)
       (and (nan? (car bound)) (nan? (cdr bound)))
       (<= (car bound) a (cdr bound))))
@@ -49,7 +54,7 @@
   (define range-table (condition->range-table precond))
   (for/and ([var vars]) 
     (let ([ranges (dict-ref range-table var (list (make-interval -inf.0 +inf.0)))])
-      (and (= (length ranges) 1) (nonempty-bounded? (first ranges))))))
+      (= (length ranges) 1))))
 
 (define scala-tester (tester "scala" compile->scala run<-scala scala-equality scala-format-args
                              scala-format-output scala-filter scala-supported))

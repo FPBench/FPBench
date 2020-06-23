@@ -2,7 +2,7 @@
 
 (require math/flonum racket/extflonum math/bigfloat)
 (require "../src/common.rkt" "../src/fpcore.rkt" "../src/range-analysis.rkt" "../src/sampler.rkt" "../src/supported.rkt")
-(provide tester *tester* test-core *prog* *ignore-by-run*)
+(provide tester *tester* test-core *prog* *ignore-by-run* *last-run*)
 
 (module+ test
   (require rackunit))
@@ -19,6 +19,7 @@
 (define suppress-failures (make-parameter #f))
 (define *ignore-by-run* (make-parameter #f))  ; list of booleans that specify if a specific run should be ignored
 (define *prog* (make-parameter #f))   ; interpreted languages can store converted core here
+(define *last-run* (make-parameter #f))
 
 ; Common test structure
 (struct tester (name compile run equality format-args format-output filter supported))
@@ -27,8 +28,10 @@
 (define (compile-test prog ctx type test-file)
   ((tester-compile (*tester*)) prog ctx type test-file))
 
-(define (run-test exec-name ctx type number)
-  ((tester-run (*tester*)) exec-name ctx type number))
+(define (run-test exec-name ctx type number only-once?)
+  (if (and only-once? (not (= number 0)))
+      (*last-run*)
+      ((tester-run (*tester*)) exec-name ctx type)))
 
 (define (format-args var val type)
   ((tester-format-args (*tester*)) var val type))
@@ -94,12 +97,8 @@
   (define err 0)
   (when (equal? (test-file) #f) (test-file default-file))
   (for ([prog (in-port (curry read-fpcore source) curr-in-port)]
-<<<<<<< HEAD
-        #:when (valid-core prog (tester-supported (*tester*))))
-   (parameterize ([*ignore-by-run* (make-list (tests-to-run) #f)])
-=======
         #:when (and (valid-core prog (tester-supported (*tester*))) (filter-core prog)))
->>>>>>> Added scala tester, all testers adapted
+   (parameterize ([*ignore-by-run* (make-list (tests-to-run) #f)])        
     (match-define (list 'FPCore (list vars ...) props* ... body) prog)
     (define-values (_ props) (parse-properties props*))
     (define type (dict-ref props ':precision 'binary64))
@@ -111,6 +110,7 @@
     (define exec-name (compile-test prog '() type (test-file)))
     (define timeout 0)
     (define nans 0) ; wolfram only
+    (define run-once? (equal? (tester-name (*tester*)) "scala"))
 
     (define-values (vars* var-types)
       (for/lists (n t) ([var vars])
@@ -169,7 +169,7 @@
             (set! timeout (+ timeout 1)))
           (define out* (if (equal? out 'timeout) 
                             (cons 'timeout "") 
-                            (run-test exec-name ctx type i)))
+                            (run-test exec-name ctx type i run-once?)))
           (when (equal? (tester-name (*tester*)) "wls")
             (when (and (not (equal? out 'timeout)) (not (nan? out)) (nan? (car out*)))
               (set! nans (+ nans 1))))

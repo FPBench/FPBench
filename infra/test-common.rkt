@@ -31,7 +31,7 @@
 (define (run-test exec-name ctx type number only-once?)
   (if (and only-once? (not (= number 0)))
       (*last-run*)
-      ((tester-run (*tester*)) exec-name ctx type)))
+      ((tester-run (*tester*)) exec-name ctx type number)))
 
 (define (format-args var val type)
   ((tester-format-args (*tester*)) var val type))

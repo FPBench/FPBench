@@ -5,17 +5,20 @@
 (define (compile->scala prog ctx type test-file)
   (call-with-output-file test-file #:exists 'replace
    (λ (p)
-    (fprintf p "~a~a~a\n" (format scala-header "main") (core->scala prog "f") scala-footer)))
+    (fprintf p "~a~a~a\n" (scala-header "main") (core->scala prog "f") (scala-footer))))
   test-file)
 
-(define (run<-scala exec-name ctx type)
+(define (run<-scala exec-name ctx type number)
   (define out
     (with-output-to-string
      (λ ()
       (system (format "daisy ~a" exec-name)))))
   (define out*
    (cond
-    [(regexp-match #rx"(Cannot continue)|(Warning)|(Fatal)" out)
+    [(regexp-match #rx"Warning" out)
+      (*ignore-by-run* (make-list (length (*ignore-by-run*)) #t))
+      (cons "+nan.0" "+nan.0")]
+    [(regexp-match #rx"(Cannot continue)|(Fatal)" out)
       (cons "+nan.0" "+nan.0")]
     [(regexp-match #rx"Real range:" out)
       (define bounds_line (regexp-match #rx"Real range: [^\n]*" out))
@@ -37,9 +40,11 @@
     res))
 
 (define (scala-equality a bound ulps ignore?)
-  (if (nan? a)
-      (and (nan? (car bound)) (nan? (cdr bound)))
-      (<= (car bound) a (cdr bound))))
+  (cond
+   [ignore? #t]
+   [(nan? a) (or (and (nan? (car bound)) (nan? (cdr bound)))
+                 (and (infinite? (car bound)) (infinite? (cdr bound))))]
+   [else (<= (car bound) a (cdr bound))]))
 
 (define (scala-format-args var val type)
   (format "~a = ~a" var val))
@@ -60,6 +65,6 @@
                              scala-format-output scala-filter scala-supported))
 
 ; Command line
-(module+ main (parameterize ([*tester* scala-tester])
+(module+ main (parameterize ([*tester* scala-tester] [*scala-suppress* #t])
   (let ([state (test-core (current-command-line-arguments) (current-input-port) "stdin" "/tmp/test.scala")])
     (exit state))))

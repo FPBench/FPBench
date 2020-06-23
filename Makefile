@@ -144,8 +144,8 @@ endif
 scala-test:
 ifneq (, $(shell which daisy))
 	cp -r $(DAISY_BASE)/library .
-	cat benchmarks/*.fpcore tests/*.fpcore | $(FILTER) not-operators $(known_inaccurate) \
-	| racket infra/test-core2scala.rkt --repeat 5
+	cat benchmarks/*.fpcore tests/metadata.fpcore | $(FILTER) not-operators $(known_inaccurate) \
+	| racket infra/test-core2scala.rkt
 	rm -r library
 else
 	$(warning skipping Scala tests; unable to find Scala compiler)

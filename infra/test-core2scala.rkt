@@ -3,16 +3,25 @@
 (require "test-common.rkt" "../src/common.rkt" "../src/core2scala.rkt" "../src/range-analysis.rkt")
 
 (define (compile->scala prog ctx type test-file)
+  (*scala-prec-file*
+      (open-output-file 
+          (string-append (string-trim test-file ".scala") ".prec.txt") 
+          #:mode 'text #:exists 'truncate))
   (call-with-output-file test-file #:exists 'replace
-   (λ (p)
-    (fprintf p "~a~a~a\n" (scala-header "main") (core->scala prog "f") (scala-footer))))
+    (λ (p)
+      (fprintf p "~a~a~a\n" (scala-header "main") (core->scala prog "f") (scala-footer))))
+  (close-output-port (*scala-prec-file*))
   test-file)
 
 (define (run<-scala exec-name ctx type number)
+  (define prec-filename (string-append (string-trim exec-name ".scala") ".prec.txt"))
   (define out
     (with-output-to-string
      (λ ()
-      (system (format "daisy ~a" exec-name)))))
+      (system 
+        (if (empty? ctx)
+          (format "daisy ~a" exec-name)
+          (format "daisy ~a --mixed-precision=~a" exec-name prec-filename))))))
   (define out*
    (cond
     [(regexp-match #rx"Warning" out)

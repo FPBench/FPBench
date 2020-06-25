@@ -57,7 +57,7 @@
          (open-output-file out-file #:mode 'text #:exists 'truncate)))
 
    (define extension (determine-lang (*lang*) out-file))
-
+   
    (define-values (header export footer supported)
      (match extension
        ["fptaylor" (values (const "") (curry core->fptaylor #:inexact-scale (*scale*)) (const "") fptaylor-supported)]
@@ -79,6 +79,11 @@
 
    (when (and (equal? extension "js") (*runtime*)) (js-runtime (*runtime*)))
    (when (and (equal? extension "sollya") suppress-warnings) (*sollya-warnings* #f))
+   (when (equal? extension "scala") 
+    (let ([out-name (if (equal? out-file "-") 
+                        "stdout" 
+                        (string-trim out-file ".scala"))])
+      (*scala-prec-file* (open-output-file (string-append out-name ".prec.txt") #:mode 'text #:exists 'truncate))))                          
 
    (port-count-lines! input-port)
    (unless (*bare*) (fprintf output-port (header (if (equal? extension "js") (js-runtime) (*namespace*)))))

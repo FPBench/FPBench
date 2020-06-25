@@ -26,7 +26,7 @@ jobs:
         id: cache
         with:
           path: ../cache
-          key: ${{ runner.os }}-deps
+          key: ${{ runner.os }}-deps2   # Might need to change this every now and then (or wait a week) if cache is out-of-date
         
       - uses: actions/setup-node@v1
         with:

@@ -1,7 +1,7 @@
 #lang racket 
 
 (require "common.rkt" "compilers.rkt")
-(provide core->functional convert-expr *func-lang* functional *reserved-names*)
+(provide core->functional *func-lang* functional *reserved-names*)
 
 ;;; Abstraction for different languages
 

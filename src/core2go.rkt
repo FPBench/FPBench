@@ -93,7 +93,7 @@
           type
           body return))
 
-(define go-language (language (const "go") operator->go constant->go declaration->go assignment->go
+(define go-language (language "go" operator->go constant->go declaration->go assignment->go
                               round->go (const "") function->go))
 
 ;;; Exports

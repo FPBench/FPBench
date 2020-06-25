@@ -88,7 +88,7 @@
               (round-mode->c rnd-mode "\t") body type ret-var return        
               (round-mode->c 'nearestEven "\t") ret-var)))
 
-(define c-language (language (const "c") operator->c constant->c declaration->c assignment->c
+(define c-language (language "c" operator->c constant->c declaration->c assignment->c
                              round->c round-mode->c function->c))
 
 ;;; Exports

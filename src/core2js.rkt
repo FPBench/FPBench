@@ -25,8 +25,6 @@
 
 (define js-reserved '())  ; Language-specific reserved names (avoid name collisions)
 
-(define (type->js type) "var")
-
 (define (operator->js props op args)
   (define arg-list (string-join args ", "))
   (match op
@@ -81,8 +79,7 @@
           body 
           return))
 
-(define js-language (language (const "js") operator->js constant->js decleration->js assignment->js
-                              round->js (const "") function->js))
+(define js-language (language "js" operator->js constant->js decleration->js assignment->js round->js (const "") function->js))
 
 ;;; Exports
 

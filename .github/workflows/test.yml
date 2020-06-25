@@ -11,6 +11,10 @@ env:
   Z3_VERSION: '4.8.4'
   Z3_DISTR: 'z3-4.8.4.d6df51951f4c-x64-ubuntu-16.04'
   CAKEML_BASE: '../cache/cake'
+  DAISY_VERSION: '8f26766b3a6a42de644f259cd2b85cf7f7f08477'
+  DAISY_BASE: '../cache/daisy'
+
+# Daisy must run on Java 8, changing runner OS may break this
   
 jobs:
   build:
@@ -45,11 +49,16 @@ jobs:
           (cd ../cache/fptaylor && git checkout ${FPTAYLOR_VERSION} && make)
           [[ ! -d "../cache/${Z3_DISTR}" ]] && curl -L -O https://github.com/Z3Prover/z3/releases/download/z3-${Z3_VERSION}/${Z3_DISTR}.zip && \
              unzip ${Z3_DISTR}.zip -d ../cache || echo "z3 cached"
-          [[ ! -d "../cache/cake" ]] && mkdir ../cache/cake && curl -L https://github.com/CakeML/cakeml/releases/download/${CAKEML_VERSION}/cake-x64-64.tar.gz | \
-            tar -xz -C ../cache/cake --strip-components 1 && (cd ../cache/cake && make cake) || echo "cakeml cached"  
+          (mkdir ../cache/cake && curl -L https://github.com/CakeML/cakeml/releases/download/${CAKEML_VERSION}/cake-x64-64.tar.gz | \
+            tar -xz -C ../cache/cake --strip-components 1 && (cd ../cache/cake && make cake) || echo "cakeml cached")
+          (mkdir ../cache/sbt && curl -L -O https://piccolo.link/sbt-0.13.18.tgz && tar -xf sbt-0.13.18.tgz -C ../cache/sbt --strip-components 1 || \
+            echo "Assuming sbt 0.13.18 is cached, skipping download")
+          (git clone https://github.com/malyzajko/daisy ../cache/daisy && cd ../cache/daisy && git checkout ${DAISY_VERSION} && ../sbt/bin/sbt compile && \
+            ../sbt/bin/sbt script || echo "Assuming Daisy cached, skipping clone")
           echo "::add-path::${PWD}/../cache/fptaylor"
           echo "::add-path::${PWD}/../cache/${Z3_DISTR}/bin"
           echo "::add-path::${PWD}/../cache/cake"
+          echo "::add-path::${PWD}/../cache/daisy"
  
       - name: "Byte-compile repo"
         run: make setup testsetup
@@ -85,6 +94,10 @@ jobs:
         if: ${{ success() || failure() }}
         run: make wls-sanity
 
+      - name: "Daisy sanity"
+        if: ${{ success() || failure() }}
+        run: make scala-sanity
+
       - name: "C test"
         if: ${{ success() || failure() }}
         run: make c-test
@@ -112,6 +125,10 @@ jobs:
       - name: "Wolfram/Mathematica test"
         if: ${{ success() || failure() }}
         run: make wls-test 
+
+      - name: "Daisy test"
+        if: ${{ success() || failure() }}
+        run: make scala-test
 
       - name: "Export tool"
         if: ${{ success() || failure() }}

@@ -12,7 +12,7 @@
   (supported-list
    '(+ - * / sqrt sin cos tan asin acos atan exp log fma      ;; pow has partial support
      < > <= >= == != and or not
-     let if digits)
+     if let let* digits)
    '(TRUE FALSE)
    '(binary32 binary64)
    '(nearestEven)))
@@ -121,17 +121,20 @@
             (loop (cdr args)))])))]))
 
 (define (precond->scala pre args ctx) 
-  (define var-ranges (condition->range-table pre))
+  (define var-ranges 
+    (let ([var-ranges (condition->range-table pre)])
+      (for/hash ([key (hash-keys var-ranges)])
+        (values (ctx-lookup-name ctx key) (hash-ref var-ranges key)))))
   (define pre* (expand-precond pre))
   (define valid?
-    (for/and ([var (map string->symbol args)])
+    (for/and ([var args])
       (let ([val (hash-ref var-ranges var #f)])
         (if val (nonempty-bounded? val) #f))))
-  (unless (or valid? *scala-suppress*)
-    (printf "Removed unbounded precondition: ~a\n" pre))
+  (unless (or valid? (*scala-suppress*))
+    (printf "Removed invalid precondition: ~a\n" pre))
   (if valid?
       (format "\t\trequire(~a)\n" (convert-expr pre* #:ctx ctx #:indent "\t\t"))
-      ""))
+      (format "\t\t// Invalid precondition: ~a\n" pre)))
 
 ;;
 

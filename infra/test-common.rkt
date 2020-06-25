@@ -95,6 +95,7 @@
   (when (and (verbose) (quiet)) 
       (error "Verbose and quiet flags cannot be both set"))
   (define err 0)
+  (define ignored 0)
   (when (equal? (test-file) #f) (test-file default-file))
   (for ([prog (in-port (curry read-fpcore source) curr-in-port)]
         #:when (and (valid-core prog (tester-supported (*tester*))) (filter-core prog)))
@@ -194,6 +195,7 @@
             [1 " (1 nan)"]
             [_ (format " (~a nans)" nans)])))
       (set! err (+ err (- result-len successful)))
+      (set! ignored (+ ignored (for/sum ([ignore? (*ignore-by-run*)]) (if ignore? 1 0))))
       (for ([i (in-naturals 1)] [x (in-list results)] [ignore? (*ignore-by-run*)])
         (define test-passed (=* (second x) (car (third x)) ignore?))
         (unless (and (not (verbose)) test-passed)
@@ -201,6 +203,8 @@
                   i (if test-passed "Pass" "Fail") (second x)                          
                   (format-output (if (exact-out) (cdr (third x)) (car (third x))))
                   (string-join (map (λ (p) (format-args (car p) (cdr p) type)) (first x)) ", ")))))))
+  (unless (zero? ignored)
+    (printf "Ignored: ~a\n" ignored))
   (cond
    [(and (suppress-failures) (> err 0))
       (printf "Suppressing failures. Total failed: ~a\n" err)

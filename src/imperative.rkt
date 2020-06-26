@@ -204,16 +204,29 @@
     [`(cast ,body) (round-expr (convert-expr body #:ctx ctx #:indent indent) ctx)]
 
     [`(! ,props ... ,body)
+      (define curr-prec (ctx-lookup-prop ctx ':precision 'nearestEven))
       (define curr-round (ctx-lookup-prop ctx ':round 'nearestEven))
+      (define new-prec (dict-ref (apply hash-set* #hash() props) ':precision curr-prec))
       (define new-round (dict-ref (apply hash-set* #hash() props) ':round curr-round))
-      (if (and (equal? (language-name (*lang*)) "c") (not (equal? curr-round new-round)))  ; Only C needs to emit a temporary variable
+      (cond
+       [(and (equal? (language-name (*lang*)) "c")  ; Only C needs to emit a temporary variable for different rounding
+            (not (equal? curr-round new-round)))
         (let-values ([(ctx* tmp-var) (ctx-random-name ctx)])
-          (printf "~a~a\n" indent (change-round-mode new-round indent))
+          (unless (equal? curr-round new-round) 
+            (printf "~a~a\n" indent (change-round-mode new-round indent)))
           (printf "~a~a\n" indent 
-              (convert-declaration ctx* tmp-var (convert-expr body #:ctx (ctx-update-props ctx* props) #:indent indent)))
-          (printf "~a~a\n" indent (change-round-mode curr-round indent))
-          tmp-var)
-        (convert-expr body #:ctx (ctx-update-props ctx props) #:indent indent))] 
+            (convert-declaration (ctx-update-props ctx* props) tmp-var (convert-expr body #:ctx (ctx-update-props ctx* props) #:indent indent)))
+          (unless (equal? curr-round new-round)
+            (printf "~a~a\n" indent (change-round-mode curr-round indent)))
+          tmp-var)]
+       [(and (equal? (language-name (*lang*)) "c")  ; Only C needs to emit a temporary variable for different precision
+             (not (equal? curr-prec new-prec)))
+        (let-values ([(ctx* tmp-var) (ctx-random-name ctx)])
+          (printf "~a~a\n" indent 
+              (convert-declaration (ctx-update-props ctx* props) tmp-var (convert-expr body #:ctx (ctx-update-props ctx* props) #:indent indent)))
+          tmp-var)]
+      [else
+       (convert-expr body #:ctx (ctx-update-props ctx props) #:indent indent)])]
 
     [(list (? operator? operator) args ...)
       (define args_c

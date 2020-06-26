@@ -76,6 +76,14 @@
     (- (! :round toPositive (+ x y)) 
        (! :round toNegative (+ x y)))))
 
+(FPCore (x y)
+  :name "Adapted example with mixed-precision"
+  :pre (and (< 1 x 100)
+            (< 1 y 100))
+  (! :precision binary64 
+    (- (! :precision binary32 (+ x y)) 
+       (! :precision binary32 (- x y)))))
+
 (FPCore (x)
   :name "FPBench casting example"
   :pre (< 1 x 100)

@@ -209,8 +209,9 @@
       (define new-prec (dict-ref (apply hash-set* #hash() props) ':precision curr-prec))
       (define new-round (dict-ref (apply hash-set* #hash() props) ':round curr-round))
       (cond
-       [(and (equal? (language-name (*lang*)) "c")  ; Only C needs to emit a temporary variable for different rounding
-            (not (equal? curr-round new-round)))
+       [(and (equal? (language-name (*lang*)) "c")  ; Only C needs to emit a temporary variable
+             (or (not (equal? curr-prec new-prec))
+                 (not (equal? curr-round new-round))))
         (let-values ([(ctx* tmp-var) (ctx-random-name ctx)])
           (unless (equal? curr-round new-round) 
             (printf "~a~a\n" indent (change-round-mode new-round indent)))
@@ -218,13 +219,9 @@
             (convert-declaration (ctx-update-props ctx* props) tmp-var (convert-expr body #:ctx (ctx-update-props ctx* props) #:indent indent)))
           (unless (equal? curr-round new-round)
             (printf "~a~a\n" indent (change-round-mode curr-round indent)))
-          tmp-var)]
-       [(and (equal? (language-name (*lang*)) "c")  ; Only C needs to emit a temporary variable for different precision
-             (not (equal? curr-prec new-prec)))
-        (let-values ([(ctx* tmp-var) (ctx-random-name ctx)])
-          (printf "~a~a\n" indent 
-              (convert-declaration (ctx-update-props ctx* props) tmp-var (convert-expr body #:ctx (ctx-update-props ctx* props) #:indent indent)))
-          tmp-var)]
+          (if (equal? curr-prec new-prec)
+              tmp-var
+              (round-expr tmp-var ctx)))]
       [else
        (convert-expr body #:ctx (ctx-update-props ctx props) #:indent indent)])]
 

@@ -1,7 +1,7 @@
 #lang racket
 
 (require "common.rkt" "compilers.rkt")
-(provide convert-core convert-expr *lang* language *reserved-names*)
+(provide convert-core convert-expr *lang* language *reserved-names* *fix-name-format*)
 
 ;;; Abstraction for different languages
 
@@ -43,12 +43,14 @@
 
 (define *reserved-names* (make-parameter '()))
 
+(define *fix-name-format* (make-parameter "_~a_"))
+
 (define (fix-name name) ;; Common fix-name
   (string-join
    (for/list ([char (~a name)])
      (if (regexp-match #rx"[a-zA-Z0-9_]" (string char))
          (string char)
-         (format "_~a_" (char->integer char))))
+         (format (*fix-name-format*) (char->integer char))))
    ""))
 
 (define (convert-application ctx operator args)

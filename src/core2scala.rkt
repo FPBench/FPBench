@@ -15,7 +15,7 @@
      < > <= >= == != and or not
      if let let* digits)
    '(TRUE FALSE)
-   '(binary32 binary64 binary128 binary256)
+   '(binary64)          ;; benchmarks with if statements break with --mixed-precision flag
    '(nearestEven)))
 
 (define scala-reserved '())
@@ -43,7 +43,7 @@
 
 (define (declaration->scala props var [val 0])
   (define type (type->scala (dict-ref props ':precision 'binary64)))
-  (fprintf (*scala-prec-file*) "\t~a: ~a\n" var type)
+ ; (fprintf (*scala-prec-file*) "\t~a: ~a\n" var type)
   (format "val ~a: Real = ~a" var val))
 
 (define (assignment->scala var val)
@@ -96,7 +96,7 @@
   (define type (type->scala (ctx-lookup-prop ctx ':precision 'binary64)))
   (define arg-list
     (for/list ([arg args])
-      (fprintf (*scala-prec-file*) "\t~a: ~a\n" arg type)
+   ;   (fprintf (*scala-prec-file*) "\t~a: ~a\n" arg type)
       (format "~a: Real" arg)))
   (define precond
     (let ([pre 
@@ -117,10 +117,12 @@
 
 (define (core->scala prog name)
   (parameterize ([*lang* scala-language]  
-                 [*reserved-names* scala-reserved])
-    (fprintf (*scala-prec-file*) "~a = {\n" name)
-    (let ([core* (convert-core prog name)])
-      (fprintf (*scala-prec-file*) "}\n")
-      core*)))
+                 [*reserved-names* scala-reserved]
+                 [*fix-name-format* "$~a$"])
+    (convert-core prog name)))
+;    (fprintf (*scala-prec-file*) "~a = {\n" name)
+;    (let ([core* (convert-core prog name)])
+;      (fprintf (*scala-prec-file*) "}\n")
+;      core*)))
 
 (define-compiler '("scala") scala-header core->scala scala-footer scala-supported)

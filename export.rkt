@@ -79,11 +79,11 @@
 
    (when (and (equal? extension "js") (*runtime*)) (js-runtime (*runtime*)))
    (when (and (equal? extension "sollya") suppress-warnings) (*sollya-warnings* #f))
-   (when (equal? extension "scala") 
-    (let ([out-name (if (equal? out-file "-") 
-                        "stdout" 
-                        (string-trim out-file ".scala"))])
-      (*scala-prec-file* (open-output-file (string-append out-name ".prec.txt") #:mode 'text #:exists 'truncate))))                          
+  ; (when (equal? extension "scala") 
+  ;  (let ([out-name (if (equal? out-file "-") 
+  ;                      "stdout" 
+  ;                      (string-trim out-file ".scala"))])
+  ;    (*scala-prec-file* (open-output-file (string-append out-name ".prec.txt") #:mode 'text #:exists 'truncate))))                          
 
    (port-count-lines! input-port)
    (unless (*bare*) (fprintf output-port (header (if (equal? extension "js") (js-runtime) (*namespace*)))))

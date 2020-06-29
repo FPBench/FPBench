@@ -209,7 +209,8 @@
       (define new-prec (dict-ref (apply hash-set* #hash() props) ':precision curr-prec))
       (define new-round (dict-ref (apply hash-set* #hash() props) ':round curr-round))
       (cond
-       [(and (equal? (language-name (*lang*)) "c")  ; Only C needs to emit a temporary variable
+       [(and (or (equal? (language-name (*lang*)) "c")  ; Only C and Scala need to emit a temporary variable
+                 (equal? (language-name (*lang*)) "scala"))
              (or (not (equal? curr-prec new-prec))
                  (not (equal? curr-round new-round))))
         (let-values ([(ctx* tmp-var) (ctx-random-name ctx)])

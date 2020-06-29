@@ -62,9 +62,6 @@
      (match extension
        ["fptaylor" (values (const "") (curry core->fptaylor #:inexact-scale (*scale*)) (const "") fptaylor-supported)]
        [(or "gappa" "g") (values (const "") (curry core->gappa #:rel-error (*rel-error*)) (const "") gappa-supported)]
-       [(or "smt" "smt2" "smtlib" "smtlib2") (values (const "") core->smtlib2 (const "") smt-supported)]
-       ["wls" (values (const "") core->wls (const "") wls-supported)]
-       ["cml" (values (const "") core->cml (const "") cml-supported)]
        [#f (raise-user-error "Please specify an output language (using the --lang flag)")]
        [_
         (apply values
@@ -79,11 +76,11 @@
 
    (when (and (equal? extension "js") (*runtime*)) (js-runtime (*runtime*)))
    (when (and (equal? extension "sollya") suppress-warnings) (*sollya-warnings* #f))
-  ; (when (equal? extension "scala") 
-  ;  (let ([out-name (if (equal? out-file "-") 
-  ;                      "stdout" 
-  ;                      (string-trim out-file ".scala"))])
-  ;    (*scala-prec-file* (open-output-file (string-append out-name ".prec.txt") #:mode 'text #:exists 'truncate))))                          
+   (when (equal? extension "scala") 
+    (let ([out-name (if (equal? out-file "-") 
+                        "stdout" 
+                        (string-trim out-file ".scala"))])
+      (*scala-prec-file* (open-output-file (string-append out-name ".prec.txt") #:mode 'text #:exists 'truncate))))                          
 
    (port-count-lines! input-port)
    (unless (*bare*) (fprintf output-port (header (if (equal? extension "js") (js-runtime) (*namespace*)))))

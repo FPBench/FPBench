@@ -2,7 +2,8 @@
 
 (require math/flonum racket/extflonum math/bigfloat)
 (require "../src/common.rkt" "../src/fpcore.rkt" "../src/range-analysis.rkt" "../src/sampler.rkt" "../src/supported.rkt")
-(provide tester *tester* test-core *prog* *ignore-by-run* *last-run*)
+(provide tester *tester* test-core run-with-time-limit
+         *prog* *ignore-by-run* *last-run* *tool-time-limit*)
 
 (module+ test
   (require rackunit))
@@ -20,6 +21,7 @@
 (define *ignore-by-run* (make-parameter #f))  ; list of booleans that specify if a specific run should be ignored
 (define *prog* (make-parameter #f))   ; interpreted languages can store converted core here
 (define *last-run* (make-parameter #f))
+(define *tool-time-limit* (make-parameter 30)) ; tool run time limit
 
 ; Common test structure
 (struct tester (name compile run equality format-args format-output filter supported))
@@ -29,9 +31,13 @@
   ((tester-compile (*tester*)) prog ctx type test-file))
 
 (define (run-test exec-name ctx type number only-once?)
-  (if (and only-once? (not (= number 0)))
-      (*last-run*)
-      ((tester-run (*tester*)) exec-name ctx type number)))
+  (cond
+    [(and only-once? (zero? number))
+      (let ([res ((tester-run (*tester*)) exec-name ctx type number)])
+        (*last-run* res)
+        res)]
+    [only-once? (*last-run*)]
+    [else ((tester-run (*tester*)) exec-name ctx type number)]))
 
 (define (format-args var val type)
   ((tester-format-args (*tester*)) var val type))
@@ -44,6 +50,25 @@
 
 (define (=* a b [ignore? #f])
   ((tester-equality (*tester*)) a b (ulps) ignore?))
+
+;;; Misc
+
+(define (run-with-time-limit tool args [time-limit (*tool-time-limit*)])
+  (define t0 (current-seconds))
+  (define-values (p stdout stdin stderr)
+    (subprocess #f #f #f (find-executable-path tool) args))
+  (close-output-port stdin)
+  (let loop ()
+    (cond
+      [(integer? (subprocess-status p))
+        (define p* (input-port-append #t stdout stderr))
+        (port->string p* #:close? #t)]
+      [(> (- (current-seconds) t0) time-limit)
+        (subprocess-kill p #t)
+        "timeout"]
+      [else
+        (sleep 1)
+        (loop)])))
   
 ;;; Evaluator
 
@@ -111,7 +136,8 @@
     (define exec-name (compile-test prog '() type (test-file)))
     (define timeout 0)
     (define nans 0) ; wolfram only
-    (define run-once? (equal? (tester-name (*tester*)) "scala"))
+    (define run-once? (or (equal? (tester-name (*tester*)) "scala") ; run tool once
+                          (equal? (tester-name (*tester*)) "fptaylor")))
 
     (define-values (vars* var-types)
       (for/lists (n t) ([var vars])
@@ -168,9 +194,15 @@
                 result]))
           (when (equal? out 'timeout)
             (set! timeout (+ timeout 1)))
-          (define out* (if (equal? out 'timeout) 
-                            (cons 'timeout "") 
-                            (run-test exec-name ctx type i run-once?)))
+          (define out*
+            (if (equal? out 'timeout) 
+                (cons 'timeout "")
+                (let ([out* (run-test exec-name ctx type i run-once?)])
+                  (if (equal? (car out*) 'timeout)
+                      (begin
+                        (set! timeout (+ timeout 1))
+                        (cons 'timeout ""))
+                      out*))))
           (when (equal? (tester-name (*tester*)) "wls")
             (when (and (not (equal? out 'timeout)) (not (nan? out)) (nan? (car out*)))
               (set! nans (+ nans 1))))

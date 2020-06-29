@@ -93,6 +93,10 @@ jobs:
       - name: "Wolfram/Mathematica sanity"
         if: ${{ success() || failure() }}
         run: make wls-sanity
+      
+      - name: "FPTaylor sanity"
+        if: ${{ success() || failure() }} 
+        run: make fptaylor-sanity
 
       - name: "Daisy sanity"
         if: ${{ success() || failure() }}
@@ -125,6 +129,10 @@ jobs:
       - name: "Wolfram/Mathematica test"
         if: ${{ success() || failure() }}
         run: make wls-test 
+      
+      - name: "FPTaylor test"
+        if: ${{ success() || failure() }} 
+        run: make fptaylor-test
 
       - name: "Daisy test"
         if: ${{ success() || failure() }}

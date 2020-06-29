@@ -40,13 +40,6 @@
      ['if  (format "~a  " indent)]
      ['while (format "~a      " indent)] ; 6 spaces
      ['while-decl (format "~a        " indent)])] ; 8 spaces
-   ["scala"
-    (match type
-     ['let-decl ""]
-     ['let-body indent]
-     ['if (format "~a\t" indent)]
-     ['while ""]
-     ['while-decl ""])]
    [_
     (match type
      ['let-decl ""]
@@ -171,7 +164,6 @@
           (values cx (flatten (cons args* name))))))  
     (define indent-level 
       (match (functional-name (*func-lang*))
-       ["scala" "\t\t"]
        ["cml" "  "] 
        [_ "\t"]))
        

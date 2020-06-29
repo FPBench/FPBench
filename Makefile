@@ -69,7 +69,7 @@ else
 	$(warning skipping Scala tests; unable to find Scala compiler)
 endif
 
-sanity: c-sanity fptaylor-sanity js-sanity go-sanity smtlib2-sanity sollya-sanity wls-sanity cml-sanity
+sanity: c-sanity js-sanity go-sanity smtlib2-sanity sollya-sanity wls-sanity cml-sanity fptaylor-sanity scala-sanity
 
 raco-test:
 	raco test .
@@ -82,15 +82,14 @@ else
 	$(warning skipping C tests; unable to find C compiler $(CC))
 endif
 
-# Core to C???
-#fptaylor-test:
-#ifneq (, $(shell which fptaylor))
-#	cat benchmarks/*.fpcore tests/*.fpcore | $(FILTER) not-operators $(known_inaccurate) \
-#	| racket infra/test-core2c.rkt --error 3
-#	$(RM) -r log tmp
-#else
-#	$(warning skipping fptaylor tests; unable to find fptaylor)
-#endif
+fptaylor-test:
+ifneq (, $(shell which fptaylor))
+	cat benchmarks/*.fpcore tests/metadata.fpcore | $(FILTER) not-operators $(known_inaccurate) \
+	| racket infra/test-core2fptaylor.rkt --error 3
+	$(RM) -r log tmp
+else
+	$(warning skipping fptaylor tests; unable to find fptaylor)
+endif
 
 js-test:
 ifneq (, $(shell which node))
@@ -170,7 +169,7 @@ evaluate-test:
 
 tools-test: export-test transform-test toolserver-test evaluate-test
 
-test: c-test js-test go-test smtlib2-test sollya-test wls-test cml-test export-test transform-test toolserver-test evaluate-test raco-test 
+test: c-test js-test go-test smtlib2-test sollya-test wls-test cml-test fptaylor-test daisy-test export-test transform-test toolserver-test evaluate-test raco-test 
 
 testsetup:
 	raco make infra/filter.rkt infra/gen-expr.rkt \
@@ -187,4 +186,4 @@ www/benchmarks.jsonp: $(wildcard benchmarks/*.fpcore)
 	racket infra/core2json.rkt --padding load_benchmarks $^
 
 .PHONY: c-sanity c-test fptaylor-sanity fptaylor-test js-sanity js-test smtlib2-sanity smtlib2-test sollya-sanity sollya-test wls-sanity wls-test cml-sanity cml-test go-sanity go-test \
-		scala-sanity scala-test raco-test export-test transform-test toolserver-test evaluate-test test-tools sanity test testsetup setup update-tool-tests clean
+		scala-sanity scala-test raco-test export-test transform-test toolserver-test evaluate-test tools-test sanity test testsetup setup update-tool-tests clean

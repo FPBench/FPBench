@@ -15,15 +15,18 @@
 
 (define (run<-scala exec-name ctx type number)
   (define prec-filename (string-append (string-trim exec-name ".scala") ".prec.txt"))
-  (define out
-    (with-output-to-string
-     (λ ()
-      (system 
-        (if (empty? ctx)
-            (format "daisy ~a" exec-name)
-            (format "daisy ~a --mixed-precision=~a" exec-name prec-filename))))))
+  (define out 
+    (run-with-time-limit 
+        "daisy" 
+        (if (empty? ctx) 
+            exec-name
+            (format "~a --mixed-precision=~a" exec-name prec-filename))))
+  (define timeout? #f)
   (define out*
    (cond
+    [(equal? out "timeout")
+       (set! timeout? #t)
+       'timeout]
     [(regexp-match #rx"Warning" out)
       (*ignore-by-run* (make-list (length (*ignore-by-run*)) #t))
       (cons "+nan.0" "+nan.0")]
@@ -37,20 +40,20 @@
       (cons (car bounds) (cadr bounds))]
     [else
       (cons "-inf.0" "+inf.0")]))
-  (let ([res
-          (cons 
-           (match type
-            ['binary64 (cons (real->double-flonum (string->number (car out*)))
-                              (real->double-flonum (string->number (cdr out*))))]
-            ['binary32 (cons (real->single-flonum (string->number (car out*)))
-                              (real->single-flonum (string->number (cdr out*))))])
-            out*)])
-    (*last-run* res)
-    res))
+  (if timeout?
+    (cons 'timeout "timeout")
+    (cons 
+      (match type
+       ['binary64 (cons (real->double-flonum (string->number (car out*)))
+                        (real->double-flonum (string->number (cdr out*))))]
+       ['binary32 (cons (real->single-flonum (string->number (car out*)))
+                        (real->single-flonum (string->number (cdr out*))))])
+      (format "[~a, ~a]" (car out*) (cdr out*)))))
 
 (define (scala-equality a bound ulps ignore?)
   (cond
    [ignore? #t]
+   [(or (equal? a 'timeout) (equal? bound 'timeout)) #t]
    [(nan? a) (or (and (nan? (car bound)) (nan? (cdr bound)))
                  (and (infinite? (car bound)) (infinite? (cdr bound))))]
    [else (<= (car bound) a (cdr bound))]))
@@ -67,10 +70,10 @@
   (define precond (dict-ref props ':pre '()))
   (define range-table (condition->range-table precond))
   (define ops (operators-in core))
-  (and 
+  (and
     (for/and ([var vars]) 
       (let ([ranges (dict-ref range-table var (list (make-interval -inf.0 +inf.0)))])
-        (= (length ranges) 1)))
+        (and (= (length ranges) 1) (nonempty-bounded? ranges))))
     (not (set-member? ops 'if))))
 
 (define scala-tester (tester "scala" compile->scala run<-scala scala-equality scala-format-args

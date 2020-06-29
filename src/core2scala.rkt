@@ -52,7 +52,7 @@
   (format "val ~a: Real = ~a" var val))
 
 (define (assignment->scala var val)
-  (error 'assignment->scala "Daisy does not support assignment"))
+  (error 'assignment->scala "Daisy compiler using 'val'. Therefore, it does not support assignment"))
 
 (define (round->scala val props) (~a val)) ; round(val) = val
 

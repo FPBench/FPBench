@@ -1,6 +1,6 @@
 #lang racket
 
-(require "common.rkt" "fpcore.rkt" "supported.rkt")
+(require "common.rkt" "fpcore-checker.rkt" "supported.rkt")
 (provide scala-header scala-footer core->scala scala-supported)
 
 (define scala-supported
@@ -154,7 +154,10 @@
 (define scala-footer "}\n")
 
 (define (core->scala prog name)
-  (match-define (list 'FPCore (list args ...) props ... body) prog)
+  (define-values (args props body)
+   (match prog
+    [(list 'FPCore (list args ...) props ... body) (values args props body)]
+    [(list 'FPCore name (list args ...) props ... body) (values args props body)]))
   (define-values (_ properties) (parse-properties props))
 
   (define arg-strings

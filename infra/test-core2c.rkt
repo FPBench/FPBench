@@ -6,7 +6,7 @@
 (define (compile->c prog ctx type test-file)
   (call-with-output-file test-file #:exists 'replace
     (λ (p)
-      (define N (length (second prog)))
+      (define N (if (list? (second prog)) (length (second prog)) (length (third prog))))
       (fprintf p "#include <stdlib.h>\n#include <stdio.h>\n~a~a\n\n" (c-header) (core->c prog "f"))
       (fprintf p "int main(int argc, char **argv) { ")
       (define strtox (match type ['binary80 "strtold(argv[~a], NULL)"] ['binary64 "strtod(argv[~a], NULL)"] 

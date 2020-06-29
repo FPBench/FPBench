@@ -1,6 +1,6 @@
 #lang racket
 
-(require "src/fpcore.rkt"
+(require "src/fpcore-reader.rkt"
          "src/fpcore-extra.rkt"
          "src/common-subexpr-elim.rkt"
          "src/canonicalizer.rkt")

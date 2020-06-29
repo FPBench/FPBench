@@ -1,7 +1,7 @@
 #lang racket
 
 (require json)
-(require "../src/common.rkt" "../src/fpcore.rkt" "../src/supported.rkt" "../src/core2fptaylor.rkt")
+(require "../src/common.rkt" "../src/fpcore-checker.rkt" "../src/fpcore-reader.rkt" "../src/supported.rkt" "../src/core2fptaylor.rkt")
 
 (define (~pp value)
   (let ([p (open-output-string)])
@@ -16,8 +16,10 @@
 
 (define/contract (core->json core)
   (-> fpcore? jsexpr?)
-
-  (match-define (list 'FPCore (list args ...) props ... body) core)
+  (define-values (args props body)
+   (match core
+    [(list 'FPCore (list args ...) props ... body) (values args props body)]
+    [(list 'FPCore name (list args ...) props ... body) (values args props body)]))
   (define-values (_ prop-dict) (parse-properties props))
   (define prop-hash
     (for/hash ([(prop value) (in-dict prop-dict)])

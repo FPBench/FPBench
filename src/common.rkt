@@ -2,7 +2,7 @@
 
 (provide parse-properties unparse-properties constants operators
          constant? operator? variable? define-by-match dictof property? property
-         hex? hex->racket digits->number)
+         hex? hex->racket digits->number syntax-e-rec)
 
 (define (property? symb)
   (and (symbol? symb) (string-prefix? (symbol->string symb) ":")))
@@ -27,6 +27,7 @@
        cbrt hypot sin cos tan asin acos atan atan2 sinh cosh tanh
        asinh acosh atanh erf erfc tgamma lgamma ceil floor fmod
        remainder fmax fmin fdim copysign trunc round nearbyint cast)
+   '(array dim size ref)
    '(< > <= >= == != and or not isfinite isinf isnan isnormal signbit)))
 
 (define (operator? x)
@@ -60,6 +61,11 @@
 
 (define (dictof key/c value/c)
   (or/c (hash/c key/c value/c) (listof (cons/c key/c value/c))))
+
+(define (syntax-e-rec stx)
+  (match (syntax-e stx)
+    [`(,stx-elem ...) (map syntax-e-rec stx-elem)]
+    [stx* stx*]))
 
 (define (hex? expr)
   (match expr

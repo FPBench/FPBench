@@ -1,6 +1,6 @@
 #lang racket
 
-(require "../src/common.rkt" "../src/fpcore.rkt")
+(require "../src/common.rkt" "../src/fpcore-interpreter.rkt")
 (provide number-suite->tests constant-suite->tests
          op-suite->tests bool-op-suite->tests)
 

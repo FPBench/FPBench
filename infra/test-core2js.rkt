@@ -6,7 +6,7 @@
 (define (compile->js prog ctx type test-file)
   (call-with-output-file test-file #:exists 'replace
     (λ (p)
-       (define N (length (second prog)))
+       (define N (if (list? (second prog)) (length (second prog)) (length (third prog))))
        (fprintf p "~a~a\n\n" (js-header "Math") (core->js prog "f"))
        (fprintf p "console.log(f(~a));\n"
                 (string-join (for/list ([i (range N)])

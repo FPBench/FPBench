@@ -1,7 +1,7 @@
 #lang racket
 
 (require math/flonum racket/extflonum math/bigfloat)
-(require "../src/common.rkt" "../src/fpcore.rkt" "../src/range-analysis.rkt" "../src/sampler.rkt" "../src/supported.rkt")
+(require "../src/common.rkt" "../src/fpcore-reader.rkt" "../src/fpcore-interpreter.rkt" "../src/range-analysis.rkt" "../src/sampler.rkt" "../src/supported.rkt")
 (provide tester *tester* test-core *prog* *ignore-by-run*)
 
 (module+ test
@@ -93,7 +93,10 @@
   (for ([prog (in-port (curry read-fpcore source) curr-in-port)]
         #:when (valid-core prog (tester-supported (*tester*))))
    (parameterize ([*ignore-by-run* (make-list (tests-to-run) #f)])
-    (match-define (list 'FPCore (list vars ...) props* ... body) prog)
+    (define-values (vars props* body)
+     (match prog
+      [(list 'FPCore (list args ...) props ... body) (values args props body)]
+      [(list 'FPCore name (list args ...) props ... body) (values args props body)]))
     (define-values (_ props) (parse-properties props*))
     (define type (dict-ref props ':precision 'binary64))
     (define rnd-mode (dict-ref props ':round 'nearestEven))

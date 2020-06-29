@@ -1,6 +1,6 @@
 #lang racket
 
-(require "../src/common.rkt" "../src/fpcore.rkt" "../src/supported.rkt")
+(require "../src/common.rkt" "../src/fpcore-checker.rkt" "../src/fpcore-reader.rkt" "../src/supported.rkt")
 
 (define/contract ((filter type values) core)
   (-> symbol? (listof string?) (-> fpcore? boolean?))

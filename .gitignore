@@ -1,4 +1,5 @@
 www
+library/Real.scala
 *~
 *.dep
 *.zo

@@ -61,99 +61,109 @@ jobs:
           echo "::add-path::${PWD}/../cache/daisy"
  
       - name: "Byte-compile repo"
+        id: setup
         run: make setup testsetup
 
       # If any of the previous steps fail, don't continue
       # Past this point, allow steps to execute even if previous ones fail
 
       - name: "C sanity"
-      # if: ${{ success() }} 
+        id: c_sanity
+      # if: ${{ steps.setup.outcome == 'success' }}
         run: make c-sanity
 
       - name: "JS sanity"
-        if: ${{ success() || failure() }}
+        id: js_sanity
+        if: ${{ steps.setup.outcome == 'success' }}
         run: make js-sanity  
       
       - name: "Go sanity"
-        if: ${{ success() || failure() }}
+        id: go_sanity
+        if: ${{ steps.setup.outcome == 'success' }}
         run: make go-sanity  
       
       - name: "Sollya sanity"
-        if: ${{ success() || failure() }}
+        id: sollya_sanity
+        if: ${{ steps.setup.outcome == 'success' }}
         run: make sollya-sanity  
       
       - name: "Z3 sanity"
-        if: ${{ success() || failure() }}
+        id: z3_sanity
+        if: ${{ steps.setup.outcome == 'success' }}
         run: make smtlib2-sanity 
 
       - name: "CakeML sanity"
-        if: ${{ success() || failure() }}
+        id: cml_sanity
+        if: ${{ steps.setup.outcome == 'success' }}
         run: make cml-sanity 
 
       - name: "Wolfram/Mathematica sanity"
-        if: ${{ success() || failure() }}
+        id: wls_sanity
+        if: ${{ steps.setup.outcome == 'success' }}
         run: make wls-sanity
       
       - name: "FPTaylor sanity"
-        if: ${{ success() || failure() }} 
+        id: fptaylor_sanity
+        if: ${{ steps.setup.outcome == 'success' }} 
         run: make fptaylor-sanity
 
       - name: "Daisy sanity"
-        if: ${{ success() || failure() }}
+        id: daisy_sanity
+        if: ${{ steps.setup.outcome == 'success' }}
         run: make scala-sanity
 
       - name: "C test"
-        if: ${{ success() || failure() }}
+        if: ${{ steps.c_sanity.outcome == 'success' }}
         run: make c-test
 
       - name: "JS test"
-        if: ${{ success() || failure() }}
+        if: ${{ steps.js_sanity.outcome == 'success' }}
         run: make js-test  
       
       - name: "Go test"
-        if: ${{ success() || failure() }}
+        if: ${{ steps.go_sanity.outcome == 'success' }}
         run: make go-test  
       
       - name: "Sollya test"
-        if: ${{ success() || failure() }}
+        if: ${{ steps.sollya_sanity.outcome == 'success' }}
         run: make sollya-test  
       
       - name: "Z3 test"
-        if: ${{ success() || failure() }}
+        if: ${{ steps.z3_sanity.outcome == 'success' }}
         run: make smtlib2-test 
 
       - name: "CakeML test"
-        if: ${{ success() || failure() }}
+        if: ${{ steps.cml_sanity.outcome == 'success' }}
         run: make cml-test 
 
       - name: "Wolfram/Mathematica test"
-        if: ${{ success() || failure() }}
+        if: ${{ steps.wls_sanity.outcome == 'success'}}
         run: make wls-test 
       
       - name: "FPTaylor test"
-        if: ${{ success() || failure() }} 
+        if: ${{ steps.fptaylor_sanity.outcome == 'success' }} 
         run: make fptaylor-test
 
       - name: "Daisy test"
-        if: ${{ success() || failure() }}
+        if: ${{ steps.daisy_sanity.outcome == 'success' }}
         run: make scala-test
 
       - name: "Export tool"
-        if: ${{ success() || failure() }}
+        if: ${{ steps.setup.outcome == 'success' }}
         run: make export-test
 
       - name: "Transform tool"
-        if: ${{ success() || failure() }}
+        if: ${{ steps.setup.outcome == 'success' }}
         run: make transform-test
 
       - name: "Toolserver tool"
-        if: ${{ success() || failure() }}
+        if: ${{ steps.setup.outcome == 'success' }}
         run: make toolserver-test
 
       - name: "Evaluate tool"
-        if: ${{ success() || failure() }}
+        if: ${{ steps.setup.outcome == 'success' }}
         run: make evaluate-test
 
       - name: "Raco tests"
-        if: ${{ success() || failure() }}
+        if: ${{ steps.setup.outcome == 'success' }}
         run: make raco-test

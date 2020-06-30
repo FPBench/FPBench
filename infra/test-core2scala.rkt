@@ -65,7 +65,10 @@
   (format "[~a, ~a]" (car result) (cdr result)))
 
 (define (scala-filter core)
-  (match-define (list 'FPCore (list vars ...) props* ... body) core)
+  (define-values (vars props* body)
+   (match core
+    [(list 'FPCore (list args ...) props ... body) (values args props body)]
+    [(list 'FPCore name (list args ...) props ... body) (values args props body)]))
   (define-values (_ props) (parse-properties props*))
   (define precond (dict-ref props ':pre '()))
   (define range-table (condition->range-table precond))

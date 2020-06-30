@@ -42,7 +42,7 @@
 (define (cml-format-output result)
   (format "~a" result))
 
-(define cml-tester (tester "cml" compile->cml run<-cml cml-equality cml-format-args cml-format-output (const #t) cml-supported))
+(define cml-tester (tester "cml" compile->cml run<-cml cml-equality cml-format-args cml-format-output (const #t) cml-supported #f))
 (module+ main (parameterize ([*tester* cml-tester])
   (let ([state (test-core (current-command-line-arguments) (current-input-port) "stdin" "/tmp/test.cml")])
     (exit state))))

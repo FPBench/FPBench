@@ -77,7 +77,7 @@
     (not (set-member? ops 'if))))
 
 (define scala-tester (tester "scala" compile->scala run<-scala scala-equality scala-format-args
-                             scala-format-output scala-filter scala-supported))
+                             scala-format-output scala-filter scala-supported #t))
 
 ; Command line
 (module+ main (parameterize ([*tester* scala-tester] [*scala-suppress* #t])

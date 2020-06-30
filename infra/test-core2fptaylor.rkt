@@ -74,7 +74,7 @@
       (and (= (length ranges) 1) (nonempty-bounded? ranges)))))
 
 (define fptaylor-tester (tester "fptaylor" compile->fptaylor run<-fptaylor fptaylor-equality fptaylor-format-args
-                                fptaylor-format-output fptaylor-filter fptaylor-supported))
+                                fptaylor-format-output fptaylor-filter fptaylor-supported #t))
 
 ; Command line
 (module+ main (parameterize ([*tester* fptaylor-tester])

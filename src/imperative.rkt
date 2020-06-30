@@ -42,7 +42,6 @@
 ;;; Compiler for imperative languages
 
 (define *reserved-names* (make-parameter '()))
-
 (define *fix-name-format* (make-parameter "_~a_"))
 
 (define (fix-name name) ;; Common fix-name
@@ -200,7 +199,6 @@
        (printf "~a}~a\n" indent (if (equal? (language-name (*lang*)) "sollya") ";" ""))
       (convert-expr retexpr #:ctx ctx* #:indent indent)]
 
-    ; Ignore all casts
     [`(cast ,body) (round-expr (convert-expr body #:ctx ctx #:indent indent) ctx)]
 
     [`(! ,props ... ,body)

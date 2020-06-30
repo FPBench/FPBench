@@ -113,7 +113,7 @@
   (format "~a" result))
 
 (define sollya-tester (tester "sollya" translate->sollya run<-sollya sollya-equality sollya-format-args
-                              sollya-format-output (const #t) sollya-supported))
+                              sollya-format-output (const #t) sollya-supported #f))
 
 ; Command line
 (module+ main (parameterize ([*tester* sollya-tester])

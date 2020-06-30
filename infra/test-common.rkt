@@ -24,19 +24,19 @@
 (define *tool-time-limit* (make-parameter 30)) ; tool run time limit
 
 ; Common test structure
-(struct tester (name compile run equality format-args format-output filter supported))
+(struct tester (name compile run equality format-args format-output filter supported run-once?))
 (define *tester* (make-parameter #f))
 
 (define (compile-test prog ctx type test-file)
   ((tester-compile (*tester*)) prog ctx type test-file))
 
-(define (run-test exec-name ctx type number only-once?)
+(define (run-test exec-name ctx type number)
   (cond
-    [(and only-once? (zero? number))
+    [(and (tester-run-once? (*tester*)) (zero? number))
       (let ([res ((tester-run (*tester*)) exec-name ctx type number)])
         (*last-run* res)
         res)]
-    [only-once? (*last-run*)]
+    [(tester-run-once? (*tester*)) (*last-run*)]
     [else ((tester-run (*tester*)) exec-name ctx type number)]))
 
 (define (format-args var val type)
@@ -53,10 +53,10 @@
 
 ;;; Misc
 
-(define (run-with-time-limit tool args [time-limit (*tool-time-limit*)])
+(define (run-with-time-limit exe args [time-limit (*tool-time-limit*)])
   (define t0 (current-seconds))
   (define-values (p stdout stdin stderr)
-    (subprocess #f #f #f (find-executable-path tool) args))
+    (subprocess #f #f #f (find-executable-path exe) args))
   (close-output-port stdin)
   (let loop ()
     (cond
@@ -139,8 +139,6 @@
     (define exec-name (compile-test prog '() type (test-file)))
     (define timeout 0)
     (define nans 0) ; wolfram only
-    (define run-once? (or (equal? (tester-name (*tester*)) "scala") ; run tool once
-                          (equal? (tester-name (*tester*)) "fptaylor")))
 
     (define-values (vars* var-types)
       (for/lists (n t) ([var vars])
@@ -200,7 +198,7 @@
           (define out*
             (if (equal? out 'timeout) 
                 (cons 'timeout "")
-                (let ([out* (run-test exec-name ctx type i run-once?)])
+                (let ([out* (run-test exec-name ctx type i)])
                   (if (equal? (car out*) 'timeout)
                       (begin
                         (set! timeout (+ timeout 1))

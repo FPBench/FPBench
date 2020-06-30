@@ -1,6 +1,6 @@
 #lang racket
 
-(require "common.rkt" "fpcore.rkt" "fpcore-extra.rkt" "range-analysis.rkt" "supported.rkt")
+(require "common.rkt" "fpcore-reader.rkt" "fpcore-extra.rkt" "range-analysis.rkt" "supported.rkt")
 (provide core->fptaylor fptaylor-supported)
 
 (define fptaylor-supported (supported-list
@@ -170,7 +170,10 @@
                          #:var-precision [var-precision #f]
                          #:inexact-scale [inexact-scale 1]
                          #:indent [indent "\t"])
-  (match-define (list 'FPCore (list args ...) props ... body) prog)
+  (define-values (args props body)
+   (match prog
+    [(list 'FPCore (list args ...) props ... body) (values args props body)]
+    [(list 'FPCore name (list args ...) props ... body) (values args props body)]))
   (define-values (_ properties) (parse-properties props))
   (define type
     (if precision precision (dict-ref properties ':precision 'binary64)))

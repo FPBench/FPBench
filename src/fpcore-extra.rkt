@@ -1,6 +1,6 @@
 #lang racket
 
-(require "common.rkt" "fpcore.rkt" "range-analysis.rkt")
+(require "common.rkt" "fpcore-checker.rkt" "range-analysis.rkt")
 (provide fix-file-name round-decimal format-number
          free-variables remove-let canonicalize
          split-expr to-dnf all-subexprs unroll-loops skip-loops
@@ -222,7 +222,10 @@
 (define/contract (fpcore-all-subexprs prog #:no-vars [no-vars #f] #:no-consts [no-consts #f])
   ; Returns FPCore programs for all subexpressions
   (->* (fpcore?) (#:no-vars boolean? #:no-consts boolean?) (listof fpcore?))
-  (match-define (list 'FPCore (list args ...) props ... body) prog)
+  (define-values (args props body)
+   (match prog
+    [(list 'FPCore (list args ...) props ... body) (values args props body)]
+    [(list 'FPCore name (list args ...) props ... body) (values args props body)]))
   (define-values (_ properties) (parse-properties props))
   (define name (dict-ref properties ':name "ex"))
   (define exprs (all-subexprs body #:no-vars no-vars #:no-consts no-consts))
@@ -263,8 +266,13 @@
 (define/contract (fpcore-unroll-loops n prog)
   ; Unrolls loops in the given FPCore program
   (-> exact-nonnegative-integer? fpcore? fpcore?)
-  (match-define (list 'FPCore (list args ...) props ... body) prog)
-  `(FPCore ,args ,@props ,(unroll-loops n body)))
+  (define-values (name args props body)
+   (match prog
+    [(list 'FPCore (list args ...) props ... body) (values #f args props body)]
+    [(list 'FPCore name (list args ...) props ... body) (values name args props body)]))
+  (if name
+    `(FPCore ,name ,args ,@props ,(unroll-loops n body))
+    `(FPCore ,args ,@props ,(unroll-loops n body))))
 
 (define/contract (skip-loops expr)
   (-> expr? expr?)
@@ -289,8 +297,13 @@
 (define/contract (fpcore-skip-loops prog)
   ; Skips loops in the given FPCore program
   (-> fpcore? fpcore?)
-  (match-define (list 'FPCore (list args ...) props ... body) prog)
-  `(FPCore ,args ,@props ,(skip-loops body)))
+  (define-values (name args props body)
+   (match prog
+    [(list 'FPCore (list args ...) props ... body) (values #f args props body)]
+    [(list 'FPCore name (list args ...) props ... body) (values name args props body)]))
+  (if name
+    `(FPCore ,name ,args ,@props ,(skip-loops body))
+    `(FPCore ,args ,@props ,(skip-loops body))))
 
 (define/contract (expand-let* expr)
   (-> expr? expr?)
@@ -323,8 +336,13 @@
 (define/contract (fpcore-expand-let* prog)
   ; Expand let* in the body of the given FPCore program
   (-> fpcore? fpcore?)
-  (match-define (list 'FPCore (list args ...) props ... body) prog)
-  `(FPCore ,args ,@props ,(expand-let* body)))
+  (define-values (name args props body)
+   (match prog
+    [(list 'FPCore (list args ...) props ... body) (values #f args props body)]
+    [(list 'FPCore name (list args ...) props ... body) (values name args props body)]))
+  (if name
+    `(FPCore ,name ,args ,@props ,(expand-let* body))
+    `(FPCore ,args ,@props ,(expand-let* body))))
 
 (define/contract (expand-while* expr)
   (-> expr? expr?)
@@ -361,8 +379,13 @@
 (define/contract (fpcore-expand-while* prog)
   ; Expand let* in the body of the given FPCore program
   (-> fpcore? fpcore?)
-  (match-define (list 'FPCore (list args ...) props ... body) prog)
-  `(FPCore ,args ,@props ,(expand-while* body)))
+  (define-values (name args props body)
+   (match prog
+    [(list 'FPCore (list args ...) props ... body) (values #f args props body)]
+    [(list 'FPCore name (list args ...) props ... body) (values name args props body)]))
+  (if name
+    `(FPCore ,name ,args ,@props ,(expand-while* body))
+    `(FPCore ,args ,@props ,(expand-while* body))))
 
 (define/contract (precondition-ranges pre #:single-range [single-range #f])
   (->* (expr?) (#:single-range boolean?) expr?)
@@ -383,18 +406,26 @@
 (define/contract (fpcore-precondition-ranges prog #:single-range [single-range #f])
   ; Converts preconditions to ranges in the given FPCore program
   (->* (fpcore?) (#:single-range boolean?) fpcore?)
-  (match-define (list 'FPCore (list args ...) props ... body) prog)
+  (define-values (name args props body)
+   (match prog
+    [(list 'FPCore (list args ...) props ... body) (values #f args props body)]
+    [(list 'FPCore name (list args ...) props ... body) (values name args props body)]))
   (define-values (_ properties) (parse-properties props))
   (if (not (dict-has-key? properties ':pre))
       prog
       (let* ([new-pre (precondition-ranges (dict-ref properties ':pre) #:single-range single-range)]
              [new-properties (dict-set properties ':pre new-pre)])
-        `(FPCore ,args ,@(unparse-properties new-properties) ,body))))
+        (if name
+           `(FPCore ,name ,args ,@(unparse-properties new-properties) ,body)
+           `(FPCore ,args ,@(unparse-properties new-properties) ,body)))))
 
 (define/contract (fpcore-split-or prog)
   ; Transforms preconditions into DNF and returns FPCore programs for all conjunctions
   (-> fpcore? (listof fpcore?))
-  (match-define (list 'FPCore (list args ...) props ... body) prog)
+  (define-values (name args props body)
+   (match prog
+    [(list 'FPCore (list args ...) props ... body) (values #f args props body)]
+    [(list 'FPCore name (list args ...) props ... body) (values name args props body)]))
   (define-values (_ properties) (parse-properties props))
   (if (not (dict-has-key? properties ':pre))
       (list prog)
@@ -414,7 +445,10 @@
   (->* (exact-nonnegative-integer? fpcore?)
        (#:max exact-nonnegative-integer?)
        (listof fpcore?))
-  (match-define (list 'FPCore (list args ...) props ... body) prog)
+  (define-values (args props body)
+   (match prog
+    [(list 'FPCore (list args ...) props ... body) (values args props body)]
+    [(list 'FPCore name (list args ...) props ... body) (values args props body)]))
   (define-values (_ properties) (parse-properties props))
   (define name (dict-ref properties ':name "ex"))
   (if (not (dict-has-key? properties ':pre))
@@ -469,7 +503,10 @@
   (->* (fpcore?)
        ((or/c #f string?))
        (or/c #f string?))
-  (match-define (list 'FPCore (list args ...) props ... body) prog)
+  (define-values (name args props body)
+   (match prog
+    [(list 'FPCore (list args ...) props ... body) (values #f args props body)]
+    [(list 'FPCore name (list args ...) props ... body) (values name args props body)]))
   (define-values (_ properties) (parse-properties props))
   (cond
     [(dict-has-key? properties ':name) (dict-ref properties ':name)]

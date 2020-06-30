@@ -1,6 +1,6 @@
 #lang racket
 
-(require "common.rkt" "fpcore.rkt" "fpcore-extra.rkt" "range-analysis.rkt" "supported.rkt")
+(require "common.rkt" "fpcore-reader.rkt" "fpcore-extra.rkt" "range-analysis.rkt" "supported.rkt")
 (provide core->gappa gappa-supported)
 
 (define gappa-supported
@@ -149,7 +149,10 @@
                          #:precision [precision #f]
                          #:var-precision [var-precision #f]
                          #:rel-error [rel-error #f])
-  (match-define (list 'FPCore (list args ...) props ... body) prog)
+  (define-values (args props body)
+   (match prog
+    [(list 'FPCore (list args ...) props ... body) (values args props body)]
+    [(list 'FPCore name (list args ...) props ... body) (values args props body)]))
   (define-values (_ properties) (parse-properties props))
   (define type
     (if precision precision (dict-ref properties ':precision 'binary64)))

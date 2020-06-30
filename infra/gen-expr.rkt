@@ -1,6 +1,6 @@
 #lang racket
 
-(require "../src/common.rkt" "../src/fpcore.rkt" "../src/sampler.rkt")
+(require "../src/common.rkt" "../src/sampler.rkt")
 (provide gen-expr)
 
 (define math-const (make-parameter 0.5)) ; odds of generating a math constant
@@ -13,9 +13,6 @@
 
 (define (rand-from-list list)
   (list-ref list (random 0 (length list))))
-
-(define (member? v list)
-  (for/or ([i list]) (equal? i v)))
 
 ; Combinations with repetition
 (define (combinationsr li k)
@@ -189,7 +186,7 @@
 (define (gen-layer ops depth exhaustive? [allow-cond? #f])
   (cond
     [(> depth 0)
-      (for/fold ([exprs '()]) ([op (from-list (if allow-cond? (filter (curryr member? bool-ops) ops) (remove* bool-ops ops)) exhaustive?)])
+      (for/fold ([exprs '()]) ([op (from-list (if allow-cond? (filter (curryr set-member? bool-ops) ops) (remove* bool-ops ops)) exhaustive?)])
        (match op
         [(or '< '> '<= '>= '== '!= 'isfinite 'isinf 'isnan 'isnormal 'signbit) ; conditionals
          (append exprs
@@ -217,7 +214,7 @@
           `(,op ,subexpr1 ,subexpr2 ,subexpr3)))]
         ['if
          (append exprs
-          (for*/list ([cond (gen-cond (filter (curryr member? bool-ops) ops) (thunk (gen-layer ops (random 0 depth) exhaustive?)) exhaustive?)]
+          (for*/list ([cond (gen-cond (filter (curryr set-member? bool-ops) ops) (thunk (gen-layer ops (random 0 depth) exhaustive?)) exhaustive?)]
                       [subexpr1 (gen-layer ops (sub1 depth) exhaustive?)]
                       [subexpr2 (gen-layer ops (sub1 depth) exhaustive?)])
           `(if ,cond ,subexpr1 ,subexpr2)))]
@@ -234,7 +231,7 @@
          (append exprs
           (for*/fold ([exprs* '()])
                      ([body (gen-layer ops (sub1 depth) exhaustive?)]                                         ; for all possibe body exprs
-                      [cond (gen-cond (filter (curryr member? bool-ops) ops)                                  ; for all possible conds
+                      [cond (gen-cond (filter (curryr set-member? bool-ops) ops)                                  ; for all possible conds
                                       (thunk (gen-layer ops (sub1 depth) exhaustive?)) exhaustive?)])
             (let*-values ([(bodies varss) (assign-terminals body (curryr gensyms 'x (gensym-count)) exhaustive? #f)])
               (append exprs*
@@ -330,12 +327,12 @@
 
     [("--operator") _ops "Generates expressions with the given operators. Must be a single string"
       (let ([ops* (map string->symbol (string-split _ops " "))])
-        (if (member? '- ops*)                ; unary minus is '-*' internally
+        (if (set-member? '- ops*)                ; unary minus is '-*' internally
             (set! ops (append '(-*) ops*))
             (set! ops ops*)))]
     [("--not-operator") _not-ops "Removes the given operators from the default list. Must be a single string"
       (let ([not-ops (map string->symbol (string-split _not-ops " "))])
-        (if (member? '- not-ops)                ; unary minus is '-*' internally
+        (if (set-member? '- not-ops)                ; unary minus is '-*' internally
             (set! ops (remove* (append '(-*) not-ops) ops))
             (set! ops (remove* not-ops ops))))]
 

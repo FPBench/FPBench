@@ -190,3 +190,8 @@
   :name "Test ! (1/1)" 
   :spec 1.0
   (! :precision binary64 :round nearestEven 1.0))
+
+(FPCore ident ()
+  :name "Test FPCore identifier (FPBench 2.0)"
+  :spec 1.0
+  1.0)

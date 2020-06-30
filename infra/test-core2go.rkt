@@ -7,7 +7,7 @@
   (define bit-length (match type ['binary64 "64"] ['binary32 "32"]))
   (call-with-output-file test-file #:exists 'replace
     (λ (p)
-      (define N (length (second prog)))
+      (define N (if (list? (second prog)) (length (second prog)) (length (third prog))))
       (fprintf p "package main\n\nimport (\n\"math\"\n\"fmt\"\n\"os\"\n\"strconv\"\n)\n\nvar _ = math.E\nvar _ = os.Stdin\n\n")
       (fprintf p "func Use(vals ...interface{}) {\n\tfor _, val := range vals {\n\t\t_ = val\n\t}\n}\n\n")
       (fprintf p go-func-header)

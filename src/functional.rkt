@@ -150,7 +150,10 @@
 
 (define (core->functional prog name)
   (parameterize ([*used-names* (mutable-set)] [*gensym-collisions* 1])
-    (match-define (list 'FPCore (list args ...) props ... body) prog)
+    (define-values (args props body)
+     (match prog
+      [(list 'FPCore (list args ...) props ... body) (values args props body)]
+      [(list 'FPCore name (list args ...) props ... body) (values args props body)]))
     (define default-ctx (ctx-update-props (make-compiler-ctx) (append '(:precision binary64 :round nearestEven) props)))
     (define ctx (ctx-reserve-names default-ctx (*reserved-names*)))
 

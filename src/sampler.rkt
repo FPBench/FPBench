@@ -1,7 +1,7 @@
 #lang racket
 
 (require math/flonum racket/extflonum) 
-(require "../src/fpcore.rkt" "../src/range-analysis.rkt")
+(require "../src/range-analysis.rkt" "fpcore-interpreter.rkt")
 (provide sample-float sample-by-rejection sample-random sample-tries
          float->ordinal ordinal->float)
 

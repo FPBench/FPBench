@@ -8,7 +8,7 @@
   (define cake-file (string-replace test-file ".cml" ".cake"))
   (call-with-output-file test-file #:exists 'replace
     (λ (p)
-      (define N (length (second prog)))
+      (define N (if (list? (second prog)) (length (second prog)) (length (third prog))))
       (fprintf p "~a\n" (core->cml prog "f"))
       (fprintf p "fun main () =\nlet\nval args = CommandLine.arguments()\n")
       (for ([i (range N)])

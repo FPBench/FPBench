@@ -1,6 +1,6 @@
 #lang racket
 (require xml)
-(require "../src/common.rkt" "../src/fpcore.rkt")
+(require "../src/common.rkt" "../src/fpcore-checker.rkt")
 
 (define/contract operator-groups (dictof string? (listof symbol?))
   #hash(("Arithmetic" . (+ - * / fabs fma sqrt hypot fmin fmax fdim))
@@ -13,8 +13,9 @@
         ("Remainder" . (fmod remainder))
         ("Hyperbolic" . (sinh cosh tanh asinh acosh atanh))
         ("Conditionals" . (if))
-        ("Loops" . (while))
-        ("Temporaries" . (let))))
+        ("Loops" . (while while*))
+        ("Temporaries" . (let let*))
+        ("Tensor" . (dim ref size array))))
 
 (module+ test
   (require rackunit)

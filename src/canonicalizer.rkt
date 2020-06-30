@@ -1,6 +1,6 @@
 #lang racket
 
-(require "common.rkt" "fpcore.rkt" "fpcore-visitor.rkt")
+(require "common.rkt" "fpcore-reader.rkt" "fpcore-visitor.rkt")
 (require racket/hash)
 (provide fpcore->canon expr->canon fpcore->condensed expr->condensed)
 

@@ -4,7 +4,7 @@
 (provide *used-names* *gensym-divider* *gensym-collisions* *gensym-fix-name*
           ctx-unique-name ctx-random-name ctx-lookup-name ctx-reserve-names ctx-names
           ctx-update-props ctx-lookup-prop ctx-props ctx-lookup-prec
-          make-compiler-ctx define-compiler)
+          make-compiler-ctx define-compiler supported-by-lang?)
 (provide
   (contract-out
     [struct compiler
@@ -101,3 +101,15 @@
 ; Returns the context struct's hash names
 (define (ctx-names ctx)
   (compiler-ctx-name-map ctx))
+
+;;; Misc
+
+(define (supported-by-lang? fpcore lang)
+  (-> fpcore? string? boolean?)
+  (define compiler
+    (for/first ([compiler (compilers)]
+                #:when (set-member? (compiler-extensions compiler) lang))
+        compiler))
+  (if compiler
+      (valid-core fpcore (compiler-supported compiler))
+      #f))

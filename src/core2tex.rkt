@@ -133,7 +133,7 @@
     (string-join (map ~a a) " \\land ")]
    [(list 'or a ...)
     (string-join (map ~a a) " \\lor ")]
-   [(list (? operator? f) args ...)
+   [(list op args ...)
      (apply format (operator->tex op) args)]))
 
 (define (collect-branches expr loc)
@@ -169,16 +169,10 @@
                           (texify bcond ctx #t (cons 1 bloc))
                           NL IND (texify bexpr ctx #t (cons 2 bloc)) NL)]))
              (printf "\\end{array}")))]
-        [`(<= ,x -inf.0)
-         (texify `(== ,x -inf.0) ctx parens loc)]
-        [`(,op ,args ...)
-         (define-values (self-paren-level arg-paren-level) (precedence-levels op))
-         (define texed-args
-           (for/list ([arg args] [id (in-naturals 1)])
-             (texify arg ctx arg-paren-level (cons id loc))))
-         (format ; omit parens if parent contex has lower precedence
-          (if (precedence< parens self-paren-level) "~a" "\\left(~a\\right)")
-          (application->tex op texed-args))]
+        ; Ignore cast
+        [`(cast ,body) (texify body ctx parens loc)]
+        [`(! ,props ... ,body) (texify body (ctx-update-props ctx props) parens loc)]
+
         [(? exact-integer?)
          (number->string expr)]
         [(and (? rational?) (? exact?))
@@ -205,7 +199,18 @@
                   (format "~a \\cdot 10^{~a}" significand exp)))
             (if (precedence< parens #f) num (format "\\left( ~a \\right)" num))])]
         [(? constant?) (constant->tex expr)]
-        [(? symbol?) (variable->tex expr)]))))
+        [(? symbol?) (variable->tex expr)]
+        
+        [`(<= ,x -inf.0)
+         (texify `(== ,x -inf.0) ctx parens loc)]
+        [(list (? (curry set-member? (supported-list-ops tex-supported)) op) args ...)
+         (define-values (self-paren-level arg-paren-level) (precedence-levels op))
+         (define texed-args
+           (for/list ([arg args] [id (in-naturals 1)])
+             (texify arg ctx arg-paren-level (cons id loc))))
+         (format ; omit parens if parent contex has lower precedence
+          (if (precedence< parens self-paren-level) "~a" "\\left(~a\\right)")
+          (application->tex op texed-args))]))))
 
 ;; Exports
 

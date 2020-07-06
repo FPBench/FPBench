@@ -45,6 +45,14 @@
 
 ;; Compiler
 
+(define (fix-name name) ;; Imperative fix-name
+  (string-join
+   (for/list ([char (~a name)])
+     (if (regexp-match #rx"[a-zA-Z0-9_]" (string char))
+         (string char)
+         (format "_~a_" (char->integer char))))
+   ""))
+
 (define/match (variable->tex expr)
   [('l)       "\\ell"]
   [('eps)     "\\varepsilon"]
@@ -184,24 +192,29 @@
                  (texify (abs (imag-part expr)) ctx '+ loc))]
         [(or (list 'digits (? number?) (? number?) (? number?)) (? hex?) (? number?))
          (define expr*
-           (match expr
-             [(list digits m e b) (digits->number m e b)]
-             [(? hex?) (hex->racket expr)]
-             [_ expr]))
-         (match (string-split (string-trim (~a expr*) ".0") "e")
-           [(list "-inf.bf") "-\\infty"]
-           [(list "+inf.bf") "+\\infty"]
-           [(list num) num]
-           [(list significand exp)
-            (define num
-              (if (equal? significand "1")
-                  (format "10^{~a}" exp)
-                  (format "~a \\cdot 10^{~a}" significand exp)))
-            (if (precedence< parens #f) num (format "\\left( ~a \\right)" num))])]
+           (number->string
+            (match expr
+              [(list digits m e b) (digits->number m e b)]
+              [(? hex?) (hex->racket expr)]
+              [_ expr])))
+         (match expr*
+          [(or "+inf.0" "+inf.f") "+\\infty"]
+          [(or "-inf.0" "-inf.f") "-\\infty"]
+          [(or "+nan.0" "+nan.f") "\\mathsf{NaN}"]
+          [_  
+            (match (string-split expr* #rx"e|f")
+              [(list num) num]
+              [(list significand exp)
+                (define num
+                  (if (equal? significand "1")
+                      (format "10^{~a}" exp)
+                      (format "~a \\cdot 10^{~a}" significand exp)))
+                (if (precedence< parens #f) num (format "\\left( ~a \\right)" num))])])]
+
         [(? constant?) (constant->tex expr)]
         [(? symbol?) (variable->tex expr)]
         
-        [`(<= ,x -inf.0)
+        [`(<= ,x ,(or -inf.0 -inf.f))
          (texify `(== ,x -inf.0) ctx parens loc)]
         [(list (? (curry set-member? (supported-list-ops tex-supported)) op) args ...)
          (define-values (self-paren-level arg-paren-level) (precedence-levels op))
@@ -216,41 +229,44 @@
 
 ; Names are optional in TeX programs
 (define (core->tex prog [name ""] #:loc [color-loc #f] #:color [color "red"])
-  (define-values (args props body)
-    (match prog
-     [(list 'FPCore (list args ...) props ... body) (values args props body)]
-     [(list 'FPCore name (list args ...) props ... body) (values args props body)]))
-  (define ctx (ctx-update-props (make-compiler-ctx) (append '(:precision binary64 :round nearestEven) props)))
+  (parameterize ([*used-names* (mutable-set)] 
+                 [*gensym-collisions* 1] 
+                 [*gensym-fix-name* fix-name])
+    (define-values (args props body)
+      (match prog
+      [(list 'FPCore (list args ...) props ... body) (values args props body)]
+      [(list 'FPCore name (list args ...) props ... body) (values args props body)]))
+    (define ctx (ctx-update-props (make-compiler-ctx) (append '(:precision binary64 :round nearestEven) props)))
 
-  (define func-name 
-    (if (non-empty-string? name)
-        (let-values ([(cx fname) (ctx-unique-name ctx (string->symbol name))])
-          (set! ctx cx)
-          fname)
-        ""))
+    (define func-name 
+      (if (non-empty-string? name)
+          (let-values ([(cx fname) (ctx-unique-name ctx (string->symbol name))])
+            (set! ctx cx)
+            fname)
+          ""))
 
-  (define-values (arg-names arg-props)
-      (for/lists (n p) ([var args])
-        (match var
-          [(list '! props ... name) 
-            (values 
-                (let-values ([(cx name) (ctx-unique-name ctx name)])
-                            (set! ctx cx)
-                            name)
-                (apply hash-set* (ctx-props ctx) props))]
-          [name 
-            (values 
-                (let-values ([(cx name) (ctx-unique-name ctx name)])
-                            (set! ctx cx)
-                            name)
-                (ctx-props ctx))])))
+    (define-values (arg-names arg-props)
+        (for/lists (n p) ([var args])
+          (match var
+            [(list '! props ... name) 
+              (values 
+                  (let-values ([(cx name) (ctx-unique-name ctx name)])
+                              (set! ctx cx)
+                              name)
+                  (apply hash-set* (ctx-props ctx) props))]
+            [name 
+              (values 
+                  (let-values ([(cx name) (ctx-unique-name ctx name)])
+                              (set! ctx cx)
+                              name)
+                  (ctx-props ctx))])))
 
-  (define body* (expr->tex body ctx #:loc color-loc #:color color))
-  (if (non-empty-string? func-name)
-      (format "\\mathsf{~a}\\left(~a\\right) = ~a"
-              func-name
-              (string-join arg-names ", ")
-              body*)
-      body*))
+    (define body* (expr->tex body ctx #:loc color-loc #:color color))
+    (if (non-empty-string? func-name)
+        (format "\\mathsf{~a}\\left(~a\\right) = ~a\n"
+                func-name
+                (string-join arg-names ", ")
+                body*)
+        body*)))
 
 (define-compiler '("tex") (const "") core->tex (const "") tex-supported)

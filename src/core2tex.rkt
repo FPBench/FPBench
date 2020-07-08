@@ -202,7 +202,7 @@
           [(or "-inf.0" "-inf.f") "-\\infty"]
           [(or "+nan.0" "+nan.f") "\\mathsf{NaN}"]
           [_  
-            (match (string-split expr* #rx"e|f")
+            (match (string-split (string-trim expr* ".0") #rx"e|f")
               [(list num) num]
               [(list significand exp)
                 (define num

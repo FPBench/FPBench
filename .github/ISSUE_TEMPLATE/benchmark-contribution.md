@@ -7,14 +7,13 @@ assignees: ''
 
 ---
 
-**Please attach your benchmarks.**
-[FPCore format](https://fpbench.org/spec/fpcore-1.2.html) is ideal, but the FPBench project can convert small programs in other languages for you.
+**Attach your benchmarks**
 
-**References**
-Has the benchmark appeared in any published sources (research papers, books, software)?
+FPCore format is ideal, but we can convert from other languages for you in most cases.
 
-**Additional information**
-Please note any contextual information about the benchmark:
-- Example inputs, input ranges, other preconditions
-- A description of the mathematical process being implemented
-- The precision and math library assumed by the code
+**Context**
+
+- Has the benchmark appeared in any research papers, books, or software?
+- Do you have input ranges, preconditions, or example inputs?
+- Can you describe the underlying mathematics being implemented
+- What precision and math library was assumed by the code

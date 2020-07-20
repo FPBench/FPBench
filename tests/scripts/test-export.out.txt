@@ -159,32 +159,32 @@ fun ex0 (arg0 : word64) (arg1 : word64) = (Double.+ arg0 arg1) : word64;
 fun ex1 (arg0 : word64) = (Double.sqrt arg0) : word64;
 
 fun ex2 (arg0 : word64) (arg1 : word64) = 
-	let
-		val arg0_1 = arg1
-		val arg1_2 = arg0
-	in
-		(Double.- arg0_1 arg1_2)
-	end : word64;
+  let
+    val arg0_1 = arg1
+    val arg1_2 = arg0
+  in
+    (Double.- arg0_1 arg1_2)
+  end : word64;
 
 import daisy.lang._
 import Real._
 
 object main {
-	def `+`(arg0: Real, arg1: Real): Real = {
-		require(((1 < arg0 && arg0 < 10) && (1 < arg1 && arg1 < 10)))
-		(arg0 + arg1);
+	def ex0(arg0: Real, arg1: Real): Real = {
+		require(((1.0 < arg0 && arg0 < 10.0) && (1.0 < arg1 && arg1 < 10.0)))
+		(arg0 + arg1)
 	}
 
-	def `sqrt`(arg0: Real): Real = {
-		require((0 < arg0 && arg0 < 10))
-		sqrt(arg0);
+	def ex1(arg0: Real): Real = {
+		require((0.0 < arg0 && arg0 < 10.0))
+		sqrt(arg0)
 	}
 
-	def `let`(arg0: Real, arg1: Real): Real = {
-		require(((1 < arg0 && arg0 < 10) && (1 < arg1 && arg1 < 10)))
-		val arg0_1 : Real = arg1
-		val arg1_1 : Real = arg0
-		(arg0_1 - arg1_1);
+	def ex2(arg0: Real, arg1: Real): Real = {
+		require(((1.0 < arg0 && arg0 < 10.0) && (1.0 < arg1 && arg1 < 10.0)))
+		val arg0_1: Real = arg1
+		val arg1_2: Real = arg0
+		(arg0_1 - arg1_2)
 	}
 
 }

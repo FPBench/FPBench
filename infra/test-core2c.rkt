@@ -74,7 +74,7 @@
 (define (c-format-output result)
   (format "~a" result))
 
-(define c-tester (tester "c" compile->c run<-c c-equality c-format-args c-format-output c-supported))
+(define c-tester (tester "c" compile->c run<-c c-equality c-format-args c-format-output (const #t) c-supported #f))
 
 ; Command line
 (module+ main (parameterize ([*tester* c-tester])

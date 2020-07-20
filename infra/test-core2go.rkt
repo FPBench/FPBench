@@ -59,7 +59,7 @@
 (define (go-format-output result)
   (format "~a" result))
 
-(define go-tester (tester "go" compile->go run<-go go-equality go-format-args go-format-output go-supported))
+(define go-tester (tester "go" compile->go run<-go go-equality go-format-args go-format-output (const #t) go-supported #f))
 
 ; Command line
 (module+ main (parameterize ([*tester* go-tester])

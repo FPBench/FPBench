@@ -1,177 +1,132 @@
 #lang racket
 
-(require "common.rkt" "fpcore-checker.rkt" "supported.rkt")
-(provide scala-header scala-footer core->scala scala-supported)
+(require math/bigfloat)
+(require "common.rkt" "compilers.rkt" "imperative.rkt" "range-analysis.rkt" "supported.rkt")
+(provide scala-header scala-footer core->scala scala-supported *scala-suppress* *scala-prec-file*)
+
+(define *scala-suppress* (make-parameter #f))
+(define *scala-prec-file* (make-parameter #f))
+
+(define scala-header (λ (x) (format "import daisy.lang._\nimport Real._\n\nobject ~a {\n" x)))
+(define scala-footer (const "}\n"))
 
 (define scala-supported
   (supported-list
-   (invert-op-list '(! cast))
-   (invert-const-list '())
-   '(binary32 binary64)
+   '(+ - * / sqrt sin cos tan asin acos atan exp log fma      ;; pow has partial support
+     < > <= >= == != and or not
+     if let let* digits !)          ;; benchmarks with if statements break with --mixed-precision flag
+   '(TRUE FALSE)
+   '(binary32 binary64 binary128 binary256)          
    '(nearestEven)))
 
-(define (fix-name name)
-  (string-join
-   (for/list ([char (~a name)])
-     (if (regexp-match #rx"[a-zA-Z0-9_]" (string char))
-         (string char)
-         (format "$~a$" (char->integer char))))
-   ""))
-
-(define (application->scala operator args)
-  (match (cons operator args)
-    [(list '- a)
-     (format "-~a" a)]
-    [(list 'not a)
-     (format "!~a" a)]
-    [(list (or '+ '- '* '/) a b)
-     (format "(~a ~a ~a)" a operator b)]
-    [(list (or '== '!= '< '> '<= '>=))
-     "TRUE"]
-    [(list (or '== '< '> '<= '>=) head args ...)
-     (format "(~a)"
-             (string-join
-              (for/list ([a (cons head args)] [b args])
-                (format "~a ~a ~a" a operator b))
-              " && "))]
-    [(list '!= args ...)
-     (format "(~a)"
-             (string-join
-              (let loop ([args args])
-                (if (null? args)
-                    '()
-                    (append
-                     (for/list ([b (cdr args)])
-                       (format "~a != ~a" (car args) b))
-                     (loop (cdr args)))))
-              " && "))]
-    [(list 'and as ...)
-     (format "(~a)" (string-join as " && "))]
-    [(list 'or as ...)
-     (format "(~a)" (string-join as " || "))]
-    [(list (? operator? f) args ...)
-     (format "~a(~a)" f (string-join args ", "))]))
+(define scala-reserved '())
 
 (define/match (type->scala type)
-  [('binary64) "Double"]
-  [('binary32) "Float"])
+  [('binary256) "QuadDouble"]
+  [('binary128) "Quad"]
+  [('binary64) "Float64"]
+  [('binary32) "Float32"])
 
-(define *names* (make-parameter (mutable-set)))
+(define (operator->scala props op args)
+  (match op
+    ['/   (format "(~a / ~a)" (first args) (second args))]
+    [_    (format "~a(~a)" op (string-join args ", "))]))
 
-(define (dict-remove-many bindings vars)
-  (for/fold ([bindings bindings]) ([var vars])
-    (dict-remove bindings var)))
-
-(define (gensym name)
-  (define prefixed
-    (filter (λ (x) (string-prefix? (~a x) (~a name))) (set->list (*names*))))
-  (define options
-    (cons name (for/list ([_ prefixed] [i (in-naturals)]) (string->symbol (format "~a_~a" name (+ i 1))))))
-  (define name*
-    (car (set-subtract options prefixed)))
-  (set-add! (*names*) name*)
-  name*)
-
-(define (expr->scala expr #:names [names #hash()] #:indent [indent "\t"])
-  ;; Takes in an expression. Returns an expression and a new set of names
+(define (constant->scala props expr)
+  (define prec (dict-ref props ':precision 'binary64))
   (match expr
-    [`(let ([,vars ,vals] ...) ,body)
-     (define vars* (map gensym vars))
-     (for ([var vars] [var* vars*] [val vals])
-       (printf "~aval ~a : Real = ~a\n" indent (fix-name var*)
-               (expr->scala val #:names names #:indent indent)))
-     (define names*
-       (for/fold ([names* names]) ([var vars] [var* vars*])
-         (dict-set names* var var*)))
-     (expr->scala body #:names names* #:indent indent)]
-    [`(if ,cond ,ift ,iff)
-     (define test (expr->scala cond #:names names #:indent indent))
-     (define outvar (gensym 'temp))
-     (printf "~avar ~a : Real = 0.0\n" indent (fix-name outvar))
-     (printf "~aif (~a) {\n" indent test)
-     (printf "~a\t~a = ~a\n" indent (fix-name outvar)
-             (expr->scala ift #:names names #:indent (format "~a\t" indent)))
-     (printf "~a} else {\n" indent)
-     (printf "~a\t~a = ~a\n" indent (fix-name outvar)
-             (expr->scala iff #:names names #:indent (format "~a\t" indent)))
-     (printf "~a}\n" indent)
-     (fix-name outvar)]
-    [`(while ,cond ([,vars ,inits ,updates] ...) ,retexpr)
-     (define vars* (map gensym vars))
-     (for ([var vars] [var* vars*] [val inits])
-       (printf "~avar ~a : Real = ~a\n" indent (fix-name var*)
-               (expr->scala val #:names names #:indent indent)))
-     (define names*
-       (for/fold ([names* names]) ([var vars] [var* vars*])
-         (dict-set names* var var*)))
-     (define test-var (gensym 'test))
-     (printf "~avar ~a : Boolean = ~a\n" indent (fix-name test-var)
-             (expr->scala cond #:names names* #:indent indent))
-     (printf "~awhile (~a) {\n" indent test-var)
-     (define temp-vars (map gensym vars))
-     (for ([temp-var temp-vars] [update updates])
-       (printf "~a\tval ~a : Real = ~a\n" indent (fix-name temp-var)
-               (expr->scala update #:names names* #:indent (format "~a\t" indent))))
-     (for ([var* vars*] [temp-var temp-vars])
-       (printf "~a\t~a = ~a\n" indent (fix-name var*) (fix-name temp-var)))
-     (printf "~a\t~a = ~a\n" indent (fix-name test-var)
-             (expr->scala cond #:names names* #:indent (format "~a\t" indent)))
-     (printf "~a}\n" indent)
-     (expr->scala retexpr #:names names* #:indent indent)]
-    [(list (? operator? operator) args ...)
-     (define args_c
-       (map (λ (arg) (expr->scala arg #:names names #:indent indent)) args))
-     (application->scala operator args_c)]
-    [(? constant?)
-     (format "~a" expr)]
-    [(? symbol?)
-     (fix-name (dict-ref names expr expr))]
+    [(or 'TRUE 'FALSE) (string-downcase (~a expr))]
+    [(? hex?) (hex->racket expr)]
     [(? number?)
-     (if (= expr (round expr))
-         (format "~a" (round expr))
-         (format "~a" (real->double-flonum expr)))]))
+      (match prec
+        ['binary128  (parameterize ([bf-precision 237]) 
+                        (format "~a" (bigfloat->string (bf expr))))]
+        ['binary128  (parameterize ([bf-precision 113]) 
+                        (format "~a" (bigfloat->string (bf expr))))]
+        [_          (format "~a" (real->double-flonum expr))])]
+    [_  expr]))
 
-(define (unroll-loops expr n)
-  (match expr
-    [`(let ([,vars ,vals] ...) ,body)
-     `(let (,@(for/list ([var vars] [val vals]) (list var (unroll-loops val n))))
-        ,(unroll-loops body n))]
-    [`(if ,cond ,ift ,iff)
-     `(if ,(unroll-loops cond n) ,(unroll-loops ift n) ,(unroll-loops iff n))]
-    [`(while ,cond ([,vars ,inits ,updates] ...) ,retexpr)
-     `(let (,@(map list vars inits))
-        ,(if (= n 0)
-             retexpr
-             (unroll-loops `(while ,cond (,@(map list vars updates updates)) ,retexpr)
-                           (- n 1))))]
-    [`(,(? operator? op) ,args ...)
-     (cons op (map (curryr unroll-loops n) args))]
-    [(? constant?) expr]
-    [(? number?) expr]
-    [(? symbol?) expr]))
+(define (declaration->scala props var [val 0])
+  (define type (type->scala (dict-ref props ':precision 'binary64)))
+  (fprintf (*scala-prec-file*) "\t~a: ~a\n" var type)
+  (format "val ~a: Real = ~a" var val))
 
-(define scala-header "import daisy.lang._\nimport Real._\n\nobject ~a {\n")
-(define scala-footer "}\n")
+(define (assignment->scala var val)
+  (error 'assignment->scala "Daisy compiler using 'val'. Therefore, it does not support assignment"))
+
+(define (round->scala val props) (~a val)) ; round(val) = val
+
+;; Precondition checking
+
+(define (expand-precond pre)
+  (match pre
+   [`(let ([,vars ,vals] ...) ,body) 
+    `(let (,@(map list vars vals)) ,(expand-precond body))]
+   [(list (or 'and 'or) args ...)
+    `(,(car pre) ,@(map expand-precond args))]
+   [(list 'not arg) 
+    `(not ,(expand-precond arg))]
+   [(list (or '> '< '>= '<= '!=) args ...)
+    `(,(car pre) ,@args)]
+   [(list '== args ...)
+    (cons
+      'and
+      (let loop ([args args])
+        (cond
+         [(null? args)  '()]
+         [(append
+            (for/fold ([exprs '()]) ([b (cdr args)])
+              (append exprs (list (list '<= b (car args)) (list '<= (car args) b))))
+            (loop (cdr args)))])))]))
+
+(define (precond->scala pre args ctx) 
+  (define var-ranges 
+    (let ([var-ranges (condition->range-table pre)])
+      (for/hash ([key (hash-keys var-ranges)])
+        (values (ctx-lookup-name ctx key) (hash-ref var-ranges key)))))
+  (define pre* (expand-precond pre))
+  (define valid?
+    (for/and ([var args])
+      (let ([val (hash-ref var-ranges var #f)])
+        (if val (nonempty-bounded? val) #f))))
+  (unless (or valid? (*scala-suppress*))
+    (printf "Removed invalid precondition: ~a\n" pre))
+  (if valid?
+      (format "\t\trequire(~a)\n" (convert-expr pre* #:ctx ctx #:indent "\t\t"))
+      (format "\t\t// Invalid precondition: ~a\n" pre)))
+
+;;
+
+(define (function->scala name args arg-props body return ctx vars)
+  (define type (type->scala (ctx-lookup-prop ctx ':precision 'binary64)))
+  (define arg-list
+    (for/list ([arg args])
+      (fprintf (*scala-prec-file*) "\t~a: ~a\n" arg type)
+      (format "~a: Real" arg)))
+  (define precond
+    (let ([pre 
+            (if (hash-has-key? (ctx-props ctx) ':daisy-pre)
+                (ctx-lookup-prop ctx ':daisy-pre #f)
+                (ctx-lookup-prop ctx ':pre #f))])
+      (if pre (precond->scala pre args ctx) "")))
+  (format "\tdef ~a(~a): Real = {\n~a~a\t\t~a\n\t}\n"
+          name
+          (string-join arg-list ", ")
+          precond
+          body
+          return))
+
+(define scala-language (language "scala" operator->scala constant->scala declaration->scala assignment->scala round->scala (const "") function->scala))
+
+;;; Exports
 
 (define (core->scala prog name)
-  (define-values (args props body)
-   (match prog
-    [(list 'FPCore (list args ...) props ... body) (values args props body)]
-    [(list 'FPCore name (list args ...) props ... body) (values args props body)]))
-  (define-values (_ properties) (parse-properties props))
+  (parameterize ([*lang* scala-language]  
+                 [*reserved-names* scala-reserved]
+                 [*fix-name-format* "_~a"])
+    (fprintf (*scala-prec-file*) "~a = {\n" name)
+    (let ([core* (convert-core prog name)])
+      (fprintf (*scala-prec-file*) "}\n")
+      core*)))
 
-  (define arg-strings
-    (for/list ([var args])
-      (format "~a: Real" (fix-name (if (list? var) (car var) var)))))
-  (with-output-to-string
-    (λ ()
-      (printf "\tdef ~a(~a): Real = {\n"
-        (if (dict-has-key? properties ':name)
-            (format "`~a`" (string-replace (string-replace (dict-ref properties ':name) "\\" "\\\\") "`" "'"))
-            name)
-        (string-join arg-strings ", "))
-      (parameterize ([*names* (apply mutable-set args)])
-        (when (dict-has-key? properties ':pre)
-          (printf "\t\trequire(~a)\n" (expr->scala (dict-ref properties ':pre) #:indent "\t\t")))
-        (printf "\t\t~a;\n" (expr->scala body #:indent "\t\t")))
-      (printf "\t}\n"))))
+(define-compiler '("scala") scala-header core->scala scala-footer scala-supported)

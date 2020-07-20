@@ -70,17 +70,17 @@
   (format "val ~a = ~a" var val))
 
 (define (let->cml vars vals body indent nested)
-  (format "let\n~a\t~a\n~ain\n~a\t~a\n~aend" 
+  (format "let\n~a  ~a\n~ain\n~a  ~a\n~aend" 
     indent
     (string-join
       (for/list ([var vars] [val vals])
         (declaration->cml var val))
-      (format "\n\t~a" indent))
+      (format "\n  ~a" indent))
     indent indent body indent)) ; todo fix
 
 (define (if->cml cond ift iff tmp indent)
-  (format "let\n~a\tval ~a =\n~a\t\tif ~a\n~a\t\tthen ~a\n~a\t\telse ~a\n~ain\n~a\t~a\n~aend"
-          indent tmp indent cond indent ift indent iff indent indent tmp indent))
+  (format "if ~a\n~athen ~a\n~aelse ~a\n"
+          cond indent ift indent iff))
 
 (define (while->cml vars inits cond updates updatevars body loop indent nested)
   (define loopdef
@@ -90,19 +90,19 @@
         (for/list ([var vars])
           (format "~a" var))
         " ")))
-  (format "let\n~a\t~a\n\t~afun ~a =\n\t\t~aif ~a\n~a\t\tthen ~a\n~a\t\telse ~a\n~ain\n~a\t~a\n~aend"
+  (format "let\n~a  ~a\n  ~afun ~a =\n    ~aif ~a\n~a    then ~a\n~a    else ~a\n~ain\n~a  ~a\n~aend"
       indent
       (string-join
         (for/list ([var vars] [val inits])
           (declaration->cml var val))
-        (format "\n\t~a" indent))
+        (format "\n  ~a" indent))
       indent loopdef indent cond indent
-      (format "\n\t\t\t~alet\n\t\t\t\t~a~a\n\t\t\t~ain\n\t\t\t\t~a~a ~a\n\t\t\t~aend"
+      (format "\n      ~alet\n        ~a~a\n      ~ain\n        ~a~a ~a\n      ~aend"
           indent indent
           (string-join
             (for/list ([updatevar updatevars] [update updates])
               (declaration->cml updatevar update))
-            (format "\n~a\t\t\t\t" indent))
+            (format "\n~a        " indent))
           indent indent loop 
           (string-join
             (for/list ([updatevar updatevars])
@@ -119,7 +119,7 @@
           name
           (if (empty? args) "()" (string-join arg-list " "))
           (if (or (string-prefix? body "if") (string-prefix? body "let"))
-            (format "\n\t~a" body)
+            (format "\n  ~a" body)
             body)))
 
 (define cml-language (functional "cml" application->cml constant->cml declaration->cml let->cml if->cml while->cml function->cml))

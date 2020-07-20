@@ -42,7 +42,7 @@
 (define (js-format-output result)
   (format "~a" result))
 
-(define js-tester (tester "js" compile->js run<-js js-equality js-format-args js-format-output js-supported))
+(define js-tester (tester "js" compile->js run<-js js-equality js-format-args js-format-output (const #t) js-supported #f))
 
 ;; TODO: Add types
 (module+ main (parameterize ([*tester* js-tester])

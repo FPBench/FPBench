@@ -139,7 +139,7 @@
         body
         return))
 
-(define sollya-language (language (const "sollya") operator->sollya constant->sollya declaration->sollya assignment->sollya
+(define sollya-language (language "sollya" operator->sollya constant->sollya declaration->sollya assignment->sollya
                                   round->sollya (const "") function->sollya))
 
 ;;; Exports

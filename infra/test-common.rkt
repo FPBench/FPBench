@@ -2,7 +2,8 @@
 
 (require math/flonum racket/extflonum math/bigfloat)
 (require "../src/common.rkt" "../src/fpcore-reader.rkt" "../src/fpcore-interpreter.rkt" "../src/range-analysis.rkt" "../src/sampler.rkt" "../src/supported.rkt")
-(provide tester *tester* test-core *prog* *ignore-by-run*)
+(provide tester *tester* test-core run-with-time-limit
+         *prog* *ignore-by-run* *last-run* *tool-time-limit*)
 
 (module+ test
   (require rackunit))
@@ -19,25 +20,55 @@
 (define suppress-failures (make-parameter #f))
 (define *ignore-by-run* (make-parameter #f))  ; list of booleans that specify if a specific run should be ignored
 (define *prog* (make-parameter #f))   ; interpreted languages can store converted core here
+(define *last-run* (make-parameter #f))
+(define *tool-time-limit* (make-parameter 30)) ; tool run time limit
 
 ; Common test structure
-(struct tester (name compile run equality format-args format-output supported))
+(struct tester (name compile run equality format-args format-output filter supported run-once?))
 (define *tester* (make-parameter #f))
 
 (define (compile-test prog ctx type test-file)
   ((tester-compile (*tester*)) prog ctx type test-file))
 
 (define (run-test exec-name ctx type number)
-  ((tester-run (*tester*)) exec-name ctx type number))
+  (cond
+    [(and (tester-run-once? (*tester*)) (zero? number))
+      (let ([res ((tester-run (*tester*)) exec-name ctx type number)])
+        (*last-run* res)
+        res)]
+    [(tester-run-once? (*tester*)) (*last-run*)]
+    [else ((tester-run (*tester*)) exec-name ctx type number)]))
 
 (define (format-args var val type)
   ((tester-format-args (*tester*)) var val type))
 
 (define (format-output result)
   ((tester-format-output (*tester*)) result))
+  
+(define (filter-core prog)    ; allows a tester to reject an fpcore based on precondition, property, etc.
+  ((tester-filter (*tester*)) prog))
 
 (define (=* a b [ignore? #f])
   ((tester-equality (*tester*)) a b (ulps) ignore?))
+
+;;; Misc
+
+(define (run-with-time-limit exe args [time-limit (*tool-time-limit*)])
+  (define t0 (current-seconds))
+  (define-values (p stdout stdin stderr)
+    (subprocess #f #f #f (find-executable-path exe) args))
+  (close-output-port stdin)
+  (let loop ()
+    (cond
+      [(integer? (subprocess-status p))
+        (define p* (input-port-append #t stdout stderr))
+        (port->string p* #:close? #t)]
+      [(> (- (current-seconds) t0) time-limit)
+        (subprocess-kill p #t)
+        "timeout"]
+      [else
+        (sleep 1)
+        (loop)])))
   
 ;;; Evaluator
 
@@ -89,9 +120,10 @@
   (when (and (verbose) (quiet)) 
       (error "Verbose and quiet flags cannot be both set"))
   (define err 0)
+  (define ignored 0)
   (when (equal? (test-file) #f) (test-file default-file))
   (for ([prog (in-port (curry read-fpcore source) curr-in-port)]
-        #:when (valid-core prog (tester-supported (*tester*))))
+        #:when (and (valid-core prog (tester-supported (*tester*))) (filter-core prog)))   
    (parameterize ([*ignore-by-run* (make-list (tests-to-run) #f)])
     (define-values (vars props* body)
      (match prog
@@ -163,9 +195,15 @@
                 result]))
           (when (equal? out 'timeout)
             (set! timeout (+ timeout 1)))
-          (define out* (if (equal? out 'timeout) 
-                            (cons 'timeout "") 
-                            (run-test exec-name ctx type i)))
+          (define out*
+            (if (equal? out 'timeout) 
+                (cons 'timeout "")
+                (let ([out* (run-test exec-name ctx type i)])
+                  (if (equal? (car out*) 'timeout)
+                      (begin
+                        (set! timeout (+ timeout 1))
+                        (cons 'timeout ""))
+                      out*))))
           (when (equal? (tester-name (*tester*)) "wls")
             (when (and (not (equal? out 'timeout)) (not (nan? out)) (nan? (car out*)))
               (set! nans (+ nans 1))))
@@ -190,6 +228,7 @@
             [1 " (1 nan)"]
             [_ (format " (~a nans)" nans)])))
       (set! err (+ err (- result-len successful)))
+      (set! ignored (+ ignored (for/sum ([ignore? (*ignore-by-run*)]) (if ignore? 1 0))))
       (for ([i (in-naturals 1)] [x (in-list results)] [ignore? (*ignore-by-run*)])
         (define test-passed (=* (second x) (car (third x)) ignore?))
         (unless (and (not (verbose)) test-passed)
@@ -197,6 +236,8 @@
                   i (if test-passed "Pass" "Fail") (second x)                          
                   (format-output (if (exact-out) (cdr (third x)) (car (third x))))
                   (string-join (map (λ (p) (format-args (car p) (cdr p) type)) (first x)) ", ")))))))
+  (unless (zero? ignored)
+    (printf "Ignored: ~a\n" ignored))
   (cond
    [(and (suppress-failures) (> err 0))
       (printf "Suppressing failures. Total failed: ~a\n" err)

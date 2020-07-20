@@ -131,6 +131,7 @@
  :name "NMSE example 3.10"
  :cite (hamming-1987 herbie-2015)
  :fpbench-domain textbook
+ :daisy-pre (< -0.99 x 0.99)
  :pre (< -1 x 1)
  (/ (log (- 1 x)) (log (+ 1 x))))
   

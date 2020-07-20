@@ -62,7 +62,7 @@
 ; Takes a fix-name procedure and returns the updated context struct and a "random", unique, printable name
 ; that will be unmapped, but it's precision is mapped.
 (define (ctx-random-name ctx)
-  (let ([name (gensym 'VAR)]
+  (let ([name (gensym 'tmp)]
         [prec (dict-ref (compiler-ctx-props ctx) ':precision 'binary64)])
     (values
       (compiler-ctx (compiler-ctx-name-map ctx) 

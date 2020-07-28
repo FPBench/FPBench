@@ -5,13 +5,10 @@
 
 (define tex-supported 
   (supported-list
-    (append 
-     '(j0 j1 y0 y1 rint)
-      (invert-op-list '(let let* while while* for for* tensor tensor*
-                       array dim ref size)))
-    '(PI E INFINITY NAN TRUE FALSE)
-    '(binary32 binary64)       ;; TODO: 'any precision' 
-    (invert-round-modes-list '(nearestAway))))
+    (const #t)
+    (curry set-member? '(PI E INFINITY NAN TRUE FALSE))
+    (const #t)
+    ieee754-rounding-modes))
 
 ;;
 ;;  This compiler is adapted from Herbie

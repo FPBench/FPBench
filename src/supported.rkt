@@ -1,39 +1,40 @@
 #lang racket
 (require "common.rkt" "fpcore-checker.rkt")
 (provide valid-core unsupported-features 
-         invert-op-list invert-const-list invert-round-modes-list
+         invert-op-proc invert-const-proc invert-rnd-mode-proc
          ieee754-ops ieee754-rounding-modes fpcore-ops fpcore-consts
          operators-in constants-in property-values round-modes-in variables-in-expr)
 
 (provide
   (contract-out
     [struct supported-list
-     ([ops (listof symbol?)]
-      [consts (listof symbol?)]
-      [precisions (listof symbol?)]
-      [round-modes (listof symbol?)])]))
+     ([ops (-> symbol? boolean?)]
+      [consts (-> symbol? boolean?)]
+      [precisions (-> symbol? boolean?)]
+      [round-modes (-> symbol? boolean?)])]))
 
-;;; Predefined supported lists
+;;; Predefined supported procs
 
-(define ieee754-ops '(+ - * / < > <= >= == != fabs fma sqrt))
-(define ieee754-rounding-modes '(nearestEven nearestAway toPositive toNegative toZero))
+(define ieee754-ops (curry set-member? '(+ - * / < > <= >= == != fabs fma sqrt)))
+(define ieee754-rounding-modes 
+  (curry set-member? '(nearestEven nearestAway toPositive toNegative toZero)))
 
-(define fpcore-ops (append operators '(! if let let* while while* digits)))
-(define fpcore-consts constants) ; same as "constants" in common.rkt
+(define fpcore-ops (curry set-member? (append operators '(! if let let* while while* digits))))
+(define fpcore-consts (curry set-member? constants)) ; same as "constants" in common.rkt
 
 ;;; Blacklist <==> Whitelist
 
-(define (invert-op-list list)
-  (-> (listof symbol?) (listof symbol?))
-  (set-subtract fpcore-ops list))
+(define (invert-op-proc proc)
+  (-> (-> symbol? boolean?) (-> symbol? boolean?))
+  (conjoin (negate proc) fpcore-ops))
 
-(define (invert-const-list list)
-  (-> (listof symbol?) (listof symbol?))
-  (set-subtract constants list))
+(define (invert-const-proc proc)
+  (-> (-> symbol? boolean?) (-> symbol? boolean?))
+  (conjoin (negate proc) fpcore-consts))
 
-(define (invert-round-modes-list list)
-  (-> (listof symbol?) (listof symbol?))
-  (set-subtract ieee754-rounding-modes list))
+(define (invert-rnd-mode-proc proc)
+  (-> (-> symbol? boolean?) (-> symbol? boolean?))
+  (conjoin (negate proc) ieee754-rounding-modes))
 
 ;;; Core checking
 
@@ -41,23 +42,21 @@
 
 (define (valid-core core supp)
   (define core-prec (dict-ref (property-values core) ':precision #f))
-  (define supp-prec (supported-list-precisions supp))
-  (and  (subset? (operators-in core) (supported-list-ops supp))
-        (subset? (constants-in core) (supported-list-consts supp))
-        (subset? (round-modes-in core) (supported-list-round-modes supp))  
-        (or 
-          (equal? core-prec #f)
-          (andmap (lambda (e) (set-member? supp-prec e)) (set->list core-prec)))))
+  (and (andmap (supported-list-ops supp) (operators-in core))
+       (andmap (supported-list-consts supp) (constants-in core))
+       (andmap (supported-list-round-modes supp) (round-modes-in core))
+       (or (not core-prec)
+           (andmap (supported-list-precisions supp) (set->list core-prec)))))
 
 (define (unsupported-features core supp)
   (define core-prec (dict-ref (property-values core) ':precision #f))
   (set-union
-    (set-subtract (operators-in core) (supported-list-ops supp))
-    (set-subtract (constants-in core) (supported-list-consts supp))
-    (set-subtract (round-modes-in core) (supported-list-round-modes supp))
-    (if (equal? core-prec #f) 
-        '()
-        (set-subtract (set->list core-prec) (supported-list-precisions supp)))))
+    (filter-not (supported-list-ops supp) (operators-in core))
+    (filter-not (supported-list-consts supp) (constants-in core))
+    (filter-not (supported-list-round-modes supp) (round-modes-in core))
+    (if core-prec
+        (filter-not (supported-list-precisions supp) (set->list core-prec))
+        '())))
 
 (define/contract (operators-in-expr expr)
   (-> expr? (listof symbol?))

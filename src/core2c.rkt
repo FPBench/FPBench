@@ -5,11 +5,12 @@
 (provide c-header core->c c-supported)
 
 (define c-header (const "#include <fenv.h>\n#include <math.h>\n#include <stdint.h>\n#define TRUE 1\n#define FALSE 0\n\n"))
-(define c-supported (supported-list
-  fpcore-ops
-  fpcore-consts
-  '(binary32 binary64 binary80 integer)
-  (invert-round-modes-list '(nearestAway))))
+(define c-supported 
+  (supported-list
+    fpcore-ops
+    fpcore-consts
+    (curry set-member? '(binary32 binary64 binary80 integer))
+    (invert-rnd-mode-proc (curry equal? 'nearestAway))))
 
 (define c-reserved '())  ; Language-specific reserved names (avoid name collisions)
 

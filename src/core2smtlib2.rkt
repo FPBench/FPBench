@@ -4,13 +4,15 @@
 (require "common.rkt" "compilers.rkt" "supported.rkt")
 (provide core->smtlib2 smt-supported rm->smt number->smt)
 
-(define smt-supported (supported-list
-  (invert-op-list '(while* while exp exp2 expm1 log log10 log2 log1p pow cbrt
-                    hypot sin cos tan asin acos atan atan2 sinh cosh tanh asinh acosh 
-                    atanh erf erfc tgamma lgamma ceil floor fmod fdim copysign isfinite))
-  (invert-const-list '(LOG2E LOG10E M_1_PI M_2_PI M_2_SQRTPI))
-  '(binary32 binary64)
-   ieee754-rounding-modes))
+(define smt-supported 
+  (supported-list
+    (invert-op-proc 
+      (curry set-member? '(while* while exp exp2 expm1 log log10 log2 log1p pow cbrt
+                           hypot sin cos tan asin acos atan atan2 sinh cosh tanh asinh acosh 
+                           atanh erf erfc tgamma lgamma ceil floor fmod fdim copysign isfinite)))
+    (invert-const-proc (curry set-member? '(LOG2E LOG10E M_1_PI M_2_PI M_2_SQRTPI)))
+    (curry set-member? '(binary32 binary64))
+    ieee754-rounding-modes))
 
 (define smt-reserved '())  ; Language-specific reserved names (avoid name collisions)
 

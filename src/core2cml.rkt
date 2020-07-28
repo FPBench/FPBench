@@ -4,10 +4,11 @@
 (provide core->cml cml-supported)
 
 (define cml-supported (supported-list
-   (append (set-subtract ieee754-ops '(fma)) '(! if let let* while while* not and or digits)) 
-  '(TRUE FALSE INFINITY NAN)
-  '(binary64)
-  '(nearestEven))) ; bool
+  (disjoin ieee754-ops (negate (curry equal? 'fma))
+           (curry set-member? '(! if let let* while while* not and or digits)))
+  (curry set-member? '(TRUE FALSE INFINITY NAN))
+  (curry equal? 'binary64)
+  (curry equal? 'nearestEven))) ; bool
 
 (define cml-reserved '()) ; Language-specific reserved names (avoid name collisions)
 

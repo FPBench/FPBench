@@ -3,11 +3,13 @@
 (require "common.rkt" "compilers.rkt" "imperative.rkt" "supported.rkt")
 (provide core->sollya sollya-supported sollya-header *sollya-warnings*)
 
-(define sollya-supported (supported-list
-  (invert-op-list '(isnormal tgamma lgamma remainder fmod round cbrt atan2 erf signbit))
-  fpcore-consts
-  '(binary32 binary64 binary80 integer)
-  ieee754-rounding-modes))
+(define sollya-supported 
+  (supported-list
+    (invert-op-proc 
+      (curry set-member? '(isnormal tgamma lgamma remainder fmod round cbrt atan2 erf signbit)))
+    fpcore-consts
+    (curry set-member? '(binary32 binary64 binary80 integer))
+    ieee754-rounding-modes))
 
 (define *sollya-warnings* (make-parameter #t))
 

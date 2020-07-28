@@ -17,11 +17,12 @@
       go-func-header)))
                    
 
-(define go-supported (supported-list
-   (invert-op-list '(isnormal isfinite)) 
-   (invert-const-list '(M_1_PI M_2_PI M_2_SQRTPI SQRT1_2))
-   '(binary64)
-   '(nearestEven)))
+(define go-supported 
+  (supported-list
+    (invert-op-proc (curry set-member? '(isnormal isfinite)))
+    (invert-const-proc (curry set-member? '(M_1_PI M_2_PI M_2_SQRTPI SQRT1_2)))
+    (curry equal? 'binary64)
+    (curry equal? 'nearestEven)))
 
 (define go-reserved '()) ; Language-specific reserved names (avoid name collisions)
 

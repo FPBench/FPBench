@@ -35,7 +35,7 @@
     ['isfinite  (format "isfinite(~a)" args)]
     ['isnormal  (format "isnormal(~a)" args)]
     ['signbit   (format "signbit(~a)" args)]
-    [_          (format "((~a) ~a~a(~a))" type op (type->c-suffix type) (string-join args ", "))]))
+    [_          (format "~a~a(~a)" op (type->c-suffix type) (string-join args ", "))]))
 
 (define (constant->c props expr)
   (define prec (dict-ref props ':precision 'binary64))
@@ -82,10 +82,10 @@
   (if (equal? rnd-mode 'nearestEven) ; if not 'nearestEven, set round mode, then restore the original mode
       (format "~a ~a(~a) {\n~a\treturn ~a;\n}\n"
               type name (string-join (map (λ (arg) (format "~a ~a" type arg)) args) ", ")
-              body return)
+              body (trim-infix-parens return))
       (format "~a ~a(~a) {\n~a~a\t~a ~a = ~a;\n~a\treturn ~a;\n}\n"    
               type name (string-join (map (λ (arg) (format "~a ~a" type arg)) args) ", ")
-              (round-mode->c rnd-mode "\t") body type ret-var return        
+              (round-mode->c rnd-mode "\t") body type ret-var (trim-infix-parens return)      
               (round-mode->c 'nearestEven "\t") ret-var)))
 
 (define c-language (language "c" operator->c constant->c declaration->c assignment->c

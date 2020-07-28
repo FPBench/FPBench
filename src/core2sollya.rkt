@@ -137,7 +137,7 @@
         var-string
         rounding-string
         body
-        return))
+        (trim-infix-parens return)))
 
 (define sollya-language (language "sollya" operator->sollya constant->sollya declaration->sollya assignment->sollya
                                   round->sollya (const "") function->sollya))

@@ -9,21 +9,29 @@
 (define *lang* (make-parameter #f))
 
 (define (convert-operator ctx operator args)
-  ((language-operator (*lang*)) (ctx-props ctx) operator args))
+  (define args*
+    (if (= (length args) 1)
+        (list (trim-infix-parens (first args)))
+        args))
+  ((language-operator (*lang*)) (ctx-props ctx) operator args*))
 
 (define (convert-constant ctx expr)
   ((language-constant (*lang*)) (ctx-props ctx) expr))
 
 (define (convert-declaration ctx var [val #f])
+  (define val* (if (string? val) (trim-infix-parens val) val))
   (if (equal? (language-name (*lang*)) "sollya")
-    ((language-assignment (*lang*)) var val)
-    ((language-declaration (*lang*)) (ctx-props ctx) var val)))
+      ((language-assignment (*lang*)) var val*)
+      ((language-declaration (*lang*)) (ctx-props ctx) var val*)))
     
 (define (convert-assignment var val)
-  ((language-assignment (*lang*)) var val))
+  (define val* (if (string? val) (trim-infix-parens val) val))
+  ((language-assignment (*lang*)) var val*))
 
-(define (round-expr val ctx) ; Sollya will never ignore but C can
-  ((language-round (*lang*)) val (ctx-props ctx)))
+(define (round-expr expr ctx [all? #f]) ; Sollya will never ignore but C can
+  (if (or all? (equal? (language-name (*lang*)) "sollya"))
+      ((language-round (*lang*)) (trim-infix-parens expr) (ctx-props ctx))
+      expr))
 
 (define (change-round-mode mode indent) ; C only
   ((language-round-mode (*lang*)) mode indent))
@@ -33,6 +41,9 @@
 
 (define (while-name) ; Go only
   (if (equal? (language-name (*lang*)) "go") "for" "while"))
+
+(define (format-cond str) ; Go only, if and while conditions
+  (format (if (equal? (language-name (*lang*)) "go") "~a" "(~a)") str))
 
 (define (use-vars vars indent) ; Go doesn't like unused variables
   (if (equal? (language-name (*lang*)) "go")
@@ -54,7 +65,7 @@
 
 (define (convert-application ctx operator args)
   (match (cons operator args)
-    [(list '- a) (round-expr (format "-(~a)" a) ctx)]
+    [(list '- a) (round-expr (format (if (string-prefix? a "-") "-(~a)" "~a") a) ctx)]
     [(list 'not a) (format "!~a" a)]
     [(list (or '== '!= '< '> '<= '>=)) "TRUE"]
     [(list (or '+ '- '*) a b) (round-expr (format "(~a ~a ~a)" a operator b) ctx)]  ; Division not included!! (Sollya issues)
@@ -82,6 +93,10 @@
     [(list (? operator? f) args ...)
      (convert-operator ctx operator args)]))
 
+(define/match (collect-branches expr)
+  [((list 'if cond ift iff))
+   (cons (list cond ift) (collect-branches iff))]
+  [(_) (list (list #t expr))])
 
 (define (convert-expr expr #:ctx [ctx (make-compiler-ctx)] #:indent [indent "\t"])
   (match expr
@@ -106,7 +121,6 @@
       (convert-expr body #:ctx ctx* #:indent indent)]
 
     [`(if ,cond ,ift ,iff)
-      (define test (convert-expr cond #:ctx ctx #:indent indent))
       (define outvar
         (let-values ([(cx name) (ctx-random-name ctx)])
             (set! ctx cx)
@@ -115,22 +129,41 @@
         (printf "~a~a\n"
           indent
           (convert-declaration
-            ctx 
-            outvar
+            ctx outvar
             (format "\n~a\tif (~a) {\n~a\t\t~a\n~a\t} else {\n~a\t\t~a\n~a\t}"
-                indent test 
+                indent (convert-expr cond #:ctx ctx #:indent indent)
                 indent (convert-expr ift #:ctx ctx #:indent (format "\t\t~a" indent)) indent 
                 indent (convert-expr iff #:ctx ctx #:indent (format "\t\t~a" indent)) indent)))
-        (begin
-          (if (equal? (language-name (*lang*)) "sollya") ; Sollya has slightly different if
-              (printf "~aif (~a) then {\n" indent test)
-              (printf "~a~a\n~aif (~a) {\n" indent (convert-declaration ctx outvar) indent test))
-          (printf "~a\t~a\n" indent
-              (convert-assignment outvar (convert-expr ift #:ctx ctx #:indent (format "~a\t" indent))))
-          (printf "~a} else {\n" indent)
-          (printf "~a\t~a\n" indent
-              (convert-assignment outvar (convert-expr iff #:ctx ctx #:indent (format "~a\t" indent))))
-          (printf "~a}~a\n" indent (if (equal? (language-name (*lang*)) "sollya") ";" ""))))
+        (for ([branch (collect-branches expr)] [n (in-naturals)]) ;; collect branches for if, else if, else
+          (match (cons n branch)
+           [(list 0 cond ift) ; first branch => if branch
+            (if (equal? (language-name (*lang*)) "sollya") ; Sollya has slightly different if
+                (printf "~aif ~a then {\n" indent 
+                        (format-cond (trim-infix-parens 
+                                        (convert-expr cond #:ctx ctx #:indent indent))))
+                (printf "~a~a\n~aif ~a {\n" indent (convert-declaration ctx outvar)
+                        indent (format-cond (trim-infix-parens 
+                                              (convert-expr cond #:ctx ctx #:indent indent)))))
+            (printf "~a\t~a\n" indent
+                    (convert-assignment outvar (convert-expr ift #:ctx ctx
+                                        #:indent (format "~a\t" indent))))]
+           [(list _ #t else) ; branch condition #t => else branch
+            (printf "~a} else {\n" indent)
+            (printf "~a\t~a\n" indent
+                    (convert-assignment outvar (convert-expr else #:ctx ctx
+                                        #:indent (format "~a\t" indent))))
+            (printf "~a}~a\n" indent (if (equal? (language-name (*lang*)) "sollya") ";" ""))]
+           [(list _ cond elif) ; otherwise => else if branch
+            (printf
+              (if (equal? (language-name (*lang*)) "sollya") ; Sollya has slightly different else if
+                  "~a} else if ~a then {\n"
+                  "~a} else if ~a {\n")
+              indent
+              (format-cond (trim-infix-parens (convert-expr cond #:ctx ctx #:indent indent))))
+            (printf "~a\t~a\n" indent
+                    (convert-assignment outvar
+                                        (convert-expr elif #:ctx ctx
+                                                      #:indent (format "~a\t" indent))))])))
       outvar]
 
     [`(while ,cond ([,vars ,inits ,updates] ...) ,retexpr)
@@ -153,8 +186,8 @@
               (convert-expr cond #:ctx ctx* #:indent indent)))
       ; Sollya has slightly different while
       (if (equal? (language-name (*lang*)) "sollya")
-          (printf "~awhile (~a) do {\n" indent test-var)
-          (printf "~a~a (~a) {\n" indent (while-name) test-var))
+          (printf "~awhile ~a do {\n" indent (format-cond test-var))
+          (printf "~a~a ~a {\n" indent (while-name) (format-cond test-var)))
       (define-values (ctx** vars**)
         (for/fold ([ctx** ctx*] [vars** '()]) ([var vars] [update updates])
           (let-values ([(cx name) (ctx-unique-name ctx* var)])
@@ -187,10 +220,10 @@
               (ctx-update-props ctx '(:precision boolean))
               test-var
               (convert-expr cond #:ctx ctx* #:indent indent)))
-     ; Sollya has slightly different while*
+      ; Sollya has slightly different while*
       (if (equal? (language-name (*lang*)) "sollya")
-          (printf "~awhile (~a) do {\n" indent test-var)
-          (printf "~a~a (~a) {\n" indent (while-name) test-var))
+          (printf "~awhile ~a do {\n" indent (format-cond test-var))
+          (printf "~a~a ~a {\n" indent (while-name) (format-cond test-var)))
       (for ([var* vars*] [update updates])
         (printf "~a\t~a\n" indent
             (convert-assignment var* (convert-expr update #:ctx ctx* #:indent indent*))))
@@ -199,7 +232,8 @@
        (printf "~a}~a\n" indent (if (equal? (language-name (*lang*)) "sollya") ";" ""))
       (convert-expr retexpr #:ctx ctx* #:indent indent)]
 
-    [`(cast ,body) (round-expr (convert-expr body #:ctx ctx #:indent indent) ctx)]
+    ; Ignore all casts
+    [`(cast ,body) (round-expr (convert-expr body #:ctx ctx #:indent indent) ctx #t)]
 
     [`(! ,props ... ,body)
       (define curr-prec (ctx-lookup-prop ctx ':precision 'nearestEven))
@@ -220,7 +254,7 @@
             (printf "~a~a\n" indent (change-round-mode curr-round indent)))
           (if (equal? curr-prec new-prec)
               tmp-var
-              (round-expr tmp-var ctx)))]
+              (round-expr tmp-var ctx #t)))]
       [else
        (convert-expr body #:ctx (ctx-update-props ctx props) #:indent indent)])]
 
@@ -247,11 +281,7 @@
     (define func-name 
       (let-values ([(cx fname) (ctx-unique-name ctx (string->symbol name))])
         (set! ctx cx)
-        fname))
-
-    (define non-varnames 
-      (for/list ([name (*reserved-names*)]) 
-        (ctx-lookup-name ctx name)))
+        fname)) 
 
     (define-values (arg-names arg-props)
       (for/lists (n p) ([var args])
@@ -269,10 +299,8 @@
                             name)
                 (ctx-props ctx))])))
 
-    (define indent
-      (if (equal? (language-name (*lang*)) "scala")
-          "\t\t"
-          "\t"))
+    (define non-varnames (map (curry ctx-lookup-name ctx) (*reserved-names*)))
+    (define indent (if (equal? (language-name (*lang*)) "scala") "\t\t" "\t"))
 
     (define-values (body-out return-out) 
       (let ([p (open-output-string)])

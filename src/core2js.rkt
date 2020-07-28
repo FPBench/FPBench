@@ -77,7 +77,7 @@
           name 
           (string-join args ", ") 
           body 
-          return))
+          (trim-infix-parens return)))
 
 (define js-language (language "js" operator->js constant->js decleration->js assignment->js round->js (const "") function->js))
 

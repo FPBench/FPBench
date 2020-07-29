@@ -45,18 +45,23 @@
 
 (define (valid-core core supp)
   (define core-prec (dict-ref (property-values core) ':precision #f))
+  (define core-rnd-modes (dict-ref (property-values core) ':precision #f))
   (and (andmap (supported-list-ops supp) (operators-in core))
        (andmap (supported-list-consts supp) (constants-in core))
-       (andmap (supported-list-round-modes supp) (round-modes-in core))
+       (or (not core-rnd-modes)
+           (andmap (supported-list-round-modes supp) (set->list core-rnd-modes)))
        (or (not core-prec)
            (andmap (supported-list-precisions supp) (set->list core-prec)))))
 
 (define (unsupported-features core supp)
   (define core-prec (dict-ref (property-values core) ':precision #f))
+  (define core-rnd-modes (dict-ref (property-values core) ':precision #f))
   (set-union
     (filter-not (supported-list-ops supp) (operators-in core))
     (filter-not (supported-list-consts supp) (constants-in core))
-    (filter-not (supported-list-round-modes supp) (round-modes-in core))
+    (if core-rnd-modes
+        (filter-not (supported-list-round-modes supp) (set->list core-rnd-modes))
+        '())
     (if core-prec
         (filter-not (supported-list-precisions supp) (set->list core-prec))
         '())))

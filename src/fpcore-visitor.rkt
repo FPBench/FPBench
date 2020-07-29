@@ -2,7 +2,8 @@
 
 (require syntax/parse/define
          (for-syntax racket/syntax)
-         racket/hash)
+         racket/hash
+         racket/extflonum)
 
 (require "common.rkt")
 
@@ -71,7 +72,7 @@
      (vterm visitor ctx
             (visit-op operator args)
             (visit-op_ operator args))]
-    [(? number? n)
+    [(or (? number? n) (? extflonum? n))
      (vterm visitor ctx
             (visit-number n)
             (visit-terminal_ n))]

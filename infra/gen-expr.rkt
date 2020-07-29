@@ -1,7 +1,7 @@
 #lang racket
 
-(require "../src/common.rkt" "../src/sampler.rkt")
-(provide gen-expr)
+(require "../src/common.rkt" "../src/sampler.rkt" "../src/fpcore-visitor.rkt")
+(provide gen-expr pretty-fpcore pretty-expr)
 
 (define math-const (make-parameter 0.5)) ; odds of generating a math constant
 (define random-const? (make-parameter #f))
@@ -186,7 +186,7 @@
 (define (gen-layer ops depth exhaustive? [allow-cond? #f])
   (cond
     [(> depth 0)
-      (for/fold ([exprs '()]) ([op (from-list (if allow-cond? (filter (curryr set-member? bool-ops) ops) (remove* bool-ops ops)) exhaustive?)])
+      (for/fold ([exprs '()]) ([op (from-list (if allow-cond? (filter (curry set-member? bool-ops) ops) (remove* bool-ops ops)) exhaustive?)])
        (match op
         [(or '< '> '<= '>= '== '!= 'isfinite 'isinf 'isnan 'isnormal 'signbit) ; conditionals
          (append exprs
@@ -214,24 +214,29 @@
           `(,op ,subexpr1 ,subexpr2 ,subexpr3)))]
         ['if
          (append exprs
-          (for*/list ([cond (gen-cond (filter (curryr set-member? bool-ops) ops) (thunk (gen-layer ops (random 0 depth) exhaustive?)) exhaustive?)]
+          (for*/list ([cond (gen-cond (filter (curry set-member? bool-ops) ops) 
+                                      (thunk (gen-layer ops (random 0 depth) exhaustive?))
+                            exhaustive?)]
                       [subexpr1 (gen-layer ops (sub1 depth) exhaustive?)]
                       [subexpr2 (gen-layer ops (sub1 depth) exhaustive?)])
           `(if ,cond ,subexpr1 ,subexpr2)))]
         [(or 'let 'let*)
          (append exprs
           (for/fold ([exprs* '()])
-                    ([body (gen-layer ops (sub1 depth) exhaustive?)])                                         ; for all possibe body exprs
-            (let-values ([(bodies varss) (assign-terminals body (curryr gensyms 'x (gensym-count)) exhaustive? #f)])
+                    ([body (gen-layer ops (sub1 depth) exhaustive?)]) ; for all possibe body exprs
+            (let-values ([(bodies varss) (assign-terminals body (curryr gensyms 'x (gensym-count))
+                                                           exhaustive? #f)])
               (append exprs*
-                (for/list ([body* bodies] [vars varss] #:when #t                                              ; for all possible vals combinations, see 'gen-let-vals'
-                           [vals (gen-let-vals op vars (thunk (gen-layer ops (random 0 depth) exhaustive?)) exhaustive?)])                     
+                (for/list ([body* bodies] [vars varss] #:when #t  ; for all possible vals combinations, see 'gen-let-vals'
+                           [vals (gen-let-vals op vars 
+                                               (thunk (gen-layer ops (random 0 depth) exhaustive?))
+                                               exhaustive?)])                     
                   `(,op ,(map list vars vals) ,body*))))))]
         [(or 'while 'while*)
          (append exprs
           (for*/fold ([exprs* '()])
                      ([body (gen-layer ops (sub1 depth) exhaustive?)]                                         ; for all possibe body exprs
-                      [cond (gen-cond (filter (curryr set-member? bool-ops) ops)                                  ; for all possible conds
+                      [cond (gen-cond (filter (curry set-member? bool-ops) ops)                                  ; for all possible conds
                                       (thunk (gen-layer ops (sub1 depth) exhaustive?)) exhaustive?)])
             (let*-values ([(bodies varss) (assign-terminals body (curryr gensyms 'x (gensym-count)) exhaustive? #f)])
               (append exprs*
@@ -262,38 +267,63 @@
                                  [final (assign-known expr* (if exhaustive? consts (random-consts (unbound-in-expr expr*) consts prec exhaustive?)) exhaustive? #t)])
                         (values (append full-exprs (list final)) (append arg-list (list args)))))])
       (for ([expr* exprs*] [args args*])
-        (let* ([prec-prop (if prec? (list (format ":precision ~a" prec)) '())]
-               [round-prop (if round? (list (format ":round ~a" (rand-from-list rnd-modes))) '())]
-               [name (if (> depth 3) (format "\"Random ~a\"" i) "")]) 
+        (let ([props (append (if prec? (list ':precision prec) '())
+                             (if round? (list ':round (rand-from-list rnd-modes)) '())
+                             (if (> depth 3) (list ':name (format "\"Random ~a\"" i)) '()))])
           (set! i (add1 i))
-          (out-proc expr* args name (append prec-prop round-prop))
+          (out-proc expr* args props)
           (gensym-count 1))))))
+
+;; Pretty formatter
+
+(define (pretty-props props)
+  (for/list ([(prop name) (in-dict (apply dict-set* '() props))])
+    (format "~a ~a" prop name)))
+
+(define (pretty-expr-helper expr) ; don't call pretty-format twice
+  (define vtor
+    (struct-copy visitor default-transform-visitor
+      [visit-! (λ (vtor props body #:ctx ctx)
+                 `(! ,@(pretty-props props) ,(visit/ctx vtor body ctx)))]))
+  (visit vtor expr))
+
+(define (pretty-expr expr)
+  (pretty-format (pretty-expr-helper expr) #:mode 'display))
+
+(define (pretty-fpcore core)
+  (define-values (name args props* body)
+     (match core
+      [(list 'FPCore (list args ...) props ... body) (values #f args props body)]
+      [(list 'FPCore name (list args ...) props ... body) (values name args props body)]))
+  (pretty-format `(,(if body (format "FPCore ~a" args) (format "FPCore ~a ~a" name args))
+                    ,@(pretty-props props*)
+                    ,(pretty-expr-helper body))
+                 #:mode 'display))
 
 ;; Expression wrappers
 
 ; No wrapper
-(define (expr->bare expr args name props)
-  (pretty-display expr (current-output-port))
+(define (expr->bare expr args props)
+  (displayln (pretty-expr expr))
   (newline))
 
 ; Normal test
-(define (expr->test expr args name props)
-  (let ([full-props (if (non-empty-string? name) (append (list (format ":name ~a" name)) props) props)])
-    (pretty-display `(,(format "FPCore ~a" args) ,@full-props ,expr) (current-output-port))
-    (newline)))
+(define (expr->test expr args props)
+  (displayln (pretty-fpcore `(FPCore ,args ,@props ,expr)))
+  (newline))
 
 ; Test with 'if' statement, returning 1 on success, 0 on failure
 (define (expr->bool-test expr args name props)
-  (let ([full-props (if (non-empty-string? name) (append (list (format ":name ~a" name)) props) props)])
-    (pretty-display `(,(format "FPCore ~a" args) ,@props (if ,expr 1.0 0.0)) (current-output-port))
-    (newline)))
+  (displayln (pretty-fpcore `(FPCore ,args ,@props (if ,expr 1.0 0.0))))
+  (newline))
 
 ;;; Command line
 (module+ main
   (define depth 1)
   (define number 1)
   (define exhaustive? #f)
-  (define ops (append '(-*) (remove* '(and or not) operators) '(if let let* while while*)))
+  (define ops (remove* '(and or not array dim size ref) 
+                        (append operators '(-* if let let* while while*))))
   (define consts (append (remove* '(MAXFLOAT HUGE_VAL INFINITY NAN TRUE FALSE) constants)))
   (define precs '(binary80 binary64 binary32))
   (define rnd-modes '(nearestEven toPositive toNegative toZero))
@@ -327,12 +357,12 @@
 
     [("--operator") _ops "Generates expressions with the given operators. Must be a single string"
       (let ([ops* (map string->symbol (string-split _ops " "))])
-        (if (set-member? '- ops*)                ; unary minus is '-*' internally
+        (if (set-member? ops* '- )                ; unary minus is '-*' internally
             (set! ops (append '(-*) ops*))
             (set! ops ops*)))]
     [("--not-operator") _not-ops "Removes the given operators from the default list. Must be a single string"
       (let ([not-ops (map string->symbol (string-split _not-ops " "))])
-        (if (set-member? '- not-ops)                ; unary minus is '-*' internally
+        (if (set-member? not-ops '-)              ; unary minus is '-*' internally
             (set! ops (remove* (append '(-*) not-ops) ops))
             (set! ops (remove* not-ops ops))))]
 

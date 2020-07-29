@@ -1,9 +1,9 @@
 #lang racket
 
-(require "../src/common.rkt" "../src/fpcore-interpreter.rkt")
+(require "gen-expr.rkt" "../src/common.rkt" "../src/fpcore-interpreter.rkt")
 (provide number-suite->tests constant-suite->tests
          op-suite->tests bool-op-suite->tests)
-
+  
 (define (op->value op args)
   `(,op ,@args))
 
@@ -23,14 +23,17 @@
 
 (define (constant->test test props port)
   (match-define (list constant lower upper) test)
-  (pretty-write (entry->test `(if (and (< ,lower ,constant) (< ,constant ,upper)) 1 0) props constant 1 1) port)
+  (fprintf port 
+          (pretty-fpcore 
+              (entry->test `(if (and (< ,lower ,constant) (< ,constant ,upper)) 1 0) 
+                            props constant 1 1)))
   (fprintf port "\n"))
 
 (define (op->test test props port expr-proc)  ;; expr-proc formats the expression
   (match-define (list op (list args ...)) test)
   (define n (length args))
   (for ([a args] [i (in-naturals)])
-    (pretty-write (entry->test (expr-proc op a) props op (+ i 1) n) port)
+    (fprintf port (pretty-fpcore (entry->test (expr-proc op a) props op (+ i 1) n) port))
     (fprintf port "\n")))
 
 (define (constant-suite->tests suite props test-file)

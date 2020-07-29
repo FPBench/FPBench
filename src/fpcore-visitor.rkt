@@ -68,8 +68,9 @@
      (vterm visitor ctx
             (visit-cast body)
             (visit-op_ 'cast (list body)))]
-    [(list (? operator? operator) args ...)
-     (vterm visitor ctx
+    ; TODO: digits probably doesn't go here
+    [(list (? (λ (x) (or (operator? x) (equal? x 'digits))) operator) args ...) 
+     (vterm visitor ctx 
             (visit-op operator args)
             (visit-op_ operator args))]
     [(or (? number? n) (? extflonum? n))

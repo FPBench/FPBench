@@ -96,8 +96,8 @@
   (if (and (string-prefix? str "(") (string-suffix? str ")"))
       (let loop ([str (substring str 1)])
         (cond
-          [(zero? (string-length str)) (zero? count)] ; empty string
-          [(zero? count) #f] ; not enclosed, not at end of string
+          [(zero? (string-length str)) (zero? count)] ; at end of string
+          [(zero? count) #f] ; no longer enclosed, not at end of string
           [(equal? (string-ref str 0) #\u28) ; (
             (set! count (add1 count))
             (loop (substring str 1))]

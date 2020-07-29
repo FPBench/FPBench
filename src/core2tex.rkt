@@ -5,7 +5,7 @@
 
 (define tex-supported 
   (supported-list
-    (const #t)
+    (negate (curry set-member? '(let let* while while*)))
     (curry set-member? '(PI E INFINITY NAN TRUE FALSE))
     (const #t)
     ieee754-rounding-modes))
@@ -27,7 +27,7 @@
 
 (define (precedence-levels op)
   (match op
-    [(or '+ '- 'neg 'or 'complex) (values '+ '+)]
+    [(or '+ '- 'neg 'or) (values '+ '+)]
     [(or '* 'and) (values '* '*)]
     ['/ (values #f #t)]
     ['pow (values #f #f)]
@@ -47,7 +47,16 @@
    (for/list ([char (~a name)])
      (if (regexp-match #rx"[a-zA-Z0-9_]" (string char))
          (string char)
-         (format "_~a_" (char->integer char))))
+         (format "_~a" (char->integer char))))
+   ""))
+
+; fix name for replacing special characters in TeX
+(define (fix-op-name name)
+  (string-join
+    (for/list ([char (~a name)])
+     (if (regexp-match #rx"[-\\_&%\\$\\{\\}]" (string char))
+          "\\_"
+         (string char)))
    ""))
 
 (define/match (variable->tex expr)
@@ -73,47 +82,53 @@
   [('TRUE)          "\\top"]
   [('FALSE)         "\\perp"])
 
-(define (operator->tex op)
+(define (operator->tex op args)
   (match op
-   ['==         "~a = ~a"]
-   ['>          "~a > ~a"]
-   ['<          "~a < ~a"]
-   ['>=         "~a \\geq ~a"]
-   ['<=         "~a \\leq ~a"]
-   ['*          "~a \\cdot ~a"]
-   ['/          "\\frac{~a}{~a}"]
-   ['atan2      "\\tan^{-1}_* \\frac{~a}{~a}"]
-   ['cbrt       "\\sqrt[3]{~a}"]
-   ['ceil       "\\left\\lceil~a\\right\\rceil"]
-   ['exp        "e^{~a}"]
-   ['exp2       "2^{~a}"]
-   ['fabs       "\\left|~a\\right|"]
-   ['floor      "\\left\\lfloor~a\\right\\rfloor"]
-   ['fma        "\\mathsf{fma}\\left(~a, ~a, ~a\\right)"]
-   ['fmax       "\\mathsf{max}\\left(~a, ~a\\right)"]
-   ['fmin       "\\mathsf{min}\\left(~a, ~a\\right)"]
-   ['fmod       "~a \\bmod ~a"]
-   ['j0         "j_0\\left(~a\\right)"]
-   ['j1         "j_1\\left(~a\\right)"]
-   ['log10      "\\log_{10} ~a"]
-   ['log2       "\\log_{2} ~a"]
-   ['logb       "\\log_{b} ~a"]
-   ['pow        "{~a}^{~a}"]
-   ['remainder  "~a \\mathsf{rem} ~a"]
-   ['rint       "\\mathsf{rint} ~a"]
-   ['round      "\\mathsf{round} ~a"]
-   ['sqrt       "\\sqrt{~a}"]
-   ['tgamma     "\\Gamma\\left(~a\\right)"]
-   ['y0         "y_0\\left(~a\\right)"]
-   ['y1         "y_1\\left(~a\\right)"]
+   ['==         (format "~a = ~a" (first args) (second args))]
+   ['>          (format "~a > ~a" (first args) (second args))]
+   ['<          (format "~a < ~a" (first args) (second args))]
+   ['>=         (format "~a \\geq ~a" (first args) (second args))]
+   ['<=         (format "~a \\leq ~a" (first args) (second args))]
+   ['*          (format "~a \\cdot ~a" (first args) (second args))]
+   ['/          (format "\\frac{~a}{~a}" (first args) (second args))]
+   ['atan2      (format "\\tan^{-1}_* \\frac{~a}{~a}" (first args) (second args))]
+   ['cbrt       (format "\\sqrt[3]{~a}" (first args))]
+   ['ceil       (format "\\left\\lceil~a\\right\\rceil" (first args))]
+   ['exp        (format "e^{~a}" (first args))]
+   ['exp2       (format "2^{~a}" (first args))]
+   ['fabs       (format "\\left|~a\\right|" (first args))]
+   ['floor      (format "\\left\\lfloor~a\\right\\rfloor" (first args))]
+   ['fma        (format "\\mathsf{fma}\\left(~a\\right)" (string-join args ", "))]
+   ['fmax       (format "\\mathsf{max}\\left(~a, ~a\\right)" (first args) (second args))]
+   ['fmin       (format "\\mathsf{min}\\left(~a, ~a\\right)" (first args) (second args))]
+   ['fmod       (format "~a \\bmod ~a" (first args) (second args))]
+   ['j0         (format "j_0\\left(~a\\right)" (first args))]
+   ['j1         (format "j_1\\left(~a\\right)" (first args))]
+   ['log10      (format "\\log_{10} ~a" (first args))]
+   ['log2       (format "\\log_{2} ~a" (first args))]
+   ['logb       (format "\\log_{b} ~a" (first args))]
+   ['pow        (format "{~a}^{~a}" (first args) (second args))]
+   ['remainder  (format "~a \\mathsf{rem} ~a" (first args) (second args))]
+   ['rint       (format "\\mathsf{rint} ~a" (first args))]
+   ['round      (format "\\mathsf{round} ~a" (first args))]
+   ['sqrt       (format "\\sqrt{~a}" (first args))]
+   ['tgamma     (format "\\Gamma\\left(~a\\right)" (first args))]
+   ['y0         (format "y_0\\left(~a\\right)" (first args))]
+   ['y1         (format "y_1\\left(~a\\right)" (first args))]
+   ['complex    (format "~a + ~a i" (first args) (second args))]
+   ['re         (format "\\Re(~a)" (first args))]
+   ['im         (format "\\Im(~a)" (first args))]
+   ['conj       (format "\\overline{~a}")]
+   [(or 'sin 'cos 'tan 'sinh 'cosh 'tanh 'log)
+    (format "\\~a ~a" op (first args))]
    [(or 'acos 'acosh 'asin 'asinh 'atan 'atanh)
-    (format "\\~a^{-1} ~~a" (substring (~a op) 1))]
+    (format "\\~a^{-1} ~a" (substring (~a op) 1) (first args))]
    [(or 'erf 'erfc 'expm1 'lgamma 'log1p 'trunc)
-    (format "\\mathsf{~a}\\left(~~a\\right)" op)]
+    (format "\\mathsf{~a}\\left(~a\\right)" op (first args))]
    [(or 'copysign 'fdim 'hypot)
-    (format "\\mathsf{~a}\\left(~~a, ~~a\\right)" op)]
-   [_  (format "\\~a ~~a" op)]))
-
+    (format "\\mathsf{~a}\\left(~a, ~a\\right)" op (first args) (second args))]
+   [_ (format "\\mathsf{~a}\\left(~a\\right)" (fix-op-name op) (string-join args ", "))]))
+   
 (define (application->tex op args)
   (match (cons op args)
    [(list '- a) (format "-~a" a)]
@@ -121,7 +136,7 @@
    [(list (or '== '< '> '<= '>=) head args ...)
     (string-join
       (for/list ([a (cons head args)] [b args])
-        (apply format (operator->tex op) (list a b)))
+        (operator->tex op (list a b)))
       " \\land ")]
    [(list '!= args ...)
     (string-join
@@ -134,12 +149,9 @@
               (loop (cdr args)))))
       " \\land ")]
    [(list 'not a) (format "\\neg ~a" a)]
-   [(list 'and a ...)
-    (string-join (map ~a a) " \\land ")]
-   [(list 'or a ...)
-    (string-join (map ~a a) " \\lor ")]
-   [(list op args ...)
-     (apply format (operator->tex op) args)]))
+   [(list 'and a ...) (string-join (map ~a a) " \\land ")]
+   [(list 'or a ...) (string-join (map ~a a) " \\lor ")]
+   [(list op args ...) (operator->tex op args)]))
 
 (define (collect-branches expr loc)
   (match expr
@@ -174,9 +186,26 @@
                           (texify bcond ctx #t (cons 1 bloc))
                           NL IND (texify bexpr ctx #t (cons 2 bloc)) NL)]))
              (printf "\\end{array}")))]
-        ; Ignore cast
-        [`(cast ,body) (texify body ctx parens loc)]
-        [`(! ,props ... ,body) (texify body (ctx-update-props ctx props) parens loc)]
+
+        [`(cast ,body) (format "\\langle ~a \\rangle_{~a}" (texify body ctx parens loc) 
+                                                           (ctx-lookup-prop ctx ':precision))]
+        [`(! ,props ... ,body) 
+          (define curr-prec (ctx-lookup-prop ctx ':precision))
+          (define curr-rnd (ctx-lookup-prop ctx ':round))
+
+          (define ctx* (ctx-update-props ctx props))
+          (define body* (texify body ctx* parens loc))
+          (define new-prec (ctx-lookup-prop ctx* ':precision curr-prec))
+          (define new-rnd (ctx-lookup-prop ctx* ':round curr-rnd))
+          (cond
+            [(and (not (equal? curr-prec new-prec)) (not (equal? curr-rnd new-rnd)))
+             (format "\\langle ~a \\rangle^{~a \\rightarrow ~a}_{~a \\rightarrow ~a}"
+                     body* new-rnd curr-rnd new-prec curr-prec)]
+            [(not (equal? curr-prec new-prec))
+             (format "\\langle ~a \\rangle_{~a \\rightarrow ~a}" body* new-prec curr-prec)]
+            [(not (equal? curr-rnd new-rnd))
+             (format "\\langle ~a \\rangle^{~a \\rightarrow ~a}" body* new-rnd curr-rnd)]
+            [else body*])]
 
         [(? exact-integer?)
          (number->string expr)]
@@ -207,20 +236,21 @@
                       (format "10^{~a}" exp)
                       (format "~a \\cdot 10^{~a}" significand exp)))
                 (if (precedence< parens #f) num (format "\\left( ~a \\right)" num))])])]
-
         [(? constant?) (constant->tex expr)]
         [(? symbol?) (variable->tex expr)]
         
         [`(<= ,x ,(or -inf.0 -inf.f))
          (texify `(== ,x -inf.0) ctx parens loc)]
-        [(list (? (curry set-member? (supported-list-ops tex-supported)) op) args ...)
+        [(list op args ...)
          (define-values (self-paren-level arg-paren-level) (precedence-levels op))
          (define texed-args
            (for/list ([arg args] [id (in-naturals 1)])
              (texify arg ctx arg-paren-level (cons id loc))))
          (format ; omit parens if parent contex has lower precedence
-          (if (precedence< parens self-paren-level) "~a" "\\left(~a\\right)")
-          (application->tex op texed-args))]))))
+           (if (or (precedence< parens self-paren-level) (equal? self-paren-level 'fn)) 
+               "~a" 
+               "\\left(~a\\right)")
+           (application->tex op texed-args))]))))
 
 ;; Exports
 

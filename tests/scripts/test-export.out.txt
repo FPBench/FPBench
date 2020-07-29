@@ -1,15 +1,15 @@
 double ex0(double arg0, double arg1) {
-	return ((double) (arg0 + arg1));
+	return arg0 + arg1;
 }
 
 double ex1(double arg0) {
-	return ((double) sqrt(arg0));
+	return sqrt(arg0);
 }
 
 double ex2(double arg0, double arg1) {
 	double arg0_1 = arg1;
 	double arg1_2 = arg0;
-	return ((double) (arg0_1 - arg1_2));
+	return arg0_1 - arg1_2;
 }
 
 package main
@@ -43,7 +43,7 @@ function pow(x, y) { if (x == 1.0 && isNaN(y)) { return 1.0; } else { return Cus
 function fdim(x , y) { if (x != x || y != y) { return NaN; } else if (x > y) { return x - y; } else { return 0; }}
 
 function ex0(arg0, arg1) {
-	return (arg0 + arg1);
+	return arg0 + arg1;
 }
 
 function ex1(arg0) {
@@ -53,7 +53,7 @@ function ex1(arg0) {
 function ex2(arg0, arg1) {
 	var arg0_1 = arg1;
 	var arg1_2 = arg0;
-	return (arg0_1 - arg1_2);
+	return arg0_1 - arg1_2;
 }
 
 arg0 = float<ieee_64,ne>(Marg0);
@@ -119,12 +119,22 @@ Expressions
 	let rnd64= (arg01 - arg11);
 }
 
-ex0[arg0_, arg1_] := Block[{$MinPrecision=MachinePrecision, $MaxPrecision=MachinePrecision, $MaxExtraPrecision=0}, (arg0 + arg1)]
-
-ex1[arg0_] := Block[{$MinPrecision=MachinePrecision, $MaxPrecision=MachinePrecision, $MaxExtraPrecision=0}, Sqrt[arg0]]
-
-ex2[arg0_, arg1_] := Block[{$MinPrecision=MachinePrecision, $MaxPrecision=MachinePrecision, $MaxExtraPrecision=0}, With[{arg0$1 = arg1, arg1$2 = arg0}, (arg0$1 - arg1$2)]]
-
+set-member?: contract violation:
+expected: set?
+given: 'nearestEven
+argument position: 1st
+other arguments...:
+  x: 'nearestEven
+  context...:
+   /home/bsaiki/Programs/racket/racket/collects/racket/private/generic.rkt:475:9: set-member?
+   /home/bsaiki/Programs/racket/racket/collects/racket/list.rkt:592:0: filter-not
+   /home/bsaiki/Documents/FPBench/repo/src/supported.rkt:51:0: unsupported-features
+   /home/bsaiki/Documents/FPBench/repo/export.rkt:88:3: for-loop
+   ...cket/cmdline.rkt:191:51
+   (submod "/home/bsaiki/Documents/FPBench/repo/export.rkt" main): [running body]
+   temp35_0
+   for-loop
+   run-module-instance!
 procedure copysign(x, y) { var res; if (y < 0) then res = -abs(x) else res = abs(x); return res; };
 procedure fdim(x, y) { var res; if (x != x || y != y) then res = nan else if (x > y) then res = x - y else res = 0; return res; };
 procedure isfinite(x) { return (x == x && abs(x) != infty); };
@@ -137,7 +147,7 @@ procedure div_warn(x, y) { if (x != 0 && y == 0) then print("[WARNING] FPBench: 
 procedure ex0(arg0, arg1) {
 	arg0 = round(arg0, double, RN);
 	arg1 = round(arg1, double, RN);
-	round((arg0 + arg1), double, RN);
+	round(arg0 + arg1, double, RN);
 };
 
 procedure ex1(arg0) {
@@ -151,7 +161,7 @@ procedure ex2(arg0, arg1) {
 	arg1 = round(arg1, double, RN);
 	arg0_1 = arg1;
 	arg1_2 = arg0;
-	round((arg0_1 - arg1_2), double, RN);
+	round(arg0_1 - arg1_2, double, RN);
 };
 
 fun ex0 (arg0 : word64) (arg1 : word64) = (Double.+ arg0 arg1) : word64;

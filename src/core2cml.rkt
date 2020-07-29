@@ -4,8 +4,9 @@
 (provide core->cml cml-supported)
 
 (define cml-supported (supported-list
-  (disjoin ieee754-ops (negate (curry equal? 'fma))
-           (curry set-member? '(! if let let* while while* not and or digits)))
+  (disjoin 
+    (conjoin ieee754-ops (negate (curry equal? 'fma)))
+    (curry set-member? '(! if let let* while while* not and or digits)))        
   (curry set-member? '(TRUE FALSE INFINITY NAN))
   (curry equal? 'binary64)
   (curry equal? 'nearestEven))) ; bool
@@ -23,7 +24,7 @@
   (string-set! str 0 (char-downcase (string-ref str 0)))
   str)
 
-(define/match (operator->sml op)
+(define/match (operator->cml op)
   [('==) "Double.="]
   [((or '+ '- '* '/ '> '< '>= '<=)) (format "Double.~a" op)])
 
@@ -31,12 +32,12 @@
   (match (cons operator args)
     [(list '- a) (format "(Double.~~ ~a)" a)]
     [(list (or '== '!= '< '> '<= '>=)) "True"]
-    [(list (or '+ '- '* '/) a b) (format "(~a ~a ~a)" (operator->sml operator) a b)]
+    [(list (or '+ '- '* '/) a b) (format "(~a ~a ~a)" (operator->cml operator) a b)]
     [(list (or '== '< '> '<= '>=) head args ...)
      (format "~a"
              (string-join
               (for/list ([a (cons head args)] [b args])
-                (format "(~a ~a ~a)" (operator->sml operator) a b))
+                (format "(~a ~a ~a)" (operator->cml operator) a b))
               " andalso "))]
     [(list '!= args ...)
       (format "~a"

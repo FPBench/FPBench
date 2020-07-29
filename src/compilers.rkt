@@ -91,7 +91,7 @@
 
 ; Returns the property value stored in the context struct. Returns the value at 
 ; failure otherwise.
-(define (ctx-lookup-prop ctx prop failure)
+(define (ctx-lookup-prop ctx prop [failure #f])
   (dict-ref (compiler-ctx-props ctx) prop failure))
 
 ; Returns the context struct's properties.

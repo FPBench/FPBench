@@ -68,8 +68,7 @@
      (vterm visitor ctx
             (visit-cast body)
             (visit-op_ 'cast (list body)))]
-    ; TODO: digits probably doesn't go here
-    [(list (? (λ (x) (or (operator? x) (equal? x 'digits))) operator) args ...) 
+    [(list operator args ...) 
      (vterm visitor ctx 
             (visit-op operator args)
             (visit-op_ operator args))]

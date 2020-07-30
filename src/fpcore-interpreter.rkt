@@ -266,7 +266,9 @@
     [ceil (compute-with-bf bfceiling)] [floor (compute-with-bf bffloor)] 
     [trunc (λ (x) (if (< -1 x 0) -0.0 ((compute-with-bf bftruncate) x)))]
     [< <] [> >] [<= <=] [>= >=] [== my=] [!= my!=]
-    [and (λ (x y) (and x y))] [or (λ (x y) (or x y))] [not not]
+    [and (λ args (andmap identity args))] 
+    [or (λ args (ormap identity args))] 
+    [not not]
     [isnan nan?] [isinf infinite?]
     [nearbyint 
       (match (bf-rounding-mode)
@@ -347,7 +349,9 @@
     [/ (λ (x y) (bf->integer (parameterize ([bf-rounding-mode 'down]) (bf/ (bf x) (bf y)))))]
 
     [< <] [> >] [<= <=] [>= >=] [== my=] [!= my!=]
-    [and (λ (x y) (and x y))] [or (λ (x y) (or x y))] [not not]
+    [and (λ args (andmap identity args))] 
+    [or (λ args (ormap identity args))] 
+    [not not]
    )))
 
 ;;; binary80 evaluator 
@@ -400,7 +404,9 @@
     [>= (λ (x y . rest) (extfl-cmp extfl>= x y rest))]
     [== (λ (x y . rest) (extfl-cmp extfl= x y rest))]
     [!= (λ (x y . rest) (extfl-cmp (compose not extfl=) x y rest))]
-    [and (λ (x y) (and x y))] [or (λ (x y) (or x y))] [not not]
+    [and (λ args (andmap identity args))] 
+    [or (λ args (ormap identity args))] 
+    [not not]
     [isnan extfl-nan?] [isinf extfl-inf?]
     [cast identity]
 

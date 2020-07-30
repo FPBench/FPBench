@@ -119,22 +119,12 @@ Expressions
 	let rnd64= (arg01 - arg11);
 }
 
-set-member?: contract violation:
-expected: set?
-given: 'nearestEven
-argument position: 1st
-other arguments...:
-  x: 'nearestEven
-  context...:
-   /home/bsaiki/Programs/racket/racket/collects/racket/private/generic.rkt:475:9: set-member?
-   /home/bsaiki/Programs/racket/racket/collects/racket/list.rkt:592:0: filter-not
-   /home/bsaiki/Documents/FPBench/repo/src/supported.rkt:51:0: unsupported-features
-   /home/bsaiki/Documents/FPBench/repo/export.rkt:88:3: for-loop
-   ...cket/cmdline.rkt:191:51
-   (submod "/home/bsaiki/Documents/FPBench/repo/export.rkt" main): [running body]
-   temp35_0
-   for-loop
-   run-module-instance!
+ex0[arg0_, arg1_] := Block[{$MinPrecision=MachinePrecision, $MaxPrecision=MachinePrecision, $MaxExtraPrecision=0}, (arg0 + arg1)]
+
+ex1[arg0_] := Block[{$MinPrecision=MachinePrecision, $MaxPrecision=MachinePrecision, $MaxExtraPrecision=0}, Sqrt[arg0]]
+
+ex2[arg0_, arg1_] := Block[{$MinPrecision=MachinePrecision, $MaxPrecision=MachinePrecision, $MaxExtraPrecision=0}, With[{arg0$1 = arg1, arg1$2 = arg0}, (arg0$1 - arg1$2)]]
+
 procedure copysign(x, y) { var res; if (y < 0) then res = -abs(x) else res = abs(x); return res; };
 procedure fdim(x, y) { var res; if (x != x || y != y) then res = nan else if (x > y) then res = x - y else res = 0; return res; };
 procedure isfinite(x) { return (x == x && abs(x) != infty); };

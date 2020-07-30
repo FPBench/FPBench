@@ -81,7 +81,7 @@
     indent indent body indent)) ; todo fix
 
 (define (if->cml cond ift iff tmp indent)
-  (format "if ~a\n~athen ~a\n~aelse ~a\n"
+  (format "if ~a\n~athen ~a\n~aelse ~a"
           cond indent ift indent iff))
 
 (define (while->cml vars inits cond updates updatevars body loop indent nested)

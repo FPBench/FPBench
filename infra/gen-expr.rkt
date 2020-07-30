@@ -358,7 +358,7 @@
 
 ; Test with 'if' statement, returning 1 on success, 0 on failure
 (define (expr->bool-test expr args name props)
-  (displayln (pretty-fpcore `(FPCore ,args ,@props (if ,expr 1.0 0.0))))
+  (displayln (pretty-fpcore `(FPCore ,args ,@props (if ,expr 1 0))))
   (newline))
 
 ;;; Command line

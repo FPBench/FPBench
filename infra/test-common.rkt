@@ -163,8 +163,7 @@
                 (values
                     (for/list ([var vars*] [vtype var-types]) (cons var (sample-random vtype)))
                     (use-precond))]
-              [(or (> (length (variables-in-expr body)) 2)                    ; dependent precondition or
-                   (equal? range-table #f) (equal? range-table (make-hash)))  ; failed range table
+              [(or (equal? range-table #f) (equal? range-table (make-hash)))  ; failed range table
                 (sample-by-rejection precond vars* evaltor type)]
               [else     
                 (values                                                       ; else, valid range table

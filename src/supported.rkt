@@ -45,33 +45,53 @@
 
 (define (valid-core core supp)
   (define core-prec (dict-ref (property-values core) ':precision #f))
-  (define core-rnd-modes (dict-ref (property-values core) ':precision #f))
+  (define core-rnd-modes (dict-ref (property-values core) ':round #f))
   (and (andmap (supported-list-ops supp) (operators-in core))
        (andmap (supported-list-consts supp) (constants-in core))
-       (or (not core-rnd-modes)
-           (andmap (supported-list-round-modes supp) (set->list core-rnd-modes)))
        (or (not core-prec)
-           (andmap (supported-list-precisions supp) (set->list core-prec)))))
+           (andmap (supported-list-precisions supp) (set->list core-prec)))
+       (or (not core-rnd-modes)
+           (andmap (supported-list-round-modes supp) (set->list core-rnd-modes)))))
 
 (define (unsupported-features core supp)
   (define core-prec (dict-ref (property-values core) ':precision #f))
-  (define core-rnd-modes (dict-ref (property-values core) ':precision #f))
+  (define core-rnd-modes (dict-ref (property-values core) ':round #f))
   (set-union
     (filter-not (supported-list-ops supp) (operators-in core))
     (filter-not (supported-list-consts supp) (constants-in core))
-    (if core-rnd-modes
-        (filter-not (supported-list-round-modes supp) (set->list core-rnd-modes))
-        '())
     (if core-prec
         (filter-not (supported-list-precisions supp) (set->list core-prec))
+        '())
+    (if core-rnd-modes
+        (filter-not (supported-list-round-modes supp) (set->list core-rnd-modes))
         '())))
 
 (define/contract (operators-in-expr expr)
   (-> expr? (listof symbol?))
   (define vtor
     (struct-copy visitor default-reduce-visitor ; default behavior is counting terminals
+      [visit-if (λ (vtor cond ift iff #:ctx ctx) 
+                   (cons 'if (append (visit/ctx vtor cond ctx)
+                                     (visit/ctx vtor ift ctx)
+                                     (visit/ctx vtor iff ctx))))]
+      [visit-let_ (λ (vtor let_ vars vals body #:ctx ctx)
+                     (cons let_ 
+                           (append (for/fold ([vals* '()]) ([val vals]) 
+                                             (append vals* (visit/ctx vtor val ctx)))
+                                   (visit/ctx vtor body ctx))))]
+      [visit-while_ (λ (vtor while_ cond vars inits updates body #:ctx ctx)
+                       (cons while_ 
+                            (append (visit/ctx vtor cond body)
+                                    (for/fold ([vals* '()]) ([val inits]) 
+                                              (append vals* (visit/ctx vtor val ctx)))
+                                    (for/fold ([updates* '()]) ([update updates]) 
+                                              (append updates* (visit/ctx vtor update ctx)))
+                                    (visit/ctx vtor body ctx))))]                      
+      [visit-! (λ (vtor props body #:ctx ctx) (cons '! (visit/ctx vtor body ctx)))]
       [visit-terminal_ (λ (vtor a #:ctx ctx) '())]
-      [visit-op (λ (vtor op args #:ctx ctx) (list op))]
+      [visit-op (λ (vtor op args #:ctx ctx)
+                    (cons op (for/fold ([args* '()]) ([arg args])
+                                       (append args* (visit/ctx vtor arg ctx)))))]
       [reduce (curry apply append)]))
   (remove-duplicates (visit vtor expr)))
 
@@ -148,7 +168,7 @@
 
   (check-equal?
     (map operators-in-expr exprs)
-   `((+) (*) (sqrt) (cbrt) (< + - *) (< + - *) (-)))
+   `((+) (* +) (let sqrt /) (let* cbrt /) (while < + - * exp sin) (while* < + - * log cos) (! - +)))
 
   (check-equal?
     (map constants-in-expr exprs)

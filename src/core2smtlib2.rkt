@@ -62,11 +62,12 @@
 ;; However, at least with z3, defining constants in this way does not seem to cause
 ;; any significant issues.
 (define (number->smt x w p rm)
-  (match x
-    [(or +inf.0 +inf.f) (format "(_ +oo ~a ~a)" w p)]
-    [(or -inf.0 -inf.f) (format "(_ -oo ~a ~a)" w p)]
-    [(or +nan.0 +nan.f) (format "(_ NaN ~a ~a)" w p)]
-    [_ (let* ([q (if (single-flonum? x)
+  (cond
+   [(and (infinite? x) (positive? x)) (format "(_ +oo ~a ~a)" w p)]
+   [(and (infinite? x) (negative? x)) (format "(_ -oo ~a ~a)" w p)]
+   [(nan? x) (format "(_ NaN ~a ~a)" w p)]
+   [else 
+      (let* ([q (if (single-flonum? x)
                      ;; Workaround for misbehavior of inexact->exact with single-flonum inputs
                      (inexact->exact (real->double-flonum x))
                      (inexact->exact x))]
@@ -263,7 +264,7 @@
               (format "((_ to_fp ~a ~a) ~a ~a)" max-w max-p (rm->smt (ctx-lookup-prop ctx ':round 'nearestEven)) arg*))))
       (values (application->smt operator args_r ctx (and (equal? w max-w) (equal? p max-p))) w p)] 
 
-    [(list digits m e b) (values (constant->smt (digits->number m e b) ctx) w p)]
+    [(list 'digits m e b) (values (constant->smt (digits->number m e b) ctx) w p)]
     [(? constant?) (values (constant->smt expr ctx) w p)]
     [(? hex?) (values (constant->smt (hex->racket expr) ctx) w p)]
     [(? number?) (values (constant->smt expr ctx) w p)]

@@ -68,31 +68,19 @@
 
 (define/contract (operators-in-expr expr)
   (-> expr? (listof symbol?))
-  (define vtor
-    (struct-copy visitor default-reduce-visitor ; default behavior is counting terminals
-      [visit-if (λ (vtor cond ift iff #:ctx ctx) 
-                   (cons 'if (append (visit/ctx vtor cond ctx)
-                                     (visit/ctx vtor ift ctx)
-                                     (visit/ctx vtor iff ctx))))]
-      [visit-let_ (λ (vtor let_ vars vals body #:ctx ctx)
-                     (cons let_ 
-                           (append (for/fold ([vals* '()]) ([val vals]) 
-                                             (append vals* (visit/ctx vtor val ctx)))
-                                   (visit/ctx vtor body ctx))))]
-      [visit-while_ (λ (vtor while_ cond vars inits updates body #:ctx ctx)
-                       (cons while_ 
-                            (append (visit/ctx vtor cond body)
-                                    (for/fold ([vals* '()]) ([val inits]) 
-                                              (append vals* (visit/ctx vtor val ctx)))
-                                    (for/fold ([updates* '()]) ([update updates]) 
-                                              (append updates* (visit/ctx vtor update ctx)))
-                                    (visit/ctx vtor body ctx))))]                      
-      [visit-! (λ (vtor props body #:ctx ctx) (cons '! (visit/ctx vtor body ctx)))]
-      [visit-terminal_ (λ (vtor a #:ctx ctx) '())]
-      [visit-op (λ (vtor op args #:ctx ctx)
-                    (cons op (for/fold ([args* '()]) ([arg args])
-                                       (append args* (visit/ctx vtor arg ctx)))))]
-      [reduce (curry apply append)]))
+  (define-reduce-visitor vtor ; default behavior is counting terminals
+    [visit-if (λ (vtor cond ift iff #:ctx ctx)
+                (cons 'if (visit-if/reduce vtor cond ift iff #:ctx ctx)))]
+    [visit-let_ (λ (vtor let_ vars vals body #:ctx ctx)
+                  (cons let_ (visit-let_/reduce vtor let_ vars vals body #:ctx ctx)))]
+    [visit-while_ (λ (vtor while_ cond vars inits updates body #:ctx ctx)
+                    (cons while_ (visit-while_/reduce vtor while_ cond vars inits
+                                                      updates body #:ctx ctx)))]
+    [visit-! (λ (vtor props body #:ctx ctx) (cons '! (visit/ctx vtor body ctx)))]
+    [visit-terminal_ (λ (vtor a #:ctx ctx) '())]
+    [visit-op (λ (vtor op args #:ctx ctx)
+                (cons op (visit-op/reduce vtor op args #:ctx ctx)))]
+    [reduce (curry apply append)])
   (remove-duplicates (visit vtor expr)))
 
 (define/contract (operators-in core)
@@ -105,11 +93,10 @@
 
 (define/contract (constants-in-expr expr)
   (-> expr? (listof symbol?))
-  (define vtor
-    (struct-copy visitor default-reduce-visitor ; default behavior is counting terminals
-      [visit-terminal_ (λ (vtor a #:ctx ctx) '())]
-      [visit-constant (λ (vtor a #:ctx ctx) (list a))]
-      [reduce (curry apply append)]))
+  (define-reduce-visitor vtor ; default behavior is counting terminals
+    [visit-terminal_ (λ (vtor a #:ctx ctx) '())]
+    [visit-constant (λ (vtor a #:ctx ctx) (list a))]
+    [reduce (curry apply append)])
   (remove-duplicates (visit vtor expr)))
 
 (define/contract (constants-in core)
@@ -129,11 +116,10 @@
 (define/contract (property-values-expr expr)
   (-> expr? property-hash?)
   (define out (make-hash))
-  (define vtor
-    (struct-copy visitor default-transform-visitor
-      [visit-! (λ (vtor props body #:ctx ctx)
-                  (property-hash-add! out props)
-                  (visit-!/transform vtor props body #:ctx ctx))]))
+  (define-transform-visitor vtor
+    [visit-! (λ (vtor props body #:ctx ctx)
+                (property-hash-add! out props)
+                (visit-!/transform vtor props body #:ctx ctx))])
   (visit vtor expr)
   out)
 
@@ -149,11 +135,10 @@
 
 (define/contract (variables-in-expr expr)
   (-> expr? (listof symbol?))
-  (define vtor
-    (struct-copy visitor default-reduce-visitor ; default behavior is counting terminals
-      [visit-terminal_ (λ (vtor a #:ctx ctx) '())]
-      [visit-symbol (λ (vtor a #:ctx ctx) (list a))]
-      [reduce (curry apply append)]))
+  (define-reduce-visitor vtor ; default behavior is counting terminals
+    [visit-terminal_ (λ (vtor a #:ctx ctx) '())]
+    [visit-symbol (λ (vtor a #:ctx ctx) (list a))]
+    [reduce (curry apply append)])
   (remove-duplicates (visit vtor expr)))
 
 (module+ test

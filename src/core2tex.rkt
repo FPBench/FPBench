@@ -82,6 +82,12 @@
   [('TRUE)          "\\top"]
   [('FALSE)         "\\perp"])
 
+(define/match (round-mode->tex expr)
+  [('nearestEven)   "RNE"]
+  [('toPositive)    "RTP"]
+  [('toNegative)    "RTN"]
+  [('toZero)        "RTZ"])
+
 (define (operator->tex op args)
   (match op
    ['==         (format "~a = ~a" (first args) (second args))]
@@ -192,19 +198,17 @@
         [`(! ,props ... ,body) 
           (define curr-prec (ctx-lookup-prop ctx ':precision))
           (define curr-rnd (ctx-lookup-prop ctx ':round))
-
           (define ctx* (ctx-update-props ctx props))
           (define body* (texify body ctx* parens loc))
           (define new-prec (ctx-lookup-prop ctx* ':precision curr-prec))
           (define new-rnd (ctx-lookup-prop ctx* ':round curr-rnd))
           (cond
             [(and (not (equal? curr-prec new-prec)) (not (equal? curr-rnd new-rnd)))
-             (format "\\langle ~a \\rangle^{~a \\rightarrow ~a}_{~a \\rightarrow ~a}"
-                     body* new-rnd curr-rnd new-prec curr-prec)]
+             (format "\\left( ~a \\right)_{~a, ~a}" body* (round-mode->tex new-rnd) new-prec)]
             [(not (equal? curr-prec new-prec))
-             (format "\\langle ~a \\rangle_{~a \\rightarrow ~a}" body* new-prec curr-prec)]
+             (format "\\left( ~a \\right)_{~a}" body* new-prec)]
             [(not (equal? curr-rnd new-rnd))
-             (format "\\langle ~a \\rangle^{~a \\rightarrow ~a}" body* new-rnd curr-rnd)]
+             (format "\\left( ~a \\right)_{~a}" body* (round-mode->tex new-rnd))]
             [else body*])]
 
         [(? exact-integer?)

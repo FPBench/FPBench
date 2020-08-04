@@ -325,11 +325,10 @@
     (format "~a ~a" prop name)))
 
 (define (pretty-expr-helper expr) ; don't call pretty-format twice
-  (define vtor
-    (struct-copy visitor default-transform-visitor
-      [visit-! (λ (vtor props body #:ctx ctx)
-                 `(! ,@(pretty-props props) ,(visit/ctx vtor body ctx)))]))
-  (visit vtor expr))
+  (define/transform-expr (pretty-ify expr ctx)
+    [visit-! (λ (vtor props body #:ctx ctx)
+                `(! ,@(pretty-props props) ,(visit/ctx vtor body ctx)))])
+  (pretty-ify expr '()))
 
 (define (pretty-expr expr)
   (pretty-format (pretty-expr-helper expr) #:mode 'display))

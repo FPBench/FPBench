@@ -5,10 +5,10 @@
 
 (define gappa-supported
   (supported-list 
-    (append ieee754-ops '(let not and or)) 
-    '(SQRT2 SQRT1_2 TRUE FALSE)
-    '(binary32 binary64 binary80 binary128)
-    '(nearestEven)))
+    (disjoin ieee754-ops (curry set-member? '(let not and or)))
+    (curry set-member? '(SQRT2 SQRT1_2 TRUE FALSE))
+    (curry set-member? '(binary32 binary64 binary80 binary128))
+    (curry equal? 'nearestEven)))
 
 (define (fix-name name)
   (string-join

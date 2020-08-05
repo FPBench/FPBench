@@ -17,11 +17,14 @@
             "function pow(x, y) { if (x == 1.0 && isNaN(y)) { return 1.0; } else { return ~a.pow(x, y); }}\n"))
      '("function fdim(x , y) { if (x != x || y != y) { return NaN; } else if (x > y) { return x - y; } else { return 0; }}\n\n")))))
 
-(define js-supported (supported-list
-   (invert-op-list '(!= copysign exp2 erf erfc fma fmod isfinite isnormal lgamma nearbyint remainder signbit tgamma))
-   fpcore-consts
-   '(binary64)
-   '(nearestEven)))
+(define js-supported 
+  (supported-list
+    (invert-op-proc 
+      (curry set-member? '(!= copysign exp2 erf erfc fma fmod isfinite isnormal   
+                             lgamma nearbyint remainder signbit tgamma)))
+    fpcore-consts
+    (curry equal? 'binary64)
+    (curry equal? 'nearestEven)))
 
 (define js-reserved '())  ; Language-specific reserved names (avoid name collisions)
 
@@ -77,7 +80,7 @@
           name 
           (string-join args ", ") 
           body 
-          return))
+          (trim-infix-parens return)))
 
 (define js-language (language "js" operator->js constant->js decleration->js assignment->js round->js (const "") function->js))
 

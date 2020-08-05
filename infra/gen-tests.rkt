@@ -1,20 +1,20 @@
 #lang racket
 
-(require "../src/common.rkt" "../src/fpcore-interpreter.rkt")
+(require "gen-expr.rkt" "../src/common.rkt" "../src/fpcore-interpreter.rkt")
 (provide number-suite->tests constant-suite->tests
          op-suite->tests bool-op-suite->tests)
-
+  
 (define (op->value op args)
   `(,op ,@args))
 
 (define (entry->test val props name i n)
-  (let* ([name-props (append (list ':name (format "Test ~a (~a/~a)" name i n)) props)]
+  (let* ([name-props (append (list ':name (format "\"Test ~a (~a/~a)\"" name i n)) props)]
          [test `(FPCore () ,@name-props ,val)]
          [spec (racket-run-fpcore test '())])
     `(FPCore () ,@name-props :spec ,spec ,val)))
 
 (define (entry->arg-test inputs val props name)
-   (let ([name-props (append (list ':name (format "Test ~a (with inputs)" name)) props)])
+   (let ([name-props (append (list ':name (format "\"Test ~a (with inputs)\"" name)) props)])
      `(FPCore ,inputs ,@name-props ,val)))
      
 (define (sanity-suite->tests suite props test-file print-proc) ;; print-proc prints each test
@@ -23,15 +23,18 @@
 
 (define (constant->test test props port)
   (match-define (list constant lower upper) test)
-  (pretty-write (entry->test `(if (and (< ,lower ,constant) (< ,constant ,upper)) 1 0) props constant 1 1) port)
-  (fprintf port "\n"))
+  (fprintf port 
+          (pretty-fpcore 
+              (entry->test `(if (and (< ,lower ,constant) (< ,constant ,upper)) 1 0) 
+                            props constant 1 1)))
+  (fprintf port "\n\n"))
 
 (define (op->test test props port expr-proc)  ;; expr-proc formats the expression
   (match-define (list op (list args ...)) test)
   (define n (length args))
   (for ([a args] [i (in-naturals)])
-    (pretty-write (entry->test (expr-proc op a) props op (+ i 1) n) port)
-    (fprintf port "\n")))
+    (fprintf port (pretty-fpcore (entry->test (expr-proc op a) props op (+ i 1) n)))
+    (fprintf port "\n\n")))
 
 (define (constant-suite->tests suite props test-file)
   (sanity-suite->tests suite props test-file constant->test))

@@ -2,7 +2,8 @@
 
 (provide parse-properties unparse-properties constants operators
          constant? operator? variable? define-by-match dictof property? property
-         hex? hex->racket digits->number syntax-e-rec)
+         hex? hex->racket digits->number syntax-e-rec
+         trim-infix-parens)
 
 (define (property? symb)
   (and (symbol? symb) (string-prefix? (symbol->string symb) ":")))
@@ -87,3 +88,26 @@
 
 (define (digits->number m e b)
   (* m (expt b e)))
+
+;; Returns true if the string (assumed to be infix notation) is enclosed by a matching pair of
+;; parentheses. Note that (a + b) / (c + d) returns false.
+(define (enclosed-by-paren-pair str)
+  (define count 1)
+  (if (and (string-prefix? str "(") (string-suffix? str ")"))
+      (let loop ([str (substring str 1)])
+        (cond
+          [(zero? (string-length str)) (zero? count)] ; at end of string
+          [(zero? count) #f] ; no longer enclosed, not at end of string
+          [(equal? (string-ref str 0) #\u28) ; (
+            (set! count (add1 count))
+            (loop (substring str 1))]
+          [(equal? (string-ref str 0) #\u29) ; )
+            (set! count (sub1 count))
+            (loop (substring str 1))]
+          [else (loop (substring str 1))]))
+      #f))
+     
+(define (trim-infix-parens str)
+  (if (enclosed-by-paren-pair str)
+      (trim-infix-parens (substring str 1 (sub1 (string-length str))))
+      str))

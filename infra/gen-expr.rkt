@@ -1,15 +1,17 @@
 #lang racket
 
-(require "../src/common.rkt" "../src/sampler.rkt")
-(provide gen-expr)
+(require "../src/common.rkt" "../src/sampler.rkt" "../src/fpcore-visitor.rkt")
+(provide gen-expr pretty-fpcore pretty-expr)
 
 (define math-const (make-parameter 0.5)) ; odds of generating a math constant
 (define random-const? (make-parameter #f))
 (define unique-vars (make-parameter #f))
 (define gensym-count (make-parameter 1))
+(define exhaustive? (make-parameter #f))
 
 ;; Move this somewhere better
-(define bool-ops '(< > <= >= == != and or not isfinite isinf isnan isnormal signbit))
+(define bool-ops 
+        '(< > <= >= == != and or not isfinite isinf isnan isnormal signbit))
 
 (define (rand-from-list list)
   (list-ref list (random 0 (length list))))
@@ -53,8 +55,8 @@
       (shuffle (append vars (make-list (- total-terms (length vars)) 'term)))))
 
 ; Returns a random element of li if exhaustive? is true. Else returns the list
-(define (from-list li exhaustive?)
-  (if exhaustive? li (list (rand-from-list li))))
+(define (from-list li)
+  (if (exhaustive?) li (list (rand-from-list li))))
 
 ;; Generates a list of "unique" names
 (define (gensyms count [name 'x] [start (gensym-count)])
@@ -63,7 +65,7 @@
     (string->symbol (format "~a~a" name (+ i start)))))
     
 ;; Generates a list of random constants. Will generate random floats in random mode
-(define (random-consts count consts prec exhaustive?)
+(define (random-consts count consts prec)
   (for/list ([i (in-range count)])
     (if (random-const?)
         (rand-from-list consts) 
@@ -118,33 +120,49 @@
     [_  subexpr])))
 
 ;; All possible expression with assigned terminals
-(define (assign-terminals expr gen-proc exhaustive? [allow-zero? #t]) ; gen-proc takes number of terminal 'names' to produce
+(define (assign-terminals expr gen-proc [allow-zero? #t]) ; gen-proc takes number of terminal 'names' to produce
   (define max-vars (unbound-in-expr expr))
   (define vars* (gen-proc max-vars))    
   (for*/lists (exprs vars)
-     ([free-count (if (unique-vars) (list max-vars)                                       ; for [0, max] or [1, max] variable terminals   
-                      (from-list (if allow-zero? (build-list (add1 max-vars) identity) (build-list max-vars add1)) exhaustive?))]                                           
-      [var-count (if (unique-vars) (list free-count)                                      ; for 0 or [1, free-count] unique variables
-                     (from-list (if (zero? free-count) (list 0) (build-list free-count add1)) exhaustive?))]
-      [terminals (if exhaustive? (remove-duplicates (terminal-combinations (take vars* var-count) free-count max-vars))
-                                 (list (random-terminals (take vars* var-count) max-vars)))])
+     ([free-count 
+        (cond           ; for [0, max] or [1, max] variable terminals 
+          [(unique-vars) (list max-vars)]   
+          [allow-zero? (from-list (build-list (add1 max-vars) identity))]
+          [else (from-list (build-list max-vars add1))])]                               
+      [var-count 
+        (cond           ; for 0 or [1, free-count] unique variables
+          [(unique-vars) (list free-count)]
+          [(zero? free-count) (list 0)]
+          [else (from-list (build-list free-count add1))])]
+      [terminals        ; generate terminal combinations
+        (if (exhaustive?) 
+            (remove-duplicates (terminal-combinations (take vars* var-count) free-count max-vars))
+            (list (random-terminals (take vars* var-count) max-vars)))])
         (values (assign-vars expr terminals) (take vars* var-count))))
 
 ;; All possible expressions with assigned terminals given a set of known variables
-(define (assign-known expr vars exhaustive? [all? #f]) ; all? ensures that no terminals are left unbound
+(define (assign-known expr vars [all? #f]) ; all? ensures that no terminals are left unbound
   (define max-vars (unbound-in-expr expr))
   (cond
     [(zero? max-vars) (list expr)]
     [all?
-      (for/list ([terminals (if exhaustive? (combinationsr vars max-vars) (list (random-terminals (random-vars vars max-vars) max-vars)))])
-        (assign-vars expr terminals))]
+      (for/list 
+        ([terminals (if (exhaustive?) 
+                        (combinationsr vars max-vars) 
+                        (list (random-terminals (random-vars vars max-vars) max-vars)))])
+          (assign-vars expr terminals))]
     [else
-      (for*/list ([free-count (if (unique-vars) (list max-vars) (from-list (build-list max-vars add1) exhaustive?))]
-                  [vars* (if (> (length vars) free-count) (combinations vars free-count) (list vars))]
-                  [terminals (if exhaustive? (remove-duplicates (terminal-combinations vars* free-count max-vars))
-                                             (list (random-terminals vars* max-vars)))])
-        (assign-vars expr terminals))]))
-      
+      (for*/list 
+         ([free-count (if (unique-vars) 
+                          (list max-vars) 
+                          (from-list (build-list max-vars add1)))]
+          [vars* (if (> (length vars) free-count)
+                        (combinations vars free-count)
+                        (list vars))]
+          [terminals (if (exhaustive?) 
+                         (remove-duplicates (terminal-combinations vars* free-count max-vars))
+                         (list (random-terminals vars* max-vars)))])
+            (assign-vars expr terminals))]))
         
 ; Returns a list of integers of size count such that all values are less than depth
 ; and at least one is one less than depth.
@@ -154,23 +172,31 @@
         (for/list ([i (in-range count)]) 
           (if (= i pivot) (sub1 depth) (random 0 depth))))))    
 
-(define (gen-let-vals op vars gen-proc exhaustive?)
+; let value generator for let/let* and while/while*
+(define (gen-let-vals op vars gen-proc)
+; if 'let' or 'while' and exhaustive:
+;   generate combination of expressions, all terminals unassigned
+; else if 'let*' or 'while*' and exhaustive:
+;   generate val expressions for var 1,2,... (these will be different for let*)
+;   and return the cartesian product of these sets
+; else, not exhaustive, return random val expression
   (cond
-    [(and exhaustive? (or (equal? op 'let) (equal? op 'while)))                      ; if let or while and exhaustive:
-      (combinationsr (gen-proc) (length vars))]                                      ; generate combination of expressions, all terminals unassigned
-    [(and exhaustive? (or (equal? op 'let*) (equal? op 'while*)))                    ; else if let* or while* and exhaustive:
-      (let ([lsts (for/list ([i (in-range (length vars))])                           ; generate val expressions for var 1,2,... (these will be different for let*)
+    [(and (exhaustive?) (or (equal? op 'let) (equal? op 'while)))  
+      (combinationsr (gen-proc) (length vars))]                   
+    [(and (exhaustive?) (or (equal? op 'let*) (equal? op 'while*))) 
+      (let ([lsts (for/list ([i (in-range (length vars))])        
                     (for/fold ([comb '()]) ([val (gen-proc)])  
-                      (append comb (assign-known val (take vars i) exhaustive?))))])
-          (apply cartesian-product lsts))]                                          ; return the cartesian product of these sets
-    [(list (for/list ([var vars] [i (in-naturals)])                                 ; else, get random val expressions
-                (first (assign-known (first (gen-proc)) (if (or (equal? op 'let) (equal? op 'while)) '() (take vars i)) exhaustive?))))]))
+                      (append comb (assign-known val (take vars i)))))])
+          (apply cartesian-product lsts))]                        
+    [(list (for/list ([var vars] [i (in-naturals)])                                 
+              (first (assign-known (first (gen-proc)) 
+                                   (if (or (equal? op 'let) (equal? op 'while)) 
+                                       '() 
+                                       (take vars i))))))]))
 
-;;; Generator
-; TODO: stream-based implementation
-
-(define (gen-cond ops gen-proc exhaustive?)
-  (for/fold ([exprs '()]) ([cond (from-list ops exhaustive?)])
+; condition generator
+(define (gen-cond ops gen-proc)
+  (for/fold ([exprs '()]) ([cond (from-list ops)])
    (match cond
     [(or '< '> '<= '>= '== '!=)
      (append exprs
@@ -183,117 +209,161 @@
         `(,cond ,subexpr)))])))
 
 ;; Layer generator
-(define (gen-layer ops depth exhaustive? [allow-cond? #f])
+(define (gen-layer ops depth [allow-cond? #f])
   (cond
     [(> depth 0)
-      (for/fold ([exprs '()]) ([op (from-list (if allow-cond? (filter (curryr set-member? bool-ops) ops) (remove* bool-ops ops)) exhaustive?)])
+      (for/fold ([exprs '()]) 
+                ([op (from-list (if allow-cond? (filter (curry set-member? bool-ops) ops) 
+                                                (remove* bool-ops ops)))])
        (match op
         [(or '< '> '<= '>= '== '!= 'isfinite 'isinf 'isnan 'isnormal 'signbit) ; conditionals
          (append exprs
-          (gen-cond (list op) (thunk (gen-layer ops (sub1 depth) exhaustive?)) exhaustive?))]
+          (gen-cond (list op) (curry gen-layer ops (sub1 depth))))]
         ['-*    ; nice solution to unary minus
          (append exprs
-          (for/list ([subexpr (gen-layer ops (sub1 depth) exhaustive?)])
+          (for/list ([subexpr (gen-layer ops (sub1 depth))])
           `(- ,subexpr)))]
         [(or 'fabs 'exp 'exp2 'expm1 'log 'log10 'log2 'log1p 'sqrt 'cbrt 'sin 'cos 'tan 
              'asin 'acos 'atan 'sinh 'cosh 'tanh 'asinh 'acosh 'atanh 'erf 'erfc 'tgamma 'lgamma 
              'ceil 'floor 'trunc 'round 'nearbyint 'cast)
          (append exprs
-          (for/list ([subexpr (gen-layer ops (sub1 depth) exhaustive?)])
+          (for/list ([subexpr (gen-layer ops (sub1 depth))])
           `(,op ,subexpr)))]
         [(or '+ '- '* '/ 'pow 'hypot 'atan2 'fmod 'remainder 'fmax 'fmin 'fdim 'copysign)
          (append exprs
-          (for*/list ([subexpr1 (gen-layer ops (sub1 depth) exhaustive?)]
-                      [subexpr2 (gen-layer ops (sub1 depth) exhaustive?)])
+          (for*/list ([subexpr1 (gen-layer ops (sub1 depth))]
+                      [subexpr2 (gen-layer ops (sub1 depth))])
           `(,op ,subexpr1 ,subexpr2)))]
         ['fma
          (append exprs
-          (for*/list ([subexpr1 (gen-layer ops (sub1 depth) exhaustive?)]
-                      [subexpr2 (gen-layer ops (sub1 depth) exhaustive?)]
-                      [subexpr3 (gen-layer ops (sub1 depth) exhaustive?)])
+          (for*/list ([subexpr1 (gen-layer ops (sub1 depth))]
+                      [subexpr2 (gen-layer ops (sub1 depth))]
+                      [subexpr3 (gen-layer ops (sub1 depth))])
           `(,op ,subexpr1 ,subexpr2 ,subexpr3)))]
         ['if
          (append exprs
-          (for*/list ([cond (gen-cond (filter (curryr set-member? bool-ops) ops) (thunk (gen-layer ops (random 0 depth) exhaustive?)) exhaustive?)]
-                      [subexpr1 (gen-layer ops (sub1 depth) exhaustive?)]
-                      [subexpr2 (gen-layer ops (sub1 depth) exhaustive?)])
+          (for*/list ([cond (gen-cond (filter (curry set-member? bool-ops) ops) 
+                                      (curry gen-layer ops (random 0 depth)))]
+                      [subexpr1 (gen-layer ops (sub1 depth))]
+                      [subexpr2 (gen-layer ops (sub1 depth))])
           `(if ,cond ,subexpr1 ,subexpr2)))]
         [(or 'let 'let*)
          (append exprs
           (for/fold ([exprs* '()])
-                    ([body (gen-layer ops (sub1 depth) exhaustive?)])                                         ; for all possibe body exprs
-            (let-values ([(bodies varss) (assign-terminals body (curryr gensyms 'x (gensym-count)) exhaustive? #f)])
-              (append exprs*
-                (for/list ([body* bodies] [vars varss] #:when #t                                              ; for all possible vals combinations, see 'gen-let-vals'
-                           [vals (gen-let-vals op vars (thunk (gen-layer ops (random 0 depth) exhaustive?)) exhaustive?)])                     
+                    ([body (gen-layer ops (sub1 depth))]) ; for all possibe body exprs
+            (let-values ([(bodies varss) (assign-terminals 
+                                            body 
+                                            (curryr gensyms 'x (gensym-count))
+                                            #f)])
+              (append exprs*       ; for all possible vals combinations, see 'gen-let-vals'                  
+                (for/list ([body* bodies] [vars varss] #:when #t 
+                           [vals (gen-let-vals op vars (curry gen-layer ops (random 0 depth)))])                  
                   `(,op ,(map list vars vals) ,body*))))))]
         [(or 'while 'while*)
          (append exprs
-          (for*/fold ([exprs* '()])
-                     ([body (gen-layer ops (sub1 depth) exhaustive?)]                                         ; for all possibe body exprs
-                      [cond (gen-cond (filter (curryr set-member? bool-ops) ops)                                  ; for all possible conds
-                                      (thunk (gen-layer ops (sub1 depth) exhaustive?)) exhaustive?)])
-            (let*-values ([(bodies varss) (assign-terminals body (curryr gensyms 'x (gensym-count)) exhaustive? #f)])
-              (append exprs*
-                (for/list ([body* bodies] [vars varss] #:when #t                                              ; for all possible vals combinations
-                           [cond* (assign-known cond vars exhaustive?)] #:when #t
-                           [vals (gen-let-vals op vars (thunk (gen-layer ops (random 0 depth) exhaustive?)) exhaustive?)] #:when #t                                                                        
+          (for*/fold ([exprs* '()])   ; for all possibe body exprs, conds
+                     ([body (gen-layer ops (sub1 depth))]
+                      [cond (gen-cond (filter (curry set-member? bool-ops) ops)
+                                      (curry gen-layer ops (sub1 depth)))])
+            (let*-values ([(bodies varss) (assign-terminals 
+                                            body 
+                                            (curryr gensyms 'x (gensym-count))
+                                            #f)])
+              (append exprs*    ; for all possible vals combinations
+                (for/list ([body* bodies] [vars varss] #:when #t 
+                           [cond* (assign-known cond vars)] #:when #t
+                           [vals (gen-let-vals op vars (curry gen-layer ops (random 0 depth)))]
+                                 #:when #t                                                                        
                            [updates 
-                            (if exhaustive?                                                                   ; for all possible update expr combinations
+                            (if (exhaustive?)   ; for all possible update expr combinations
                                 (combinationsr 
-                                  (for/fold ([comb '()]) ([val (gen-layer ops (random 0 depth) exhaustive?)])  
-                                        (append comb (assign-known val vars exhaustive?)))
+                                  (for/fold ([comb '()]) ([val (gen-layer ops (random 0 depth))])  
+                                        (append comb (assign-known val vars)))
                                   (length vars))
-                                (list (for/list ([var vars])                                                  ; else, get random val expressions
-                                            (first (assign-known (first (gen-layer ops (random 0 depth) exhaustive?)) vars exhaustive?)))))])
+                                (list ; else, get random val expressions
+                                  (for/list ([var vars]) 
+                                    (first (assign-known 
+                                              (first (gen-layer ops (random 0 depth)))
+                                              vars)))))])
                       `(,op ,cond* ,(map list vars vals updates) ,body*))))))]
       ))]
     [else (list 'term)]))
 
 ;; Top-level generator
-(define (gen-expr ops precs rnd-modes consts depth number exhaustive? prec? round? allow-cond? [out-proc expr->bare])
+(define (gen-expr ops precs rnd-modes consts depth number
+                  prec? round? allow-cond? [out-proc expr->bare])
   (define i 1)
   (for* ([c (in-range number)]
-         [expr (gen-layer ops depth exhaustive? allow-cond?)] [prec (from-list precs exhaustive?)] [rnd (from-list rnd-modes exhaustive?)])
+         [expr (gen-layer ops depth allow-cond?)] 
+         [prec (from-list precs)] 
+         [rnd (from-list rnd-modes)])
     (let-values ([(exprs* args*)  ; full expr list
-                    (let-values ([(exprs argss) (assign-terminals expr (curryr gensyms 'arg 1) exhaustive?)])
-                      (for/fold ([full-exprs '()] [arg-list '()] #:result (values full-exprs arg-list)) ; iterate through constant combinations
-                                ([expr* exprs] [args argss] #:when #t
-                                 [final (assign-known expr* (if exhaustive? consts (random-consts (unbound-in-expr expr*) consts prec exhaustive?)) exhaustive? #t)])
-                        (values (append full-exprs (list final)) (append arg-list (list args)))))])
+                    (let-values ([(exprs argss) 
+                                    (assign-terminals expr (curryr gensyms 'arg 1))])
+                      (for/fold  ; iterate through constant combinations
+                        ([full-exprs '()] [arg-list '()] #:result (values full-exprs arg-list)) 
+                        ([expr* exprs] [args argss] #:when #t 
+                          [final 
+                            (assign-known expr* 
+                              (if (exhaustive?)  
+                                 consts 
+                                 (random-consts (unbound-in-expr expr*) consts prec)) #t)])
+                        (values (append full-exprs (list final)) 
+                                (append arg-list (list args)))))])
       (for ([expr* exprs*] [args args*])
-        (let* ([prec-prop (if prec? (list (format ":precision ~a" prec)) '())]
-               [round-prop (if round? (list (format ":round ~a" (rand-from-list rnd-modes))) '())]
-               [name (if (> depth 3) (format "\"Random ~a\"" i) "")]) 
+        (let ([props (append (if prec? (list ':precision prec) '())
+                             (if round? (list ':round (rand-from-list rnd-modes)) '())
+                             (if (> depth 3) (list ':name (format "\"Random ~a\"" i)) '()))])
           (set! i (add1 i))
-          (out-proc expr* args name (append prec-prop round-prop))
+          (out-proc expr* args props)
           (gensym-count 1))))))
+
+;; Pretty formatter
+
+(define (pretty-props props)
+  (for/list ([(prop name) (in-dict (apply dict-set* '() props))])
+    (format "~a ~a" prop name)))
+
+(define/transform-expr (pretty-expr-helper expr) ; don't call pretty-format twice
+  [(visit-! vtor props body)
+   `(! ,@(pretty-props props) ,(visit vtor body))])
+
+(define (pretty-expr expr)
+  (pretty-format (pretty-expr-helper expr) #:mode 'display))
+
+(define (pretty-fpcore core)
+  (define-values (name args props* body)
+     (match core
+      [(list 'FPCore (list args ...) props ... body) (values #f args props body)]
+      [(list 'FPCore name (list args ...) props ... body) (values name args props body)]))
+  (pretty-format `(,(if body (format "FPCore ~a" args) (format "FPCore ~a ~a" name args))
+                    ,@(pretty-props props*)
+                    ,(pretty-expr-helper body))
+                 #:mode 'display))
 
 ;; Expression wrappers
 
 ; No wrapper
-(define (expr->bare expr args name props)
-  (pretty-display expr (current-output-port))
+(define (expr->bare expr args props)
+  (displayln (pretty-expr expr))
   (newline))
 
 ; Normal test
-(define (expr->test expr args name props)
-  (let ([full-props (if (non-empty-string? name) (append (list (format ":name ~a" name)) props) props)])
-    (pretty-display `(,(format "FPCore ~a" args) ,@full-props ,expr) (current-output-port))
-    (newline)))
+(define (expr->test expr args props)
+  (displayln (pretty-fpcore `(FPCore ,args ,@props ,expr)))
+  (newline))
 
 ; Test with 'if' statement, returning 1 on success, 0 on failure
 (define (expr->bool-test expr args name props)
-  (let ([full-props (if (non-empty-string? name) (append (list (format ":name ~a" name)) props) props)])
-    (pretty-display `(,(format "FPCore ~a" args) ,@props (if ,expr 1.0 0.0)) (current-output-port))
-    (newline)))
+  (displayln (pretty-fpcore `(FPCore ,args ,@props (if ,expr 1 0))))
+  (newline))
 
 ;;; Command line
 (module+ main
   (define depth 1)
   (define number 1)
-  (define exhaustive? #f)
-  (define ops (append '(-*) (remove* '(and or not) operators) '(if let let* while while*)))
+  (define ops (remove* '(and or not array dim size ref) 
+                        (append operators '(-* if let let* while while*))))
   (define consts (append (remove* '(MAXFLOAT HUGE_VAL INFINITY NAN TRUE FALSE) constants)))
   (define precs '(binary80 binary64 binary32))
   (define rnd-modes '(nearestEven toPositive toNegative toZero))
@@ -315,7 +385,7 @@
     ["--unique-vars" "If this flag is set to #t, every variable will be unique"
       (unique-vars #t)]
     [("-e" "--exhaustive") "If this flag is set to #t, this program will output a test for every operator, precision, and rounding mode combination"
-      (set! exhaustive? #t)
+      (exhaustive? #t)
       (set! consts '(1.0))] ; simple constant list, very, very simple
     [("-t" "--type") _type "Specifies what to wrap the expressions in. Default is 'test'. Options: 'bare', 'test' 'bool'"
       (cond
@@ -327,12 +397,12 @@
 
     [("--operator") _ops "Generates expressions with the given operators. Must be a single string"
       (let ([ops* (map string->symbol (string-split _ops " "))])
-        (if (set-member? '- ops*)                ; unary minus is '-*' internally
+        (if (set-member? ops* '- )                ; unary minus is '-*' internally
             (set! ops (append '(-*) ops*))
             (set! ops ops*)))]
     [("--not-operator") _not-ops "Removes the given operators from the default list. Must be a single string"
       (let ([not-ops (map string->symbol (string-split _not-ops " "))])
-        (if (set-member? '- not-ops)                ; unary minus is '-*' internally
+        (if (set-member? not-ops '-)              ; unary minus is '-*' internally
             (set! ops (remove* (append '(-*) not-ops) ops))
             (set! ops (remove* not-ops ops))))]
 
@@ -360,8 +430,8 @@
       (set! rnd-modes '(nearestEven))] ; placeholder for loop
 
     #:args ()
-    (parameterize ([pretty-print-columns 200])
-      (when exhaustive? (set! number 1)) ;; override number if exhaustive generation
+    (parameterize ([pretty-print-columns 100])
+      (when (exhaustive?) (set! number 1)) ;; override number if exhaustive generation
       (when (equal? out-proc expr->bare) ;; avoid redudancy when generating bare expressions
         (set! prec? #f)
         (set! precs '(binary64))
@@ -369,6 +439,8 @@
         (set! rnd-modes '(nearestEven)))  
       (when (not (terminal-port? (current-output-port)))
         (fprintf (current-output-port) ";; -*- mode: scheme -*-\n")
-        (fprintf (current-output-port) (if exhaustive? (format ";; Exhaustive at depth ~a\n\n" depth) (format ";; Count: ~a\n\n" number))))
-      (gen-expr ops precs rnd-modes consts depth number exhaustive? prec? round? allow-cond? out-proc))))
+        (fprintf (current-output-port) (if (exhaustive?)
+                                           (format ";; Exhaustive at depth ~a\n\n" depth) 
+                                           (format ";; Count: ~a\n\n" number))))
+      (gen-expr ops precs rnd-modes consts depth number prec? round? allow-cond? out-proc))))
     

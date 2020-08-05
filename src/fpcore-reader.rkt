@@ -221,7 +221,7 @@
 ;;
 
 ; Adapted from Racket source:
-; github.com/racket/racket/blob/master/racket/src/cs/bootstrap.scheme-readtable.rkt
+; https://github.com/racket/racket/blob/master/racket/src/cs/bootstrap.scheme-readtable.rkt
 (define ((paren closer) c in src line col pos)
   (let loop ()
     (define c (peek-char in))
@@ -261,7 +261,5 @@
   (-> any/c input-port? (or/c fpcore? eof-object?))
   (parameterize ([read-decimal-as-inexact #f] 
                  [current-readtable fpcore-readtable])
-    ;(define p* (open-input-bytes (regexp-replace* #rx"#" (port->bytes p) "! :precision integer"))) ; expand '#' since this is special in Racket
-    ;(define stx (read-syntax name p*))
     (define stx (read-syntax name p))
     (if (eof-object? stx) stx (parse-fpcore stx))))

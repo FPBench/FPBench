@@ -4,13 +4,15 @@
 (require "common.rkt" "compilers.rkt" "supported.rkt")
 (provide core->smtlib2 smt-supported rm->smt number->smt)
 
-(define smt-supported (supported-list
-  (invert-op-list '(while* while exp exp2 expm1 log log10 log2 log1p pow cbrt
-                    hypot sin cos tan asin acos atan atan2 sinh cosh tanh asinh acosh 
-                    atanh erf erfc tgamma lgamma ceil floor fmod fdim copysign isfinite))
-  (invert-const-list '(LOG2E LOG10E M_1_PI M_2_PI M_2_SQRTPI))
-  '(binary32 binary64)
-   ieee754-rounding-modes))
+(define smt-supported 
+  (supported-list
+    (invert-op-proc 
+      (curry set-member? '(while* while exp exp2 expm1 log log10 log2 log1p pow cbrt
+                           hypot sin cos tan asin acos atan atan2 sinh cosh tanh asinh acosh 
+                           atanh erf erfc tgamma lgamma ceil floor fmod fdim copysign isfinite)))
+    (invert-const-proc (curry set-member? '(LOG2E LOG10E M_1_PI M_2_PI M_2_SQRTPI)))
+    (curry set-member? '(binary32 binary64))
+    ieee754-rounding-modes))
 
 (define smt-reserved '())  ; Language-specific reserved names (avoid name collisions)
 
@@ -60,11 +62,12 @@
 ;; However, at least with z3, defining constants in this way does not seem to cause
 ;; any significant issues.
 (define (number->smt x w p rm)
-  (match x
-    [(or +inf.0 +inf.f) (format "(_ +oo ~a ~a)" w p)]
-    [(or -inf.0 -inf.f) (format "(_ -oo ~a ~a)" w p)]
-    [(or +nan.0 +nan.f) (format "(_ NaN ~a ~a)" w p)]
-    [_ (let* ([q (if (single-flonum? x)
+  (cond
+   [(and (infinite? x) (positive? x)) (format "(_ +oo ~a ~a)" w p)]
+   [(and (infinite? x) (negative? x)) (format "(_ -oo ~a ~a)" w p)]
+   [(nan? x) (format "(_ NaN ~a ~a)" w p)]
+   [else 
+      (let* ([q (if (single-flonum? x)
                      ;; Workaround for misbehavior of inexact->exact with single-flonum inputs
                      (inexact->exact (real->double-flonum x))
                      (inexact->exact x))]
@@ -261,7 +264,7 @@
               (format "((_ to_fp ~a ~a) ~a ~a)" max-w max-p (rm->smt (ctx-lookup-prop ctx ':round 'nearestEven)) arg*))))
       (values (application->smt operator args_r ctx (and (equal? w max-w) (equal? p max-p))) w p)] 
 
-    [(list digits m e b) (values (constant->smt (digits->number m e b) ctx) w p)]
+    [(list 'digits m e b) (values (constant->smt (digits->number m e b) ctx) w p)]
     [(? constant?) (values (constant->smt expr ctx) w p)]
     [(? hex?) (values (constant->smt (hex->racket expr) ctx) w p)]
     [(? number?) (values (constant->smt expr ctx) w p)]

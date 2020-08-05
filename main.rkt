@@ -25,7 +25,8 @@
  "src/supported.rkt"
 
  "infra/core2json.rkt"
- "infra/filter.rkt")
+ "infra/filter.rkt"
+ "infra/gen-expr.rkt")
 
 (provide
  (all-from-out
@@ -54,6 +55,7 @@
 
   "infra/core2json.rkt"
   "infra/filter.rkt"
+  "infra/gen-expr.rkt"
   ))
 
 (module+ main

@@ -12,12 +12,13 @@
 
 (define scala-supported
   (supported-list
-   '(+ - * / sqrt sin cos tan asin acos atan exp log fma      ;; pow has partial support
-     < > <= >= == != and or not
-     if let let* digits !)          ;; benchmarks with if statements break with --mixed-precision flag
-   '(TRUE FALSE)
-   '(binary32 binary64 binary128 binary256)          
-   '(nearestEven)))
+    (curry set-member?
+          '(+ - * / sqrt sin cos tan asin acos atan exp log fma      ;; pow has partial support
+            < > <= >= == != and or not
+            if let let* digits !))   ;; benchmarks with if statements break with --mixed-precision flag
+    (curry set-member? '(TRUE FALSE))
+    (curry set-member? '(binary32 binary64 binary128 binary256))        
+    (curry equal? 'nearestEven)))
 
 (define scala-reserved '())
 

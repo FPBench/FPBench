@@ -172,12 +172,12 @@ tools-test: export-test transform-test toolserver-test evaluate-test
 test: c-test js-test go-test smtlib2-test sollya-test wls-test cml-test fptaylor-test daisy-test export-test transform-test toolserver-test evaluate-test raco-test 
 
 testsetup:
-	raco make infra/filter.rkt infra/gen-expr.rkt \
+	raco make infra/filter.rkt \
 		infra/test-core2c.rkt infra/test-core2fptaylor.rkt infra/test-core2js.rkt infra/test-core2go.rkt infra/test-core2smtlib2.rkt infra/test-core2sollya.rkt \
 		infra/test-core2wls.rkt infra/test-core2cml.rkt infra/test-core2scala.rkt
 
 setup:
-	raco make export.rkt transform.rkt toolserver.rkt evaluate.rkt 
+	raco make main.rkt export.rkt transform.rkt toolserver.rkt evaluate.rkt 
 
 clean:
 	$(RM) -r library tmp log

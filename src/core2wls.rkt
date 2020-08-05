@@ -7,8 +7,8 @@
 (define wls-supported (supported-list
   fpcore-ops
   fpcore-consts
-  '(binary64 real integer)
-  '(nearestEven)))
+  (curry set-member? '(binary64 real integer))
+  (curry set-member? 'nearestEven)))
 
 (define wls-reserved '(E Pi))  ; Language-specific reserved names (avoid name collisions)
 

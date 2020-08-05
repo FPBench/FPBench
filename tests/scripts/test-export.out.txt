@@ -1,15 +1,15 @@
 double ex0(double arg0, double arg1) {
-	return ((double) (arg0 + arg1));
+	return arg0 + arg1;
 }
 
 double ex1(double arg0) {
-	return ((double) sqrt(arg0));
+	return sqrt(arg0);
 }
 
 double ex2(double arg0, double arg1) {
 	double arg0_1 = arg1;
 	double arg1_2 = arg0;
-	return ((double) (arg0_1 - arg1_2));
+	return arg0_1 - arg1_2;
 }
 
 package main
@@ -43,7 +43,7 @@ function pow(x, y) { if (x == 1.0 && isNaN(y)) { return 1.0; } else { return Cus
 function fdim(x , y) { if (x != x || y != y) { return NaN; } else if (x > y) { return x - y; } else { return 0; }}
 
 function ex0(arg0, arg1) {
-	return (arg0 + arg1);
+	return arg0 + arg1;
 }
 
 function ex1(arg0) {
@@ -53,7 +53,7 @@ function ex1(arg0) {
 function ex2(arg0, arg1) {
 	var arg0_1 = arg1;
 	var arg1_2 = arg0;
-	return (arg0_1 - arg1_2);
+	return arg0_1 - arg1_2;
 }
 
 arg0 = float<ieee_64,ne>(Marg0);
@@ -137,7 +137,7 @@ procedure div_warn(x, y) { if (x != 0 && y == 0) then print("[WARNING] FPBench: 
 procedure ex0(arg0, arg1) {
 	arg0 = round(arg0, double, RN);
 	arg1 = round(arg1, double, RN);
-	round((arg0 + arg1), double, RN);
+	round(arg0 + arg1, double, RN);
 };
 
 procedure ex1(arg0) {
@@ -151,7 +151,7 @@ procedure ex2(arg0, arg1) {
 	arg1 = round(arg1, double, RN);
 	arg0_1 = arg1;
 	arg1_2 = arg0;
-	round((arg0_1 - arg1_2), double, RN);
+	round(arg0_1 - arg1_2, double, RN);
 };
 
 fun ex0 (arg0 : word64) (arg1 : word64) = (Double.+ arg0 arg1) : word64;

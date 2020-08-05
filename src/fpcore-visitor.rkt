@@ -21,14 +21,26 @@
    visit-while_
    visit-while
    visit-while*
+   visit-for_
+   visit-for
+   visit-for*
+   visit-tensor
+   visit-tensor*
+
    visit-!
-   visit-op_
-   visit-cast
-   visit-op
+
    visit-terminal_
    visit-number
    visit-constant
    visit-symbol
+   visit-digits
+
+   visit-op_
+   visit-cast
+   visit-array
+   visit-op
+   visit-call
+
    reduce))
 
 ;; Visit functions can take an optional context as a keyword argument.
@@ -77,16 +89,22 @@
      (vterm visitor ctx
             (visit-while* cond vars inits updates body)
             (visit-while_ 'while* cond vars inits updates body))]
+    [`(for ([,vars ,vals] ...) ([,accums ,inits ,updates] ...) ,body)
+     (vterm visitor ctx
+            (visit-for vars vals accums inits updates body)
+            (visit-for_ 'for vars vals accums inits updates body))]
+    [`(for* ([,vars ,vals] ...) ([,accums ,inits ,updates] ...) ,body)
+     (vterm visitor ctx
+            (visit-for* vars vals accums inits updates body)
+            (visit-for_ 'for* vars vals accums inits updates body))]
+    [`(tensor ([,vars ,vals] ...) ,body)
+     (vterm visitor ctx (visit-tensor vars vals body))]
+    [`(tensor* ([,vars ,vals] ...) ([,accums ,inits ,updates] ...) ,body)
+     (vterm visitor ctx (visit-tensor* vars vals accums inits updates body))]
+
     [`(! ,props ... ,body)
      (vterm visitor ctx (visit-! props body))]
-    [`(cast ,body)
-     (vterm visitor ctx
-            (visit-cast body)
-            (visit-op_ 'cast (list body)))]
-    [(list operator args ...)
-     (vterm visitor ctx
-            (visit-op operator args)
-            (visit-op_ operator args))]
+
     [(or (? number? n) (? extflonum? n))
      (vterm visitor ctx
             (visit-number n)
@@ -98,7 +116,28 @@
     [(? symbol? s)
      (vterm visitor ctx
             (visit-symbol s)
-            (visit-terminal_ s))]))
+            (visit-terminal_ s))]
+    [`(digits ,m ,e ,b)
+     (vterm visitor ctx
+            (visit-digits m e b)
+            (visit-terminal_ expr))]
+
+    [`(cast ,body)
+     (vterm visitor ctx
+            (visit-cast body)
+            (visit-op_ 'cast (list body)))]
+    [`(array ,args ...)
+     (vterm visitor ctx
+            (visit-array args)
+            (visit-op_ 'array args))]
+    [(list (? operator? operator) args ...)
+     (vterm visitor ctx
+            (visit-op operator args)
+            (visit-op_ operator args))]
+    [(list func args ...)
+     (vterm visitor ctx
+            (visit-call func args)
+            (visit-op_ func args))]))
 
 (define-syntax-rule (visit vtor arg)
   ((visitor-visit-expr vtor) vtor arg))
@@ -153,20 +192,45 @@
   (visit/ctx visitor body ctx)
   (void))
 
+(define (visit-for_ visitor for_ vars vals accums inits updates body #:ctx [ctx '()])
+  (for ([val vals]) (visit/ctx visitor val ctx))
+  (for ([init inits] [update updates])
+    (visit/ctx visitor init ctx)
+    (visit/ctx visitor update ctx))
+  (visit/ctx visitor body ctx)
+  (void))
+
+(define (visit-for visitor vars vals accums inits updates body #:ctx [ctx '()])
+  (for ([val vals]) (visit/ctx visitor val ctx))
+  (for ([init inits] [update updates])
+    (visit/ctx visitor init ctx)
+    (visit/ctx visitor update ctx))
+  (visit/ctx visitor body ctx)
+  (void))
+
+(define (visit-for* visitor vars vals accums inits updates body #:ctx [ctx '()])
+  (for ([val vals]) (visit/ctx visitor val ctx))
+  (for ([init inits] [update updates])
+    (visit/ctx visitor init ctx)
+    (visit/ctx visitor update ctx))
+  (visit/ctx visitor body ctx)
+  (void))
+
+(define (visit-tensor visitor vars vals body #:ctx [ctx '()])
+  (for ([val vals]) (visit/ctx visitor val ctx))
+  (visit/ctx visitor body ctx)
+  (void))
+
+(define (visit-tensor* visitor vars vals accums inits updates body #:ctx [ctx '()])
+  (for ([val vals]) (visit/ctx visitor val ctx))
+  (for ([init inits] [update updates])
+    (visit/ctx visitor init ctx)
+    (visit/ctx visitor update ctx))
+  (visit/ctx visitor body ctx)
+  (void))
+
 (define (visit-! visitor props body #:ctx [ctx '()])
   (visit/ctx visitor body ctx)
-  (void))
-
-(define (visit-op_ visitor operator args #:ctx [ctx '()])
-  (for ([arg args]) (visit/ctx visitor arg ctx))
-  (void))
-
-(define (visit-cast visitor body #:ctx [ctx '()])
-  (visit/ctx visitor body ctx)
-  (void))
-
-(define (visit-op visitor operator args #:ctx [ctx '()])
-  (for ([arg args]) (visit/ctx visitor arg ctx))
   (void))
 
 (define (visit-terminal_ visitor x #:ctx [ctx '()])
@@ -181,6 +245,29 @@
 (define (visit-symbol visitor x #:ctx [ctx '()])
   (void))
 
+(define (visit-digits visitor m e b #:ctx [ctx '()])
+  (void))
+
+(define (visit-op_ visitor operator args #:ctx [ctx '()])
+  (for ([arg args]) (visit/ctx visitor arg ctx))
+  (void))
+
+(define (visit-cast visitor body #:ctx [ctx '()])
+  (visit/ctx visitor body ctx)
+  (void))
+
+(define (visit-array visitor args #:ctx [ctx '()])
+  (for ([arg args]) (visit/ctx visitor arg ctx))
+  (void))
+
+(define (visit-op visitor operator args #:ctx [ctx '()])
+  (for ([arg args]) (visit/ctx visitor arg ctx))
+  (void))
+
+(define (visit-call visitor func args #:ctx [ctx '()])
+  (for ([arg args]) (visit/ctx visitor arg ctx))
+  (void))
+
 ;; visits the AST but does nothing
 (define default-visitor
   (visitor
@@ -192,14 +279,26 @@
    visit-while_
    #f
    #f
+   visit-for_
+   #f
+   #f
+   visit-tensor
+   visit-tensor*
+
    visit-!
-   visit-op_
-   #f
-   #f
+
    visit-terminal_
    #f
    #f
    #f
+   #f
+
+   visit-op_
+   #f
+   #f
+   #f
+   #f
+
    #f))
 
 ;; AST transformers
@@ -245,17 +344,44 @@
                 (visit/ctx visitor update ctx))))
      ,(visit/ctx visitor body ctx)))
 
+(define (visit-for_/transform visitor for_ vars vals accums inits updates body #:ctx [ctx '()])
+  `(,for_ (,@(for/list ([var vars] [val vals]) (list var (visit/ctx visitor val ctx))))
+          (,@(for/list ([accum accums] [init inits] [update updates])
+               (list accum
+                     (visit/ctx visitor init ctx)
+                     (visit/ctx visitor update ctx))))
+          ,(visit/ctx visitor body ctx)))
+
+(define (visit-for/transform visitor vars vals accums inits updates body #:ctx [ctx '()])
+  `(for (,@(for/list ([var vars] [val vals]) (list var (visit/ctx visitor val ctx))))
+     (,@(for/list ([accum accums] [init inits] [update updates])
+          (list accum
+                (visit/ctx visitor init ctx)
+                (visit/ctx visitor update ctx))))
+     ,(visit/ctx visitor body ctx)))
+
+(define (visit-for*/transform visitor vars vals accums inits updates body #:ctx [ctx '()])
+  `(for* (,@(for/list ([var vars] [val vals]) (list var (visit/ctx visitor val ctx))))
+     (,@(for/list ([accum accums] [init inits] [update updates])
+          (list accum
+                (visit/ctx visitor init ctx)
+                (visit/ctx visitor update ctx))))
+     ,(visit/ctx visitor body ctx)))
+
+(define (visit-tensor/transform visitor vars vals body #:ctx [ctx '()])
+  `(tensor (,@(for/list ([var vars] [val vals]) (list var (visit/ctx visitor val ctx))))
+           ,(visit/ctx visitor body ctx)))
+
+(define (visit-tensor*/transform visitor vars vals accums inits updates body #:ctx [ctx '()])
+  `(tensor* (,@(for/list ([var vars] [val vals]) (list var (visit/ctx visitor val ctx))))
+            (,@(for/list ([accum accums] [init inits] [update updates])
+                 (list accum
+                       (visit/ctx visitor init ctx)
+                       (visit/ctx visitor update ctx))))
+            ,(visit/ctx visitor body ctx)))
+
 (define (visit-!/transform visitor props body #:ctx [ctx '()])
   `(! ,@props ,(visit/ctx visitor body ctx)))
-
-(define (visit-op_/transform visitor operator args #:ctx [ctx '()])
-  `(,operator ,@(for/list ([arg args]) (visit/ctx visitor arg ctx))))
-
-(define (visit-cast/transform visitor body #:ctx [ctx '()])
-  `(cast ,(visit/ctx visitor body ctx)))
-
-(define (visit-op/transform visitor operator args #:ctx [ctx '()])
-  `(,operator ,@(for/list ([arg args]) (visit/ctx visitor arg ctx))))
 
 (define (visit-terminal_/transform visitor x #:ctx [ctx '()])
   x)
@@ -269,6 +395,24 @@
 (define (visit-symbol/transform visitor x #:ctx [ctx '()])
   x)
 
+(define (visit-digits/transform visitor m e b #:ctx [ctx '()])
+  `(digits ,m ,e ,b))
+
+(define (visit-op_/transform visitor operator args #:ctx [ctx '()])
+  `(,operator ,@(for/list ([arg args]) (visit/ctx visitor arg ctx))))
+
+(define (visit-cast/transform visitor body #:ctx [ctx '()])
+  `(cast ,(visit/ctx visitor body ctx)))
+
+(define (visit-array/transform visitor args #:ctx [ctx '()])
+  `(array ,@(for/list ([arg args]) (visit/ctx visitor arg ctx))))
+
+(define (visit-op/transform visitor operator args #:ctx [ctx '()])
+  `(,operator ,@(for/list ([arg args]) (visit/ctx visitor arg ctx))))
+
+(define (visit-call/transform visitor func args #:ctx [ctx '()])
+  `(,func ,@(for/list ([arg args]) (visit/ctx visitor arg ctx))))
+
 ;; returns the AST unchanged
 (define default-transform-visitor
   (visitor
@@ -280,14 +424,26 @@
    visit-while_/transform
    #f
    #f
+   visit-for_/transform
+   #f
+   #f
+   visit-tensor/transform
+   visit-tensor*/transform
+
    visit-!/transform
-   visit-op_/transform
-   #f
-   #f
+
    visit-terminal_/transform
    #f
    #f
    #f
+   #f
+
+   visit-op_/transform
+   #f
+   #f
+   #f
+   #f
+
    #f))
 
 ;; AST reductions
@@ -337,19 +493,45 @@
                                         (visit/ctx visitor update ctx))))
                   (list (visit/ctx visitor body ctx)))))
 
+(define (visit-for_/reduce visitor for_ vars vals accums inits updates body #:ctx [ctx '()])
+  (reduce visitor
+          (append (for/list ([val vals]) (visit/ctx visitor val ctx))
+                  (apply append (for/list ([init inits] [update updates])
+                                  (list (visit/ctx visitor init ctx)
+                                        (visit/ctx visitor update ctx))))
+                  (list (visit/ctx visitor body ctx)))))
+
+(define (visit-for/reduce visitor vars vals accums inits updates body #:ctx [ctx '()])
+  (reduce visitor
+          (append (for/list ([val vals]) (visit/ctx visitor val ctx))
+                  (apply append (for/list ([init inits] [update updates])
+                                  (list (visit/ctx visitor init ctx)
+                                        (visit/ctx visitor update ctx))))
+                  (list (visit/ctx visitor body ctx)))))
+
+(define (visit-for*/reduce visitor vars vals accums inits updates body #:ctx [ctx '()])
+  (reduce visitor
+          (append (for/list ([val vals]) (visit/ctx visitor val ctx))
+                  (apply append (for/list ([init inits] [update updates])
+                                  (list (visit/ctx visitor init ctx)
+                                        (visit/ctx visitor update ctx))))
+                  (list (visit/ctx visitor body ctx)))))
+
+(define (visit-tensor/reduce visitor vars vals body #:ctx [ctx '()])
+  (reduce visitor
+          (append (for/list ([val vals]) (visit/ctx visitor val ctx))
+                  (list (visit/ctx visitor body ctx)))))
+
+(define (visit-tensor*/reduce visitor vars vals accums inits updates body #:ctx [ctx '()])
+  (reduce visitor
+          (append (for/list ([val vals]) (visit/ctx visitor val ctx))
+                  (apply append (for/list ([init inits] [update updates])
+                                  (list (visit/ctx visitor init ctx)
+                                        (visit/ctx visitor update ctx))))
+                  (list (visit/ctx visitor body ctx)))))
+
 (define (visit-!/reduce visitor props body #:ctx [ctx '()])
   (reduce visitor (list (visit/ctx visitor body ctx))))
-
-(define (visit-op_/reduce visitor operator args #:ctx [ctx '()])
-  (reduce visitor
-          (for/list ([arg args]) (visit/ctx visitor arg ctx))))
-
-(define (visit-cast/reduce visitor body #:ctx [ctx '()])
-  (reduce visitor (list (visit/ctx visitor body ctx))))
-
-(define (visit-op/reduce visitor operator args #:ctx [ctx '()])
-  (reduce visitor
-          (for/list ([arg args]) (visit/ctx visitor arg ctx))))
 
 (define (visit-terminal_/reduce visitor x #:ctx [ctx '()])
   1)
@@ -363,6 +545,28 @@
 (define (visit-symbol/reduce visitor x #:ctx [ctx '()])
   1)
 
+(define (visit-digits/reduce visitor m e b #:ctx [ctx '()])
+  1)
+
+(define (visit-op_/reduce visitor operator args #:ctx [ctx '()])
+  (reduce visitor
+          (for/list ([arg args]) (visit/ctx visitor arg ctx))))
+
+(define (visit-cast/reduce visitor body #:ctx [ctx '()])
+  (reduce visitor (list (visit/ctx visitor body ctx))))
+
+(define (visit-array/reduce visitor args #:ctx [ctx '()])
+  (reduce visitor
+          (for/list ([arg args]) (visit/ctx visitor arg ctx))))
+
+(define (visit-op/reduce visitor operator args #:ctx [ctx '()])
+  (reduce visitor
+          (for/list ([arg args]) (visit/ctx visitor arg ctx))))
+
+(define (visit-call/reduce visitor func args #:ctx [ctx '()])
+  (reduce visitor
+          (for/list ([arg args]) (visit/ctx visitor arg ctx))))
+
 ;; counts terminals
 (define default-reduce-visitor
   (visitor
@@ -374,14 +578,26 @@
    visit-while_/reduce
    #f
    #f
+   visit-for_/reduce
+   #f
+   #f
+   visit-tensor/reduce
+   visit-tensor*/reduce
+
    visit-!/reduce
-   visit-op_/reduce
-   #f
-   #f
+
    visit-terminal_/reduce
    #f
    #f
    #f
+   #f
+
+   visit-op_/reduce
+   #f
+   #f
+   #f
+   #f
+
    (curry apply +)))
 
 ;; syntax helpers

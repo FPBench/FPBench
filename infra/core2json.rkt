@@ -39,7 +39,7 @@
    prop-hash
    'arguments (map ~pp args)
    'body (~pp body)
-   'operators (map ~pp (operators-in core))
+   'operators (map ~pp (set->list (operators-in core)))
    'core (~pp core)
    'core_fptaylor core-fptaylor))
 

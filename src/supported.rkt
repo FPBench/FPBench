@@ -4,7 +4,7 @@
 (provide valid-core unsupported-features
          invert-op-proc invert-const-proc invert-rnd-mode-proc
          ieee754-ops ieee754-rounding-modes fpcore-ops fpcore-consts
-         operators-in constants-in property-values variables-in-expr)
+         operators-in constants-in property-values)
 
 (provide
   (contract-out
@@ -47,8 +47,8 @@
 (define (valid-core core supp)
   (define core-prec (dict-ref (property-values core) ':precision #f))
   (define core-rnd-modes (dict-ref (property-values core) ':round #f))
-  (and (andmap (supported-list-ops supp) (operators-in core))
-       (andmap (supported-list-consts supp) (constants-in core))
+  (and (andmap (supported-list-ops supp) (set->list (operators-in core)))
+       (andmap (supported-list-consts supp) (set->list (constants-in core)))
        (or (not core-prec)
            (andmap (supported-list-precisions supp) (set->list core-prec)))
        (or (not core-rnd-modes)
@@ -58,8 +58,8 @@
   (define core-prec (dict-ref (property-values core) ':precision #f))
   (define core-rnd-modes (dict-ref (property-values core) ':round #f))
   (set-union
-    (filter-not (supported-list-ops supp) (operators-in core))
-    (filter-not (supported-list-consts supp) (constants-in core))
+    (filter-not (supported-list-ops supp) (set->list (operators-in core)))
+    (filter-not (supported-list-consts supp) (set->list (constants-in core)))
     (if core-prec
         (filter-not (supported-list-precisions supp) (set->list core-prec))
         '())
@@ -67,13 +67,20 @@
         (filter-not (supported-list-round-modes supp) (set->list core-rnd-modes))
         '())))
 
-(define/reduce-expr (operators-in-expr-helper expr)
+(define/reduce-expr (operators-in-expr expr)
+; (-> expr? (set/c symbol?))
   [(visit-if vtor cond ift iff)
    (set-add (visit-if/reduce vtor cond ift iff) 'if)]
   [(visit-let_ vtor let_ vars vals body)
    (set-add (visit-let_/reduce vtor let_ vars vals body) let_)]
   [(visit-while_ vtor while_ cond vars inits updates body)
    (set-add (visit-while_/reduce vtor while_ cond vars inits updates body) while_)]
+  [(visit-for_ vtor for_ vars vals accums inits updates body)
+   (set-add (visit-for_/reduce vtor for_ vars vals accums inits updates body) for_)]
+  [(visit-tensor vtor vars vals body)
+   (set-add (visit-tensor/reduce vtor vars vals body) 'tensor)]
+  [(visit-tensor* vtor vars vals accums inits updates body)
+   (set-add (visit-tensor*/reduce vtor vars vals accums inits updates body) 'tensor*)]
   [(visit-! vtor props body)
    (set-add (visit vtor body) '!)]
   [(visit-terminal_ vtor x)
@@ -82,29 +89,22 @@
    (set-add (visit-op_/reduce vtor op args) op)]
   [reduce (curry apply set-union)])
 
-(define/contract (operators-in-expr expr)
-  (-> expr? (listof symbol?))
-  (set->list (operators-in-expr-helper expr)))
-
 (define/contract (operators-in core)
-  (-> fpcore? (listof symbol?))
+  (-> fpcore? (set/c symbol?))
   (define-values (args props body)
     (match core
      [(list 'FPCore (list args ...) props ... body) (values args props body)]
      [(list 'FPCore name (list args ...) props ... body) (values args props body)]))
   (operators-in-expr body))
 
-(define/reduce-expr (constants-in-expr-helper expr)
+(define/reduce-expr (constants-in-expr expr)
+; (-> expr? (set/c symbol?)
   [(visit-terminal_ vtor x) (set)]
   [(visit-constant vtor x) (set x)]
   [reduce (curry apply set-union)])
 
-(define/contract (constants-in-expr expr)
-  (-> expr? (listof symbol?))
-  (set->list (constants-in-expr-helper expr)))
-
 (define/contract (constants-in core)
-  (-> fpcore? (listof symbol?))
+  (-> fpcore? (set/c symbol?))
   (define-values (args props body)
     (match core
      [(list 'FPCore (list args ...) props ... body) (values args props body)]
@@ -137,15 +137,6 @@
   (define prop-hash (property-values-expr body))
   (property-hash-add prop-hash props))
 
-(define/reduce-expr (variables-in-expr-helper expr)
-  [(visit-terminal_ vtor x) (set)]
-  [(visit-symbol vtor x) (set x)]
-  [reduce (curry apply set-union)])
-
-(define/contract (variables-in-expr expr)
-  (-> expr? (listof symbol?))
-  (set->list (variables-in-expr-helper expr)))
-
 (module+ test
   (define exprs (list
     `(+ a b)
@@ -158,12 +149,13 @@
 
   (check-equal?
    (map list->set (map operators-in-expr exprs))
-   (map list->set
-        `((+) (* +) (let sqrt /) (let* cbrt /) (while < + - * exp sin) (while* < + - * log cos) (! - +))))
+   (map list->set `((+) (* +) (let sqrt /) 
+                    (let* cbrt /) (while < + - * exp sin)
+                    (while* < + - * log cos) (! - +))))
 
   (check-equal?
-    (map constants-in-expr exprs)
-   `(() (E) (LOG2E) (PI) () () ()))
+    (map list->set (map constants-in-expr exprs))
+    (map list->set `(() (E) (LOG2E) (PI) () () ())))
 
   (check-equal?
     (map property-values-expr exprs)

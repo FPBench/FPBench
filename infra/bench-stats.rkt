@@ -1,6 +1,6 @@
 #lang racket
 (require xml)
-(require "../src/common.rkt" "../src/fpcore-checker.rkt")
+(require "../src/common.rkt" "../src/fpcore-checker.rkt" "../src/supported.rkt")
 
 (define/contract operator-groups (dictof string? (listof symbol?))
   #hash(("Arithmetic" . (+ - * / fabs fma sqrt hypot fmin fmax fdim))
@@ -27,21 +27,6 @@
    (['missing (set-subtract operators all-operators-in-groups)])
    (check subset? operators all-operators-in-groups)))
 
-(define/match (operators-in expr)
-  [(`(while ,test ([,vars ,inits ,updates] ...) ,res))
-   (cons 'while
-         (append (operators-in test)
-                 (append-map operators-in inits)
-                 (append-map operators-in updates)
-                 (operators-in res)))]
-  [(`(let ([,vars ,vals] ...) ,body))
-   (cons 'let (append (append-map operators-in vals) (operators-in body)))]
-  [(`(if ,cond ,ift ,iff))
-   (cons 'if (append (operators-in cond) (operators-in ift) (operators-in iff)))]
-  [((list op args ...)) (cons op (append-map operators-in args))]
-  [((? symbol?)) '()]
-  [((? number?)) '()])
-
 (define/contract (operator->group op)
   (-> symbol? string?)
   (or
@@ -52,7 +37,7 @@
 
 (define/contract (expr-groups expr)
   (-> expr? (listof string?))
-  (remove-duplicates (map operator->group (operators-in expr))))
+  (remove-duplicates (map operator->group (set->list (operators-in expr)))))
 
 (define/contract (operator-table progs)
   (-> (listof fpcore?) (listof (list/c string? number?)))

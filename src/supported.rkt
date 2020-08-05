@@ -1,6 +1,7 @@
 #lang racket
+(require racket/hash)
 (require "common.rkt" "fpcore-checker.rkt" "fpcore-visitor.rkt")
-(provide valid-core unsupported-features 
+(provide valid-core unsupported-features
          invert-op-proc invert-const-proc invert-rnd-mode-proc
          ieee754-ops ieee754-rounding-modes fpcore-ops fpcore-consts
          operators-in constants-in property-values variables-in-expr)
@@ -19,7 +20,7 @@
 ;;; Predefined supported procs
 
 (define ieee754-ops (curry set-member? '(+ - * / < > <= >= == != fabs fma sqrt)))
-(define ieee754-rounding-modes 
+(define ieee754-rounding-modes
   (curry set-member? '(nearestEven nearestAway toPositive toNegative toZero)))
 
 (define fpcore-ops (curry set-member? (append operators '(! if let let* while while* digits))))
@@ -66,22 +67,24 @@
         (filter-not (supported-list-round-modes supp) (set->list core-rnd-modes))
         '())))
 
+(define/reduce-expr (operators-in-expr-helper expr)
+  [(visit-if vtor cond ift iff)
+   (set-add (visit-if/reduce vtor cond ift iff) 'if)]
+  [(visit-let_ vtor let_ vars vals body)
+   (set-add (visit-let_/reduce vtor let_ vars vals body) let_)]
+  [(visit-while_ vtor while_ cond vars inits updates body)
+   (set-add (visit-while_/reduce vtor while_ cond vars inits updates body) while_)]
+  [(visit-! vtor props body)
+   (set-add (visit vtor body) '!)]
+  [(visit-terminal_ vtor x)
+   (set)]
+  [(visit-op_ vtor op args)
+   (set-add (visit-op_/reduce vtor op args) op)]
+  [reduce (curry apply set-union)])
+
 (define/contract (operators-in-expr expr)
   (-> expr? (listof symbol?))
-  (define-reduce-visitor vtor ; default behavior is counting terminals
-    [visit-if (λ (vtor cond ift iff #:ctx ctx)
-                (cons 'if (visit-if/reduce vtor cond ift iff #:ctx ctx)))]
-    [visit-let_ (λ (vtor let_ vars vals body #:ctx ctx)
-                  (cons let_ (visit-let_/reduce vtor let_ vars vals body #:ctx ctx)))]
-    [visit-while_ (λ (vtor while_ cond vars inits updates body #:ctx ctx)
-                    (cons while_ (visit-while_/reduce vtor while_ cond vars inits
-                                                      updates body #:ctx ctx)))]
-    [visit-! (λ (vtor props body #:ctx ctx) (cons '! (visit/ctx vtor body ctx)))]
-    [visit-terminal_ (λ (vtor a #:ctx ctx) '())]
-    [visit-op (λ (vtor op args #:ctx ctx)
-                (cons op (visit-op/reduce vtor op args #:ctx ctx)))]
-    [reduce (curry apply append)])
-  (remove-duplicates (visit vtor expr)))
+  (set->list (operators-in-expr-helper expr)))
 
 (define/contract (operators-in core)
   (-> fpcore? (listof symbol?))
@@ -91,13 +94,14 @@
      [(list 'FPCore name (list args ...) props ... body) (values args props body)]))
   (operators-in-expr body))
 
+(define/reduce-expr (constants-in-expr-helper expr)
+  [(visit-terminal_ vtor x) (set)]
+  [(visit-constant vtor x) (set x)]
+  [reduce (curry apply set-union)])
+
 (define/contract (constants-in-expr expr)
   (-> expr? (listof symbol?))
-  (define-reduce-visitor vtor ; default behavior is counting terminals
-    [visit-terminal_ (λ (vtor a #:ctx ctx) '())]
-    [visit-constant (λ (vtor a #:ctx ctx) (list a))]
-    [reduce (curry apply append)])
-  (remove-duplicates (visit vtor expr)))
+  (set->list (constants-in-expr-helper expr)))
 
 (define/contract (constants-in core)
   (-> fpcore? (listof symbol?))
@@ -105,23 +109,24 @@
     (match core
      [(list 'FPCore (list args ...) props ... body) (values args props body)]
      [(list 'FPCore name (list args ...) props ... body) (values args props body)]))
-  (constants-in-expr body))  
+  (constants-in-expr body))
 
 (define property-hash? (hash/c symbol? (set/c any/c)))
-(define (property-hash-add! hash props)
+(define (property-hash-add prop-hash props)
   (define-values (_ properties) (parse-properties props))
-  (for ([(k v) (in-dict properties)])
-    (hash-update! hash k (curryr set-add v) (set))))
+  (for/fold ([prop-hash* prop-hash])
+            ([(k v) (in-dict properties)])
+    (hash-update prop-hash* k (curryr set-add v) (set))))
 
-(define/contract (property-values-expr expr)
-  (-> expr? property-hash?)
-  (define out (make-hash))
-  (define-transform-visitor vtor
-    [visit-! (λ (vtor props body #:ctx ctx)
-                (property-hash-add! out props)
-                (visit-!/transform vtor props body #:ctx ctx))])
-  (visit vtor expr)
-  out)
+(define/reduce-expr (property-values-expr expr)
+  [(visit-! vtor props body)
+   (property-hash-add (visit vtor body) props)]
+  [(visit-terminal_ vtor x)
+   (hash)]
+  [(reduce args)
+   (if (empty? args) (hash)
+       (apply (curryr hash-union #:combine/key
+                      (lambda (k v1 v2) (set-union v1 v2))) args))])
 
 (define/contract (property-values core)
   (-> fpcore? property-hash?)
@@ -130,16 +135,16 @@
      [(list 'FPCore (list args ...) props ... body) (values args props body)]
      [(list 'FPCore name (list args ...) props ... body) (values args props body)]))
   (define prop-hash (property-values-expr body))
-  (property-hash-add! prop-hash props)
-  prop-hash) 
+  (property-hash-add prop-hash props))
+
+(define/reduce-expr (variables-in-expr-helper expr)
+  [(visit-terminal_ vtor x) (set)]
+  [(visit-symbol vtor x) (set x)]
+  [reduce (curry apply set-union)])
 
 (define/contract (variables-in-expr expr)
   (-> expr? (listof symbol?))
-  (define-reduce-visitor vtor ; default behavior is counting terminals
-    [visit-terminal_ (λ (vtor a #:ctx ctx) '())]
-    [visit-symbol (λ (vtor a #:ctx ctx) (list a))]
-    [reduce (curry apply append)])
-  (remove-duplicates (visit vtor expr)))
+  (set->list (variables-in-expr-helper expr)))
 
 (module+ test
   (define exprs (list
@@ -152,8 +157,9 @@
     `(! :precision binary64 (- (! :round toPositive (+ x y)) (! :round toNegative (+ x y))))))
 
   (check-equal?
-    (map operators-in-expr exprs)
-   `((+) (* +) (let sqrt /) (let* cbrt /) (while < + - * exp sin) (while* < + - * log cos) (! - +)))
+   (map list->set (map operators-in-expr exprs))
+   (map list->set
+        `((+) (* +) (let sqrt /) (let* cbrt /) (while < + - * exp sin) (while* < + - * log cos) (! - +))))
 
   (check-equal?
     (map constants-in-expr exprs)
@@ -161,5 +167,5 @@
 
   (check-equal?
     (map property-values-expr exprs)
-    (list (make-hash) (make-hash) (make-hash) (make-hash) (make-hash) (make-hash) 
-        (make-hash `((:precision . ,(set 'binary64)) (:round . ,(set 'toNegative 'toPositive)))))))
+    (list (hash) (hash) (hash) (hash) (hash) (hash)
+          (hash ':precision (set 'binary64) ':round (set 'toNegative 'toPositive)))))

@@ -324,11 +324,9 @@
   (for/list ([(prop name) (in-dict (apply dict-set* '() props))])
     (format "~a ~a" prop name)))
 
-(define (pretty-expr-helper expr) ; don't call pretty-format twice
-  (define/transform-expr (pretty-ify expr ctx)
-    [visit-! (λ (vtor props body #:ctx ctx)
-                `(! ,@(pretty-props props) ,(visit/ctx vtor body ctx)))])
-  (pretty-ify expr '()))
+(define/transform-expr (pretty-expr-helper expr) ; don't call pretty-format twice
+  [(visit-! vtor props body)
+   `(! ,@(pretty-props props) ,(visit vtor body))])
 
 (define (pretty-expr expr)
   (pretty-format (pretty-expr-helper expr) #:mode 'display))

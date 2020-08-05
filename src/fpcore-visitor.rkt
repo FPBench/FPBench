@@ -31,16 +31,31 @@
    visit-symbol
    reduce))
 
+;; Visit functions can take an optional context as a keyword argument.
+;; An empty context or "no context" is assumed to be an empty list.
+
+;; The main dispatch function, visit-expr, always accepts this keyword
+;; and defaults to an empty list if it is not provided;
+;; however it only passes it along to the actual user-provided functions
+;; if it's not an empty list, so it is safe to provide user-defined
+;; visit functions that do not expect a #:ctx argument.
+
 (define-syntax-parser vterm
   [(vterm vtor ctx (term args ...))
    #:with accessor (format-id #'term "visitor-~a" #'term)
-   #'((accessor vtor) vtor args ... #:ctx ctx)]
+   #'(if (null? ctx)
+         ((accessor vtor) vtor args ...)
+         ((accessor vtor) vtor args ... #:ctx ctx))]
   [(vterm vtor ctx (term args ...) (term2 args2 ...))
    #:with accessor (format-id #'term "visitor-~a" #'term)
    #:with accessor2 (format-id #'term2 "visitor-~a" #'term2)
    #'(if (accessor vtor)
-         ((accessor vtor) vtor args ... #:ctx ctx)
-         ((accessor2 vtor) vtor args2 ... #:ctx ctx))])
+         (if (null? ctx)
+             ((accessor vtor) vtor args ...)
+             ((accessor vtor) vtor args ... #:ctx ctx))
+         (if (null? ctx)
+             ((accessor2 vtor) vtor args2 ...)
+             ((accessor2 vtor) vtor args2 ... #:ctx ctx)))])
 
 (define (visit-expr visitor expr #:ctx [ctx '()])
   (match expr
@@ -68,8 +83,8 @@
      (vterm visitor ctx
             (visit-cast body)
             (visit-op_ 'cast (list body)))]
-    [(list operator args ...) 
-     (vterm visitor ctx 
+    [(list operator args ...)
+     (vterm visitor ctx
             (visit-op operator args)
             (visit-op_ operator args))]
     [(or (? number? n) (? extflonum? n))
@@ -94,6 +109,99 @@
 (define-syntax-rule (reduce vtor args ...)
   ((visitor-reduce vtor) args ...))
 
+;; default visitor
+
+(define (visit-if visitor cond ift iff #:ctx [ctx '()])
+  (visit/ctx visitor cond ctx)
+  (visit/ctx visitor ift ctx)
+  (visit/ctx visitor iff ctx)
+  (void))
+
+(define (visit-let_ visitor let_ vars vals body #:ctx [ctx '()])
+  (for ([val vals]) (visit/ctx visitor val ctx))
+  (visit/ctx visitor body ctx)
+  (void))
+
+(define (visit-let visitor vars vals body #:ctx [ctx '()])
+  (for ([val vals]) (visit/ctx visitor val ctx))
+  (visit/ctx visitor body ctx)
+  (void))
+
+(define (visit-let* visitor vars vals body #:ctx [ctx '()])
+  (for ([val vals]) (visit/ctx visitor val ctx))
+  (visit/ctx visitor body ctx)
+  (void))
+
+(define (visit-while_ visitor while_ cond vars inits updates body #:ctx [ctx '()])
+  (for ([init inits] [update updates])
+    (visit/ctx visitor init ctx)
+    (visit/ctx visitor update ctx))
+  (visit/ctx visitor body ctx)
+  (void))
+
+(define (visit-while visitor cond vars inits updates body #:ctx [ctx '()])
+  (for ([init inits] [update updates])
+    (visit/ctx visitor init ctx)
+    (visit/ctx visitor update ctx))
+  (visit/ctx visitor body ctx)
+  (void))
+
+(define (visit-while* visitor cond vars inits updates body #:ctx [ctx '()])
+  (for ([init inits] [update updates])
+    (visit/ctx visitor init ctx)
+    (visit/ctx visitor update ctx))
+  (visit/ctx visitor body ctx)
+  (void))
+
+(define (visit-! visitor props body #:ctx [ctx '()])
+  (visit/ctx visitor body ctx)
+  (void))
+
+(define (visit-op_ visitor operator args #:ctx [ctx '()])
+  (for ([arg args]) (visit/ctx visitor arg ctx))
+  (void))
+
+(define (visit-cast visitor body #:ctx [ctx '()])
+  (visit/ctx visitor body ctx)
+  (void))
+
+(define (visit-op visitor operator args #:ctx [ctx '()])
+  (for ([arg args]) (visit/ctx visitor arg ctx))
+  (void))
+
+(define (visit-terminal_ visitor x #:ctx [ctx '()])
+  (void))
+
+(define (visit-number visitor x #:ctx [ctx '()])
+  (void))
+
+(define (visit-constant visitor x #:ctx [ctx '()])
+  (void))
+
+(define (visit-symbol visitor x #:ctx [ctx '()])
+  (void))
+
+;; visits the AST but does nothing
+(define default-visitor
+  (visitor
+   visit-expr
+   visit-if
+   visit-let_
+   #f
+   #f
+   visit-while_
+   #f
+   #f
+   visit-!
+   visit-op_
+   #f
+   #f
+   visit-terminal_
+   #f
+   #f
+   #f
+   #f))
+
 ;; AST transformers
 
 (define (visit-if/transform visitor cond ift iff #:ctx [ctx '()])
@@ -116,19 +224,25 @@
 (define (visit-while_/transform visitor while_ cond vars inits updates body #:ctx [ctx '()])
   `(,while_ ,(visit/ctx visitor cond ctx)
             (,@(for/list ([var vars] [init inits] [update updates])
-                 (list var (visit/ctx visitor init ctx) (visit/ctx visitor update ctx))))
+                 (list var
+                       (visit/ctx visitor init ctx)
+                       (visit/ctx visitor update ctx))))
             ,(visit/ctx visitor body ctx)))
 
 (define (visit-while/transform visitor cond vars inits updates body #:ctx [ctx '()])
   `(while ,(visit/ctx visitor cond ctx)
      (,@(for/list ([var vars] [init inits] [update updates])
-          (list var (visit/ctx visitor init ctx) (visit/ctx visitor update ctx))))
+          (list var
+                (visit/ctx visitor init ctx)
+                (visit/ctx visitor update ctx))))
      ,(visit/ctx visitor body ctx)))
 
 (define (visit-while*/transform visitor cond vars inits updates body #:ctx [ctx '()])
   `(while* ,(visit/ctx visitor cond ctx)
      (,@(for/list ([var vars] [init inits] [update updates])
-          (list var (visit/ctx visitor init ctx) (visit/ctx visitor update ctx))))
+          (list var
+                (visit/ctx visitor init ctx)
+                (visit/ctx visitor update ctx))))
      ,(visit/ctx visitor body ctx)))
 
 (define (visit-!/transform visitor props body #:ctx [ctx '()])
@@ -202,22 +316,25 @@
 (define (visit-while_/reduce visitor while_ cond vars inits updates body #:ctx [ctx '()])
   (reduce visitor
           (append (list (visit/ctx visitor cond ctx))
-                  (for/list ([init inits]) (visit/ctx visitor init ctx))
-                  (for/list ([update updates]) (visit/ctx visitor update ctx))
+                  (apply append (for/list ([init inits] [update updates])
+                                  (list (visit/ctx visitor init ctx)
+                                        (visit/ctx visitor update ctx))))
                   (list (visit/ctx visitor body ctx)))))
 
 (define (visit-while/reduce visitor cond vars inits updates body #:ctx [ctx '()])
   (reduce visitor
           (append (list (visit/ctx visitor cond ctx))
-                  (for/list ([init inits]) (visit/ctx visitor init ctx))
-                  (for/list ([update updates]) (visit/ctx visitor update ctx))
+                  (apply append (for/list ([init inits] [update updates])
+                                  (list (visit/ctx visitor init ctx)
+                                        (visit/ctx visitor update ctx))))
                   (list (visit/ctx visitor body ctx)))))
 
 (define (visit-while*/reduce visitor cond vars inits updates body #:ctx [ctx '()])
   (reduce visitor
           (append (list (visit/ctx visitor cond ctx))
-                  (for/list ([init inits]) (visit/ctx visitor init ctx))
-                  (for/list ([update updates]) (visit/ctx visitor update ctx))
+                  (apply append (for/list ([init inits] [update updates])
+                                  (list (visit/ctx visitor init ctx)
+                                        (visit/ctx visitor update ctx))))
                   (list (visit/ctx visitor body ctx)))))
 
 (define (visit-!/reduce visitor props body #:ctx [ctx '()])
@@ -267,21 +384,7 @@
    #f
    (curry apply +)))
 
-;; macro interface for creating visitors
-
-(define-simple-macro (define-expr-visitor default-visitor new-visitor [method impl] ...)
-  (define new-visitor
-    (struct-copy visitor default-visitor
-                 [method impl] ...)))
-
-(define-simple-macro (define-transform-visitor new-visitor [method impl] ...)
-  (define-expr-visitor default-transform-visitor new-visitor [method impl] ...))
-
-(define-simple-macro (define-reduce-visitor new-visitor [method impl] ...)
-  (define-expr-visitor default-reduce-visitor new-visitor [method impl] ...))
-
-;; macro interface for defining expr visiting functions directly
-;; i.e. like define/match, but specifically for FPCore expressions
+;; syntax helpers
 
 (begin-for-syntax
   (define-syntax-class method-clause
@@ -289,20 +392,60 @@
              #:with impl #'(lambda (args ...) body ...))
     (pattern [name impl])))
 
-(define-simple-macro (define/visit-expr default-visitor (fname expr ctx)
-                       method:method-clause ...)
-  (begin
-    (define expr-visitor
-      (struct-copy visitor default-visitor
-                   [method.name method.impl] ...))
-    (define (fname expr ctx)
-      (visit/ctx expr-visitor expr ctx))))
+;; macro interface for creating visitors
 
-(define-simple-macro (define/transform-expr (fname expr ctx) method:method-clause ...)
-  (define/visit-expr default-transform-visitor (fname expr ctx) method ...))
+(define-syntax-parser define-expr-visitor
+  [(define-expr-visitor new-vtor method:method-clause ...)
+   #'(define new-vtor
+       (struct-copy visitor default-visitor
+                    [method.name method.impl] ...))]
+  [(define-expr-visitor default-vtor new-vtor method:method-clause ...)
+   #'(define new-vtor
+       (struct-copy visitor default-vtor
+                    [method.name method.impl] ...))])
 
-(define-simple-macro (define/reduce-expr (fname expr ctx) method:method-clause ...)
-  (define/visit-expr default-reduce-visitor (fname expr ctx) method ...))
+(define-simple-macro (define-transform-visitor new-vtor method:method-clause ...)
+  (define-expr-visitor default-transform-visitor new-vtor method ...))
+
+(define-simple-macro (define-reduce-visitor new-vtor method:method-clause ...)
+  (define-expr-visitor default-reduce-visitor new-vtor method ...))
+
+;; macro interface for defining expr visiting functions directly
+;; i.e. like define/match, but specifically for FPCore expressions
+
+(define-syntax-parser define/visit-expr
+  [(define/visit-expr (fname expr) method:method-clause ...)
+   #'(begin
+       (define-expr-visitor default-visitor new-vtor method ...)
+       (define (fname expr)
+         (visit new-vtor expr)))]
+  [(define/visit-expr (fname expr ctx) method:method-clause ...)
+   #'(begin
+       (define-expr-visitor default-visitor new-vtor method ...)
+       (define (fname expr ctx)
+         (visit/ctx new-vtor expr ctx)))]
+  [(define/visit-expr default-vtor (fname expr) method:method-clause ...)
+   #'(begin
+       (define-expr-visitor default-vtor new-vtor method ...)
+       (define (fname expr)
+         (visit new-vtor expr)))]
+  [(define/visit-expr default-vtor (fname expr ctx) method:method-clause ...)
+   #'(begin
+       (define-expr-visitor default-vtor new-vtor method ...)
+       (define (fname expr ctx)
+         (visit/ctx new-vtor expr ctx)))])
+
+(define-syntax-parser define/transform-expr
+  [(define/transform-expr (fname expr) method:method-clause ...)
+   #'(define/visit-expr default-transform-visitor (fname expr) method ...)]
+  [(define/transform-expr (fname expr ctx) method:method-clause ...)
+   #'(define/visit-expr default-transform-visitor (fname expr ctx) method ...)])
+
+(define-syntax-parser define/reduce-expr
+  [(define/reduce-expr (fname expr) method:method-clause ...)
+   #'(define/visit-expr default-reduce-visitor (fname expr) method ...)]
+  [(define/reduce-expr (fname expr ctx) method:method-clause ...)
+   #'(define/visit-expr default-reduce-visitor (fname expr ctx) method ...)])
 
 ;; quick tests
 
@@ -331,11 +474,46 @@
      ))
 
   (for ([e es])
-    (check-equal?
-     e
-     (visit default-transform-visitor e)))
+    (check-equal? (void) (visit default-visitor e))
+    (check-equal? e (visit default-transform-visitor e)))
 
   (check-equal?
    (for/list ([e es]) (visit default-reduce-visitor e))
    '(4 5 10 9 16))
+
+  (define (visit-terminal_/maxdepth vtor x #:ctx ctx)
+    (match-define (list current-depth max-depth) ctx)
+    (when (> current-depth (unbox max-depth))
+      (set-box! max-depth current-depth)))
+
+  (define/visit-expr (maxdepth-helper expr ctx)
+    [(visit-expr vtor expr #:ctx ctx)
+     (match-define (list current-depth max-depth) ctx)
+     (visit-expr vtor expr #:ctx (list (+ 1 current-depth) max-depth))]
+    [visit-terminal_ visit-terminal_/maxdepth])
+
+  (define (maxdepth expr)
+    (let ([depth-box (box 0)])
+      (maxdepth-helper expr (list 0 depth-box))
+      (unbox depth-box)))
+
+  (check-equal?
+   (for/list ([e es]) (maxdepth e))
+   '(3 5 5 3 4))
+
+  (define/reduce-expr (hascontract? expr)
+    [(visit-! vtor props body) #t]
+    [(visit-terminal_ vtor x) #f]
+    [(reduce args) (ormap values args)])
+
+  (define/transform-expr (killcontracts expr)
+    [(visit-! vtor props body) (visit vtor body)])
+
+  (check-equal?
+   (for/list ([e es]) (hascontract? e))
+   '(#f #t #f #f #f))
+
+  (for ([e es])
+    (unless (hascontract? e)
+      (check-equal? e (killcontracts e))))
 )

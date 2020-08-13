@@ -11,7 +11,7 @@
     [struct supported-list
      ([ops (-> symbol? boolean?)]
       [consts (-> symbol? boolean?)]
-      [precisions (-> symbol? boolean?)]
+      [precisions (-> any/c boolean?)]
       [round-modes (-> symbol? boolean?)])]))
 
 (module+ test

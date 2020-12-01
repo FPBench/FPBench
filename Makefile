@@ -1,7 +1,17 @@
-all: testsetup sanity test setup
-
 FILTER = racket infra/filter.rkt
 known_inaccurate = "round" "isnormal" "fmod" "remainder"
+
+### Byte-compile
+
+setup:
+	raco make main.rkt export.rkt transform.rkt toolserver.rkt evaluate.rkt 
+
+testsetup:
+	raco make infra/filter.rkt \
+		infra/test-core2c.rkt infra/test-core2fptaylor.rkt infra/test-core2js.rkt infra/test-core2go.rkt infra/test-core2smtlib2.rkt infra/test-core2sollya.rkt \
+		infra/test-core2wls.rkt infra/test-core2cml.rkt infra/test-core2scala.rkt
+
+##### Testing
 
 c-sanity:
 ifneq (, $(shell which $(CC)))
@@ -171,16 +181,8 @@ tools-test: export-test transform-test toolserver-test evaluate-test
 
 test: c-test js-test go-test smtlib2-test sollya-test wls-test cml-test fptaylor-test daisy-test export-test transform-test toolserver-test evaluate-test raco-test 
 
-testsetup:
-	raco make infra/filter.rkt \
-		infra/test-core2c.rkt infra/test-core2fptaylor.rkt infra/test-core2js.rkt infra/test-core2go.rkt infra/test-core2smtlib2.rkt infra/test-core2sollya.rkt \
-		infra/test-core2wls.rkt infra/test-core2cml.rkt infra/test-core2scala.rkt
-
-setup:
-	raco make main.rkt export.rkt transform.rkt toolserver.rkt evaluate.rkt 
-
 clean:
-	$(RM) -r library tmp log
+	$(RM) -r library tmp log *.zo *.dep
 
 www/benchmarks.jsonp: $(wildcard benchmarks/*.fpcore)
 	racket infra/core2json.rkt --padding load_benchmarks $^ > "$@"

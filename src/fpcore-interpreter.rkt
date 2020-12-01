@@ -34,11 +34,7 @@
     [(? extflonum?) expr]
     [(? constant?) ((evaluator-constant evaltor) expr)]
     [(? tensor?) expr]
-    [(? symbol?)
-     (let ([val (dict-ref ctx expr)])
-      (match val
-       [(? tensor?) val]
-       [_ ((evaluator-real evaltor) val)]))]
+    [(? symbol?) (dict-ref ctx expr)]
     [`(if ,test ,ift ,iff)
      (if (rec test ctx) (rec ift ctx) (rec iff ctx))]
     [`(let ([,vars ,vals] ...) ,body)
@@ -169,6 +165,7 @@
 (define (fl->bf arg [override? #f]) ; override converts to bf at current precision rather than the precision of arg
   (cond
     [override?            (bf (if (extflonum? arg) (extfl->real arg) arg))]
+    [(integer? arg)       (parameterize ([bf-precision 128]) (bf arg))]
     [(extflonum? arg)     (parameterize ([bf-precision 64]) (bf (extfl->real arg)))]
     [(double-flonum? arg) (parameterize ([bf-precision 53]) (bf arg))]
     [(single-flonum? arg) (parameterize ([bf-precision 24]) (bf arg))]))

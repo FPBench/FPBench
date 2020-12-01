@@ -244,7 +244,8 @@
        [(and (or (equal? (language-name (*lang*)) "c")  ; Only C and Scala need to emit a temporary variable
                  (equal? (language-name (*lang*)) "scala"))
              (or (not (equal? curr-prec new-prec))
-                 (not (equal? curr-round new-round))))
+                 (not (equal? curr-round new-round)))
+             (list? body))                            ; except if it is a no op
         (let-values ([(ctx* tmp-var) (ctx-random-name ctx)])
           (unless (equal? curr-round new-round) 
             (printf "~a~a\n" indent (change-round-mode new-round indent)))

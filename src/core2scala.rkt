@@ -101,8 +101,8 @@
 (define (function->scala name args arg-props body return ctx vars)
   (define type (type->scala (ctx-lookup-prop ctx ':precision 'binary64)))
   (define arg-list
-    (for/list ([arg args])
-      (fprintf (*scala-prec-file*) "\t~a: ~a\n" arg type)
+    (for/list ([arg args] [prop arg-props])
+      (fprintf (*scala-prec-file*) "\t~a: ~a\n" arg (type->scala type))
       (format "~a: Real" arg)))
   (define precond
     (let ([pre 

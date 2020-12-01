@@ -167,7 +167,7 @@
     [else
      (list (list #t expr loc))]))
 
-(define (expr->tex expr [ctx (make-compiler-ctx)] #:loc [color-loc #f] #:color [color "red"])
+(define (expr->tex* expr ctx color-loc color)
     "Compile an expression to math mode TeX."
   (let texify ([expr expr] [ctx ctx] [parens #t] [loc '(2)])
     (format
@@ -193,8 +193,10 @@
                           NL IND (texify bexpr ctx #t (cons 2 bloc)) NL)]))
              (printf "\\end{array}")))]
 
-        [`(cast ,body) (format "\\langle ~a \\rangle_{~a}" (texify body ctx parens loc) 
-                                                           (ctx-lookup-prop ctx ':precision))]
+        [`(cast ,body)
+          (format "\\langle ~a \\rangle_{\\text{~a}}"
+                  (texify body ctx parens loc) (ctx-lookup-prop ctx ':precision))]
+
         [`(! ,props ... ,body) 
           (define curr-prec (ctx-lookup-prop ctx ':precision))
           (define curr-rnd (ctx-lookup-prop ctx ':round))
@@ -204,11 +206,11 @@
           (define new-rnd (ctx-lookup-prop ctx* ':round curr-rnd))
           (cond
             [(and (not (equal? curr-prec new-prec)) (not (equal? curr-rnd new-rnd)))
-             (format "\\left( ~a \\right)_{~a, ~a}" body* (round-mode->tex new-rnd) new-prec)]
+             (format "\\left( ~a \\right)_{\\text{~a}, \\text{~a}}" body* (round-mode->tex new-rnd) new-prec)]
             [(not (equal? curr-prec new-prec))
-             (format "\\left( ~a \\right)_{~a}" body* new-prec)]
+             (format "\\left( ~a \\right)_{\\text{~a}}" body* new-prec)]
             [(not (equal? curr-rnd new-rnd))
-             (format "\\left( ~a \\right)_{~a}" body* (round-mode->tex new-rnd))]
+             (format "\\left( ~a \\right)_{\\text{~a}}" body* (round-mode->tex new-rnd))]
             [else body*])]
 
         [(? exact-integer?)
@@ -258,6 +260,10 @@
 
 ;; Exports
 
+(define (expr->tex expr #:prec [prec 'binary64] #:loc [color-loc #f] #:color [color "red"])
+  (define ctx (ctx-update-props (make-compiler-ctx) (list ':precision prec)))
+  (expr->tex* expr ctx color-loc color))
+
 ; Names are optional in TeX programs
 (define (core->tex prog [name ""] #:loc [color-loc #f] #:color [color "red"])
   (parameterize ([*used-names* (mutable-set)] 
@@ -292,7 +298,7 @@
                               name)
                   (ctx-props ctx))])))
 
-    (define body* (expr->tex body ctx #:loc color-loc #:color color))
+    (define body* (expr->tex* body ctx color-loc color))
     (if (non-empty-string? func-name)
         (format "\\mathsf{~a}\\left(~a\\right) = ~a\n"
                 func-name

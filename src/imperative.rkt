@@ -268,19 +268,19 @@
     [(or (? number?) (? hex?)) (convert-constant ctx expr)]
     [(? symbol?) (ctx-lookup-name ctx expr)]))
 
-(define (convert-core prog name)
+(define (convert-core prog default-name)
   (parameterize ([*used-names* (mutable-set)] 
                  [*gensym-collisions* 1] 
                  [*gensym-fix-name* fix-name])
-    (define-values (args props body)
+    (define-values (name args props body)
      (match prog
-      [(list 'FPCore (list args ...) props ... body) (values args props body)]
-      [(list 'FPCore name (list args ...) props ... body) (values args props body)]))
+      [(list 'FPCore (list args ...) props ... body) (values default-name args props body)]
+      [(list 'FPCore name (list args ...) props ... body) (values name args props body)]))
     (define default-ctx (ctx-update-props (make-compiler-ctx) (append '(:precision binary64 :round nearestEven) props)))
     (define ctx (ctx-reserve-names default-ctx (*reserved-names*)))
 
     (define func-name 
-      (let-values ([(cx fname) (ctx-unique-name ctx (string->symbol name))])
+      (let-values ([(cx fname) (ctx-unique-name ctx (string->symbol (fix-name name)))])
         (set! ctx cx)
         fname)) 
 

@@ -55,10 +55,10 @@ jobs:
             echo "Assuming sbt 0.13.18 is cached, skipping download")
           (git clone https://github.com/malyzajko/daisy ../cache/daisy && cd ../cache/daisy && git checkout ${DAISY_VERSION} && ../sbt/bin/sbt compile && \
             ../sbt/bin/sbt script || echo "Assuming Daisy cached, skipping clone")
-          echo "::add-path::${PWD}/../cache/fptaylor"
-          echo "::add-path::${PWD}/../cache/${Z3_DISTR}/bin"
-          echo "::add-path::${PWD}/../cache/cake"
-          echo "::add-path::${PWD}/../cache/daisy"
+          echo "${PWD}/../cache/fptaylor" >> $GITHUB_PATH
+          echo "${PWD}/../cache/${Z3_DISTR}/bin" >> $GITHUB_PATH
+          echo "${PWD}/../cache/cake" >> $GITHUB_PATH
+          echo "${PWD}/../cache/daisy" >> $GITHUB_PATH
  
       - name: "Byte-compile repo"
         id: setup

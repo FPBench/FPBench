@@ -268,14 +268,14 @@
     [(or (? number?) (? hex?)) (convert-constant ctx expr)]
     [(? symbol?) (ctx-lookup-name ctx expr)]))
 
-(define (convert-core prog default-name)
+(define (convert-core prog name)
   (parameterize ([*used-names* (mutable-set)] 
                  [*gensym-collisions* 1] 
                  [*gensym-fix-name* fix-name])
-    (define-values (name args props body)
+    (define-values (args props body)
      (match prog
-      [(list 'FPCore (list args ...) props ... body) (values default-name args props body)]
-      [(list 'FPCore name (list args ...) props ... body) (values name args props body)]))
+      [(list 'FPCore (list args ...) props ... body) (values args props body)]
+      [(list 'FPCore name (list args ...) props ... body) (values args props body)]))
     (define default-ctx (ctx-update-props (make-compiler-ctx) (append '(:precision binary64 :round nearestEven) props)))
     (define ctx (ctx-reserve-names default-ctx (*reserved-names*)))
 

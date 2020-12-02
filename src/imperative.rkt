@@ -98,6 +98,16 @@
    (cons (list cond ift) (collect-branches iff))]
   [(_) (list (list #t expr))])
 
+;; Used by C (implicit casting issues)
+(define (cmp-prec prec1 prec2)
+  (define/match (prec->num prec)
+    [('binary80)  4]
+    [('binary64)  3]
+    [('binary32)  2]
+    [('integer)   1]
+    [('boolean)   0])
+  (- (prec->num prec1) (prec->num prec2)))
+
 (define (convert-expr expr #:ctx [ctx (make-compiler-ctx)] #:indent [indent "\t"])
   (match expr
     [`(let ([,vars ,vals] ...) ,body)
@@ -252,24 +262,36 @@
                  (not (equal? curr-round new-round))))
         (define ctx* (ctx-update-props ctx props))
         (define-values (body* body-prec) (convert-expr body #:ctx ctx* #:indent indent))
-        (define-values (ctx** var) (ctx-random-name (ctx-update-props ctx* `(:precision ,body-prec))))
-        (unless (equal? curr-round new-round) 
-          (printf "~a~a" indent (change-round-mode new-round indent)))
-        (printf "~a~a\n" indent (convert-declaration ctx** var body*))
-        (unless (equal? curr-round new-round)
-          (printf "~a~a" indent (change-round-mode curr-round indent)))
-        (values 
-          (if (equal? curr-prec body-prec) var (round-expr var ctx #t))
-          body-prec)]
+        (if (and (equal? curr-round new-round) (equal? curr-prec body-prec))
+            (values body* body-prec)
+            (let-values ([(ctx** var) (ctx-random-name (ctx-update-props ctx* `(:precision ,body-prec)))])
+              (unless (equal? curr-round new-round) 
+                (printf "~a~a" indent (change-round-mode new-round indent)))
+              (printf "~a~a\n" indent (convert-declaration ctx** var body*))
+              (unless (equal? curr-round new-round)
+                (printf "~a~a" indent (change-round-mode curr-round indent)))
+              (if (equal? new-prec body-prec)
+                  (values var body-prec)
+                  (values (round-expr var ctx #t) body-prec))))]
       [else
        (convert-expr body #:ctx (ctx-update-props ctx props) #:indent indent)])]
 
     [(list (? operator? operator) args ...)
-      (define args*
-        (for/list ([arg args])
-          (let-values ([(arg* prec*) (convert-expr arg #:ctx ctx #:indent indent)])
-            arg*)))
-     (values (convert-application ctx operator args*) (ctx-lookup-prop ctx ':precision))]
+      (define-values (args* precs*)
+        (for/lists (args* precs*) ([arg args])
+          (convert-expr arg #:ctx ctx #:indent indent)))
+      (define cast? ; C implicit casting: check if arguments need to be explicitly casted
+        (and (equal? (language-name (*lang*)) "c")
+             (andmap (λ (x) (positive? (cmp-prec (ctx-lookup-prop ctx ':precision) x))) precs*)))
+      (define args**
+        (for/list ([arg* args*] [prec* precs*])
+          (if cast?   ; Cast if needed
+              (if (positive? (cmp-prec (ctx-lookup-prop ctx ':precision) prec*))
+                  (round-expr arg* ctx #t)
+                  arg*)
+              arg*)))
+      (values (convert-application ctx operator args**) (ctx-lookup-prop ctx ':precision))]
+
     [(list digits m e b) 
       (values (convert-constant ctx (digits->number m e b)) (ctx-lookup-prop ctx ':precision))]
     [(or (? constant?) (? number?) (? hex?))

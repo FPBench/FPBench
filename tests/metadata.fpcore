@@ -88,3 +88,20 @@
   :name "FPBench casting example"
   :pre (< 1 x 100)
   (cast (! :precision binary32 (cast x))))
+
+(FPCore (x)
+ :name "monadius 1"
+ :precision binary64
+ (! :precision binary32 x))
+
+(FPCore (x)
+ :name "monadius 2"
+ :precision binary64
+ (! :precision binary32
+  (! :precision binary32 x)))
+
+(FPCore (x)
+ :name "monadius 3"
+ :precision binary64
+ (! :precision binary32
+  (let ([y x]) y)))

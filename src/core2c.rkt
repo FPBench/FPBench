@@ -67,8 +67,7 @@
   (format "((~a) ~a)" type val))
 
 (define (round-mode->c mode indent)
-  (format "~afesetround(~a);\n"
-    indent
+  (format "fesetround(~a);\n"
     (match mode
       ['nearestEven   "FE_TONEAREST"]
       ['toPositive    "FE_UPWARD"]

@@ -144,39 +144,45 @@
               (format "\n~a\tif (~a) {\n~a\t\t~a\n~a\t} else {\n~a\t\t~a\n~a\t}"
                       indent cond* indent ift* indent indent iff* indent)))
           (values outvar ift-prec))
-        
-        ;; collect branches for if, else if, else
-        (let loop ([branches (collect-branches expr)] [first? #t] [out #f])
-          (match (cons first? (car branches))
-           [(list #t cond ift) ; first branch => if branch
-            (define-values (cond* cond-prec) (convert-expr cond #:ctx ctx #:indent indent))
-            (define-values (ctx* outvar) ; messy workaround, convert ift twice
-              (parameterize ([current-output-port (open-output-nowhere)])
-                (let-values ([(_ ift-prec) (convert-expr ift #:ctx ctx #:indent (format "~a\t" indent))])
-                  (ctx-random-name (ctx-update-props ctx `(:precision ,ift-prec))))))
-            (if (equal? (language-name (*lang*)) "sollya") ; Sollya has slightly different if
-                (printf "~aif ~a then {\n" indent (format-cond (trim-infix-parens cond*)))
-                (printf "~a~a\n~aif ~a {\n" indent (convert-declaration ctx* outvar)
-                        indent (format-cond (trim-infix-parens cond*))))
-            (define-values (ift* ift-prec) (convert-expr ift #:ctx ctx #:indent (format "~a\t" indent)))
-            (printf "~a\t~a\n" indent (convert-assignment outvar ift*))
-            (loop (cdr branches) #f (cons outvar ift-prec))]
-           [(list _ #t else) ; branch condition #t => else branch
-            (printf "~a} else {\n" indent)
-            (define-values (else* else-prec) (convert-expr else #:ctx ctx #:indent (format "~a\t" indent)))
-            (printf "~a\t~a\n" indent (convert-assignment (car out) else*))
-            (printf "~a}~a\n" indent (if (equal? (language-name (*lang*)) "sollya") ";" ""))
-            (values (car out) (cdr out))]
-           [(list _ cond elif) ; otherwise => else if branch
-            (define-values (cond* cond-prec) (convert-expr cond #:ctx ctx #:indent indent))
-            (printf
-              (if (equal? (language-name (*lang*)) "sollya") ; Sollya has slightly different else if
-                  "~a} else if ~a then {\n"
-                  "~a} else if ~a {\n")
-              indent (format-cond (trim-infix-parens cond*)))
-            (define-values (elif* elif-prec) (convert-expr elif #:ctx ctx #:indent (format "~a\t" indent)))
-            (printf "~a\t~a\n" indent (convert-assignment (car out) elif*))
-            (loop (cdr branches) first? out)])))]
+
+        ; collect branches and translate conditions above the if/elif/else
+        (let ([branches
+                (let loop ([expr expr])
+                  (match expr
+                   [(list 'if cond ift iff)
+                    (define-values (cond* _) (convert-expr cond #:ctx ctx #:indent indent))
+                    (cons (list cond* ift) (loop iff))]
+                   [_ (list (list #t expr))]))])
+          ; translate branches here
+          (let loop ([branches branches] [first? #t] [out #f])
+            (match (cons first? (car branches))
+             [(list #t cond ift) ; first branch => if branch
+              (define-values (ctx* outvar) ; messy workaround, convert ift twice
+                (parameterize ([current-output-port (open-output-nowhere)])
+                  (let-values ([(_ ift-prec) (convert-expr ift #:ctx ctx #:indent (format "~a\t" indent))])
+                    (ctx-random-name (ctx-update-props ctx `(:precision ,ift-prec))))))
+              (if (equal? (language-name (*lang*)) "sollya") ; Sollya has slightly different if
+                  (printf "~aif ~a then {\n" indent (format-cond (trim-infix-parens cond)))
+                  (printf "~a~a\n~aif ~a {\n" indent (convert-declaration ctx* outvar)
+                          indent (format-cond (trim-infix-parens cond))))
+              (define-values (ift* ift-prec) (convert-expr ift #:ctx ctx #:indent (format "~a\t" indent)))
+              (printf "~a\t~a\n" indent (convert-assignment outvar ift*))
+              (loop (cdr branches) #f (cons outvar ift-prec))]
+             [(list _ #t else) ; branch condition #t => else branch
+              (printf "~a} else {\n" indent)
+              (define-values (else* else-prec) (convert-expr else #:ctx ctx #:indent (format "~a\t" indent)))
+              (printf "~a\t~a\n" indent (convert-assignment (car out) else*))
+              (printf "~a}~a\n" indent (if (equal? (language-name (*lang*)) "sollya") ";" ""))
+              (values (car out) (cdr out))]
+             [(list _ cond elif) ; otherwise => else if branch
+              (printf
+                (if (equal? (language-name (*lang*)) "sollya") ; Sollya has slightly different else if
+                    "~a} else if ~a then {\n"
+                    "~a} else if ~a {\n")
+                indent (format-cond (trim-infix-parens cond)))
+              (define-values (elif* elif-prec) (convert-expr elif #:ctx ctx #:indent (format "~a\t" indent)))
+              (printf "~a\t~a\n" indent (convert-assignment (car out) elif*))
+              (loop (cdr branches) first? out)]))))]
 
     [`(while ,cond ([,vars ,inits ,updates] ...) ,retexpr)
       (define indent* (format "~a\t" indent))

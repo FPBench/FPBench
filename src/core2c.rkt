@@ -42,7 +42,8 @@
   (define prec (dict-ref props ':precision 'binary64))
   (define type (type->c prec))
   (match expr
-    [(or 'M_1_PI 'M_2_PI 'M_2_SQRTPI 'TRUE 'FALSE 'INFINITY 'NAN)
+    [(or 'TRUE 'FALSE) (~a expr)]
+    [(or 'M_1_PI 'M_2_PI 'M_2_SQRTPI 'INFINITY 'NAN)
       (format "((~a) ~a)" type expr)]
     [(? hex?) (~a expr)]
     [(? number?)

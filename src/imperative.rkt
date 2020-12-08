@@ -30,7 +30,7 @@
 
 (define (round-expr expr ctx [all? #f]) ; Sollya will never ignore but C can
   (if (or all? (equal? (language-name (*lang*)) "sollya"))
-      ((language-round (*lang*)) (trim-infix-parens expr) (ctx-props ctx))
+      ((language-round (*lang*)) expr (ctx-props ctx))
       expr))
 
 (define (change-round-mode mode indent) ; C only
@@ -290,20 +290,27 @@
       (define-values (args* precs*)
         (for/lists (args* precs*) ([arg args])
           (convert-expr arg #:ctx ctx #:indent indent)))
-      (define cast? ; C implicit casting: check if arguments need to be explicitly casted
+
+      ; C implicit casting: check if arguments need to be explicitly casted
+      ; #f if no casting, -1 if cast result, 1 if cast args
+      (define cast
         (and (equal? (language-name (*lang*)) "c")
              (set-member? `(+ - * /) operator)
-             (andmap (λ (x) (positive? (cmp-prec (ctx-lookup-prop ctx ':precision) x))) precs*)))
+             (andmap (negate (curry equal? (ctx-lookup-prop ctx ':precision))) precs*)
+             (cmp-prec (ctx-lookup-prop ctx ':precision) (car precs*))))
       ;; TODO: Warn when higher precision arguments passed to lower precision operators
       ;;      (C only, exclude +,-,*,/,==,!=,>,<,>=,<=)
       (define args**
         (for/list ([arg* args*] [prec* precs*])
-          (if cast?   ; Cast if needed
-              (if (positive? (cmp-prec (ctx-lookup-prop ctx ':precision) prec*))
-                  (round-expr arg* ctx #t)
-                  arg*)
+          (if (and cast (positive? cast) ; Cast if needed
+                   (not (equal? (ctx-lookup-prop ctx ':precision) prec*)))
+              (round-expr arg* ctx #t)
               arg*)))
-      (values (convert-application ctx operator args**) (ctx-lookup-prop ctx ':precision))]
+      (values
+        (if (and cast (negative? cast))
+            (round-expr (convert-application ctx operator args**) ctx #t)
+            (convert-application ctx operator args**))
+        (ctx-lookup-prop ctx ':precision))]
 
     [(list digits m e b) 
       (values (convert-constant ctx (digits->number m e b)) (ctx-lookup-prop ctx ':precision))]

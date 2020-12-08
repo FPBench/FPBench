@@ -126,3 +126,24 @@
 ;  :precision binary64
 ;  :pre (< 1 x 100)
 ;  (! :precision binary32 (exp x)))
+;
+; (FPCore ()
+; :name "monadius no-double-rounding"
+; :precision binary64
+; (let ([x 0x1.000002p-1]
+;       [y 0x1.ffffffffp-26])
+;  (! :precision binary32 (+ x y))))
+
+(FPCore ()
+ :name "monadius double-rounding"
+ :precision binary64
+ (let ([x 0x1.000002p-1]
+       [y 0x1.ffffffffp-26])
+  (! :precision binary32 (cast (! :precision binary64 (+ x y))))))
+
+(FPCore ()
+ :name "monadius approx 1"
+ :precision binary32
+ (let ([x 0x1p0]
+       [y 0x1p-30])
+  (! :precision binary64 (+ x y))))

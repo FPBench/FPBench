@@ -545,10 +545,7 @@
 
   (parameterize ([bf-rounding-mode (fpcore->bf-round base-rounding)] 
                  [bf-precision (prec->bf-bits base-precision)])
-    (let ([ret ((eval-expr evaltor) body ctx)])
-      (match ret
-        [(or (? boolean?) (? tensor?)) ret]
-        [_ (real->float ret base-precision)]))))
+    ((eval-expr evaltor) body ctx)))
 
 (define/contract (racket-run-fpcore prog args)
   (-> fpcore? (listof string?) (or/c real? extflonum? tensor? boolean?))

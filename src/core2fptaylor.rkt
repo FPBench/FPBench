@@ -7,7 +7,7 @@
   (supported-list
     (invert-op-proc 
       (curry set-member?
-             '(atan2 cbrt ceil copysign erf erfc exp2 expm1 fdim floor fmod hypot if let* 
+             '(atan2 cbrt ceil copysign erf erfc exp2 expm1 fdim floor fmod hypot if let* cast
               lgamma log10 log1p log2 nearbyint pow remainder round tgamma trunc while while*)))
     fpcore-consts
     (curry set-member? '(binary16 binary32 binary64 binary128))

@@ -137,7 +137,7 @@ procedure div_warn(x, y) { if (x != 0 && y == 0) then print("[WARNING] FPBench: 
 procedure ex0(arg0, arg1) {
 	arg0 = round(arg0, double, RN);
 	arg1 = round(arg1, double, RN);
-	round(arg0 + arg1, double, RN);
+	round((arg0 + arg1), double, RN);
 };
 
 procedure ex1(arg0) {
@@ -151,7 +151,7 @@ procedure ex2(arg0, arg1) {
 	arg1 = round(arg1, double, RN);
 	arg0_1 = arg1;
 	arg1_2 = arg0;
-	round(arg0_1 - arg1_2, double, RN);
+	round((arg0_1 - arg1_2), double, RN);
 };
 
 fun ex0 (arg0 : word64) (arg1 : word64) = (Double.+ arg0 arg1) : word64;

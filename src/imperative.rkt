@@ -108,6 +108,9 @@
     [('boolean)   0])
   (- (prec->num prec1) (prec->num prec2)))
 
+(define (boolean-op? op) ; correct return type
+  (set-member? '(< > <= >= == != and or not isfinite isinf isnan isnormal signbit) op))
+
 (define (convert-expr expr #:ctx [ctx (make-compiler-ctx)] #:indent [indent "\t"])
   (match expr
     [`(let ([,vars ,vals] ...) ,body)
@@ -310,10 +313,16 @@
         (if (and cast (negative? cast))
             (round-expr (convert-application ctx operator args**) ctx #t)
             (convert-application ctx operator args**))
-        (ctx-lookup-prop ctx ':precision))]
+        (if (boolean-op? operator) 'boolean (ctx-lookup-prop ctx ':precision)))]
 
     [(list digits m e b) 
       (values (convert-constant ctx (digits->number m e b)) (ctx-lookup-prop ctx ':precision))]
+    [(? constant?)
+      (values 
+        (convert-constant ctx expr)
+        (if (set-member? '(TRUE FALSE) expr)
+            'boolean
+            (ctx-lookup-prop ctx ':precision)))]
     [(or (? constant?) (? number?) (? hex?))
       (values (convert-constant ctx expr) (ctx-lookup-prop ctx ':precision))]
     [(? symbol?)

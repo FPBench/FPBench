@@ -1,8 +1,10 @@
 #lang racket
 
 (require math/bigfloat)
-(require "common.rkt" "compilers.rkt" "imperative.rkt" "range-analysis.rkt" "supported.rkt")
-(provide scala-header scala-footer core->scala scala-supported *scala-suppress* *scala-prec-file*)
+(require "common.rkt" "compilers.rkt" "imperative.rkt" "range-analysis.rkt"
+         "supported.rkt")
+(provide scala-header scala-footer core->scala scala-supported
+         *scala-suppress* *scala-prec-file*)
 
 (define *scala-suppress* (make-parameter #f))
 (define *scala-prec-file* (make-parameter #f))
@@ -93,16 +95,16 @@
   (unless (or valid? (*scala-suppress*))
     (printf "Removed invalid precondition: ~a\n" pre))
   (if valid?
-      (format "\t\trequire(~a)\n" (convert-expr pre* #:ctx ctx #:indent "\t\t"))
+      (format "\t\trequire(~a)\n"
+        (let-values ([(pre* prec) (convert-expr pre* #:ctx ctx #:indent "\t\t")])
+          pre*))
       (format "\t\t// Invalid precondition: ~a\n" pre)))
-
-;;
 
 (define (function->scala name args arg-props body return ctx vars)
   (define type (type->scala (ctx-lookup-prop ctx ':precision 'binary64)))
   (define arg-list
-    (for/list ([arg args])
-      (fprintf (*scala-prec-file*) "\t~a: ~a\n" arg type)
+    (for/list ([arg args] [prop arg-props])
+      (fprintf (*scala-prec-file*) "\t~a: ~a\n" arg (type->scala (dict-ref prop ':precision)))
       (format "~a: Real" arg)))
   (define precond
     (let ([pre 

@@ -42,7 +42,8 @@
   (define prec (dict-ref props ':precision 'binary64))
   (define type (type->c prec))
   (match expr
-    [(or 'M_1_PI 'M_2_PI 'M_2_SQRTPI 'TRUE 'FALSE 'INFINITY 'NAN)
+    [(or 'TRUE 'FALSE) (~a expr)]
+    [(or 'M_1_PI 'M_2_PI 'M_2_SQRTPI 'INFINITY 'NAN)
       (format "((~a) ~a)" type expr)]
     [(? hex?) (~a expr)]
     [(? number?)
@@ -67,8 +68,7 @@
   (format "((~a) ~a)" type val))
 
 (define (round-mode->c mode indent)
-  (format "~afesetround(~a);\n"
-    indent
+  (format "fesetround(~a);\n"
     (match mode
       ['nearestEven   "FE_TONEAREST"]
       ['toPositive    "FE_UPWARD"]
@@ -76,18 +76,24 @@
       ['toZero        "FE_TOWARDZERO"]
       [_              (error 'round-mode->c (format "Unsupported rounding mode ~a" mode))])))
 
+(define (params->c args arg-props)
+  (string-join
+    (for/list ([arg args] [prop arg-props])
+      (let ([type (hash-ref prop ':precision)])
+        (format "~a ~a" (type->c type) arg)))
+    ", "))
+
 (define (function->c name args arg-props body return ctx vars)
   (define type (type->c (ctx-lookup-prop ctx ':precision 'binary64)))
-  (define rnd-mode (ctx-lookup-prop ctx ':round ''nearestEven))
+  (define rnd-mode (ctx-lookup-prop ctx ':round 'nearestEven))
   (define-values (_ ret-var) (ctx-random-name ctx))
   (if (equal? rnd-mode 'nearestEven) ; if not 'nearestEven, set round mode, then restore the original mode
-      (format "~a ~a(~a) {\n~a\treturn ~a;\n}\n"
-              type name (string-join (map (λ (arg) (format "~a ~a" type arg)) args) ", ")
+      (format "~a ~a(~a) {\n~a\treturn ~a;\n}\n" type name (params->c args arg-props)
               body (trim-infix-parens return))
       (format "~a ~a(~a) {\n~a~a\t~a ~a = ~a;\n~a\treturn ~a;\n}\n"    
-              type name (string-join (map (λ (arg) (format "~a ~a" type arg)) args) ", ")
-              (round-mode->c rnd-mode "\t") body type ret-var (trim-infix-parens return)      
-              (round-mode->c 'nearestEven "\t") ret-var)))
+              type name (params->c args arg-props) (round-mode->c rnd-mode "\t") body
+              type ret-var (trim-infix-parens return) (round-mode->c 'nearestEven "\t")
+              ret-var)))
 
 (define c-language (language "c" operator->c constant->c declaration->c assignment->c
                              round->c round-mode->c function->c))

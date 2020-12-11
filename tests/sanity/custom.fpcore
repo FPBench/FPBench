@@ -172,14 +172,34 @@
                 b))
 
 (FPCore ()
-  :name "Test if (1/2)"
+  :name "Test if (1/6)"
   :spec 1.0
   (if (> 1.0 0.0) 1.0 0.0))
 
 (FPCore ()
-  :name "Test if (2/2)"
+  :name "Test if (2/6)"
   :spec 1.0
   (if (< 1.0 0.0) 0.0 1.0))
+
+(FPCore (x)
+ :name "Test if (3/6)"
+ (if TRUE (let ([y 1]) y)
+  (if FALSE (let ([y 2]) y)
+   (let ([y 3]) y))))
+
+(FPCore (x)
+  :name "Test if (4/6)"
+  (if TRUE x (if (let ([t FALSE]) t) x x)))
+
+(FPCore (x)
+  :name "Test if (5/6)"
+  (if (let ([t FALSE]) t) 0
+   (if (let ([t TRUE]) t) 1
+    (if (let ([t TRUE]) t) 0 0))))
+
+(FPCore (x)
+  :name "Test if (6/6)"
+  (if TRUE x (if (let ([t (let ([y x]) (> x y))]) t) 1 0)))
 
 (FPCore ()
   :name "Test cast (1/1)"

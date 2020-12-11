@@ -50,9 +50,9 @@
 
 ; Takes a given symbol maps it to a unique, printable name and returns both
 ; the updated ctx struct and the name
-(define (ctx-unique-name ctx name)
+(define (ctx-unique-name ctx name [prec #f])
   (let ([unique (gensym name)]
-        [prec   (dict-ref (compiler-ctx-props ctx) ':precision 'binary64)])
+        [prec (if prec prec (dict-ref (compiler-ctx-props ctx) ':precision 'binary64))])
     (values 
       (compiler-ctx (dict-set (compiler-ctx-name-map ctx) name unique) 
                     (dict-set (compiler-ctx-prec-map ctx) name prec)
@@ -61,9 +61,9 @@
 
 ; Takes a fix-name procedure and returns the updated context struct and a "random", unique, printable name
 ; that will be unmapped, but it's precision is mapped.
-(define (ctx-random-name ctx)
+(define (ctx-random-name ctx [prec #f])
   (let ([name (gensym 'tmp)]
-        [prec (dict-ref (compiler-ctx-props ctx) ':precision 'binary64)])
+        [prec (if prec prec (dict-ref (compiler-ctx-props ctx) ':precision 'binary64))])
     (values
       (compiler-ctx (compiler-ctx-name-map ctx) 
                     (dict-set (compiler-ctx-prec-map ctx) name prec)

@@ -34,11 +34,7 @@
     [(? extflonum?) expr]
     [(? constant?) ((evaluator-constant evaltor) expr)]
     [(? tensor?) expr]
-    [(? symbol?)
-     (let ([val (dict-ref ctx expr)])
-      (match val
-       [(? tensor?) val]
-       [_ ((evaluator-real evaltor) val)]))]
+    [(? symbol?) (dict-ref ctx expr)]
     [`(if ,test ,ift ,iff)
      (if (rec test ctx) (rec ift ctx) (rec iff ctx))]
     [`(let ([,vars ,vals] ...) ,body)
@@ -169,6 +165,7 @@
 (define (fl->bf arg [override? #f]) ; override converts to bf at current precision rather than the precision of arg
   (cond
     [override?            (bf (if (extflonum? arg) (extfl->real arg) arg))]
+    [(integer? arg)       (parameterize ([bf-precision 128]) (bf arg))]
     [(extflonum? arg)     (parameterize ([bf-precision 64]) (bf (extfl->real arg)))]
     [(double-flonum? arg) (parameterize ([bf-precision 53]) (bf arg))]
     [(single-flonum? arg) (parameterize ([bf-precision 24]) (bf arg))]))
@@ -548,10 +545,7 @@
 
   (parameterize ([bf-rounding-mode (fpcore->bf-round base-rounding)] 
                  [bf-precision (prec->bf-bits base-precision)])
-    (let ([ret ((eval-expr evaltor) body ctx)])
-      (match ret
-        [(or (? boolean?) (? tensor?)) ret]
-        [_ (real->float ret base-precision)]))))
+    ((eval-expr evaltor) body ctx)))
 
 (define/contract (racket-run-fpcore prog args)
   (-> fpcore? (listof string?) (or/c real? extflonum? tensor? boolean?))

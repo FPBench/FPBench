@@ -34,6 +34,13 @@
   [('binary64) (values 11 53)]
   [('binary128) (values 15 113)])
 
+(define (bits->prec es sig)
+  (match (list es sig)
+   ['(5 11)   'binary16]
+   ['(8 24)   'binary32]
+   ['(11 53)  'binary64]
+   ['(15 113) 'binary128]))
+
 (define (fptype type)
   (define-values (w p) (fpbits type))
   (format "(_ FloatingPoint ~a ~a)" w p))
@@ -185,11 +192,13 @@
     [`(let ([,vars ,vals] ...) ,body)
       (define rm (ctx-lookup-prop ctx ':round 'nearestEven))
       (define-values (ctx* vars* vals*)
-        (for/fold ([ctx* ctx] [vars* '()] [vals* '()]) 
+        (for/fold ([ctx* ctx] [vars* '()] [vals* '()]
+                  #:result (values ctx* (reverse vars*) (reverse vals*)))
                   ([var vars] [val vals])
-          (let-values ([(cx name) (ctx-unique-name ctx* var)]
-                       [(val_c w* p*) (expr->smt val ctx w p)])
-            (values cx (flatten (cons vars* name)) (flatten (cons vals* val_c))))))
+          (let*-values ([(val_c w* p*) (expr->smt val ctx w p)]
+                        [(cx name) (ctx-unique-name ctx* var (bits->prec w* p*))])
+            (values cx (cons name vars*) (cons val_c vals*)))))
+      (define-values (body* w* p*) (expr->smt body ctx* w p))
       (values
         (format "(let (~a) ~a)"
           (string-join
@@ -197,33 +206,27 @@
               (let-values ()
                 (format "(~a ~a)" var* val*)))
             " ")
-          (let-values ([(body* w* p*) (expr->smt body ctx* w p)])
-            (if (and (equal? w* w) (equal? p* p))
-                body*
-                (format "((_ to_fp ~a ~a) ~a ~a)" w p (rm->smt rm) body*))))
-        w p)]
+          body*)
+        w* p*)]
 
     [`(let* ([,vars ,vals] ...) ,body)
       (define rm (ctx-lookup-prop ctx ':round 'nearestEven))
       (define-values (ctx* vars* vals*)
-        (for/fold ([ctx* ctx] [vars* '()] [vals* '()]) 
+        (for/fold ([ctx* ctx] [vars* '()] [vals* '()]
+                  #:result (values ctx* (reverse vars*) (reverse vals*)))
                   ([var vars] [val vals])
-          (let-values ([(cx name) (ctx-unique-name ctx* var)]
-                       [(val_c w* p*) (expr->smt val ctx* w p)])
-            (values cx (flatten (cons vars* name)) (flatten (cons vals* val_c))))))
-      (define body*
-        (let-values ([(body* w* p*) (expr->smt body ctx* w p)])
-            (if (and (equal? w* w) (equal? p* p))
-                body*
-                (format "((_ to_fp ~a ~a) ~a ~a)" w p (rm->smt rm) body*))))
+          (let*-values ([(val_c w* p*) (expr->smt val ctx* w p)]
+                        [(cx name) (ctx-unique-name ctx* var (bits->prec w* p*))])
+            (values cx (cons name vars*) (cons val_c vals*)))))
+      (define-values (body* w* p*) (expr->smt body ctx* w p))
       (values
-        (let nested ([vars_c vars*]
-                     [vals_c vals*])
+        (let loop ([vars vars*] [vals vals*])
           (cond
-            [(> (length vars_c) 0)
-              (format "(let ((~a ~a)) ~a)" (first vars_c) (first vals_c) (nested (drop vars_c 1) (drop vals_c 1)))]
-            [else body*]))
-        w p)]
+           [(null? vars) body*]
+           [else
+            (format "(let ((~a ~a)) ~a)" (car vars) (car vals)
+                    (loop (cdr vars) (cdr vals)))]))
+        w* p*)]
 
     [`(if ,cond ,ift ,iff)
       (define li (list cond ift iff))
@@ -234,21 +237,17 @@
             (values (flatten (cons li* v_c)) (if (> w* max-w) w* max-w) (if (> p* max-p) p* max-p)))))
       (values (format "(ite ~a ~a ~a)" (first li*) (second li*) (third li*)) w p)]
 
-    ;; Ignore all casts
     [`(cast ,body)
       (define rm (ctx-lookup-prop ctx ':round 'nearestEven))
       (let-values ([(body* w* p*)  (expr->smt body ctx w p)])
         (values (format "((_ to_fp ~a ~a) ~a ~a)" w p (rm->smt rm) body*) w p))]
 
-    [(list '! props ... body) 
-      (define prec (dict-ref (apply hash-set* #hash() props) ':precision #f))
-      (define rm (ctx-lookup-prop ctx ':round 'nearestEven))
-      (if (equal? prec #f)
-        (let-values ([(body* w* p*) (expr->smt body (ctx-update-props ctx props) w p)])
-          (values body* w* p*))
-        (let*-values ([(w* p*) (fpbits prec)]
-                      [(body* w** p**) (expr->smt body (ctx-update-props ctx props) w* p*)])
-          (values (format "((_ to_fp ~a ~a) ~a ~a)" w p (rm->smt rm) body*) w** p**)))]
+    [(list '! props ... body)
+      (define ctx* (ctx-update-props ctx props))
+      (define-values (w* p*) (fpbits (ctx-lookup-prop ctx* ':precision)))
+      (define rm (ctx-lookup-prop ctx* ':round 'nearestEven))
+      (let-values ([(body* w* p*) (expr->smt body ctx* w* p*)])
+        (values body* w* p*))]
       
     [(list (? operator? operator) args ...)
       (define-values (args* ws ps max-w max-p)
@@ -256,7 +255,7 @@
                   ([arg args])
           (let-values ([(arg* w* p*) (expr->smt arg ctx w p)])
             (values (flatten (cons args* arg*)) (flatten (cons ws w*)) (flatten (cons ps p*))
-                    (if (> w* max-w) w* max-w) (if (> p* max-p) p* max-p)))))
+                    (if (> w* max-w) w* max-w) (if (> p* max-p) p* max-p))))) 
       (define args_r
         (for/list ([arg* args*] [w* ws] [p* ps])
           (if (and (equal? w* max-w) (equal? p* max-p))
@@ -304,6 +303,9 @@
             func-name
             (string-join args* " ")
             type-str
-            body_c)))
+            (if (and (= w w*) (= p p*))
+                body_c
+                (format "((_ to_fp ~a ~a) ~a ~a)" w p
+                        (rm->smt (ctx-lookup-prop ctx ':round)) body_c)))))
 
 (define-compiler '("smt" "smt2" "smtlib" "smtlib2") (const "") core->smtlib2 (const "") smt-supported)

@@ -30,7 +30,7 @@
 
 (define (round-expr expr ctx [all? #f]) ; Sollya will never ignore but C can
   (if (or all? (equal? (language-name (*lang*)) "sollya"))
-      ((language-round (*lang*)) (trim-infix-parens expr) (ctx-props ctx))
+      ((language-round (*lang*)) expr (ctx-props ctx))
       expr))
 
 (define (change-round-mode mode indent) ; C only
@@ -98,14 +98,28 @@
    (cons (list cond ift) (collect-branches iff))]
   [(_) (list (list #t expr))])
 
+;; Used by C (implicit casting issues)
+(define (cmp-prec prec1 prec2)
+  (define/match (prec->num prec)
+    [('binary80)  4]
+    [('binary64)  3]
+    [('binary32)  2]
+    [('integer)   1]
+    [('boolean)   0])
+  (- (prec->num prec1) (prec->num prec2)))
+
+(define (boolean-op? op) ; correct return type
+  (set-member? '(< > <= >= == != and or not isfinite isinf isnan isnormal signbit) op))
+
 (define (convert-expr expr #:ctx [ctx (make-compiler-ctx)] #:indent [indent "\t"])
   (match expr
     [`(let ([,vars ,vals] ...) ,body)
       (define ctx*
         (for/fold ([ctx* ctx]) ([var vars] [val vals])
-          (let-values ([(cx name) (ctx-unique-name ctx* var)])
-            (printf "~a~a\n" indent 
-                (convert-declaration cx name (convert-expr val #:ctx ctx #:indent indent)))
+          (let*-values ([(val* prec) (convert-expr val #:ctx ctx #:indent indent)]
+                        [(cx name) (ctx-unique-name ctx* var prec)]
+                        [(cx*) (ctx-update-props cx `(:precision ,prec))])
+            (printf "~a~a\n" indent (convert-declaration cx* name val*))
             cx)))
       (printf "~a" (use-vars (for/list ([var vars]) (ctx-lookup-name ctx* var)) indent))
       (convert-expr body #:ctx ctx* #:indent indent)]
@@ -113,92 +127,102 @@
     [`(let* ([,vars ,vals] ...) ,body)
       (define ctx*
         (for/fold ([ctx* ctx]) ([var vars] [val vals])
-          (let-values ([(cx name) (ctx-unique-name ctx* var)])
-            (printf "~a~a\n" indent
-                 (convert-declaration cx name (convert-expr val #:ctx ctx* #:indent indent)))
+          (let*-values ([(val* prec) (convert-expr val #:ctx ctx* #:indent indent)]
+                        [(cx name) (ctx-unique-name ctx* var prec)]
+                        [(cx*) (ctx-update-props cx `(:precision ,prec))])
+            (printf "~a~a\n" indent (convert-declaration cx* name val*))
             cx)))
       (printf "~a" (use-vars (for/list ([var vars]) (ctx-lookup-name ctx* var)) indent))
       (convert-expr body #:ctx ctx* #:indent indent)]
 
+    ; TODO: what if the values in each branch store values rounded at different precisions ???
     [`(if ,cond ,ift ,iff)
-      (define outvar
-        (let-values ([(cx name) (ctx-random-name ctx)])
-            (set! ctx cx)
-            name))
       (if (equal? (language-name (*lang*)) "scala")   ; Scala/Daisy has a very different if
-        (printf "~a~a\n"
-          indent
-          (convert-declaration
-            ctx outvar
-            (format "\n~a\tif (~a) {\n~a\t\t~a\n~a\t} else {\n~a\t\t~a\n~a\t}"
-                indent (convert-expr cond #:ctx ctx #:indent indent)
-                indent (convert-expr ift #:ctx ctx #:indent (format "\t\t~a" indent)) indent 
-                indent (convert-expr iff #:ctx ctx #:indent (format "\t\t~a" indent)) indent)))
-        (for ([branch (collect-branches expr)] [n (in-naturals)]) ;; collect branches for if, else if, else
-          (match (cons n branch)
-           [(list 0 cond ift) ; first branch => if branch
-            (if (equal? (language-name (*lang*)) "sollya") ; Sollya has slightly different if
-                (printf "~aif ~a then {\n" indent 
-                        (format-cond (trim-infix-parens 
-                                        (convert-expr cond #:ctx ctx #:indent indent))))
-                (printf "~a~a\n~aif ~a {\n" indent (convert-declaration ctx outvar)
-                        indent (format-cond (trim-infix-parens 
-                                              (convert-expr cond #:ctx ctx #:indent indent)))))
-            (printf "~a\t~a\n" indent
-                    (convert-assignment outvar (convert-expr ift #:ctx ctx
-                                        #:indent (format "~a\t" indent))))]
-           [(list _ #t else) ; branch condition #t => else branch
-            (printf "~a} else {\n" indent)
-            (printf "~a\t~a\n" indent
-                    (convert-assignment outvar (convert-expr else #:ctx ctx
-                                        #:indent (format "~a\t" indent))))
-            (printf "~a}~a\n" indent (if (equal? (language-name (*lang*)) "sollya") ";" ""))]
-           [(list _ cond elif) ; otherwise => else if branch
-            (printf
-              (if (equal? (language-name (*lang*)) "sollya") ; Sollya has slightly different else if
-                  "~a} else if ~a then {\n"
-                  "~a} else if ~a {\n")
-              indent
-              (format-cond (trim-infix-parens (convert-expr cond #:ctx ctx #:indent indent))))
-            (printf "~a\t~a\n" indent
-                    (convert-assignment outvar
-                                        (convert-expr elif #:ctx ctx
-                                                      #:indent (format "~a\t" indent))))])))
-      outvar]
+        (let*-values ([(cond* cond-prec) (convert-expr cond #:ctx ctx #:indent indent)]
+                      [(ift* ift-prec) (convert-expr ift #:ctx ctx #:indent (format "\t\t~a" indent))]
+                      [(iff* iff-prec) (convert-expr iff #:ctx ctx #:indent (format "\t\t~a" indent))]
+                      [(ctx* outvar) (ctx-random-name (ctx-update-props ctx `(:precision ,ift-prec)))])
+          (printf "~a~a\n" indent
+            (convert-declaration ctx* outvar
+              (format "\n~a\tif (~a) {\n~a\t\t~a\n~a\t} else {\n~a\t\t~a\n~a\t}"
+                      indent cond* indent ift* indent indent iff* indent)))
+          (values outvar ift-prec))
+
+        ; collect branches and translate conditions above the if/elif/else
+        (let ([branches
+                (let loop ([expr expr])
+                  (match expr
+                   [(list 'if cond ift iff)
+                    (define-values (cond* _) (convert-expr cond #:ctx ctx #:indent indent))
+                    (cons (list cond* ift) (loop iff))]
+                   [_ (list (list #t expr))]))])
+          ; translate branches here
+          (let loop ([branches branches] [first? #t] [out #f])
+            (match (cons first? (car branches))
+             [(list #t cond ift) ; first branch => if branch
+              (define-values (ctx* outvar) ; messy workaround, convert ift twice
+                (parameterize ([current-output-port (open-output-nowhere)])
+                  (let-values ([(_ ift-prec) (convert-expr ift #:ctx ctx #:indent (format "~a\t" indent))])
+                    (ctx-random-name (ctx-update-props ctx `(:precision ,ift-prec))))))
+              (if (equal? (language-name (*lang*)) "sollya") ; Sollya has slightly different if
+                  (printf "~aif ~a then {\n" indent (format-cond (trim-infix-parens cond)))
+                  (printf "~a~a\n~aif ~a {\n" indent (convert-declaration ctx* outvar)
+                          indent (format-cond (trim-infix-parens cond))))
+              (define-values (ift* ift-prec) (convert-expr ift #:ctx ctx #:indent (format "~a\t" indent)))
+              (printf "~a\t~a\n" indent (convert-assignment outvar ift*))
+              (loop (cdr branches) #f (cons outvar ift-prec))]
+             [(list _ #t else) ; branch condition #t => else branch
+              (printf "~a} else {\n" indent)
+              (define-values (else* else-prec) (convert-expr else #:ctx ctx #:indent (format "~a\t" indent)))
+              (printf "~a\t~a\n" indent (convert-assignment (car out) else*))
+              (printf "~a}~a\n" indent (if (equal? (language-name (*lang*)) "sollya") ";" ""))
+              (values (car out) (cdr out))]
+             [(list _ cond elif) ; otherwise => else if branch
+              (printf
+                (if (equal? (language-name (*lang*)) "sollya") ; Sollya has slightly different else if
+                    "~a} else if ~a then {\n"
+                    "~a} else if ~a {\n")
+                indent (format-cond (trim-infix-parens cond)))
+              (define-values (elif* elif-prec) (convert-expr elif #:ctx ctx #:indent (format "~a\t" indent)))
+              (printf "~a\t~a\n" indent (convert-assignment (car out) elif*))
+              (loop (cdr branches) first? out)]))))]
 
     [`(while ,cond ([,vars ,inits ,updates] ...) ,retexpr)
       (define indent* (format "~a\t" indent))
       (define-values (ctx* vars*)
         (for/fold ([ctx* ctx] [vars* '()]) ([var vars] [val inits])
-          (let-values ([(cx name) (ctx-unique-name ctx* var)])
-            (printf "~a~a\n" indent
-                (convert-declaration cx name (convert-expr val #:ctx ctx #:indent indent)))
+          (let*-values ([(val* prec) (convert-expr val #:ctx ctx #:indent indent)]
+                        [(cx name) (ctx-unique-name ctx* var prec)]
+                        [(cx*) (ctx-update-props cx `(:precision ,prec))])
+            (printf "~a~a\n" indent (convert-declaration cx name val*))
             (values cx (flatten (cons vars* name))))))
       (define test-var
         (let-values ([(cx name) (ctx-random-name ctx)])
             (set! ctx cx)
             name))
       (printf "~a" (use-vars vars* indent))
+
+      (define-values (cond* cond*-prec) (convert-expr cond #:ctx ctx* #:indent indent))
       (printf "~a~a\n" indent
-          (convert-declaration
-              (ctx-update-props ctx '(:precision boolean))
-              test-var
-              (convert-expr cond #:ctx ctx* #:indent indent)))
+              (convert-declaration (ctx-update-props ctx '(:precision boolean))
+                                   test-var cond*))
       ; Sollya has slightly different while
       (if (equal? (language-name (*lang*)) "sollya")
           (printf "~awhile ~a do {\n" indent (format-cond test-var))
           (printf "~a~a ~a {\n" indent (while-name) (format-cond test-var)))
       (define-values (ctx** vars**)
         (for/fold ([ctx** ctx*] [vars** '()]) ([var vars] [update updates])
-          (let-values ([(cx name) (ctx-unique-name ctx* var)])
-            (printf "~a\t~a\n" indent
-                (convert-declaration cx name (convert-expr update #:ctx ctx* #:indent indent*)))
-          (values cx (flatten (cons vars** name))))))
+          (let*-values ([(val* prec) (convert-expr update #:ctx ctx* #:indent indent*)]
+                        [(cx name) (ctx-unique-name ctx* var prec)]
+                        [(cx*) (ctx-update-props cx `(:precision ,prec))])
+            (printf "~a\t~a\n" indent (convert-declaration cx* name val*))
+            (values cx (flatten (cons vars** name))))))
       (printf "~a" (use-vars vars** indent*))
       (for ([var* vars*] [var** vars**])
           (printf "~a\t~a\n" indent (convert-assignment var* var**)))
-      (printf "~a\t~a\n" indent
-          (convert-assignment test-var (convert-expr cond #:ctx ctx** #:indent indent*)))
+
+      (define-values (cond** cond**-prec) (convert-expr cond #:ctx ctx** #:indent indent*))
+      (printf "~a\t~a\n" indent (convert-assignment test-var cond**))
       (printf "~a}~a\n" indent (if (equal? (language-name (*lang*)) "sollya") ";" ""))
       (convert-expr retexpr #:ctx ctx* #:indent indent)]
 
@@ -206,34 +230,38 @@
       (define indent* (format "~a\t" indent))
       (define-values (ctx* vars*)
         (for/fold ([ctx* ctx] [vars* '()]) ([var vars] [val inits])
-          (let-values ([(cx name) (ctx-unique-name ctx* var)])
-            (printf "~a~a\n" indent
-                (convert-declaration cx name (convert-expr val #:ctx ctx* #:indent indent)))
+          (let*-values ([(val* prec) (convert-expr val #:ctx ctx* #:indent indent)]
+                        [(cx name) (ctx-unique-name ctx* var prec)]
+                        [(cx*) (ctx-update-props cx `(:precision ,prec))])
+            (printf "~a~a\n" indent (convert-declaration cx* name val*))
             (values cx (flatten (cons vars* name))))))
       (define test-var
         (let-values ([(cx name) (ctx-random-name ctx)])
             (set! ctx cx)
             name))
       (printf "~a" (use-vars vars* indent))
+
+      (define-values (cond* cond*-prec) (convert-expr cond #:ctx ctx* #:indent indent))
       (printf "~a~a\n" indent
-          (convert-declaration
-              (ctx-update-props ctx '(:precision boolean))
-              test-var
-              (convert-expr cond #:ctx ctx* #:indent indent)))
+          (convert-declaration (ctx-update-props ctx '(:precision boolean))
+                               test-var cond*))
       ; Sollya has slightly different while*
       (if (equal? (language-name (*lang*)) "sollya")
           (printf "~awhile ~a do {\n" indent (format-cond test-var))
           (printf "~a~a ~a {\n" indent (while-name) (format-cond test-var)))
       (for ([var* vars*] [update updates])
-        (printf "~a\t~a\n" indent
-            (convert-assignment var* (convert-expr update #:ctx ctx* #:indent indent*))))
-      (printf "~a\t~a\n" indent
-          (convert-assignment test-var (convert-expr cond #:ctx ctx* #:indent indent*)))
-       (printf "~a}~a\n" indent (if (equal? (language-name (*lang*)) "sollya") ";" ""))
+        (let-values ([(val* _) (convert-expr update #:ctx ctx* #:indent indent*)])
+          (printf "~a\t~a\n" indent (convert-assignment var* val*))))
+
+      (define-values (cond** cond**-prec) (convert-expr cond #:ctx ctx* #:indent indent*))
+      (printf "~a\t~a\n" indent (convert-assignment test-var cond**))
+      (printf "~a}~a\n" indent (if (equal? (language-name (*lang*)) "sollya") ";" ""))
       (convert-expr retexpr #:ctx ctx* #:indent indent)]
 
     ; Ignore all casts
-    [`(cast ,body) (round-expr (convert-expr body #:ctx ctx #:indent indent) ctx #t)]
+    [`(cast ,body) 
+      (define-values (body* _) (convert-expr body #:ctx ctx #:indent indent))
+      (values (round-expr body* ctx #t) (ctx-lookup-prop ctx ':precision))]
 
     [`(! ,props ... ,body)
       (define curr-prec (ctx-lookup-prop ctx ':precision 'nearestEven))
@@ -245,27 +273,60 @@
                  (equal? (language-name (*lang*)) "scala"))
              (or (not (equal? curr-prec new-prec))
                  (not (equal? curr-round new-round))))
-        (let-values ([(ctx* tmp-var) (ctx-random-name ctx)])
-          (unless (equal? curr-round new-round) 
-            (printf "~a~a\n" indent (change-round-mode new-round indent)))
-          (printf "~a~a\n" indent 
-            (convert-declaration (ctx-update-props ctx* props) tmp-var (convert-expr body #:ctx (ctx-update-props ctx* props) #:indent indent)))
-          (unless (equal? curr-round new-round)
-            (printf "~a~a\n" indent (change-round-mode curr-round indent)))
-          (if (equal? curr-prec new-prec)
-              tmp-var
-              (round-expr tmp-var ctx #t)))]
+        (define ctx* (ctx-update-props ctx props))
+        (define-values (body* body-prec) (convert-expr body #:ctx ctx* #:indent indent))
+        (if (and (equal? curr-round new-round) (equal? curr-prec body-prec))
+            (values body* body-prec)
+            (let-values ([(ctx** var) (ctx-random-name (ctx-update-props ctx* `(:precision ,body-prec)))])
+              (unless (equal? curr-round new-round) 
+                (printf "~a~a" indent (change-round-mode new-round indent)))
+              (printf "~a~a\n" indent (convert-declaration ctx** var body*))
+              (unless (equal? curr-round new-round)
+                (printf "~a~a" indent (change-round-mode curr-round indent)))
+              (if (equal? new-prec body-prec)
+                  (values var body-prec)
+                  (values (round-expr var ctx #t) body-prec))))]
       [else
        (convert-expr body #:ctx (ctx-update-props ctx props) #:indent indent)])]
 
     [(list (? operator? operator) args ...)
-      (define args_c
-          (map (λ (arg) (convert-expr arg #:ctx ctx #:indent indent)) args))
-     (convert-application ctx operator args_c)] 
-    [(list digits m e b) (convert-constant ctx (digits->number m e b))]
-    [(? constant?) (convert-constant ctx expr)]
-    [(or (? number?) (? hex?)) (convert-constant ctx expr)]
-    [(? symbol?) (ctx-lookup-name ctx expr)]))
+      (define-values (args* precs*)
+        (for/lists (args* precs*) ([arg args])
+          (convert-expr arg #:ctx ctx #:indent indent)))
+
+      ; C implicit casting: check if arguments need to be explicitly casted
+      ; #f if no casting, -1 if cast result, 1 if cast args
+      (define cast
+        (and (equal? (language-name (*lang*)) "c")
+             (set-member? `(+ - * /) operator)
+             (andmap (negate (curry equal? (ctx-lookup-prop ctx ':precision))) precs*)
+             (cmp-prec (ctx-lookup-prop ctx ':precision) (car precs*))))
+      ;; TODO: Warn when higher precision arguments passed to lower precision operators
+      ;;      (C only, exclude +,-,*,/,==,!=,>,<,>=,<=)
+      (define args**
+        (for/list ([arg* args*] [prec* precs*])
+          (if (and cast (positive? cast) ; Cast if needed
+                   (not (equal? (ctx-lookup-prop ctx ':precision) prec*)))
+              (round-expr arg* ctx #t)
+              arg*)))
+      (values
+        (if (and cast (negative? cast))
+            (round-expr (convert-application ctx operator args**) ctx #t)
+            (convert-application ctx operator args**))
+        (if (boolean-op? operator) 'boolean (ctx-lookup-prop ctx ':precision)))]
+
+    [(list digits m e b) 
+      (values (convert-constant ctx (digits->number m e b)) (ctx-lookup-prop ctx ':precision))]
+    [(? constant?)
+      (values 
+        (convert-constant ctx expr)
+        (if (set-member? '(TRUE FALSE) expr)
+            'boolean
+            (ctx-lookup-prop ctx ':precision)))]
+    [(or (? constant?) (? number?) (? hex?))
+      (values (convert-constant ctx expr) (ctx-lookup-prop ctx ':precision))]
+    [(? symbol?)
+      (values (ctx-lookup-name ctx expr) (ctx-lookup-prec ctx expr))]))
 
 (define (convert-core prog name)
   (parameterize ([*used-names* (mutable-set)] 
@@ -305,6 +366,6 @@
     (define-values (body-out return-out) 
       (let ([p (open-output-string)])
         (parameterize ([current-output-port p])
-          (define out (convert-expr body #:ctx ctx #:indent indent))
+          (define-values (out _) (convert-expr body #:ctx ctx #:indent indent))
           (values (get-output-string p) out))))
     (convert-function func-name arg-names arg-props body-out return-out ctx (remove* non-varnames (set->list (*used-names*))))))

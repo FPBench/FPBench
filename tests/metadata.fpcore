@@ -77,14 +77,73 @@
        (! :round toNegative (+ x y)))))
 
 (FPCore (x y)
-  :name "Adapted example with mixed-precision"
+  :name "Adapted example with mixed-precision (1/2)"
   :pre (and (< 1 x 100)
             (< 1 y 100))
   (! :precision binary64 
     (- (! :precision binary32 (+ x y)) 
        (! :precision binary32 (- x y)))))
 
+(FPCore (x y)
+  :name "Adapted example with mixed-precision (2/2)"
+  :pre (and (< 1 x 100)
+            (< 1 y 100))
+  (! :precision binary32
+    (- (! :precision binary64 (+ x y)) 
+       (! :precision binary64 (- x y)))))
+
 (FPCore (x)
   :name "FPBench casting example"
   :pre (< 1 x 100)
   (cast (! :precision binary32 (cast x))))
+
+(FPCore (x)
+ :name "monadius 1"
+ :precision binary64
+ (! :precision binary32 x))
+
+(FPCore (x)
+ :name "monadius 2"
+ :precision binary64
+ (! :precision binary32
+  (! :precision binary32 x)))
+
+(FPCore (x)
+ :name "monadius 3"
+ :precision binary64
+ (! :precision binary32
+  (let ([y x]) y)))
+
+(FPCore (x)
+  :name "monadius 4"
+  :precision binary32
+  :pre (< 1 x 100)
+  (! :precision binary64 (exp x)))
+
+; Can't be faithfully translated to C
+; (FPCore (x)
+;  :name "monadius 4 (bad)"
+;  :precision binary64
+;  :pre (< 1 x 100)
+;  (! :precision binary32 (exp x)))
+;
+; (FPCore ()
+; :name "monadius no-double-rounding"
+; :precision binary64
+; (let ([x 0x1.000002p-1]
+;       [y 0x1.ffffffffp-26])
+;  (! :precision binary32 (+ x y))))
+
+(FPCore ()
+ :name "monadius double-rounding"
+ :precision binary64
+ (let ([x 0x1.000002p-1]
+       [y 0x1.ffffffffp-26])
+  (! :precision binary32 (cast (! :precision binary64 (+ x y))))))
+
+(FPCore ()
+ :name "monadius approx 1"
+ :precision binary32
+ (let ([x 0x1p0]
+       [y 0x1p-30])
+  (! :precision binary64 (+ x y))))

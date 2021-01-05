@@ -348,11 +348,12 @@
       (for/lists (n p) ([var args])
         (match var
           [(list '! props ... name) 
-            (values 
-                (let-values ([(cx name) (ctx-unique-name ctx name)])
+            (let ([props* (apply hash-set* (ctx-props ctx) props)])
+              (values 
+                (let-values ([(cx name) (ctx-unique-name ctx name (dict-ref props* ':precision 'binary64))])
                             (set! ctx cx)
                             name)
-                (apply hash-set* (ctx-props ctx) props))]
+                props*))]
           [name 
             (values 
                 (let-values ([(cx name) (ctx-unique-name ctx name)])

@@ -96,7 +96,7 @@
     ['SQRT2 "sqrt(2)"]
     ['SQRT1_2 "1 / sqrt(2)"]
     [(? hex? expr) (format "~a" expr)]
-    [(? number? expr) (format "~a" expr)]
+    [(? number? expr) (format-number expr)]
     [c (error 'constant->expr "Unsupported constant ~a" c)]))
 
 (define (constant->fptaylor props expr)
@@ -110,8 +110,11 @@
   (format "~a = ~a;" var val))
 
 (define (function->fptaylor name args arg-props body return ctx vars)
+  (define expr-name
+    (let ([name* (ctx-lookup-prop ctx ':name #f)])
+      (if name* (let-values ([(_ name) (ctx-unique-name ctx name*)]) name) name)))
   (define pre ((compose canonicalize remove-let)
-                  (dict-ref (ctx-props ctx) ':pre 'TRUE)))
+                (dict-ref (ctx-props ctx) ':pre 'TRUE)))
   (define var-ranges 
     (make-immutable-hash 
       (dict-map (condition->range-table pre) 
@@ -143,7 +146,7 @@
     ; TODO: constraints
 
     (format "{\n~a~aExpressions\n\t~a = ~a;\n}"
-      var-string def-string name return))
+      var-string def-string expr-name return))
 
 (define fptaylor-language 
   (language "fptaylor" 

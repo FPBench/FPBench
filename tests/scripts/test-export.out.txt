@@ -91,34 +91,31 @@ ex2 float<ieee_64,ne>= (arg01 - arg11);
 
 {
 Variables
-	real arg0 in [1, 10];
-	real arg1 in [1, 10];
+	float64 arg0 in [1, 10];
+	float64 arg1 in [1, 10];
 
 Expressions
-	$43$ rnd64= (arg0 + arg1);
+	_43_ = rnd64(arg0 + arg1);
 }
-
 {
 Variables
-	real arg0 in [0, 10];
+	float64 arg0 in [0, 10];
 
 Expressions
-	sqrt rnd64= sqrt(arg0);
+	sqrt_1 = rnd64(sqrt(arg0));
 }
-
 {
 Variables
-	real arg0 in [1, 10];
-	real arg1 in [1, 10];
+	float64 arg0 in [1, 10];
+	float64 arg1 in [1, 10];
 
 Definitions
-	arg01 rnd64= arg1;
-	arg11 rnd64= arg0;
+	arg0_1 = arg1;
+	arg1_2 = arg0;
 
 Expressions
-	let rnd64= (arg01 - arg11);
+	let = rnd64(arg0_1 - arg1_2);
 }
-
 ex0[arg0_, arg1_] := Block[{$MinPrecision=MachinePrecision, $MaxPrecision=MachinePrecision, $MaxExtraPrecision=0}, (arg0 + arg1)]
 
 ex1[arg0_] := Block[{$MinPrecision=MachinePrecision, $MaxPrecision=MachinePrecision, $MaxExtraPrecision=0}, Sqrt[arg0]]

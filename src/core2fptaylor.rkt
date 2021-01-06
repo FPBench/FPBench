@@ -65,10 +65,10 @@
       ['binary128 "128"]
       [_ (error 'round->fptaylor "Unsupported precision ~a" prec)]))
   (cond
-    [(equal? bits "undefined") format "rnd(~a)" expr]
+    [(equal? bits "undefined") format "rnd(~a)" (trim-infix-parens expr)]
     [(equal? bits "") expr]
-    [(and (equal? rm "ne") (= scale 1)) (format "rnd~a(~a)" bits expr)]
-    [else (format "rnd[~a,~a,~a](~a)" bits rm scale expr)]))
+    [(and (equal? rm "ne") (= scale 1)) (format "rnd~a(~a)" bits (trim-infix-parens expr))]
+    [else (format "rnd[~a,~a,~a](~a)" bits rm scale (trim-infix-parens expr))]))
 
 (define (operator->fptaylor props op args)
   (match (cons op args)
@@ -110,30 +110,40 @@
   (format "~a = ~a;" var val))
 
 (define (function->fptaylor name args arg-props body return ctx vars)
-  (define arg-rounding
-    (filter (compose not void?)
-        (for/list ([var args] [prop arg-props] 
-                  #:unless (equal? (prec->fptaylor (dict-ref prop ':precision 'real)) "real"))
-          (format "\t~a = ~a;" var (round->fptaylor var prop)))))
-  (define decl-list
-    (set-subtract vars (set-add args name)))
+  (define pre ((compose canonicalize remove-let)
+                  (dict-ref (ctx-props ctx) ':pre 'TRUE)))
+  (define var-ranges 
+    (make-immutable-hash 
+      (dict-map (condition->range-table pre) 
+                (lambda (var range) (cons (ctx-lookup-name ctx var) range)))))
+  (define arg-strings
+    (for/list ([arg args] [prop arg-props])
+      (define range
+        (dict-ref var-ranges arg (make-interval -inf.0 +inf.0)))
+      (unless (nonempty-bounded? range)
+        (error 'fptaylor->function "Bad range for ~a in ~a (~a)" arg name range))
+      (unless (= (length range) 1)
+        (print range)
+        (error 'fptaylor->function "FPTaylor only accepts one sampling range"))
+      (match-define (interval l u l? u?) (car range))
+      (define prec (dict-ref prop ':precision 'real))
+      (format "\t~a ~a in [~a, ~a];" (prec->fptaylor prec) arg
+        (format-number l) (format-number u))))
 
-  (define var-string
-    (if (> (length decl-list) 0)
-        (format "\n\tvar ~a;" (string-join (map (λ (x) (format "~a" x)) decl-list) ", "))
-        ""))
-  (define rounding-string
-    (if (> (length arg-rounding) 0)
-        (format "\n~a" (string-join arg-rounding "\n"))
-        ""))
+    (define var-string
+      (if (null? arg-strings) 
+          ""
+          (format "Variables\n~a\n\n" (string-join arg-strings "\n"))))
 
-  (format "procedure ~a(~a) {~a~a\n~a\t~a;\n};\n"
-        name
-        (string-join args ", ")
-        var-string
-        rounding-string
-        body
-        (trim-infix-parens return)))
+    (define def-string
+      (if (non-empty-string? body)
+          (format "Definitions\n~a\n" body)
+          ""))
+
+    ; TODO: constraints
+
+    (format "{\n~a~aExpressions\n\t~a = ~a;\n}"
+      var-string def-string name return))
 
 (define fptaylor-language 
   (language "fptaylor" 
@@ -149,8 +159,7 @@
 
 (define (core->fptaylor prog name) 
   (parameterize ([*lang* fptaylor-language] 
-                 [*reserved-names* fptaylor-reserved]
-                 [*fix-name-format* "_"])
+                 [*reserved-names* fptaylor-reserved])
     (convert-core prog name)))
 
 (define-compiler 

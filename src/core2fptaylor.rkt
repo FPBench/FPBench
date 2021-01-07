@@ -35,7 +35,7 @@
                 sinh cosh tanh asinh acosh atanh) op))
 
 (define/match (prec->fptaylor prec)
-  [(#f) ""]
+  [('undefined) ""]
   [('real) "real"]
   [('binary16) "float16"]
   [('binary32) "float32"]
@@ -57,7 +57,7 @@
   (define rm (rm->fptaylor (dict-ref props ':round 'nearestEven)))
   (define bits
     (match prec
-      [#f "undefined"]
+      ['undefined "undefined"]
       ['real ""]
       ['binary16 "16"]
       ['binary32 "32"]
@@ -65,7 +65,7 @@
       ['binary128 "128"]
       [_ (error 'round->fptaylor "Unsupported precision ~a" prec)]))
   (cond
-    [(equal? bits "undefined") format "rnd(~a)" (trim-infix-parens expr)]
+    [(equal? bits "undefined") (format "rnd(~a)" (trim-infix-parens expr))]
     [(equal? bits "") expr]
     [(and (equal? rm "ne") (= scale 1)) (format "rnd~a(~a)" bits (trim-infix-parens expr))]
     [else (format "rnd[~a,~a,~a](~a)" bits rm scale (trim-infix-parens expr))]))
@@ -220,16 +220,15 @@
         ;;; (with-handlers ([exn:fail? (λ (exn) (eprintf "[ERROR]: ~a\n\n" exn))])
           (define def-name (format "ex~a" n))
           (define prog-name (if (auto-file-names) def-name (fpcore-name prog def-name)))
+          (define override-props (if (precision) `(:precision ,(precision)) null))
           (define progs (fpcore-transform prog
+                                          #:var-precision (var-precision)
+                                          #:override-props override-props
                                           #:unroll (unroll)
                                           #:split (split)
                                           #:subexprs (subexprs)
                                           #:split-or (split-or)))
           (define results (map (curryr core->fptaylor def-name) progs))
-                              ;;;         #:precision (precision)
-                              ;;;         #:var-precision (var-precision)
-                              ;;;         #:indent "  ")
-                              ;;;  progs))
           (define multiple-results (> (length results) 1))
           (cond
             [(files-all)

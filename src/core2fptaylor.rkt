@@ -1,7 +1,7 @@
 #lang racket
 
 (require "common.rkt" "compilers.rkt" "imperative.rkt" "supported.rkt")
-(require "fpcore-extra.rkt" "range-analysis.rkt")
+(require "fpcore-reader.rkt" "fpcore-extra.rkt" "range-analysis.rkt")
 (provide core->fptaylor fptaylor-supported *fptaylor-inexact-scale*)
 
 (define *fptaylor-inexact-scale* (make-parameter 1))
@@ -171,3 +171,80 @@
   core->fptaylor
   (const "") 
   fptaylor-supported)
+
+(module+ main
+  (require racket/cmdline)
+  (define files (make-parameter #f))
+  (define files-all (make-parameter #f))
+  (define auto-file-names (make-parameter #f))
+  (define out-path (make-parameter "."))
+  (define precision (make-parameter #f))
+  (define var-precision (make-parameter #f))
+  (define split-or (make-parameter #f))
+  (define subexprs (make-parameter #f))
+  (define split (make-parameter #f))
+  (define unroll (make-parameter #f))
+
+  (command-line
+   #:program "core2fptaylor.rkt"
+   #:once-each
+   ["--files" "Save FPTaylor tasks corresponding to different FPBench expressions in separate files"
+              (files #t)]
+   ["--files-all" "Save all FPTaylor tasks in separate files"
+                  (files-all #t)]
+   ["--auto-file-names" "Generate special names for all files"
+                        (auto-file-names #t)]
+   ["--out-path" path "All files are saved in the given path"
+                 (out-path path)]
+   ["--precision" prec "The precision of all operations (overrides the :precision property)"
+                  (precision (string->symbol prec))]
+   ["--var-precision" prec "The precision of input variables (overrides the :var-precision property)"
+                      (var-precision (string->symbol prec))]
+   ["--scale" scale "The scale factor for operations which are not correctly rounded"
+              (*fptaylor-inexact-scale* (string->number scale))]
+   ["--split-or" "Convert preconditions to DNF and create separate FPTaylor tasks for all conjunctions"
+                 (split-or #t)]
+   ["--subexprs" "Create FPTaylor tasks for all subexpressions"
+                 (subexprs #t)]
+   ["--split" n "Split intervals of bounded variables into the given number of parts"
+              (split (string->number n))]
+   ["--unroll" n "How many iterations to unroll any loops to"
+               (unroll (string->number n))]
+   #:args ([input-file #f])
+   ((if input-file
+        (curry call-with-input-file input-file)
+        (λ (proc) (proc (current-input-port))))
+    (λ (port)
+      (port-count-lines! port)
+      (for ([prog (in-port (curry read-fpcore "input") port)] [n (in-naturals)])
+        ;;; (with-handlers ([exn:fail? (λ (exn) (eprintf "[ERROR]: ~a\n\n" exn))])
+          (define def-name (format "ex~a" n))
+          (define prog-name (if (auto-file-names) def-name (fpcore-name prog def-name)))
+          (define progs (fpcore-transform prog
+                                          #:unroll (unroll)
+                                          #:split (split)
+                                          #:subexprs (subexprs)
+                                          #:split-or (split-or)))
+          (define results (map (curryr core->fptaylor def-name) progs))
+                              ;;;         #:precision (precision)
+                              ;;;         #:var-precision (var-precision)
+                              ;;;         #:indent "  ")
+                              ;;;  progs))
+          (define multiple-results (> (length results) 1))
+          (cond
+            [(files-all)
+             (for ([r results] [k (in-naturals)])
+               (define fname (fix-file-name
+                              (string-append prog-name
+                                             (if multiple-results (format "_case~a" k) "")
+                                             ".txt")))
+               (call-with-output-file (build-path (out-path) fname) #:exists 'replace
+                 (λ (p) (fprintf p "~a" r))))]
+            [(files)
+             (define fname (fix-file-name (format "~a.txt" prog-name)))
+             (call-with-output-file (build-path (out-path) fname) #:exists 'replace
+               (λ (p) (for ([r results])
+                        (if multiple-results (fprintf p "~a\n" r) (fprintf p "~a" r)))))]
+            [else (for ([r results]) (printf "~a\n" r))])
+          )))
+  ))

@@ -70,7 +70,7 @@ jobs:
 
       - name: "C sanity"
         id: c_sanity
-      # if: ${{ steps.setup.outcome == 'success' }}
+        # if: ${{ steps.setup.outcome == 'success' }}
         run: make c-sanity
 
       - name: "JS sanity"
@@ -143,7 +143,7 @@ jobs:
       
       - name: "FPTaylor test"
         if: ${{ (success() || failure()) && steps.fptaylor_sanity.outcome == 'success' }} 
-        run: make fptaylor-test
+        run: eval `opam config env` && make fptaylor-test
 
       - name: "Daisy test"
         if: ${{ (success() || failure()) && steps.daisy_sanity.outcome == 'success' }}

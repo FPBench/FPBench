@@ -16,7 +16,9 @@
   test-file)
 
 (define (run<-fptaylor exec-name ctx type number)
-  (define out (run-with-time-limit "fptaylor" exec-name))
+  (define out (run-with-time-limit "fptaylor" 
+                "--find-bounds=true" "--print-precision=20"
+                exec-name))
   (define timeout? #f)
   (define out*
     (cond 
@@ -29,7 +31,7 @@
                                           #rx"Bounds [(]without rounding[)]: [^\n]*"
                                           out))
         (define conservative_bounds (regexp-match*
-                                    #rx"([+-]?[0-9]+[.][0-9]+[eE][+-]?[0-9]+)|([-]?inf)|([-]?nan)"
+                                    #rx"([+-]?[0-9]+(?:[.][0-9]+(?:[eE][+-]?[0-9]+)?)?)|([-]?inf)|([-]?nan)"
                                     (car conservative_bounds_line)))
         (cons (car conservative_bounds) (cadr conservative_bounds))]
       [else
@@ -37,7 +39,7 @@
                             #rx"Bounds [(]floating-point[)]: [^\n]*"
                             out))
         (define bounds (regexp-match*
-                        #rx"[+-]?[0-9]+[.][0-9]+[eE][+-]?[0-9]+"
+                        #rx"[+-]?[0-9]+(?:[.][0-9]+(?:[eE][+-]?[0-9]+)?)?"
                         (car bounds_line)))
         (cons (car bounds) (cadr bounds))]))
   (if timeout?

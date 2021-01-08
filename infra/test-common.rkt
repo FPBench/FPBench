@@ -53,10 +53,10 @@
 
 ;;; Misc
 
-(define (run-with-time-limit exe args [time-limit (*tool-time-limit*)])
+(define (run-with-time-limit exe #:time-limit [time-limit (*tool-time-limit*)] . args)
   (define t0 (current-seconds))
   (define-values (p stdout stdin stderr)
-    (subprocess #f #f #f (find-executable-path exe) args))
+    (apply subprocess #f #f #f (find-executable-path exe) args))
   (close-output-port stdin)
   (let loop ()
     (cond

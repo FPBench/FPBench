@@ -61,7 +61,10 @@ jobs:
           echo "${PWD}/../cache/cake" >> $GITHUB_PATH
           echo "${PWD}/../cache/daisy" >> $GITHUB_PATH
  
-      - name: "Byte-compile repo"
+      - name: "Install as Racket package"
+        run: raco pkg install --auto
+
+      - name: "Compile tools"
         id: setup
         run: make setup testsetup
 

@@ -1,7 +1,7 @@
 #lang racket
 
 (require math/flonum racket/extflonum) 
-(require "../src/range-analysis.rkt" "fpcore-interpreter.rkt")
+(require "evaluator.rkt" "fpcore-interpreter.rkt" "range-analysis.rkt")
 (provide sample-float sample-by-rejection sample-random sample-tries
          float->ordinal ordinal->float)
 
@@ -143,6 +143,7 @@
 
 ; Returns the float and whether or not it met the precondition
 (define (sample-by-rejection pre vars evaltor type)
+  (set-evaluator-params! evaltor)
   (for/fold ([nums (for/list ([var vars]) (sample-random type))]
              [attempts 1]
             #:result (values (for/list ([var vars] [num nums]) (cons var num)) 
@@ -151,7 +152,7 @@
             #:break ((eval-expr evaltor) pre 
                         (make-immutable-hash 
                             (for/list ([var vars] [num nums])
-                                      (cons var num)))))
+                                      (cons var ((evaluator-real->repr evaltor) num))))))
       (values (for/list ([var vars]) (sample-random type)) (+ i 1))))
 
 ;;; Random sampler

@@ -1,7 +1,8 @@
 #lang racket
 
 (require math/flonum racket/extflonum math/bigfloat)
-(require "../src/common.rkt" "../src/fpcore-reader.rkt" "../src/fpcore-interpreter.rkt" "../src/range-analysis.rkt" "../src/sampler.rkt" "../src/supported.rkt")
+(require "../src/common.rkt" "../src/evaluator.rkt" "../src/fpcore-interpreter.rkt" "../src/fpcore-reader.rkt"
+         "../src/range-analysis.rkt" "../src/sampler.rkt" "../src/supported.rkt")
 (provide tester *tester* test-core run-with-time-limit
          *prog* *ignore-by-run* *last-run* *tool-time-limit*)
 
@@ -145,17 +146,11 @@
         (match var
           [(list '! props ... name) (values name (dict-ref (apply hash-set* #hash() props) ':precision 'binary64))]
           [name (values name type)])))
-    (define evaltor 
-            (match type 
-              ['binary80 racket-binary80-evaluator]
-              ['binary64 racket-double-evaluator] 
-              ['binary32 racket-single-evaluator]
-              ['integer racket-integer-evaluator]))
+    (define evaltor (get-evaluator (expand-prec type) rnd-mode))
 
+    (set-evaluator-params! evaltor)
     (define results  ; run test
-      (parameterize ([bf-precision (prec->bf-bits type)]
-                     [bf-rounding-mode (fpcore->bf-round rnd-mode)]
-                     [ulps (if (equal? ulps-override #f) ulps ulps-override)])
+      (parameterize ([ulps (if (equal? ulps-override #f) ulps ulps-override)])
         (for/list ([i (in-range (tests-to-run))])
           (define-values (ctx precond-met)
             (cond 
@@ -170,8 +165,16 @@
                     (for/list ([var vars*] [vtype var-types])
                         (cons var (sample-float (dict-ref range-table var (list (make-interval -inf.0 +inf.0))) vtype)))
                     #t)]))
+          (define ctx*
+            (for/list ([entry ctx])
+              (cons (car entry) ((evaluator-real->repr evaltor) (cdr entry)))))
+          (define repr-out
+            ((eval-fuel-expr evaltor
+              (if precond-met (fuel-good-input) (fuel-bad-input))
+              'timeout)
+              body ctx*))
           (define out
-            (match ((eval-fuel-expr evaltor (if precond-met (fuel-good-input) (fuel-bad-input)) 'timeout) body ctx)
+            (match ((evaluator-repr->real evaltor) repr-out)
               [(? real? result)
                 ((match type
                   ['binary64 real->double-flonum] 

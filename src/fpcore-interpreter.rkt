@@ -1,116 +1,8 @@
 #lang racket
 
-(require "common.rkt" "tensor.rkt" "fpcore-checker.rkt")
-(require math/flonum racket/extflonum math/bigfloat math/special-functions math/base generic-flonum)
-(provide eval-expr eval-expr* racket-run-fpcore (struct-out evaluator))
-
-(struct evaluator (real->repr repr->real constant function))
-
-(define get-float-cnst
-  (table-fn
-    [TRUE         #t]
-    [FALSE        #f]
-    [INFINITY     +inf.gfl]
-    [NAN          +nan.gfl]
-    [E		        (gflexp 1.gfl)]
-    [LOG2E	      (gfllog2 (gflexp 1.gfl))]
-    [LOG10E	      (gfllog10 (gflexp 1.gfl))]
-    [LN2	        (gfllog 2.gfl)]
-    [LN10	        (gfllog 10.gfl)]
-    [PI		        pi.gfl]
-    [PI_2	        (gfl/ pi.gfl 2.gfl)]
-    [PI_4	        (gfl/ pi.gfl 2.gfl)]
-    [1_PI	        (gfl/ 1.gfl pi.gfl)]
-    [2_PI	        (gfl/ 2.gfl pi.gfl)]
-    [2_SQRTPI	    (gfl/ 2 (gflsqrt pi.gfl))]
-    [SQRT2	      (gflsqrt 2.gfl)]
-    [SQRT1_2	    (gflsqrt (gfl/ 1.gfl 2.gfl))]))
-
-(define get-float-fun
-  (table-fn                      ; TODO: Bigfloat -> flonum causes -0.0 to become 0.0
-    [+ gfl+] [- (λ (x [y #f]) (if y (gfl- x y) (gfl- x)))]
-    [* gfl*] [/ gfl/] [fabs gflabs]
-    [sqrt gflsqrt] [cbrt gflcbrt]
-    [hypot gflhypot] [fmod gflmod]
-    [remainder gflremainder]
-
-    [exp gflexp] [exp2 gflexp2] [exp10 gflexp10] [expm1 gflexpm1] [pow gflexpt]
-    [log gfllog] [log2 gfllog2] [log10 gfllog10] [log1p gfllog1p]
-
-    [sin gflsin] [cos gflsin] [tan gfltan]
-    [asin gflasin] [acos gflacos] [atan gflatan] [atan2 gflatan2]
-    [sinh gflsinh] [cosh gflcosh] [tanh gfltanh]
-    [asinh gflasinh] [acosh gflacosh] [atanh gflatanh]
-
-    [erf gflerf] [erfc gflerfc]
-    [tgamma gflgamma] [lgamma gfllgamma]
-
-    [ceil gflceiling] [floor gflfloor] [trunc gfltruncate] [round gflround]
-    [nearbyint gflrint]
-    [fmax gflmax] [fmin gflmin] [fdim gfldim] [fma gflfma]
-
-    [< gfl<] [> gfl>] [<= gfl<=] [>= gfl>=] [== gfl=] [!= (negate gfl=)]
-    [and (λ args (andmap identity args))]
-    [or (λ args (ormap identity args))]
-    [not not]
-
-    [isnan gflnan?] [isinf gflinfinite?] [isfinite (negate (disjoin gflnan? gflinfinite?))]
-    [isnormal (negate gflsubnormal?)]
-    [cast identity]
-
-    [signbit (λ (x) (if (gflnegative? x) 1 0))]
-    [copysign gflcopysign]))
-
-(define/match (fpcore->gfl-round rnd)
-  [('nearestEven) 'nearest]
-  [('nearestAway) 'away]
-  [('toPositive)  'up]
-  [('toNegative)  'down]
-  [('toZero)      'zero]) 
-
-(struct float-evaluator evaluator (es nbits rnd))
-
-(define (get-float-evaluator es nbits rnd)
-  (float-evaluator gfl gfl->real get-float-cnst get-float-fun es nbits rnd))
-
-(define (get-evaluator prec [rnd 'nearest])
-  (match prec
-   [(list 'float es nbits)
-    (get-float-evaluator es nbits rnd)]
-   [_
-    (error 'get-evaluator "Evaluator for (~a ~a) not supported"
-                          prec rnd)]))
-
-(define (get-evaluator-params eval)
-  (match eval
-   [(float-evaluator _ _ _ _ es nbits rnd)
-    (values (list 'float es nbits) rnd)]
-   [_
-    (error 'get-evaluator-params "Unknown evaluator ~a" eval)]))
-
-(define (set-evaluator-params! eval)
-  (match eval
-   [(float-evaluator _ _ _ _ es nbits rnd)
-    (gfl-exponent es)
-    (gfl-bits nbits)
-    (gfl-rounding-mode (fpcore->gfl-round rnd))]
-   [_
-    (error 'set-evaluator-params! "Unknown evaluator ~a" eval)]))
-
-(define/match (fpcore->bf-round roundmode)
-  [('nearestEven) 'nearest]
-  [('nearestAway) (error 'fpcore->bf-round "math/bigfloat does not support 'nearestAway")]
-  [('toPositive)  'up]
-  [('toNegative)  'down]
-  [('toZero)      'zero]) 
-
-(define (real->float x prec)
-  (define x* (if (extflonum? x) (extfl->real x) x))
-  (match prec
-    ['binary80 (real->extfl x*)]
-    ['binary64 (real->double-flonum x*)]
-    ['binary32 (real->single-flonum x*)]
-    ['integer  (inexact->exact x*)]))
+(require "common.rkt" "tensor.rkt" "fpcore-checker.rkt" "evaluator.rkt")
+(require math/bigfloat math/special-functions math/base generic-flonum)
+(provide eval-expr eval-expr* racket-run-fpcore)
 
 (define/contract context/c contract? (dictof symbol? any/c))
 
@@ -118,9 +10,9 @@
   (-> evaluator? (-> expr? context/c any/c) (-> expr? context/c any/c))
   (match expr
     [(? number?) ((evaluator-real->repr evaltor) expr)]
+    [(? gfl?) expr]
     [(? hex?) ((evaluator-real->repr evaltor) (hex->racket expr))]
-    [`(digits ,m ,e ,b) (digits->number m e b)]
-    [(? extflonum?) expr]
+    [`(digits ,m ,e ,b) ((evaluator-real->repr evaltor) (digits->number m e b))]
     [(? constant?) ((evaluator-constant evaltor) expr)]
     [(? tensor?) expr]
     [(? symbol?) (dict-ref ctx expr)]
@@ -201,10 +93,10 @@
     [`(! ,props* ... ,body)
      (define-values (_ props) (parse-properties props*))
      (cond
-      [(and (hash-has-key? props ':precision) (hash-has-key? props ':round))
+      [(and (dict-has-key? props ':precision) (dict-has-key? props ':round))
        (define-values (prec rnd) (get-evaluator-params evaltor))
-       (define nprec (hash-ref props ':precision prec))
-       (define nrnd (hash-ref props ':round rnd))
+       (define nprec (expand-prec (dict-ref props ':precision prec)))
+       (define nrnd (dict-ref props ':round rnd))
        (define evaltor* (get-evaluator nprec nrnd))
        (set-evaluator-params! evaltor*)
        (define ret ((eval-expr* evaltor* rec) body ctx))
@@ -228,58 +120,6 @@
   (-> evaluator? (-> expr? context/c any/c))
   (let eval ([expr expr] [ctx ctx])
     ((eval-expr* evaltor eval) expr ctx)))
-
-(define-syntax-rule (table-fn [var val] ...)
-  (match-lambda
-   [`var val] ...
-   [unsupported-value
-    (error 'eval-expr "Unimplemented operation ~a"
-           unsupported-value)]))
-
-;; float <==> bigfloat, TODO: separate location
-
-(define (extfl->real x)
-  (cond
-    [(equal? x +inf.t)  +inf.0] 
-    [(equal? x -inf.t)  -inf.0]
-    [(equal? x +nan.t)  +nan.0] 
-    [(equal? x -nan.t)  -nan.0]
-    [(equal? x -0.0t0)  -0.bf]
-    [else (extfl->exact x)])) 
-
-(define/match (prec->bf-bits prec)
-  [('binary80)  64]
-  [('binary64)  53]
-  [('binary32)  24]
-  [('integer)   128]) ; compute at high precision, then round
-
-(define (fl->bf arg [override? #f]) ; override converts to bf at current precision rather than the precision of arg
-  (cond
-    [override?            (bf (if (extflonum? arg) (extfl->real arg) arg))]
-    [(integer? arg)       (parameterize ([bf-precision 128]) (bf arg))]
-    [(extflonum? arg)     (parameterize ([bf-precision 64]) (bf (extfl->real arg)))]
-    [(double-flonum? arg) (parameterize ([bf-precision 53]) (bf arg))]
-    [(single-flonum? arg) (parameterize ([bf-precision 24]) (bf arg))]))
-
-(define (bf->fl x [bits (bf-precision)])
-  (define real->fl
-    (match bits
-      [64 real->extfl]
-      [53 real->double-flonum]
-      [24 real->single-flonum]))
-  (define x*      ;; validate x > max or x < min for certain rounding modes
-   (parameterize ([bf-precision bits])
-    (define w (match bits [64 15] [53 11] [24 8]))
-    (define max (bf* (bf 1 (sub1 (expt 2 (sub1 w)))) (bf- 2.bf (bf 1 (- (sub1 bits))))))
-    (define min (bf* (bf 1 (- 2 (expt 2 (sub1 w)))) (bf 1 (- (sub1 bits)))))
-    (cond
-      [(or (bfinfinite? x) (bfnan? x)) x]
-      [(and (bf> x max) (or (equal? (bf-rounding-mode) 'down) (equal? (bf-rounding-mode) 'zero))) max]
-      [(and (bf> x 0.bf) (bf< x min) (equal? (bf-rounding-mode) 'up)) min]
-      [(and (bf< x 0.bf) (bf> x (bf- min)) (equal? (bf-rounding-mode) 'down)) (bf- min)]
-      [(and (bf< x (bf- max)) (or (equal? (bf-rounding-mode) 'up) (equal? (bf-rounding-mode) 'zero))) (bf- max)]
-      [else x])))
-  (real->fl (bigfloat->real x*)))
 
 ; Main interpreter
 
@@ -330,7 +170,7 @@
   ((eval-expr evaltor) expr (hash)))
 
 (define (racket-run-fpcore* name vars props* body args)
-  (-> fpcore? (listof string?) (or/c real? extflonum? tensor? boolean?))
+  (-> fpcore? (listof string?) (or/c real? tensor? boolean?))
   (define-values (_ props) (parse-properties props*))
   (define base-precision (expand-prec (dict-ref props ':precision 'binary64)))
   (define base-rounding (dict-ref props ':round 'nearestEven))
@@ -355,6 +195,7 @@
 
   (when name (check-argument name ctx))
   (when (dict-has-key? props ':pre)
+    (set-evaluator-params! evaltor)
     (define pre (dict-ref props ':pre))
     (unless ((eval-expr evaltor) pre ctx)
       (error 'racket-run-fpcore* "Precondtition not met: ~a" pre)))
@@ -363,7 +204,7 @@
   ((evaluator-repr->real evaltor) ((eval-expr evaltor) body ctx)))
 
 (define/contract (racket-run-fpcore prog args)
-  (-> fpcore? (listof string?) (or/c real? extflonum? tensor? boolean?))
+  (-> fpcore? (listof string?) (or/c real? tensor? boolean?))
   (match prog
    [`(FPCore ,name (,vars ...) ,properties ... ,body)  (racket-run-fpcore* name vars properties body args)]
    [`(FPCore (,vars ...) ,properties ... ,body) (racket-run-fpcore* #f vars properties body args)]))

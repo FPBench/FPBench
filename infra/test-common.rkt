@@ -1,6 +1,6 @@
 #lang racket
 
-(require math/flonum racket/extflonum math/bigfloat)
+(require math/flonum racket/extflonum math/bigfloat generic-flonum)
 (require "../src/common.rkt" "../src/evaluator.rkt" "../src/fpcore-interpreter.rkt" "../src/fpcore-reader.rkt"
          "../src/range-analysis.rkt" "../src/sampler.rkt" "../src/supported.rkt")
 (provide tester *tester* test-core run-with-time-limit
@@ -168,13 +168,15 @@
           (define ctx*
             (for/list ([entry ctx])
               (cons (car entry) ((evaluator-real->repr evaltor) (cdr entry)))))
-          (define repr-out
-            ((eval-fuel-expr evaltor
-              (if precond-met (fuel-good-input) (fuel-bad-input))
-              'timeout)
-              body ctx*))
+          (define repr-out ((eval-fuel-expr evaltor (if precond-met (fuel-good-input) (fuel-bad-input))
+                                            'timeout)
+                              body ctx*))
+          (define result
+            (match repr-out
+             [(? gfl?)  (gfl->real repr-out)]
+             [_         repr-out]))
           (define out
-            (match ((evaluator-repr->real evaltor) repr-out)
+            (match result
               [(? real? result)
                 ((match type
                   ['binary64 real->double-flonum] 

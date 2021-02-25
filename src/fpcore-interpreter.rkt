@@ -93,7 +93,7 @@
     [`(! ,props* ... ,body)
      (define-values (_ props) (parse-properties props*))
      (cond
-      [(and (dict-has-key? props ':precision) (dict-has-key? props ':round))
+      [(or (dict-has-key? props ':precision) (dict-has-key? props ':round))
        (define-values (prec rnd) (get-evaluator-params evaltor))
        (define nprec (expand-prec (dict-ref props ':precision prec)))
        (define nrnd (dict-ref props ':round rnd))

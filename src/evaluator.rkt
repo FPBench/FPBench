@@ -12,6 +12,20 @@
     (error 'table-fn "Unimplemented operation ~a"
            unsupported-value)]))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;; Float ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define/match (fpcore->gfl-round rnd)
+  [('nearestEven) 'nearest]
+  [('nearestAway) 'away]
+  [('toPositive)  'up]
+  [('toNegative)  'down]
+  [('toZero)      'zero]) 
+
+(define (real->float x)
+  (match x
+   [(? gfl?)      x]
+   [(? real?)     (gfl x)]))
+
 (define get-float-cnst
   (table-fn
     [TRUE         #t]
@@ -32,61 +46,107 @@
     [SQRT2	      (gflsqrt 2.gfl)]
     [SQRT1_2	    (gflsqrt (gfl/ 1.gfl 2.gfl))]))
 
+(define (gfl-op fn)
+  (λ args
+    (define args*
+      (parameterize ([gfl-exponent 32] [gfl-bits 1024])
+        (map real->float args)))
+    (apply fn args*)))
+
 (define get-float-fun
   (table-fn                      ; TODO: Bigfloat -> flonum causes -0.0 to become 0.0
-    [+ gfl+] [- (λ (x [y #f]) (if y (gfl- x y) (gfl- x)))]
-    [* gfl*] [/ gfl/] [fabs gflabs]
-    [sqrt gflsqrt] [cbrt gflcbrt]
-    [hypot gflhypot] [fmod gflmod]
-    [remainder gflremainder]
+    [+ (gfl-op gfl+)] [- (gfl-op (λ (x [y #f]) (if y (gfl- x y) (gfl- x))))]
+    [* (gfl-op gfl*)] [/ (gfl-op gfl/)] [fabs (gfl-op gflabs)]
+    [sqrt (gfl-op gflsqrt)] [cbrt (gfl-op gflcbrt)]
+    [hypot (gfl-op gflhypot)] [fmod (gfl-op gflmod)]
+    [remainder (gfl-op gflremainder)]
 
-    [exp gflexp] [exp2 gflexp2] [exp10 gflexp10] [expm1 gflexpm1] [pow gflexpt]
-    [log gfllog] [log2 gfllog2] [log10 gfllog10] [log1p gfllog1p]
+    [exp (gfl-op gflexp)] [exp2 (gfl-op gflexp2)] [exp10 (gfl-op gflexp10)] 
+    [log (gfl-op gfllog)] [log2 (gfl-op gfllog2)] [log10 (gfl-op gfllog10)]
+    [expm1 (gfl-op gflexpm1)] [log1p (gfl-op gfllog1p)] [pow (gfl-op gflexpt)]
 
-    [sin gflsin] [cos gflcos] [tan gfltan]
-    [asin gflasin] [acos gflacos] [atan gflatan] [atan2 gflatan2]
-    [sinh gflsinh] [cosh gflcosh] [tanh gfltanh]
-    [asinh gflasinh] [acosh gflacosh] [atanh gflatanh]
+    [sin (gfl-op gflsin)] [cos (gfl-op gflcos)] [tan (gfl-op gfltan)]
+    [asin (gfl-op gflasin)] [acos (gfl-op gflacos)] [atan (gfl-op gflatan)]
+    [atan2 (gfl-op gflatan2)]
+    [sinh (gfl-op gflsinh)] [cosh (gfl-op gflcosh)] [tanh (gfl-op gfltanh)]
+    [asinh (gfl-op gflasinh)] [acosh (gfl-op gflacosh)] [atanh (gfl-op gflatanh)]
 
-    [erf gflerf] [erfc gflerfc]
-    [tgamma gflgamma] [lgamma gfllgamma]
+    [erf (gfl-op gflerf)] [erfc (gfl-op gflerfc)]
+    [tgamma (gfl-op gflgamma)] [lgamma (gfl-op gfllgamma)]
 
-    [ceil gflceiling] [floor gflfloor] [trunc gfltruncate] [round gflround]
-    [nearbyint gflrint]
-    [fmax gflmax] [fmin gflmin] [fdim gfldim] [fma gflfma]
+    [ceil (gfl-op gflceiling)] [floor (gfl-op gflfloor)] [trunc (gfl-op gfltruncate)]
+    [round (gfl-op gflround)] [nearbyint (gfl-op gflrint)]
+    [fmax (gfl-op gflmax)] [fmin (gfl-op gflmin)] [fdim (gfl-op gfldim)]
+    [fma (gfl-op gflfma)]
 
-    [< gfl<] [> gfl>] [<= gfl<=] [>= gfl>=] [== gfl=] [!= (negate gfl=)]
+    [< (gfl-op gfl<)] [> (gfl-op gfl>)] [<= (gfl-op gfl<=)] [>= (gfl-op gfl>=)]
+    [== (gfl-op gfl=)] [!= (gfl-op (negate gfl=))]
     [and (λ args (andmap identity args))]
     [or (λ args (ormap identity args))]
     [not not]
 
-    [isnan gflnan?] [isinf gflinfinite?] [isfinite (negate (disjoin gflnan? gflinfinite?))]
-    [isnormal (negate (disjoin gflsubnormal? gflnan? gflinfinite? gflzero?))]
+    [isnan (gfl-op gflnan?)] [isinf (gfl-op gflinfinite?)] 
+    [isfinite (gfl-op (negate (disjoin gflnan? gflinfinite?)))]
+    [isnormal (gfl-op (negate (disjoin gflsubnormal? gflnan? gflinfinite? gflzero?)))]
 
-    [signbit gflnegative?]
-    [copysign gflcopysign]))
-
-(define/match (fpcore->gfl-round rnd)
-  [('nearestEven) 'nearest]
-  [('nearestAway) 'away]
-  [('toPositive)  'up]
-  [('toNegative)  'down]
-  [('toZero)      'zero]) 
-
-(define (real->float x)
-  (match x
-   [(? gfl?)      x]
-   [(? real?)     (gfl x)]))
+    [signbit (gfl-op gflnegative?)]
+    [copysign (gfl-op gflcopysign)]))
 
 (struct float-evaluator evaluator (es nbits rnd))
 
 (define (get-float-evaluator es nbits rnd)
   (float-evaluator real->float gfl->real get-float-cnst get-float-fun es nbits rnd))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Integer ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define (normalize-int fn)
+  (λ args
+    (define r (floor (apply fn args)))
+    (bitwise-and r #xFFFFFFFFFFFFFFFF)))
+
+(define (real->integer x)
+  (define x*
+    (match x
+     [(? gfl?) (gfl->real x)]
+     [(? real?) x]))
+  (define r (floor (inexact->exact x*)))
+  (bitwise-and r #xFFFFFFFFFFFFFFFF))
+
+(define get-integer-const
+  (table-fn
+    [TRUE   #t]
+    [FALSE  #f]))
+
+(define get-integer-fun
+  (table-fn
+    [+ (int-op +)] [- (int-op (λ (x [y #f]) (if y (- x y) (- x))))]
+    [* (int-op *)] [/ (int-op /)]
+
+    [< (int-op <)] [> (int-op >)] [<= (int-op <=)] [>= (int-op >=)]
+    [== (int-op =)] [!= (int-op (negate =))]
+    [and (λ args (andmap identity args))]
+    [or (λ args (ormap identity args))]
+    [not not]))
+
+(define (int-op fn)
+  (λ args
+    (define args* (map real->integer args))
+    (define r (apply fn args*))
+    (if (real? r) (normalize-int r) r)))
+
+(struct integer-evaluator evaluator ())
+
+(define default-integer-evaluator
+  (integer-evaluator real->integer identity get-integer-const get-integer-fun))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Exported ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (define (get-evaluator prec [rnd 'nearest])
   (match prec
    [(list 'float es nbits)
     (get-float-evaluator es nbits rnd)]
+   ['integer
+    default-integer-evaluator]
    [_
     (error 'get-evaluator "Evaluator for (~a ~a) not supported"
                           prec rnd)]))
@@ -95,6 +155,8 @@
   (match eval
    [(float-evaluator _ _ _ _ es nbits rnd)
     (values (list 'float es nbits) rnd)]
+   [(? integer-evaluator?)
+    (values 'integer 'nearest)]
    [_
     (error 'get-evaluator-params "Unknown evaluator ~a" eval)]))
 
@@ -104,5 +166,7 @@
     (gfl-exponent es)
     (gfl-bits nbits)
     (gfl-rounding-mode (fpcore->gfl-round rnd))]
+   [(? integer-evaluator?)
+    (void)]
    [_
     (error 'set-evaluator-params! "Unknown evaluator ~a" eval)]))

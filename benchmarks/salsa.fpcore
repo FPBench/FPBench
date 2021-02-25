@@ -274,7 +274,6 @@ Inputs: Vectors `Qij`"
  :cite (abdelmalek-bit71 golub-vanloan-1996 hernandez-roman-tomas-vidal-tr07)
  :fpbench-domain mathematics
  :precision binary32
- :pre (and (< 1.0 Q11 (/ 1 7)) (< 1 Q22 (/ 1 25)))
  :example ([Q11 (/ 1 63)] [Q12 0] [Q13 0]
            [Q21 0] [Q22 (/ 1 225)] [Q23 0]
            [Q31 (/ 1 2592)] [Q32 (/ 1 2601)] [Q33 (/ 1 2583)])

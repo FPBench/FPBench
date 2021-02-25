@@ -1,5 +1,4 @@
 FILTER = racket infra/filter.rkt
-known_inaccurate = "round" "isnormal" "fmod" "remainder"
 
 ### Byte-compile
 
@@ -86,7 +85,7 @@ raco-test:
 
 c-test:
 ifneq (, $(shell which $(CC)))
-	cat benchmarks/*.fpcore tests/*.fpcore | $(FILTER) not-operators $(known_inaccurate) \
+	cat benchmarks/*.fpcore tests/*.fpcore | $(FILTER) not-operators \
 	| racket infra/test-core2c.rkt --error 3
 else
 	$(warning skipping C tests; unable to find C compiler $(CC))
@@ -94,7 +93,7 @@ endif
 
 fptaylor-test:
 ifneq (, $(shell which fptaylor))
-	cat benchmarks/*.fpcore tests/metadata.fpcore | $(FILTER) not-operators $(known_inaccurate) \
+	cat benchmarks/*.fpcore tests/metadata.fpcore | $(FILTER) not-operators \
 	| racket infra/test-core2fptaylor.rkt --error 3
 	$(RM) -r log tmp
 else
@@ -103,7 +102,7 @@ endif
 
 js-test:
 ifneq (, $(shell which node))
-	cat benchmarks/*.fpcore tests/*.fpcore | $(FILTER) not-operators $(known_inaccurate) \
+	cat benchmarks/*.fpcore tests/*.fpcore | $(FILTER) not-operators \
 	| racket infra/test-core2js.rkt --error 150
 else
 	$(warning skipping javascript tests; unable to find node)
@@ -111,7 +110,7 @@ endif
 
 smtlib2-test:
 ifneq (, $(shell which z3))
-	cat benchmarks/*.fpcore tests/*.fpcore | $(FILTER) not-operators $(known_inaccurate) \
+	cat benchmarks/*.fpcore tests/*.fpcore | $(FILTER) not-operators \
 	| racket infra/test-core2smtlib2.rkt
 else
 	$(warning skipping smtlib2 tests; unable to find z3)
@@ -119,7 +118,7 @@ endif
 
 sollya-test:
 ifneq (, $(shell which sollya))
-	cat benchmarks/*.fpcore tests/*.fpcore | $(FILTER) not-operators $(known_inaccurate) \
+	cat benchmarks/*.fpcore tests/*.fpcore | $(FILTER) not-operators \
 	| racket infra/test-core2sollya.rkt
 else
 	$(warning skipping sollya tests; unable to find sollya interpreter)
@@ -127,7 +126,7 @@ endif
 
 cml-test:
 ifneq (, $(shell which cake))
-	cat benchmarks/*.fpcore tests/*.fpcore | $(FILTER) not-operators $(known_inaccurate) \
+	cat benchmarks/*.fpcore tests/*.fpcore | $(FILTER) not-operators \
 	| racket infra/test-core2cml.rkt
 else
 	$(warning skipping CakeML tests; unable to find CakeML compiler)
@@ -135,7 +134,7 @@ endif
 
 wls-test:
 ifneq (, $(shell which wolframscript))
-	cat benchmarks/*.fpcore tests/*.fpcore  | $(FILTER) not-operators $(known_inaccurate) \
+	cat benchmarks/*.fpcore tests/*.fpcore  | $(FILTER) not-operators \
     | racket infra/test-core2wls.rkt -s --error 3
 
 else
@@ -144,7 +143,7 @@ endif
 
 go-test:
 ifneq (, $(shell which go))
-	cat benchmarks/*.fpcore tests/*.fpcore | $(FILTER) not-operators $(known_inaccurate) \
+	cat benchmarks/*.fpcore tests/*.fpcore | $(FILTER) not-operators \
 	| racket infra/test-core2go.rkt -s --error 150
 else
 	$(warning skipping Go tests; unable to find Go compiler)
@@ -153,7 +152,7 @@ endif
 scala-test:
 ifneq (, $(shell which daisy))
 	cp -r $(DAISY_BASE)/library .
-	cat benchmarks/*.fpcore tests/metadata.fpcore | $(FILTER) not-operators $(known_inaccurate) \
+	cat benchmarks/*.fpcore tests/metadata.fpcore | $(FILTER) not-operators \
 	| racket infra/test-core2scala.rkt
 	rm -r library
 else

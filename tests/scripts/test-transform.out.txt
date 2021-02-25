@@ -35,7 +35,7 @@
  :name
  "Test while"
  :pre
- (and (< 1.0 arg1 10.0))
+ (and (< 1 arg1 10))
  (while*
   (<= a 3)
   ((a 0 (+ a 1)) (b 0 (+ arg1 a)))

@@ -8,6 +8,7 @@
          fpcore-split-or fpcore-all-subexprs fpcore-split-intervals
          fpcore-unroll-loops fpcore-skip-loops
          fpcore-expand-let* fpcore-expand-while* fpcore-precondition-ranges
+         fpcore-override-props fpcore-override-arg-precision
          fpcore-transform
          fpcore-name)
 
@@ -470,7 +471,7 @@
                  (define properties* (dict-set* properties ':pre pre* ':name name*))
                  `((FPCore ,args ,@(unparse-properties properties*) ,body))]
                 [else
-                 (match-define (cons var (interval a b #t #t)) (car vars))
+                 (match-define (list var (interval a b #t #t)) (car vars))
                  (define step (/ (- b a) splits))
                  (for/fold [(progs '())] [(i (in-range splits))]
                    (define new-pre `(<= ,(+ a (* i step)) ,var ,(+ a (* (+ i 1) step))))
@@ -478,13 +479,38 @@
                    (append progs
                            (loop (cons new-pre pre-list) new-name (cdr vars))))]))))))
 
+(define/contract (fpcore-override-arg-precision prec prog)
+  ; Adds (! :precision prec) to all arguments
+  (-> symbol? fpcore? fpcore?)
+  (define/match (transform-arg arg)
+    [((list '! props ... name)) `(! ,@(append props `(:precision ,prec)) ,name)]
+    [(name) `(! :precision ,prec ,name)])
+  (match prog
+    [(list 'FPCore (list args ...) props ... body)
+      `(FPCore ,(map transform-arg args) ,@props ,body)]
+    [(list 'FPCore name (list args ...) props ... body)
+      `(FPCore ,name ,(map transform-arg args) ,@props ,body)]))
+
+(define/contract (fpcore-override-props new-props prog)
+  ; Adds given properties to the core
+  (-> (listof symbol?) fpcore? fpcore?)
+  (match prog
+    [(list 'FPCore (? list? args) props ... body)
+      `(FPCore ,args ,@props ,@new-props ,body)]
+    [(list 'FPCore name (? list? args) props ... body)
+      `(FPCore ,name ,args ,@props ,@new-props ,body)]))
+
 (define/contract (fpcore-transform prog
+                                   #:var-precision [var-precision #f]
+                                   #:override-props [override-props #f]
                                    #:unroll [unroll #f]
                                    #:split [split #f]
                                    #:split-or [split-or #f]
                                    #:subexprs [subexprs #f])
   (->* (fpcore?)
-       (#:unroll (or/c #f exact-nonnegative-integer?)
+       (#:var-precision (or/c #f symbol?)
+        #:override-props (or/c #f (listof symbol?))
+        #:unroll (or/c #f exact-nonnegative-integer?)
         #:split (or/c #f exact-nonnegative-integer?)
         #:split-or boolean?
         #:subexprs boolean?)
@@ -493,6 +519,8 @@
     (if cond (append-map f progs) progs))
   (define transform
     (compose
+     (make-t var-precision (compose list (curry fpcore-override-arg-precision var-precision)))
+     (make-t override-props (compose list (curry fpcore-override-props override-props)))
      (make-t subexprs fpcore-all-subexprs)
      (make-t split (curry fpcore-split-intervals split))
      (make-t split-or fpcore-split-or)

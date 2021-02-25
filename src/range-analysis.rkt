@@ -50,8 +50,8 @@
      (cond [(< u1 u2) u1?]
            [(= u1 u2) (and u1? u2?)]
            [(> u1 u2) u2?]))
-    (define l (max l1 l2))
-    (define u (min u1 u2))
+    (define l (exact-max l1 l2))
+    (define u (exact-min u1 u2))
 
     (make-interval l u l? u?)]
    [else #f]))
@@ -87,8 +87,8 @@
      (cond [(< u1 u2) u2?]
            [(= u1 u2) (or u1? u2?)]
            [(> u1 u2) u1?]))
-    (define l (min l1 l2))
-    (define u (max u1 u2))
+    (define l (exact-min l1 l2))
+    (define u (exact-max u1 u2))
 
     (make-interval l u l? u?)]
    [interval1 interval1]
@@ -367,18 +367,18 @@
   (check-equal? (condition->range-table '(< 1 2)) (make-hash))
   (check-equal? (condition->range-table '(< x 1)) (make-hash (list (list 'x (interval -inf.0 1 #f #f)))))
   (check-equal? (condition->range-table '(< x y 2)) (make-hash (list (list 'x (interval -inf.0 2 #f #f)) (list 'y (interval -inf.0 2 #f #f)))))
-  (check-equal? (condition->range-table '(< 1 x y 2)) (make-hash (list (list 'x (interval 1.0 2.0 #f #f)) (list 'y (interval 1.0 2.0 #f #f)))))
+  (check-equal? (condition->range-table '(< 1 x y 2)) (make-hash (list (list 'x (interval 1 2 #f #f)) (list 'y (interval 1 2 #f #f)))))
   (check-equal? (range-table-ref (condition->range-table '(< 1 2 3)) 'x) (list (interval -inf.0 +inf.0 #f #f)))
   (check-equal? (range-table-ref (condition->range-table '(< 10 2 3)) 'x) '())
   (check-equal? (range-table-ref (condition->range-table '(< 0 x 4 3)) 'x) '())
-  (check-equal? (condition->range-table '(and (< x 1) (> x -1))) (make-hash (list (list 'x (interval -1.0 1.0 #f #f)))))
+  (check-equal? (condition->range-table '(and (< x 1) (> x -1))) (make-hash (list (list 'x (interval -1 1 #f #f)))))
   (check-equal? (condition->range-table '(or (< x 1) (> x -1))) (make-hash (list (list 'x (interval -inf.0 +inf.0 #f #f)))))
   (check-equal? (condition->range-table '(or (< x -1) (> x 1))) (make-hash (list (list 'x (interval -inf.0 -1 #f #f) (interval 1 +inf.0 #f #f)))))
   (check-equal? (condition->range-table '(or (< x 1) (< x 2) (> x -1))) (make-hash (list (list 'x (interval -inf.0 +inf.0 #f #f)))))
-  (check-equal? (condition->range-table '(and (< x 1) (< x 2) (> x -1))) (make-hash (list (list 'x (interval -1.0 1.0 #f #f)))))
+  (check-equal? (condition->range-table '(and (< x 1) (< x 2) (> x -1))) (make-hash (list (list 'x (interval -1 1 #f #f)))))
   (check-equal? (condition->range-table '(not (< x 1))) (make-hash (list (list 'x (interval 1 +inf.0 #t #f)))))
   (check-equal? (condition->range-table '(not (> x 1))) (make-hash (list (list 'x (interval -inf.0 1 #f #t)))))
-  (check-equal? (condition->range-table '(and (not (> x 1)) (not (< x -2)))) (make-hash (list (list 'x (interval -2.0 1.0 #t #t)))))
+  (check-equal? (condition->range-table '(and (not (> x 1)) (not (< x -2)))) (make-hash (list (list 'x (interval -2 1 #t #t)))))
   ; this following two test tells us that we could have two representations of empty range-table
   ; therefore we use range-table-ref to hide the internal representation of range-table
   (check-equal? (range-table-ref (condition->range-table '(or (not (> x 1)) (not (< x -2)))) 'x) (list (interval -inf.0 +inf.0 #f #f)))

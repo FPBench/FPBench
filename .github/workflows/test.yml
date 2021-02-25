@@ -4,7 +4,7 @@ name: build
 on: [push]
 
 env:
-  FPTAYLOR_VERSION: 'a318f5b2c83a389777a7ef9a0c094f54412bcda2'
+  FPTAYLOR_VERSION: 'fabc895ddc595dc41fbe7ce511049c745e1f9136'
   FPLLL_VERSION: '5.2.1'
   SOLLYA_VERSION: 'sollya-7.0'
   CAKEML_VERSION: 'v1217'
@@ -39,14 +39,15 @@ jobs:
       - name: "Setup environment"
         run: |     
           sudo apt-get update
-          sudo apt-get install -y gnuplot libmpfr-dev libmpfi-dev libxml2-dev flex bison ocaml
+          sudo apt-get install -y gnuplot libmpfr-dev libmpfi-dev libxml2-dev flex bison opam
+          opam init && opam switch 4.04.2 && eval `opam config env`
           (git clone https://github.com/fplll/fplll.git ../cache/fplll || echo "Assuming FPLLL cached, skipping clone")
           (cd ../cache/fplll && git checkout ${FPLLL_VERSION} && ./autogen.sh && ./configure && make && sudo make install && sudo ldconfig)
           (git clone https://scm.gforge.inria.fr/anonscm/git/sollya/sollya.git ../cache/sollya || echo "Assuming sollya cached, skipping clone")
           (cd ../cache/sollya && git checkout ${SOLLYA_VERSION} && ./autogen.sh && ./configure && make && sudo make install && sudo ldconfig)   
           which sollya
           (git clone https://github.com/soarlab/FPTaylor.git ../cache/fptaylor || echo "Asuming FPTaylor cached, skipping clone")
-          (cd ../cache/fptaylor && git checkout ${FPTAYLOR_VERSION} && make)
+          (cd ../cache/fptaylor && git checkout ${FPTAYLOR_VERSION} && make clean-all && make)
           [[ ! -d "../cache/${Z3_DISTR}" ]] && curl -L -O https://github.com/Z3Prover/z3/releases/download/z3-${Z3_VERSION}/${Z3_DISTR}.zip && \
              unzip ${Z3_DISTR}.zip -d ../cache || echo "z3 cached"
           (mkdir ../cache/cake && curl -L https://github.com/CakeML/cakeml/releases/download/${CAKEML_VERSION}/cake-x64-64.tar.gz | \
@@ -69,7 +70,7 @@ jobs:
 
       - name: "C sanity"
         id: c_sanity
-      # if: ${{ steps.setup.outcome == 'success' }}
+        # if: ${{ steps.setup.outcome == 'success' }}
         run: make c-sanity
 
       - name: "JS sanity"
@@ -142,7 +143,7 @@ jobs:
       
       - name: "FPTaylor test"
         if: ${{ (success() || failure()) && steps.fptaylor_sanity.outcome == 'success' }} 
-        run: make fptaylor-test
+        run: eval `opam config env` && make fptaylor-test
 
       - name: "Daisy test"
         if: ${{ (success() || failure()) && steps.daisy_sanity.outcome == 'success' }}

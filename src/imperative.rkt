@@ -20,7 +20,7 @@
 
 (define (convert-declaration ctx var [val #f])
   (define val* (if (string? val) (trim-infix-parens val) val))
-  (if (equal? (language-name (*lang*)) "sollya")
+  (if (set-member? '("sollya" "fptaylor") (language-name (*lang*)))
       ((language-assignment (*lang*)) var val*)
       ((language-declaration (*lang*)) (ctx-props ctx) var val*)))
     
@@ -29,7 +29,7 @@
   ((language-assignment (*lang*)) var val*))
 
 (define (round-expr expr ctx [all? #f]) ; Sollya will never ignore but C can
-  (if (or all? (equal? (language-name (*lang*)) "sollya"))
+  (if (or all? (set-member? '("sollya" "fptaylor") (language-name (*lang*))))
       ((language-round (*lang*)) expr (ctx-props ctx))
       expr))
 
@@ -348,11 +348,12 @@
       (for/lists (n p) ([var args])
         (match var
           [(list '! props ... name) 
-            (values 
-                (let-values ([(cx name) (ctx-unique-name ctx name)])
+            (let ([props* (apply hash-set* (ctx-props ctx) props)])
+              (values 
+                (let-values ([(cx name) (ctx-unique-name ctx name (dict-ref props* ':precision 'binary64))])
                             (set! ctx cx)
                             name)
-                (apply hash-set* (ctx-props ctx) props))]
+                props*))]
           [name 
             (values 
                 (let-values ([(cx name) (ctx-unique-name ctx name)])

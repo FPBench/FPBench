@@ -1,6 +1,6 @@
 #lang racket
 
-(require math/flonum)
+(require math/flonum racket/extflonum math/bigfloat)
 (require "test-common.rkt" "../src/common.rkt" "../src/core2fptaylor.rkt" "../src/range-analysis.rkt")
 
 (define (string->double string)
@@ -15,8 +15,25 @@
     (lambda (port) (fprintf port "~a\n" (core->fptaylor prog "f"))))
   test-file)
 
+; From test-core2c
+(define (round-result type out)
+  (define out*
+    (match out
+      ["nan" "+nan.0"]
+      ["-nan" "+nan.0"]
+      ["inf" "+inf.0"]
+      ["-inf" "-inf.0"]
+      [x x]))
+  (match type
+    ['binary80 (parameterize ([bf-precision 64]) (real->extfl (bigfloat->real (bf out*))))]
+    ['binary64 (real->double-flonum (string->number out*))]
+    ['binary32 (real->single-flonum (string->number out*))]
+    ['integer  (string->number out*)]))
+
 (define (run<-fptaylor exec-name ctx type number)
-  (define out (run-with-time-limit "fptaylor" exec-name))
+  (define out (run-with-time-limit "fptaylor" 
+                "--find-bounds=true" "--print-precision=20"
+                exec-name))
   (define timeout? #f)
   (define out*
     (cond 
@@ -29,7 +46,7 @@
                                           #rx"Bounds [(]without rounding[)]: [^\n]*"
                                           out))
         (define conservative_bounds (regexp-match*
-                                    #rx"([+-]?[0-9]+[.][0-9]+[eE][+-]?[0-9]+)|([-]?inf)|([-]?nan)"
+                                    #rx"([+-]?[0-9]+(?:[.][0-9]+(?:[eE][+-]?[0-9]+)?)?)|([-]?inf)|([-]?nan)"
                                     (car conservative_bounds_line)))
         (cons (car conservative_bounds) (cadr conservative_bounds))]
       [else
@@ -37,14 +54,14 @@
                             #rx"Bounds [(]floating-point[)]: [^\n]*"
                             out))
         (define bounds (regexp-match*
-                        #rx"[+-]?[0-9]+[.][0-9]+[eE][+-]?[0-9]+"
+                        #rx"[+-]?[0-9]+(?:[.][0-9]+(?:[eE][+-]?[0-9]+)?)?"
                         (car bounds_line)))
         (cons (car bounds) (cadr bounds))]))
   (if timeout?
     (cons 'timeout "timeout")
     (cons 
-      (cons (string->double (car out*))   
-            (string->double (cdr out*)))
+      (cons (round-result type (car out*))   
+            (round-result type (cdr out*)))
       (format "[~a, ~a]" (car out*) (cdr out*)))))
 
 ; =*

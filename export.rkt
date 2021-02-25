@@ -60,7 +60,6 @@
    
    (define-values (header export footer supported)
      (match extension
-       ["fptaylor" (values (const "") (curry core->fptaylor #:inexact-scale (*scale*)) (const "") fptaylor-supported)]
        [(or "gappa" "g") (values (const "") (curry core->gappa #:rel-error (*rel-error*)) (const "") gappa-supported)]
        [#f (raise-user-error "Please specify an output language (using the --lang flag)")]
        [_
@@ -76,6 +75,7 @@
 
    (when (and (equal? extension "js") (*runtime*)) (js-runtime (*runtime*)))
    (when (and (equal? extension "sollya") suppress-warnings) (*sollya-warnings* #f))
+   (when (and (set-member? '("fptaylor" "fpt") extension) (*scale*)) (*fptaylor-inexact-scale* (*scale*)))
    (when (equal? extension "scala") 
     (let ([out-name (if (equal? out-file "-") 
                         "stdout" 

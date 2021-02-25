@@ -99,12 +99,12 @@
        (define nrnd (dict-ref props ':round rnd))
        (define evaltor* (get-evaluator nprec nrnd))
        (set-evaluator-params! evaltor*)
-       (define ret ((eval-expr* evaltor* rec) body ctx))
+       (define ret ((eval-expr evaltor*) body ctx))
        (set-evaluator-params! evaltor)
        ret]
       [else
        ((eval-expr* evaltor rec) body ctx)])]
-    [`(cast ,expr) ((evaluator-real->repr evaltor) ((eval-expr* evaltor rec) expr ctx))]
+    [`(cast ,expr) ((evaluator-real->repr evaltor) ((evaluator-repr->real evaltor) ((eval-expr* evaltor rec) expr ctx)))]
     [`(array ,vals ...) (for/list ([i vals]) ((eval-expr* evaltor rec) i ctx))]
     [`(dim ,val) (tensor-dim (rec val ctx))]
     [`(size ,val ,dim) (tensor-size (rec val ctx) (inexact->exact dim))]
@@ -201,7 +201,13 @@
       (error 'racket-run-fpcore* "Precondtition not met: ~a" pre)))
 
   (set-evaluator-params! evaltor)
-  ((evaluator-repr->real evaltor) ((eval-expr evaltor) body ctx)))
+  (define r ((evaluator-repr->real evaltor) ((eval-expr evaltor) body ctx)))
+  (match base-precision
+   [(list 'float 11 64)
+    (real->double-flonum r)]
+   [(list 'float 8 32)
+    (real->single-flonum r)]
+   [_ r]))
 
 (define/contract (racket-run-fpcore prog args)
   (-> fpcore? (listof string?) (or/c real? tensor? boolean?))

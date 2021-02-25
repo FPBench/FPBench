@@ -1,12 +1,12 @@
 #lang racket
 
 (require "common.rkt" "tensor.rkt" "fpcore-checker.rkt")
-(require math/flonum racket/extflonum math/bigfloat math/special-functions math/base)
+(require math/flonum racket/extflonum math/bigfloat math/special-functions math/base generic-flonum)
 (provide eval-expr eval-expr* racket-run-fpcore
          (struct-out evaluator) racket-integer-evaluator
          racket-double-evaluator racket-single-evaluator racket-binary80-evaluator)
 
-(struct evaluator (real constant function))
+(struct evaluator (real constant function params))
 
 (define/match (fpcore->bf-round roundmode)
   [('nearestEven) 'nearest]
@@ -459,7 +459,67 @@
                           (extfl* (extfl- (extflabs x) (extfl* (extflabs y) n)) (extfl-sgn x))))]
     [remainder (lambda (x y) (let ([n (extflround (extfl/ x y))])
                                (extfl- x (extfl* y n))))]
-    )))
+    )
+   '()))
+
+(define get-float-cnst
+  (table-fn
+    [TRUE         #t]
+    [FALSE        #f]
+    [INFINITY     +inf.gfl]
+    [NAN          +nan.gfl]
+    [E		        (gflexp 1.gfl)]
+    [LOG2E	      (gfllog2 (gflexp 1.gfl))]
+    [LOG10E	      (gfllog10 (gflexp 1.gfl))]
+    [LN2	        (gfllog 2.gfl)]
+    [LN10	        (gfllog 10.gfl)]
+    [PI		        pi.gfl]
+    [PI_2	        (gfl/ pi.gfl 2.gfl)]
+    [PI_4	        (gfl/ pi.gfl 2.gfl)]
+    [1_PI	        (gfl/ 1.gfl pi.gfl)]
+    [2_PI	        (gfl/ 2.gfl pi.gfl)]
+    [2_SQRTPI	    (gfl/ 2 (gflsqrt pi.gfl))]
+    [SQRT2	      (gflsqrt 2.gfl)]
+    [SQRT1_2	    (gflsqrt (gfl/ 1.gfl 2.gfl))]))
+
+(define get-float-fun
+  (table-fn                      ; TODO: Bigfloat -> flonum causes -0.0 to become 0.0
+    [+ gfl+] [- (λ (x [y #f]) (if y (gfl- x y) (gfl- x)))]
+    [* gfl*] [/ gfl/] [fabs gflabs]
+    [sqrt gflsqrt] [cbrt gflcbrt]
+    [hypot gflhypot] [fmod gflmod]
+    [remainder gflremainder]
+
+    [exp gflexp] [exp2 gflexp2] [exp10 gflexp10] [expm1 gflexpm1] [pow gflexpt]
+    [log gfllog] [log2 gfllog2] [log10 gfllog10] [log1p gfllog1p]
+
+    [sin gflsin] [cos gflsin] [tan gfltan]
+    [asin gflasin] [acos gflacos] [atan gflatan] [atan2 gflatan2]
+    [sinh gflsinh] [cosh gflcosh] [tanh gfltanh]
+    [asinh gflasinh] [acosh gflacosh] [atanh gflatanh]
+
+    [erf gflerf] [erfc gflerfc]
+    [tgamma gflgamma] [lgamma gfllgamma]
+
+    [ceil gflceiling] [floor gflfloor] [trunc gfltruncate] [round gflround]
+    [nearbyint gflrint]
+    [fmax gflmax] [fmin gflmin] [fdim gfldim] [fma gflfma]
+
+    [< gfl<] [> gfl>] [<= gfl<=] [>= gfl>=] [== gfl=] [!= (negate gfl=)]
+    [and (λ args (andmap identity args))]
+    [or (λ args (ormap identity args))]
+    [not not]
+
+    [isnan gflnan?] [isinf gflinfinite?] [isfinite (negate (disjoin gflnan? gflinfinite?))]
+    [isnormal (negate gflsubnormal?)]
+    [cast identity]
+
+    [signbit (λ (x) (if (gflnegative? x) 1 0))]
+    [copysign gflcopysign]))
+
+
+(define/contract racket-float-evaluator evaluator?
+  (evaluator gfl get-float-cnst get-float-fun))
 
 ;; Main interpreter
 

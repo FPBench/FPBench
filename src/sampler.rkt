@@ -152,7 +152,7 @@
             #:break ((eval-expr evaltor) pre 
                         (make-immutable-hash 
                             (for/list ([var vars] [num nums])
-                                      (cons var ((evaluator-real->repr evaltor) num))))))
+                                      (cons var ((evaluator-real evaltor) num))))))
       (values (for/list ([var vars]) (sample-random type)) (+ i 1))))
 
 ;;; Random sampler

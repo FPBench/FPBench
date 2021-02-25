@@ -167,7 +167,7 @@
                     #t)]))
           (define ctx*
             (for/list ([entry ctx])
-              (cons (car entry) ((evaluator-real->repr evaltor) (cdr entry)))))
+              (cons (car entry) (repr->real (cdr entry)))))
           (define repr-out ((eval-fuel-expr evaltor (if precond-met (fuel-good-input) (fuel-bad-input))
                                             'timeout)
                               body ctx*))

@@ -9,10 +9,10 @@
 (define/contract ((eval-expr* evaltor rec) expr ctx)
   (-> evaluator? (-> expr? context/c any/c) (-> expr? context/c any/c))
   (match expr
-    [(? number?) ((evaluator-real->repr evaltor) expr)]
+    [(? number?) ((evaluator-real evaltor) expr)]
     [(? gfl?) expr]
-    [(? hex?) ((evaluator-real->repr evaltor) (hex->racket expr))]
-    [`(digits ,m ,e ,b) ((evaluator-real->repr evaltor) (digits->number m e b))]
+    [(? hex?) ((evaluator-real evaltor) (hex->racket expr))]
+    [`(digits ,m ,e ,b) ((evaluator-real evaltor) (digits->number m e b))]
     [(? constant?) ((evaluator-constant evaltor) expr)]
     [(? tensor?) expr]
     [(? symbol?) (dict-ref ctx expr)]
@@ -104,7 +104,7 @@
        ret]
       [else
        ((eval-expr* evaltor rec) body ctx)])]
-    [`(cast ,expr) ((evaluator-real->repr evaltor) ((evaluator-repr->real evaltor) ((eval-expr* evaltor rec) expr ctx)))]
+    [`(cast ,expr) ((evaluator-real evaltor) (repr->real ((eval-expr* evaltor rec) expr ctx)))]
     [`(array ,vals ...) (for/list ([i vals]) ((eval-expr* evaltor rec) i ctx))]
     [`(dim ,val) (tensor-dim (rec val ctx))]
     [`(size ,val ,dim) (tensor-size (rec val ctx) (inexact->exact dim))]
@@ -201,7 +201,7 @@
       (error 'racket-run-fpcore* "Precondtition not met: ~a" pre)))
 
   (set-evaluator-params! evaltor)
-  (define r ((evaluator-repr->real evaltor) ((eval-expr evaltor) body ctx)))
+  (define r (repr->real ((eval-expr evaltor) body ctx)))
   (match base-precision
    [(list 'float 11 64)
     (real->double-flonum r)]

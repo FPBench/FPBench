@@ -1,9 +1,10 @@
 #lang racket
 
 (require math/bigfloat generic-flonum)
-(provide (struct-out evaluator) get-evaluator get-evaluator-params set-evaluator-params!)
+(provide (struct-out evaluator) get-evaluator get-evaluator-params set-evaluator-params!
+         repr->real)
 
-(struct evaluator (real->repr repr->real constant function))
+(struct evaluator (real constant function))
 
 (define-syntax-rule (table-fn [var val] ...)
   (match-lambda
@@ -95,14 +96,15 @@
 (struct float-evaluator evaluator (es nbits rnd))
 
 (define (get-float-evaluator es nbits rnd)
-  (float-evaluator real->float gfl->real get-float-cnst get-float-fun es nbits rnd))
+  (float-evaluator real->float get-float-cnst get-float-fun es nbits rnd))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Integer ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define (normalize-int fn)
   (λ args
     (define r (floor (apply fn args)))
-    (bitwise-and r #xFFFFFFFFFFFFFFFF)))
+    (define shift (expt 2 63))
+    (- (modulo (+ r shift) (expt 2 64)) shift)))
 
 (define (real->integer x)
   (define x*
@@ -110,7 +112,8 @@
      [(? gfl?) (gfl->real x)]
      [(? real?) x]))
   (define r (floor (inexact->exact x*)))
-  (bitwise-and r #xFFFFFFFFFFFFFFFF))
+  (define shift (expt 2 63))
+   (- (modulo (+ r shift) (expt 2 64)) shift))
 
 (define get-integer-const
   (table-fn
@@ -137,7 +140,7 @@
 (struct integer-evaluator evaluator ())
 
 (define default-integer-evaluator
-  (integer-evaluator real->integer identity get-integer-const get-integer-fun))
+  (integer-evaluator real->integer get-integer-const get-integer-fun))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Exported ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -153,7 +156,7 @@
 
 (define (get-evaluator-params eval)
   (match eval
-   [(float-evaluator _ _ _ _ es nbits rnd)
+   [(float-evaluator _ _ _ es nbits rnd)
     (values (list 'float es nbits) rnd)]
    [(? integer-evaluator?)
     (values 'integer 'nearest)]
@@ -162,7 +165,7 @@
 
 (define (set-evaluator-params! eval)
   (match eval
-   [(float-evaluator _ _ _ _ es nbits rnd)
+   [(float-evaluator _ _ _ es nbits rnd)
     (gfl-exponent es)
     (gfl-bits nbits)
     (gfl-rounding-mode (fpcore->gfl-round rnd))]
@@ -170,3 +173,8 @@
     (void)]
    [_
     (error 'set-evaluator-params! "Unknown evaluator ~a" eval)]))
+
+(define (repr->real x)
+  (match x
+   [(? gfl?)    (gfl->real x)]
+   [(? real?)   x]))

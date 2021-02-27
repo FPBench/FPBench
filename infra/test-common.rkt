@@ -148,7 +148,6 @@
           [name (values name type)])))
     (define evaltor (get-evaluator (expand-prec type) rnd-mode))
 
-    (set-evaluator-params! evaltor)
     (define results  ; run test
       (parameterize ([ulps (if (equal? ulps-override #f) ulps ulps-override)])
         (for/list ([i (in-range (tests-to-run))])
@@ -165,16 +164,24 @@
                     (for/list ([var vars*] [vtype var-types])
                         (cons var (sample-float (dict-ref range-table var (list (make-interval -inf.0 +inf.0))) vtype)))
                     #t)]))
+
           (define ctx*
-            (for/list ([entry ctx])
-              (cons (car entry) (repr->real (cdr entry)))))
-          (define repr-out ((eval-fuel-expr evaltor (if precond-met (fuel-good-input) (fuel-bad-input))
-                                            'timeout)
-                              body ctx*))
+            (for/list ([entry ctx] [type var-types])
+              (define evaltor* (get-evaluator (expand-prec type) rnd-mode))
+              (set-evaluator-params! evaltor*)
+              (cons (car entry) ((evaluator-real evaltor*) (cdr entry)))))
+
+          (set-evaluator-params! evaltor)    
+          (define repr-out
+            ((eval-fuel-expr evaltor
+                             (if precond-met (fuel-good-input) (fuel-bad-input))
+                             'timeout)
+              body ctx*))
           (define result
             (match repr-out
              [(? gfl?)  (gfl->real repr-out)]
              [_         repr-out]))
+
           (define out
             (match result
               [(? real? result)

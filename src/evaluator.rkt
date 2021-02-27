@@ -100,11 +100,10 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Integer ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define (normalize-int fn)
-  (λ args
-    (define r (floor (apply fn args)))
-    (define shift (expt 2 63))
-    (- (modulo (+ r shift) (expt 2 64)) shift)))
+(define (normalize-int x)
+  (define r (floor x))
+  (define shift (expt 2 63))
+  (- (modulo (+ r shift) (expt 2 64)) shift))
 
 (define (real->integer x)
   (define x*

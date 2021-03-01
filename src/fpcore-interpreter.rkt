@@ -174,6 +174,14 @@
   (define expr (syntax-e-rec syn))
   ((eval-expr evaltor) expr (hash)))
 
+(define (result->inexact x prec)
+  (match (cons x prec)
+   [(cons (? list?) _) (map (curryr result->inexact prec) x)]
+   [(cons (? boolean?) _) x]
+   [(cons _ (list 'float 11 64)) (real->double-flonum x)]
+   [(cons _ (list 'float 8 32)) (real->single-flonum x)]
+   [(cons _ _) x]))
+
 (define (racket-run-fpcore* name vars props* body args)
   (-> fpcore? (listof string?) (or/c real? tensor? boolean?))
   (define-values (_ props) (parse-properties props*))
@@ -206,7 +214,7 @@
       (error 'racket-run-fpcore* "Precondtition not met: ~a" pre)))
 
   (set-evaluator-params! evaltor)
-  (repr->real ((eval-expr evaltor) body ctx)))
+  (result->inexact (repr->real ((eval-expr evaltor) body ctx)) base-precision))
   
 
 (define/contract (racket-run-fpcore prog args)

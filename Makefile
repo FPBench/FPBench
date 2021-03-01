@@ -176,9 +176,13 @@ toolserver-test:
 evaluate-test:
 	tests/scripts/test-evaluate.sh
 
-tools-test: export-test transform-test toolserver-test evaluate-test
+tensor-test:
+	cat tests/tensor/batch.txt | racket toolserver.rkt
 
-test: c-test js-test go-test smtlib2-test sollya-test wls-test cml-test fptaylor-test daisy-test export-test transform-test toolserver-test evaluate-test raco-test 
+tools-test: export-test transform-test toolserver-test evaluate-test tensor-test
+
+test: c-test js-test go-test smtlib2-test sollya-test wls-test cml-test fptaylor-test \
+	  daisy-test export-test transform-test toolserver-test evaluate-test raco-test 
 
 clean:
 	$(RM) -r library tmp log *.zo *.dep
@@ -186,5 +190,7 @@ clean:
 www/benchmarks.jsonp: $(wildcard benchmarks/*.fpcore)
 	racket infra/core2json.rkt --padding load_benchmarks $^ > "$@"
 
-.PHONY: c-sanity c-test fptaylor-sanity fptaylor-test js-sanity js-test smtlib2-sanity smtlib2-test sollya-sanity sollya-test wls-sanity wls-test cml-sanity cml-test go-sanity go-test \
-		scala-sanity scala-test raco-test export-test transform-test toolserver-test evaluate-test tools-test sanity test testsetup setup update-tool-tests clean
+.PHONY: c-sanity c-test fptaylor-sanity fptaylor-test js-sanity js-test smtlib2-sanity \
+		smtlib2-test sollya-sanity sollya-test wls-sanity wls-test cml-sanity cml-test go-sanity go-test \
+		scala-sanity scala-test raco-test export-test transform-test toolserver-test evaluate-test \
+		tools-test sanity test testsetup setup update-tool-tests clean

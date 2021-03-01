@@ -1,0 +1,100 @@
+(FPCore f (x) (- (* x x) 612) )
+(FPCore fprime (x) (* 2 x) )
+
+(FPCore newton-raphson (x0 tolerance)
+
+  :precision (float 15 256)
+
+ (while (> (fabs (- x1 x0)) tolerance) 
+  ([x0 x0 x1]
+   [x1 (- x0 (/ (f x0) (fprime x0)))
+       (- x1 (/ (f x1) (fprime x1)))])
+  x1)
+
+)
+
+
+
+(FPCore sqrt-newton (a)
+(let ([iters 10]
+      [x0 10])
+
+ (tensor* ([i iters])
+  
+  ([x0 x0 x1]
+   [x1 (- x0 (/ (- (* x0 x0) a) (* 2 x0)))
+       (- x0 (/ (- (* x0 x0) a) (* 2 x0)))])
+
+  (sqrt a))
+
+))
+
+
+
+
+(FPCore sqrt-residual (a)
+  :pre (>= a 0)
+
+ (while* (> old_residual residual 0)
+  ([x0 a x1]
+   [x1 (- x0 (/ (- (* x0 x0) a) (* 2 x0)))
+       (- x0 (/ (- (* x0 x0) a) (* 2 x0)))]
+   [old_residual INFINITY residual]
+   [residual (fabs (- (* x1 x1) a))
+             (fabs (- (* x1 x1) a))])
+
+  ;(array x0 x1 old_residual residual)
+
+  (if (== residual 0) x1 x0)
+  
+  )
+
+)
+
+(FPCore sqrt-epsilon (a)
+ :pre (<= 0 a)
+
+ (while* (> e 1/2000)
+  ([x_n 0 (- x (/ (- (* x x) a) (* 2 x)))]
+   [e INFINITY (fabs (- x_n x))]
+   [x a x_n])
+  x
+ )
+
+)
+
+(FPCore sqrt-residual-2 (a)
+ :pre (<= 0 a 1e100)
+ 
+ (while* (or (> prev_residual residual 0) (== residual INFINITY))
+  ([x a (- x (/ (- (* x x) a) (* 2 x)))]
+   [prev_residual INFINITY residual]
+   [residual INFINITY (fabs (- (* x x) a))])
+  x)
+
+)
+
+
+(FPCore babylonian-residual (a)
+ :pre (<= 0 a)
+ :spec (sqrt a)
+
+ ; f(x) = x^2 - a
+ ; solve for x^2 - a = 0
+ ; residual is 0 - f(x0) = -(x^2 - a)
+ 
+ (while* (or (> prev_residual residual 0) (== residual INFINITY))
+  ([prev_x a x]
+   [x a (* 1/2 (+ x (/ a x)))]
+   [prev_residual INFINITY residual]
+   [residual INFINITY (fabs (- (* x x) a))])
+  (if (== residual 0) x prev_x)
+ )
+
+)
+
+(FPCore main (a)
+ (let ([result (babylonian-residual a)])
+  (array result (- result (sqrt a)))
+ )
+)

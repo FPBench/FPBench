@@ -1,0 +1,11 @@
+(FPCore transpose ((A n n))
+  (tensor ([row n]
+           [col n])
+    (ref A col row)))
+
+(FPCore main ()
+  (let ([A (array (array 1 2)
+                  (array 3 4))]
+        [B (array (array TRUE FALSE)
+                  (array TRUE FALSE))])
+    (transpose A)))

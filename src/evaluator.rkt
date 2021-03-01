@@ -101,7 +101,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Integer ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define (normalize-int x)
-  (define r (floor x))
+  (define r (inexact->exact (floor x)))
   (define shift (expt 2 63))
   (- (modulo (+ r shift) (expt 2 64)) shift))
 

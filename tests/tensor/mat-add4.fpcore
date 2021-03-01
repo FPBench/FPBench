@@ -1,0 +1,14 @@
+(FPCore mat-add ((P m n) (Q m n))
+  (tensor ([row m]
+           [col n])
+    (+ (ref P row col) (ref Q row col))))
+
+(FPCore mat-add4 ((A am an) (B bm bn) (C cm cn) (D dm dn))
+  (let ([A_B (mat-add A B)]
+        [C_D (mat-add C D)])
+    (mat-add A_B C_D)))
+
+(FPCore main ()
+  (let ([M (array (array 1 2 3)
+                  (array 3 2 1))])
+    (mat-add4 M M M M)))

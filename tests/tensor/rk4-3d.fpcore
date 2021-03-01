@@ -1,0 +1,65 @@
+(FPCore vec-scale ((A n) x)
+ (tensor ([i n])
+  (* (ref A i) x)))
+
+(FPCore vec-add ((A n) (B m))
+ :pre (== n m)
+ (tensor ([i n])
+  (+ (ref A i) (ref B i))))
+
+(FPCore lorenz-3d ((xyz 3))
+ (let ([sigma 10]
+       [beta 8/3]
+       [rho 28]
+       [x (ref xyz 0)]
+       [y (ref xyz 1)]
+       [z (ref xyz 2)])
+  (array
+      (* sigma (- y x))
+      (- (* x (- rho z)) y)
+      (- (* x y) (* beta z))
+  )))
+
+
+(FPCore forward-euler-3d ((xyz 3) h)
+ (let* ([k1 (vec-scale (target-3d xyz) h)])
+  (vec-add xyz k1)))
+
+(FPCore midpoint-3d ((xyz 3) h)
+ (let* ([k1 (vec-scale (target-3d xyz) h)]
+        [k2 (vec-scale (target-3d (vec-add xyz (vec-scale k1 1/2))) h)])
+  (vec-add xyz k2)))
+
+(FPCore ralston-3d ((xyz 3) h)
+ (let* ([k1 (vec-scale (target-3d xyz) h)]
+        [k2 (vec-scale (target-3d (vec-add xyz (vec-scale k1 2/3))) h)])
+  (tensor ([i 3])
+   (+ (ref xyz i)
+      (* 1/4
+         (+ (ref k1 i) (* (ref k2 i) 3)))))))
+
+(FPCore rk4-step-3d ((xyz 3) h)
+ (let* ([k1 (vec-scale (target-3d xyz) h)]
+        [k2 (vec-scale (target-3d (vec-add xyz (vec-scale k1 1/2))) h)]
+        [k3 (vec-scale (target-3d (vec-add xyz (vec-scale k2 1/2))) h)]
+        [k4 (vec-scale (target-3d (vec-add xyz k3)) h)])
+  (tensor ([i 3])
+   (+ (ref xyz i)
+      (* 1/6
+         (+ (+ (+ (ref k1 i) (* (ref k2 i) 2))
+                  (* (ref k3 i) 2))
+            (ref k4 i)))))))
+
+(FPCore target-3d ((xyz 3))
+ (lorenz-3d xyz))
+
+(FPCore step-3d ((xyz 3) h)
+ (rk4-step-3d xyz h))
+
+(FPCore rk4-3d-run ((initial-conditions 3) h steps)
+ (tensor* ([step steps])
+  ([xyz initial-conditions (step-3d xyz h)])
+  xyz))
+
+(FPCore main ()
+ (rk4-3d-run (array 1 1 1) .02 685))

@@ -1,0 +1,5 @@
+(FPCore alternating-sum ((A n))
+ (for* ([i n])
+  ([sign 1 (- sign)]
+   [total 0 (+ total (* sign (ref A i)))])
+  total))

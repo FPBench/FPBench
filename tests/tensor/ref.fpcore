@@ -1,0 +1,12 @@
+(FPCore bottom_left ()
+ (let ([A (array (array 1 2)
+                 (array 3 4))])
+  (ref A 1 0)))
+ 
+(FPCore top_right ()
+ (let ([A (array (array 1 2)
+                 (array 3 4))])
+  (ref A 0 1)))
+
+(FPCore main ()
+  (array (bottom_left) (top_right)))

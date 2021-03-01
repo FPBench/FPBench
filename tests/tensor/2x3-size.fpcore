@@ -1,0 +1,6 @@
+(FPCore size_2x3 ()
+ (let* ([A (array (array 1 0 1)
+                  (array 0 1 1))]
+        [rows (size A 0)]
+        [cols (size A 1)])
+  (array rows cols)))

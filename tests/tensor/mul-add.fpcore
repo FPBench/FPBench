@@ -1,0 +1,20 @@
+(FPCore mat-add ((X m n) (Y m n))
+  (tensor ([row m]
+           [col n])
+    (+ (ref X row col) (ref Y row col))))
+
+(FPCore mat-mul ((P pm pn) (Q qm qn))
+ :pre (== pn qm)
+ (tensor ([m pm]
+          [n qn])
+  (for ([i qm])
+   ([prod 0 (+ prod (* (ref P m i) (ref Q i n)))])
+   prod)))
+
+(FPCore mul-add ((A am an) (B bm bn) (C cm cn) (D dm dn) n)
+  (mat-mul (mat-add A C) (mat-add B D)))
+
+(FPCore main ()
+  (let ([T (array (array 1 0)
+                  (array 0 1))])
+    (mul-add T T T T 5)))

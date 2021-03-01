@@ -1,0 +1,15 @@
+(FPCore matmul ((A am an) (B bm bn))
+ :pre (== an bm)
+ (tensor ([m am]
+          [n bn])
+  (for ([i bm])
+   ([prod 0 (+ prod (* (ref A m i) (ref B i n)))])
+   prod))
+)
+
+(FPCore main ()
+ (let ([A (array (array 0 1)
+                 (array 1 0))]
+       [B (array (array 1 2)
+                 (array 3 4))])
+  (matmul A B)))

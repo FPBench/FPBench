@@ -1,0 +1,8 @@
+(FPCore sum-1d ((A n))
+ (for ([i n])
+  ([total 0 (+ total (ref A i))])
+  total))
+
+(FPCore main (n)
+ (let ([A (tensor ([i n]) i)])
+  (sum-1d A)))

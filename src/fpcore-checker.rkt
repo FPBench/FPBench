@@ -32,8 +32,7 @@
 
 (define (expr? expr)
   (match expr
-    [(? number?) true]
-    [(? gfl?) true]
+    [(? value?) true]
     [(? constant?) true]
     [(? tensor?) true]
     [(? symbol?) true]

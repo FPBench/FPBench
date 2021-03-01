@@ -49,7 +49,7 @@
               ctx*)
          (rec res ctx*))]
     [`(for ([,vars ,vals] ...) ([,accums ,inits ,updates] ...) ,body)
-     (define sizes (map (curryr rec ctx) vals))
+     (define sizes (map (compose repr->real (curryr rec ctx)) vals))
      (define ranges (map (compose stream->list in-range) sizes))
      (define coords (apply cartesian-product ranges))
      (define inits* (for/list ([init inits]) (rec init ctx)))
@@ -59,7 +59,7 @@
          (for/fold ([cx** cx*]) ([accum accums] [update updates])
            (dict-set cx** accum (rec update cx*)))))]
     [`(for* ([,vars ,vals] ...) ([,accums ,inits ,updates] ...) ,body)
-     (define sizes (map (curryr rec ctx) vals))
+     (define sizes (map (compose repr->real (curryr rec ctx)) vals))
      (define ranges (map (compose stream->list in-range) sizes))
      (define coords (apply cartesian-product ranges))
      (define inits* (for/list ([init inits]) (rec init ctx)))
@@ -69,16 +69,16 @@
          (for/fold ([cx** cx*]) ([accum accums] [update updates])
            (dict-set cx** accum (rec update cx**)))))]
     [`(tensor ([,vars ,vals] ...) ,body)
-     (define sizes (map (compose inexact->exact (curryr rec ctx)) vals))
+     (define sizes (map (compose repr->integer (curryr rec ctx)) vals))
      (define ranges (map (λ (x) (build-list x identity)) sizes))
      (define coords (apply cartesian-product ranges))
      (define vals* 
       (for/list ([coord coords])
         (let ([ctx* (apply dict-set* ctx (append-map list vars coord))])
           (rec body ctx*))))
-     (tabulate->tensor (map inexact->exact sizes) vals*)]
+     (tabulate->tensor (map repr->integer sizes) vals*)]
     [`(tensor* ([,vars ,vals] ...) ([,accums ,inits ,updates] ...) ,body)
-     (define sizes (map (compose inexact->exact (curryr rec ctx)) vals))
+     (define sizes (map (compose repr->integer (curryr rec ctx)) vals))
      (define ranges (map (λ (x) (build-list x identity)) sizes))
      (define coords (apply cartesian-product ranges))
      (define inits* (for/list ([init inits]) (rec init ctx)))
@@ -89,7 +89,7 @@
          (for/fold ([cx** cx*] #:result (values cx** (append vals (list (rec body cx**))))) 
                    ([accum accums] [update updates])
            (dict-set cx** accum (rec update cx**))))))
-     (tabulate->tensor (map inexact->exact sizes) vals*)]
+     (tabulate->tensor (map repr->integer sizes) vals*)]
     [`(! ,props* ... ,body)
      (define-values (_ props) (parse-properties props*))
      (cond
@@ -107,10 +107,10 @@
     [`(cast ,expr) ((evaluator-real evaltor) (repr->real ((eval-expr* evaltor rec) expr ctx)))]
     [`(array ,vals ...) (for/list ([i vals]) ((eval-expr* evaltor rec) i ctx))]
     [`(dim ,val) (tensor-dim (rec val ctx))]
-    [`(size ,val ,dim) (tensor-size (rec val ctx) (inexact->exact dim))]
-    [`(ref ,val ,elems ...) (apply (curry tensor-ref (rec val ctx)) (map (compose inexact->exact (curryr rec ctx)) elems))]
+    [`(size ,val ,dim) (tensor-size (rec val ctx) (repr->integer dim))]
+    [`(ref ,val ,elems ...) (apply (curry tensor-ref (rec val ctx)) (map (compose repr->integer (curryr rec ctx)) elems))]
     [(list (? (curry dict-has-key? (*fpcores*)) ident) args ...)
-      (define args* (map (curryr rec ctx) args))
+      (define args* (map (compose repr->real (curryr rec ctx)) args))
       (define core* (first (dict-ref (*fpcores*) ident)))
       (racket-run-fpcore core* (map ~a args*))]
     [(list (? operator? op) args ...)
@@ -130,11 +130,15 @@
       (cond
        [(equal? size* #f) (list (cons size (exact->inexact (length arr))))]
        [else (unless (= (length arr) size*)
-              (error 'tensor-layer->size (format "Dimension of tensor argument has incorrect size. Expected: ~a=~a, Actual: ~a" size (inexact->exact size*) (length arr))))
+              (error 'tensor-layer->size
+                     (format "Dimension of tensor argument has incorrect size. Expected: ~a=~a, Actual: ~a"
+                     size (repr->integer size*) (length arr))))
              '()]))]      
    [(? number?)
     (unless (= (length arr) size)
-      (error 'tensor-layer->size (format "Dimension of tensor argument has incorrect size. Expected: ~a, Actual: ~a" (inexact->exact size) (length arr))))
+      (error 'tensor-layer->size
+             (format "Dimension of tensor argument has incorrect size. Expected: ~a, Actual: ~a"
+             (repr->integer size) (length arr))))
     '()]
    [_  (error 'tensor-layer->size (format "Size of array must be a variable or number. Given ~a") size)]))
 
@@ -148,7 +152,8 @@
   (unless (tensor? ten*)
     (error 'arg->tensor "Expected a tensor"))
   (unless (= (tensor-dim ten*) (length sizes))
-    (error 'arg->tensor "Tensor argument has incorrect dimension. Expected: ~a. Actual: ~a" (length sizes) (tensor-dim ten*)))
+    (error 'arg->tensor "Tensor argument has incorrect dimension. Expected: ~a. Actual: ~a"
+                        (length sizes) (tensor-dim ten*)))
   (append
     (let loop ([ten** ten*] [sizes* sizes])
      (cond 
@@ -201,13 +206,8 @@
       (error 'racket-run-fpcore* "Precondtition not met: ~a" pre)))
 
   (set-evaluator-params! evaltor)
-  (define r (repr->real ((eval-expr evaltor) body ctx)))
-  (match base-precision
-   [(list 'float 11 64)
-    (real->double-flonum r)]
-   [(list 'float 8 32)
-    (real->single-flonum r)]
-   [_ r]))
+  (repr->real ((eval-expr evaltor) body ctx)))
+  
 
 (define/contract (racket-run-fpcore prog args)
   (-> fpcore? (listof string?) (or/c real? tensor? boolean?))

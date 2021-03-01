@@ -165,7 +165,7 @@
      (raise-syntax-error #f "Invalid tensor construction" stx)]
    [(list (app syntax-e '!) props ... expr)                     ; !
      (define expr* (check-syntax expr ctx))
-     (define props* (map syntax-e props))
+     (define props* (map syntax-e-rec props))
     `(! ,@props* ,expr*)]
    [(list (app syntax-e op) args ...)                                         ; ops
      (define children (map (curryr check-syntax ctx) args))

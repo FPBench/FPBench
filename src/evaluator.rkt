@@ -1,8 +1,9 @@
 #lang racket
 
-(require math/bigfloat generic-flonum)
-(provide (struct-out evaluator) get-evaluator get-evaluator-params set-evaluator-params!
-         repr->real)
+(require math/bigfloat generic-flonum "tensor.rkt")
+(provide (struct-out evaluator) get-evaluator
+         get-evaluator-params set-evaluator-params!
+         repr->real repr->integer)
 
 (struct evaluator (real constant function))
 
@@ -175,5 +176,21 @@
 
 (define (repr->real x)
   (match x
+   [(? list?)   (map repr->real x)] ; tensor
    [(? gfl?)    (gfl->real x)]
-   [(? real?)   x]))
+   [(? real?)   x]
+   [(? boolean?) x]))
+
+(define (repr->integer x)
+  (match x
+   [(? list?) (error 'repr->integer "Cannot convert a tensor to an integer: ~a" x)]
+   [(? gfl?)
+    (define r (gfl->real x))
+    (unless (integer? r)
+      (error 'repr->integer "Expected an integer: ~a\n" r))
+    (if (exact? r) r (inexact->exact r))]
+   [(? real?)
+    (unless (integer? x)
+      (error 'repr->integer "Expected an integer: ~a\n" x))
+    (if (exact? x) x (inexact->exact x))]
+   [(? boolean?) x]))

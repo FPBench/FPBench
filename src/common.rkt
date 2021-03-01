@@ -1,7 +1,9 @@
 #lang racket
 
+(require generic-flonum)
 (provide parse-properties unparse-properties constants operators
-         constant? operator? variable? define-by-match dictof property? property
+         constant? operator? variable? value? 
+         define-by-match dictof property? property
          hex? hex->racket digits->number syntax-e-rec
          trim-infix-parens expand-prec)
 
@@ -45,6 +47,9 @@
 
 (define (variable? var)
   (and (symbol? var) (not (constant? var))))
+
+(define (value? x)
+  (or (real? x) (gfl? x)))
 
 (define-syntax-rule (define-by-match name patterns ...)
   (define/contract name

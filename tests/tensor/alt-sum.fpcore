@@ -3,3 +3,6 @@
   ([sign 1 (- sign)]
    [total 0 (+ total (* sign (ref A i)))])
   total))
+
+(FPCore main ()
+  (alternating-sum (array 1 2 3 4)))

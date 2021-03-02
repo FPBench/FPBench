@@ -1,6 +1,5 @@
 #lang racket
 
-(require racket/extflonum)
 (require "common.rkt" "fpcore-checker.rkt" "fpcore-interpreter.rkt")
 (provide read-fpcore)
 
@@ -12,7 +11,6 @@
   (-> syntax? (listof argument?) expr?)
   (match (syntax-e stx)
    [(? number? val)    val]
-   [(? extflonum? val) val]
    [(? hex? val)       val]
    [(? constant? val)  val]
    [(? symbol? var)

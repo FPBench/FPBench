@@ -2,8 +2,7 @@
 
 (require syntax/parse/define
          (for-syntax racket/syntax)
-         racket/hash
-         racket/extflonum)
+         racket/hash)
 
 (require "common.rkt")
 
@@ -105,7 +104,7 @@
     [`(! ,props ... ,body)
      (vterm visitor ctx (visit-! props body))]
 
-    [(or (? number? n) (? extflonum? n))
+    [(? number? n)
      (vterm visitor ctx
             (visit-number n)
             (visit-terminal_ n))]

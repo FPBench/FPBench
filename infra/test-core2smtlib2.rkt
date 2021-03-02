@@ -1,10 +1,34 @@
 #lang racket
 
+(require generic-flonum)
 (require "test-common.rkt" "../src/core2smtlib2.rkt")
 
 (define (translate->smt prog ctx type test-file)
     (*prog* (core->smtlib2 prog "f"))
     test-file)
+
+(define (float->string x)
+  (match x
+   [(? gfl?)  (gfl->string x)]
+   [(? real?) (~a x)]))
+
+(define (float->output x prec)
+  (define-values (es nbits)
+    (match prec
+     ['binary80 (values 15 80)]
+     ['binary64 (values 11 64)]
+     ['binary32 (values 8 32)]))
+  (parameterize ([gfl-exponent es] [gfl-bits nbits])
+    (gfl x)))
+
+(define (copy-value x prec)
+  (define-values (es nbits)
+    (match prec
+     ['binary80 (values 15 80)]
+     ['binary64 (values 11 64)]
+     ['binary32 (values 8 32)]))
+  (parameterize ([gfl-exponent es] [gfl-bits nbits])
+    (gflcopy x)))
 
 (define (run<-smt exec-name ctx type number)
   (call-with-output-file exec-name #:exists 'replace
@@ -17,7 +41,7 @@
       (for ([arg ctx] [i (in-naturals)])
         (match-define (cons var value) arg)
         (fprintf port "(define-const arg~a (_ FloatingPoint ~a ~a) ~a)\n"
-                 i w p (number->smt value w p 'nearestEven)))
+                 i w p (number->smt (float->string value) w p 'nearestEven)))
       (fprintf port "(check-sat)\n")
       (if (= (length ctx) 0)
           (fprintf port "(eval f)\n")
@@ -35,20 +59,11 @@
 
   (define out*
     (match (syntax-e stx)
-      [(list (app syntax-e '_) (app syntax-e 'NaN) stxw stxp)
-       (match type
-         ['binary32 +nan.f]
-         ['binary64 +nan.0])]
-      [(list (app syntax-e '_) (app syntax-e '+oo) stxw stxp)
-       (match type
-         ['binary32 +inf.f]
-         ['binary64 +inf.0])]
-      [(list (app syntax-e '_) (app syntax-e '-oo) stxw stxp)
-       (match type
-         ['binary32 -inf.f]
-         ['binary64 -inf.0])]
-      [(list (app syntax-e '_) (app syntax-e '+zero) stxw stxp) 0.0]
-      [(list (app syntax-e '_) (app syntax-e '-zero) stxw stxp) -0.0]
+      [(list (app syntax-e '_) (app syntax-e 'NaN) stxw stxp)    +nan.0]
+      [(list (app syntax-e '_) (app syntax-e '+oo) stxw stxp)    +inf.0]
+      [(list (app syntax-e '_) (app syntax-e '-oo) stxw stxp)    -inf.0]
+      [(list (app syntax-e '_) (app syntax-e '+zero) stxw stxp)  0]
+      [(list (app syntax-e '_) (app syntax-e '-zero) stxw stxp)  -0]
       [(list (app syntax-e 'fp) stxS stxE stxC)
        (let
            ([S (syntax->datum stxS)]
@@ -63,10 +78,16 @@
             (floating-point-bytes->real (integer->integer-bytes
                                          (bitwise-ior (arithmetic-shift S 63) (arithmetic-shift E 52) C)
                                          8 #f))]))]))
-  (cons out* (format "~a" out*)))
+  (cons (float->output out* type) (format "~a" out*)))
 
-(define (smt-equality a b ulps ignore?)
-  (or (equal? a b) (= a b) (and (nan? a) (nan? b))))
+(define (smt-equality a b ulps type ignore?)
+  (cond
+   [(equal? a 'timeout) true]
+   [(and (gflnan? a) (gflnan? b)) #t]
+   [else
+    (define a* (copy-value a type))
+    (define b* (copy-value b type))
+    (gfl= a* b*)]))
 
 (define (smt-format-args var val type)
   (define-values (w p)

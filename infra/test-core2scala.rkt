@@ -1,6 +1,8 @@
 #lang racket
  
-(require "test-common.rkt" "../src/common.rkt" "../src/core2scala.rkt" "../src/range-analysis.rkt" "../src/supported.rkt")
+(require generic-flonum)
+(require "test-common.rkt" "../src/common.rkt" "../src/core2scala.rkt" "../src/range-analysis.rkt"
+         "../src/supported.rkt")
 
 (define (compile->scala prog ctx type test-file)
   (*scala-prec-file*
@@ -12,6 +14,22 @@
       (fprintf p "~a~a~a\n" (scala-header "main") (core->scala prog "f") (scala-footer))))
   (close-output-port (*scala-prec-file*))
   test-file)
+
+(define (float->output x prec)
+  (define-values (es nbits)
+    (match prec
+     ['binary64 (values 11 64)]
+     ['binary32 (values 8 32)]))
+  (parameterize ([gfl-exponent es] [gfl-bits nbits])
+    (gfl x)))
+
+(define (copy-value x prec)
+  (define-values (es nbits)
+    (match prec
+     ['binary64 (values 11 64)]
+     ['binary32 (values 8 32)]))
+  (parameterize ([gfl-exponent es] [gfl-bits nbits])
+    (gflcopy x)))
 
 (define (run<-scala exec-name ctx type number)
   (define prec-filename (string-append (string-trim exec-name ".scala") ".prec.txt"))
@@ -43,20 +61,20 @@
   (if timeout?
     (cons 'timeout "timeout")
     (cons 
-      (match type
-       ['binary64 (cons (real->double-flonum (string->number (car out*)))
-                        (real->double-flonum (string->number (cdr out*))))]
-       ['binary32 (cons (real->single-flonum (string->number (car out*)))
-                        (real->single-flonum (string->number (cdr out*))))])
+      (cons (float->output (car out*) type) (float->output (cdr out*) type))
       (format "[~a, ~a]" (car out*) (cdr out*)))))
 
-(define (scala-equality a bound ulps ignore?)
-  (cond
-   [ignore? #t]
-   [(or (equal? a 'timeout) (equal? bound 'timeout)) #t]
-   [(nan? a) (or (and (nan? (car bound)) (nan? (cdr bound)))
-                 (and (infinite? (car bound)) (infinite? (cdr bound))))]
-   [else (<= (car bound) a (cdr bound))]))
+(define (scala-equality a bound ulps type ignore?)
+  (cond 
+    [ignore? #t]
+    [(or (equal? a 'timeout) (equal? bound 'timeout)) #t]
+    [(gflnan? a) (or (and (gflnan? (car bound)) (gflnan? (cdr bound)))
+                (and (gflinfinite? (car bound)) (gflinfinite? (cdr bound))))]
+    [else
+     (define a* (copy-value a type))
+     (define lb (copy-value (car bound) type))
+     (define ub (copy-value (cdr bound) type))
+     (gfl<= lb a* ub)]))
 
 (define (scala-format-args var val type)
   (format "~a = ~a" var val))

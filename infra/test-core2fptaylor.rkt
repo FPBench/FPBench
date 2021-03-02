@@ -1,19 +1,21 @@
 #lang racket
 
-(require math/flonum racket/extflonum math/bigfloat)
+(require generic-flonum)
 (require "test-common.rkt" "../src/common.rkt" "../src/core2fptaylor.rkt" "../src/range-analysis.rkt")
-
-(define (string->double string)
-  (cond
-    [(regexp-match #rx"[-]inf"    string) -inf.0]
-    [(regexp-match #rx"inf"     string) +inf.0]
-    [(regexp-match #rx"[-]?nan" string) +nan.0]
-    [else (real->double-flonum (string->number string))]))
 
 (define (compile->fptaylor prog ctx type test-file)
   (call-with-output-file test-file #:exists 'replace
     (lambda (port) (fprintf port "~a\n" (core->fptaylor prog "f"))))
   test-file)
+
+(define (float->output x prec)
+  (define-values (es nbits)
+    (match prec
+     ['binary80 (values 15 80)]
+     ['binary64 (values 11 64)]
+     ['binary32 (values 8 32)]))
+  (parameterize ([gfl-exponent es] [gfl-bits nbits])
+    (gfl x)))
 
 ; From test-core2c
 (define (round-result type out)
@@ -25,10 +27,8 @@
       ["-inf" "-inf.0"]
       [x x]))
   (match type
-    ['binary80 (parameterize ([bf-precision 64]) (real->extfl (bigfloat->real (bf out*))))]
-    ['binary64 (real->double-flonum (string->number out*))]
-    ['binary32 (real->single-flonum (string->number out*))]
-    ['integer  (string->number out*)]))
+    ['integer (string->number out*)]
+    [_ (float->output out type)]))
 
 (define (run<-fptaylor exec-name ctx type number)
   (define out (run-with-time-limit "fptaylor" 
@@ -64,16 +64,29 @@
             (round-result type (cdr out*)))
       (format "[~a, ~a]" (car out*) (cdr out*)))))
 
+(define (copy-value x prec)
+  (define-values (es nbits)
+    (match prec
+     ['binary80 (values 15 80)]
+     ['binary64 (values 11 64)]
+     ['binary32 (values 8 32)]))
+  (parameterize ([gfl-exponent es] [gfl-bits nbits])
+    (gflcopy x)))
+
 ; =*
 ; Equality is hard for computer number systems; we may need to define a custom
 ; way to compare numbers to determine if the test has passed.
-(define (fptaylor-equality a bound ulps ignore?)
+(define (fptaylor-equality a bound ulps type ignore?)
   (cond 
     [ignore? #t]
     [(or (equal? a 'timeout) (equal? bound 'timeout)) #t]
-    [(nan? a) (or (and (nan? (car bound)) (nan? (cdr bound)))
-                (and (infinite? (car bound)) (infinite? (cdr bound))))]
-    [else (<= (car bound) a (cdr bound))]))
+    [(gflnan? a) (or (and (gflnan? (car bound)) (gflnan? (cdr bound)))
+                (and (gflinfinite? (car bound)) (gflinfinite? (cdr bound))))]
+    [else
+     (define a* (copy-value a type))
+     (define lb (copy-value (car bound) type))
+     (define ub (copy-value (cdr bound) type))
+     (gfl<= lb a* ub)]))
 
 (define (fptaylor-format-args var val type)
   (format "~a = ~a" var val))

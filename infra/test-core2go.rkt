@@ -20,11 +20,6 @@
   (system (format "go build -o ~a ~a" bin-file test-file))
   bin-file)
 
-(define (float->string x)
-  (match x
-   [(? gfl?)  (gfl->string x)]
-   [(? real?) (~a x)]))
-
 (define (run<-go exec-name ctx type number)
   (define out
     (with-output-to-string
@@ -35,7 +30,7 @@
             (map (λ (x)
                   (match x
                    [+nan.0 "NaN"] [+inf.0 "+Inf"] [-inf.0 "-Inf"]
-                   [x (float->string x)]))
+                   [x (value->string x)]))
                  (dict-values ctx))) 
           " ")))))
   (define out*
@@ -44,9 +39,7 @@
       ["+Inf" "+inf.0"]
       ["-Inf" "-inf.0"]
       [x x]))
-  (cons
-    (parameterize ([gfl-exponent 11] [gfl-bits 64]) (gfl out*))
-    out*))
+  (cons (->value out* type) out*))
 
 (define (go-equality a b ulps type ignore?)
   (cond

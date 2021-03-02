@@ -4,7 +4,8 @@
 (require "../src/common.rkt" "../src/evaluator.rkt" "../src/fpcore-interpreter.rkt" "../src/fpcore-reader.rkt"
          "../src/range-analysis.rkt" "../src/sampler.rkt" "../src/supported.rkt")
 (provide tester *tester* test-core run-with-time-limit
-         *prog* *ignore-by-run* *last-run* *tool-time-limit*)
+         *prog* *ignore-by-run* *last-run* *tool-time-limit*
+         value->string value->real ->value)
 
 (module+ test
   (require rackunit))
@@ -70,7 +71,33 @@
       [else
         (sleep 1)
         (loop)])))
+
+(define (value->string x)
+  (match x
+   [(? gfl?)  (gfl->string x)]
+   [(? real?) (~a x)]))
+
+(define (value->real x)
+  (match x
+   [(? gfl?)  (gfl->real x)]
+   [(? real?) x]))
+
+(define (->float x prec)
+  (define-values (es nbits)
+    (match prec
+     ['binary80 (values 15 80)]
+     ['binary64 (values 11 64)]
+     ['binary32 (values 8 32)]))
+  (parameterize ([gfl-exponent es] [gfl-bits nbits])
+    (if (gfl? x) (gflcopy x) (gfl x))))
   
+(define (->value x prec)
+  (match (cons x prec)
+   [(cons (? gfl?) 'integer)  (round (gfl->real x))]
+   [(cons (? string?) 'integer) (string->number x)]
+   [(cons (? real?) 'integer) x]  
+   [else (->float x prec)]))
+
 ;;; Evaluator
 
 (define ((eval-fuel-expr evaltor fuel [default #f]) expr ctx)

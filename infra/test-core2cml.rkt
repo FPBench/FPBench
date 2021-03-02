@@ -21,20 +21,13 @@
   (system (format "cc $CAKEML_BASE/basis_ffi.o ~a -o ~a" s-file cake-file))
   cake-file)
 
-(define (float->string x)
-  (match x
-   [(? gfl?)  (gfl->string x)]
-   [(? real?) (~a x)]))
-
 (define (run<-cml exec-name ctx types number?)
   (define out
     (with-output-to-string
      (λ ()
-       (system (string-join (cons exec-name (map float->string (dict-values ctx))) " ")))))
+       (system (string-join (cons exec-name (map value->string (dict-values ctx))) " ")))))
   (define out* (floating-point-bytes->real (integer->integer-bytes (string->number out) 8 #f)))
-  (cons
-    (parameterize ([gfl-exponent 11] [gfl-bits 64]) (gfl out*))
-    out*))
+  (cons (->value out* 'binary64) out*))
 
 (define (cml-equality a b ulps type ignore?)
   (cond

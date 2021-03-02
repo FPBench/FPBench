@@ -15,22 +15,6 @@
   (close-output-port (*scala-prec-file*))
   test-file)
 
-(define (float->output x prec)
-  (define-values (es nbits)
-    (match prec
-     ['binary64 (values 11 64)]
-     ['binary32 (values 8 32)]))
-  (parameterize ([gfl-exponent es] [gfl-bits nbits])
-    (gfl x)))
-
-(define (copy-value x prec)
-  (define-values (es nbits)
-    (match prec
-     ['binary64 (values 11 64)]
-     ['binary32 (values 8 32)]))
-  (parameterize ([gfl-exponent es] [gfl-bits nbits])
-    (gflcopy x)))
-
 (define (run<-scala exec-name ctx type number)
   (define prec-filename (string-append (string-trim exec-name ".scala") ".prec.txt"))
   (define out 
@@ -61,7 +45,7 @@
   (if timeout?
     (cons 'timeout "timeout")
     (cons 
-      (cons (float->output (car out*) type) (float->output (cdr out*) type))
+      (cons (->value (car out*) type) (->value (cdr out*) type))
       (format "[~a, ~a]" (car out*) (cdr out*)))))
 
 (define (scala-equality a bound ulps type ignore?)
@@ -69,11 +53,11 @@
     [ignore? #t]
     [(or (equal? a 'timeout) (equal? bound 'timeout)) #t]
     [(gflnan? a) (or (and (gflnan? (car bound)) (gflnan? (cdr bound)))
-                (and (gflinfinite? (car bound)) (gflinfinite? (cdr bound))))]
+                     (and (gflinfinite? (car bound)) (gflinfinite? (cdr bound))))]
     [else
-     (define a* (copy-value a type))
-     (define lb (copy-value (car bound) type))
-     (define ub (copy-value (cdr bound) type))
+     (define a* (->value a type))
+     (define lb (->value (car bound) type))
+     (define ub (->value (cdr bound) type))
      (gfl<= lb a* ub)]))
 
 (define (scala-format-args var val type)

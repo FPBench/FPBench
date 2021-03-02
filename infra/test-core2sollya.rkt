@@ -17,24 +17,6 @@
         (* m (expt 2 e))
         (/ m (expt 2 (- e))))))
 
-(define (float->output x prec)
-  (define-values (es nbits)
-    (match prec
-     ['binary80 (values 15 80)]
-     ['binary64 (values 11 64)]
-     ['binary32 (values 8 32)]))
-  (parameterize ([gfl-exponent es] [gfl-bits nbits])
-    (gfl x)))
-
-(define (copy-value x prec)
-  (define-values (es nbits)
-    (match prec
-     ['binary80 (values 15 80)]
-     ['binary64 (values 11 64)]
-     ['binary32 (values 8 32)]))
-  (parameterize ([gfl-exponent es] [gfl-bits nbits])
-    (gflcopy x)))
-
 (define (run<-sollya exec-name ctx type number)
   (call-with-output-file exec-name #:exists 'replace
     (lambda (port)
@@ -71,9 +53,7 @@
       [else (dyadic->exact out)]))
   (when (regexp-match #rx"WARNING" res) ;; checks if division by zero was encountered
     (*ignore-by-run* (list-set (*ignore-by-run*) number #t)))
-  (cons 
-    (float->output out* type)
-    (format "~a" out*)))
+  (cons (->value out* type) (~a out*)))
 
 ;; In some cases, such as division by zero, sollya does not distinguish
 ;; between inf and nan. So for infinite results from the reference interpreter,
@@ -84,8 +64,8 @@
    [ignore? #t]    ;; If division by zero occurs, ignore the result and pass the test
    [(equal? a 'timeout) true]
    [else
-    (define a* (copy-value a type))
-    (define b* (copy-value b type))
+    (define a* (->value a type))
+    (define b* (->value b type))
     ; Sollya is not 1/2 ULP for binary80, add 3 to be safe?
     (define ulps* (if (equal? type 'binary80) (+ ulps 3) ulps))
     (<= (abs (gfls-between a* b*)) ulps*)]))

@@ -6,30 +6,7 @@
 (define (translate->wls prog ctx type test-file)
   (*prog* (core->wls prog "f"))
   test-file)
-
-(define (float->number x)
-  (match x
-   [(? gfl?)  (gfl->real x)]
-   [(? real?) x]))
-
-(define (float->output x prec)
-  (define-values (es nbits)
-    (match prec
-     ['binary80 (values 15 80)]
-     ['binary64 (values 11 64)]
-     ['binary32 (values 8 32)]))
-  (parameterize ([gfl-exponent es] [gfl-bits nbits])
-    (gfl x)))
-
-(define (copy-value x prec)
-  (define-values (es nbits)
-    (match prec
-     ['binary80 (values 15 80)]
-     ['binary64 (values 11 64)]
-     ['binary32 (values 8 32)]))
-  (parameterize ([gfl-exponent es] [gfl-bits nbits])
-    (gflcopy x)))
-
+  
 (define (run<-wls exec-name ctx type number)
   (define wls-prec (prec->wls type))
   (call-with-output-file exec-name #:exists 'replace
@@ -39,7 +16,7 @@
         (format "Block[{$MinPrecision=~a,$MaxPrecision=~a,$MaxExtraPrecision=0},TimeConstrained[MemoryConstrained[Print[f[~a]//N],2^32],5]]\n"
                 wls-prec wls-prec
                 (string-join (map (λ (x) (format "N[~a, ~a]" (number->wls x) wls-prec))
-                                  (map (compose float->number cdr) ctx)) 
+                                  (map (compose value->real cdr) ctx)) 
                             ", ")))))
   (define out 
     (with-output-to-string
@@ -57,14 +34,14 @@
       ["Indeterminate" "+nan.0"]
       [(? string->number x) x]
       [else "+nan.0"]))
-  (cons (float->output out* type) out*))
+  (cons (->value out* type) out*))
 
 (define (wls-equality a b ulps type ignore?)
   (cond
    [(equal? a 'timeout) true]
    [else
-    (define a* (copy-value a type))
-    (define b* (copy-value b type))
+    (define a* (->value a type))
+    (define b* (->value b type))
     (<= (abs (gfls-between a* b*)) ulps)]))
 
 (define (wls-format-args var val type)

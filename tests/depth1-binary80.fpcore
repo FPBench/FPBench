@@ -1,0 +1,343 @@
+;; -*- mode: scheme -*-
+;; Exhaustive at depth 1
+
+(FPCore () :precision binary80 (+ 1.0 1.0))
+
+(FPCore (arg1) :precision binary80 (+ arg1 1.0))
+
+(FPCore (arg1) :precision binary80 (+ 1.0 arg1))
+
+(FPCore (arg1) :precision binary80 (+ arg1 arg1))
+
+(FPCore (arg1 arg2) :precision binary80 (+ arg1 arg2))
+
+(FPCore (arg1 arg2) :precision binary80 (+ arg2 arg1))
+
+(FPCore () :precision binary80 (- 1.0 1.0))
+
+(FPCore (arg1) :precision binary80 (- arg1 1.0))
+
+(FPCore (arg1) :precision binary80 (- 1.0 arg1))
+
+(FPCore (arg1) :precision binary80 (- arg1 arg1))
+
+(FPCore (arg1 arg2) :precision binary80 (- arg1 arg2))
+
+(FPCore (arg1 arg2) :precision binary80 (- arg2 arg1))
+
+(FPCore () :precision binary80 (* 1.0 1.0))
+
+(FPCore (arg1) :precision binary80 (* arg1 1.0))
+
+(FPCore (arg1) :precision binary80 (* 1.0 arg1))
+
+(FPCore (arg1) :precision binary80 (* arg1 arg1))
+
+(FPCore (arg1 arg2) :precision binary80 (* arg1 arg2))
+
+(FPCore (arg1 arg2) :precision binary80 (* arg2 arg1))
+
+(FPCore () :precision binary80 (/ 1.0 1.0))
+
+(FPCore (arg1) :precision binary80 (/ arg1 1.0))
+
+(FPCore (arg1) :precision binary80 (/ 1.0 arg1))
+
+(FPCore (arg1) :precision binary80 (/ arg1 arg1))
+
+(FPCore (arg1 arg2) :precision binary80 (/ arg1 arg2))
+
+(FPCore (arg1 arg2) :precision binary80 (/ arg2 arg1))
+
+(FPCore () :precision binary80 (fabs 1.0))
+
+(FPCore (arg1) :precision binary80 (fabs arg1))
+
+(FPCore () :precision binary80 (fma 1.0 1.0 1.0))
+
+(FPCore (arg1) :precision binary80 (fma arg1 1.0 1.0))
+
+(FPCore (arg1) :precision binary80 (fma 1.0 arg1 1.0))
+
+(FPCore (arg1) :precision binary80 (fma 1.0 1.0 arg1))
+
+(FPCore (arg1) :precision binary80 (fma arg1 arg1 1.0))
+
+(FPCore (arg1) :precision binary80 (fma arg1 1.0 arg1))
+
+(FPCore (arg1) :precision binary80 (fma 1.0 arg1 arg1))
+
+(FPCore (arg1 arg2) :precision binary80 (fma arg1 arg2 1.0))
+
+(FPCore (arg1 arg2) :precision binary80 (fma arg2 arg1 1.0))
+
+(FPCore (arg1 arg2) :precision binary80 (fma arg1 1.0 arg2))
+
+(FPCore (arg1 arg2) :precision binary80 (fma 1.0 arg1 arg2))
+
+(FPCore (arg1 arg2) :precision binary80 (fma arg2 1.0 arg1))
+
+(FPCore (arg1 arg2) :precision binary80 (fma 1.0 arg2 arg1))
+
+(FPCore (arg1) :precision binary80 (fma arg1 arg1 arg1))
+
+(FPCore (arg1 arg2) :precision binary80 (fma arg1 arg1 arg2))
+
+(FPCore (arg1 arg2) :precision binary80 (fma arg1 arg2 arg1))
+
+(FPCore (arg1 arg2) :precision binary80 (fma arg2 arg1 arg1))
+
+(FPCore (arg1 arg2) :precision binary80 (fma arg1 arg2 arg2))
+
+(FPCore (arg1 arg2) :precision binary80 (fma arg2 arg1 arg2))
+
+(FPCore (arg1 arg2) :precision binary80 (fma arg2 arg2 arg1))
+
+(FPCore (arg1 arg2 arg3) :precision binary80 (fma arg1 arg2 arg3))
+
+(FPCore (arg1 arg2 arg3) :precision binary80 (fma arg2 arg1 arg3))
+
+(FPCore (arg1 arg2 arg3) :precision binary80 (fma arg1 arg3 arg2))
+
+(FPCore (arg1 arg2 arg3) :precision binary80 (fma arg3 arg1 arg2))
+
+(FPCore (arg1 arg2 arg3) :precision binary80 (fma arg2 arg3 arg1))
+
+(FPCore (arg1 arg2 arg3) :precision binary80 (fma arg3 arg2 arg1))
+
+(FPCore () :precision binary80 (exp 1.0))
+
+(FPCore (arg1) :precision binary80 (exp arg1))
+
+(FPCore () :precision binary80 (exp2 1.0))
+
+(FPCore (arg1) :precision binary80 (exp2 arg1))
+
+(FPCore () :precision binary80 (expm1 1.0))
+
+(FPCore (arg1) :precision binary80 (expm1 arg1))
+
+(FPCore () :precision binary80 (log 1.0))
+
+(FPCore (arg1) :precision binary80 (log arg1))
+
+(FPCore () :precision binary80 (log10 1.0))
+
+(FPCore (arg1) :precision binary80 (log10 arg1))
+
+(FPCore () :precision binary80 (log2 1.0))
+
+(FPCore (arg1) :precision binary80 (log2 arg1))
+
+(FPCore () :precision binary80 (log1p 1.0))
+
+(FPCore (arg1) :precision binary80 (log1p arg1))
+
+(FPCore () :precision binary80 (pow 1.0 1.0))
+
+(FPCore (arg1) :precision binary80 (pow arg1 1.0))
+
+(FPCore (arg1) :precision binary80 (pow 1.0 arg1))
+
+(FPCore (arg1) :precision binary80 (pow arg1 arg1))
+
+(FPCore (arg1 arg2) :precision binary80 (pow arg1 arg2))
+
+(FPCore (arg1 arg2) :precision binary80 (pow arg2 arg1))
+
+(FPCore () :precision binary80 (sqrt 1.0))
+
+(FPCore (arg1) :precision binary80 (sqrt arg1))
+
+(FPCore () :precision binary80 (cbrt 1.0))
+
+(FPCore (arg1) :precision binary80 (cbrt arg1))
+
+(FPCore () :precision binary80 (hypot 1.0 1.0))
+
+(FPCore (arg1) :precision binary80 (hypot arg1 1.0))
+
+(FPCore (arg1) :precision binary80 (hypot 1.0 arg1))
+
+(FPCore (arg1) :precision binary80 (hypot arg1 arg1))
+
+(FPCore (arg1 arg2) :precision binary80 (hypot arg1 arg2))
+
+(FPCore (arg1 arg2) :precision binary80 (hypot arg2 arg1))
+
+(FPCore () :precision binary80 (sin 1.0))
+
+(FPCore (arg1) :precision binary80 (sin arg1))
+
+(FPCore () :precision binary80 (cos 1.0))
+
+(FPCore (arg1) :precision binary80 (cos arg1))
+
+(FPCore () :precision binary80 (tan 1.0))
+
+(FPCore (arg1) :precision binary80 (tan arg1))
+
+(FPCore () :precision binary80 (asin 1.0))
+
+(FPCore (arg1) :precision binary80 (asin arg1))
+
+(FPCore () :precision binary80 (acos 1.0))
+
+(FPCore (arg1) :precision binary80 (acos arg1))
+
+(FPCore () :precision binary80 (atan 1.0))
+
+(FPCore (arg1) :precision binary80 (atan arg1))
+
+(FPCore () :precision binary80 (atan2 1.0 1.0))
+
+(FPCore (arg1) :precision binary80 (atan2 arg1 1.0))
+
+(FPCore (arg1) :precision binary80 (atan2 1.0 arg1))
+
+(FPCore (arg1) :precision binary80 (atan2 arg1 arg1))
+
+(FPCore (arg1 arg2) :precision binary80 (atan2 arg1 arg2))
+
+(FPCore (arg1 arg2) :precision binary80 (atan2 arg2 arg1))
+
+(FPCore () :precision binary80 (sinh 1.0))
+
+(FPCore (arg1) :precision binary80 (sinh arg1))
+
+(FPCore () :precision binary80 (cosh 1.0))
+
+(FPCore (arg1) :precision binary80 (cosh arg1))
+
+(FPCore () :precision binary80 (tanh 1.0))
+
+(FPCore (arg1) :precision binary80 (tanh arg1))
+
+(FPCore () :precision binary80 (asinh 1.0))
+
+(FPCore (arg1) :precision binary80 (asinh arg1))
+
+(FPCore () :precision binary80 (acosh 1.0))
+
+(FPCore (arg1) :precision binary80 (acosh arg1))
+
+(FPCore () :precision binary80 (atanh 1.0))
+
+(FPCore (arg1) :precision binary80 (atanh arg1))
+
+(FPCore () :precision binary80 (erf 1.0))
+
+(FPCore (arg1) :precision binary80 (erf arg1))
+
+(FPCore () :precision binary80 (erfc 1.0))
+
+(FPCore (arg1) :precision binary80 (erfc arg1))
+
+(FPCore () :precision binary80 (tgamma 1.0))
+
+(FPCore (arg1) :precision binary80 (tgamma arg1))
+
+(FPCore () :precision binary80 (lgamma 1.0))
+
+(FPCore (arg1) :precision binary80 (lgamma arg1))
+
+(FPCore () :precision binary80 (ceil 1.0))
+
+(FPCore (arg1) :precision binary80 (ceil arg1))
+
+(FPCore () :precision binary80 (floor 1.0))
+
+(FPCore (arg1) :precision binary80 (floor arg1))
+
+(FPCore () :precision binary80 (fmod 1.0 1.0))
+
+(FPCore (arg1) :precision binary80 (fmod arg1 1.0))
+
+(FPCore (arg1) :precision binary80 (fmod 1.0 arg1))
+
+(FPCore (arg1) :precision binary80 (fmod arg1 arg1))
+
+(FPCore (arg1 arg2) :precision binary80 (fmod arg1 arg2))
+
+(FPCore (arg1 arg2) :precision binary80 (fmod arg2 arg1))
+
+(FPCore () :precision binary80 (remainder 1.0 1.0))
+
+(FPCore (arg1) :precision binary80 (remainder arg1 1.0))
+
+(FPCore (arg1) :precision binary80 (remainder 1.0 arg1))
+
+(FPCore (arg1) :precision binary80 (remainder arg1 arg1))
+
+(FPCore (arg1 arg2) :precision binary80 (remainder arg1 arg2))
+
+(FPCore (arg1 arg2) :precision binary80 (remainder arg2 arg1))
+
+(FPCore () :precision binary80 (fmax 1.0 1.0))
+
+(FPCore (arg1) :precision binary80 (fmax arg1 1.0))
+
+(FPCore (arg1) :precision binary80 (fmax 1.0 arg1))
+
+(FPCore (arg1) :precision binary80 (fmax arg1 arg1))
+
+(FPCore (arg1 arg2) :precision binary80 (fmax arg1 arg2))
+
+(FPCore (arg1 arg2) :precision binary80 (fmax arg2 arg1))
+
+(FPCore () :precision binary80 (fmin 1.0 1.0))
+
+(FPCore (arg1) :precision binary80 (fmin arg1 1.0))
+
+(FPCore (arg1) :precision binary80 (fmin 1.0 arg1))
+
+(FPCore (arg1) :precision binary80 (fmin arg1 arg1))
+
+(FPCore (arg1 arg2) :precision binary80 (fmin arg1 arg2))
+
+(FPCore (arg1 arg2) :precision binary80 (fmin arg2 arg1))
+
+(FPCore () :precision binary80 (fdim 1.0 1.0))
+
+(FPCore (arg1) :precision binary80 (fdim arg1 1.0))
+
+(FPCore (arg1) :precision binary80 (fdim 1.0 arg1))
+
+(FPCore (arg1) :precision binary80 (fdim arg1 arg1))
+
+(FPCore (arg1 arg2) :precision binary80 (fdim arg1 arg2))
+
+(FPCore (arg1 arg2) :precision binary80 (fdim arg2 arg1))
+
+(FPCore () :precision binary80 (copysign 1.0 1.0))
+
+(FPCore (arg1) :precision binary80 (copysign arg1 1.0))
+
+(FPCore (arg1) :precision binary80 (copysign 1.0 arg1))
+
+(FPCore (arg1) :precision binary80 (copysign arg1 arg1))
+
+(FPCore (arg1 arg2) :precision binary80 (copysign arg1 arg2))
+
+(FPCore (arg1 arg2) :precision binary80 (copysign arg2 arg1))
+
+(FPCore () :precision binary80 (trunc 1.0))
+
+(FPCore (arg1) :precision binary80 (trunc arg1))
+
+(FPCore () :precision binary80 (round 1.0))
+
+(FPCore (arg1) :precision binary80 (round arg1))
+
+(FPCore () :precision binary80 (nearbyint 1.0))
+
+(FPCore (arg1) :precision binary80 (nearbyint arg1))
+
+(FPCore () :precision binary80 (cast 1.0))
+
+(FPCore (arg1) :precision binary80 (cast arg1))
+
+(FPCore () :precision binary80 (- 1.0))
+
+(FPCore (arg1) :precision binary80 (- arg1))
+

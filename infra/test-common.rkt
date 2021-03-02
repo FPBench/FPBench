@@ -179,7 +179,7 @@
           (when (equal? (tester-name (*tester*)) "wls")
             (when (and (not (equal? out 'timeout)) (not (nan? out)) (nan? (car out*)))
               (set! nans (+ nans 1))))
-          (list ctx out out*))))
+          (list ctx* out out*))))
 
     (unless (null? results) ; display results
       (define successful 

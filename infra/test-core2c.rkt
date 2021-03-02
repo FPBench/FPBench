@@ -32,6 +32,15 @@
   (parameterize ([gfl-exponent es] [gfl-bits nbits])
     (gfl x)))
 
+(define (copy-value x prec)
+  (define-values (es nbits)
+    (match prec
+     ['binary80 (values 15 80)]
+     ['binary64 (values 11 64)]
+     ['binary32 (values 8 32)]))
+  (parameterize ([gfl-exponent es] [gfl-bits nbits])
+    (gflcopy x)))
+
 (define (run<-c exec-name ctx type number)
   (define out
     (with-output-to-string
@@ -50,8 +59,8 @@
   (cond
    [(equal? a 'timeout) true]
    [else
-    (define a* (gflcopy a))
-    (define b* (gflcopy b))
+    (define a* (copy-value a type))
+    (define b* (copy-value b type))
     (<= (abs (gfls-between a* b*)) ulps)]))
           
 (define (c-format-args var val type)

@@ -1,6 +1,6 @@
 #lang racket
 
-(require math/flonum)
+(require generic-flonum)
 (require "test-common.rkt" "../src/core2go.rkt")
 
 (define (compile->go prog ctx type test-file)
@@ -20,6 +20,11 @@
   (system (format "go build -o ~a ~a" bin-file test-file))
   bin-file)
 
+(define (float->string x)
+  (match x
+   [(? gfl?)  (gfl->string x)]
+   [(? real?) (~a x)]))
+
 (define (run<-go exec-name ctx type number)
   (define out
     (with-output-to-string
@@ -27,12 +32,12 @@
       (system 
         (string-join 
           (cons exec-name 
-          (map (λ (x)
-                (match x
-                  [+nan.0 "NaN"] [+inf.0 "+Inf"] [-inf.0 "-Inf"]
-                  [x (~a (real->double-flonum x))]))
-               (dict-values ctx))) 
-        " ")))))
+            (map (λ (x)
+                  (match x
+                   [+nan.0 "NaN"] [+inf.0 "+Inf"] [-inf.0 "-Inf"]
+                   [x (float->string x)]))
+                 (dict-values ctx))) 
+          " ")))))
   (define out*
     (match out
       ["NaN" "+nan.0"]
@@ -40,18 +45,13 @@
       ["-Inf" "-inf.0"]
       [x x]))
   (cons
-    ((match type
-      ['binary64 real->double-flonum]
-      ['binary32 real->single-flonum])
-    (string->number out*)) out*))
+    (parameterize ([gfl-exponent 11] [gfl-bits 64]) (gfl out*))
+    out*))
 
-(define (go-equality a b ulps ignore?)
-  (match (list a b)
-    ['(timeout timeout) true]
-    [else
-      (or (= a b)
-          (and (nan? a) (nan? b))
-          (<= (abs (flonums-between a b)) ulps))]))
+(define (go-equality a b ulps type ignore?)
+  (cond
+   [(equal? a 'timeout) true]
+   [else (<= (abs (gfls-between a b)) ulps)]))
 
 (define (go-format-args var val type)
   (format "~a = ~a" var val))

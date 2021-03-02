@@ -25,8 +25,8 @@
 
 (define (real->float x)
   (match x
-   [(? gfl?)      x]
-   [(? real?)     (gfl x)]))
+   [(? gfl?)        x]
+   [(? real?)       (gfl x)]))
 
 (define get-float-cnst
   (table-fn

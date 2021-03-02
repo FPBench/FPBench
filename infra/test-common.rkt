@@ -1,6 +1,6 @@
 #lang racket
 
-(require math/flonum racket/extflonum math/bigfloat generic-flonum)
+(require generic-flonum)
 (require "../src/common.rkt" "../src/evaluator.rkt" "../src/fpcore-interpreter.rkt" "../src/fpcore-reader.rkt"
          "../src/range-analysis.rkt" "../src/sampler.rkt" "../src/supported.rkt")
 (provide tester *tester* test-core run-with-time-limit
@@ -49,8 +49,8 @@
 (define (filter-core prog)    ; allows a tester to reject an fpcore based on precondition, property, etc.
   ((tester-filter (*tester*)) prog))
 
-(define (=* a b [ignore? #f])
-  ((tester-equality (*tester*)) a b (ulps) ignore?))
+(define (=* a b type [ignore? #f])
+  ((tester-equality (*tester*)) a b (ulps) type ignore?))
 
 ;;; Misc
 
@@ -79,27 +79,6 @@
       (if (<= fuel 0)
           (k default)
           ((eval-expr* evaltor (λ (expr ctx) (eval expr ctx (- fuel 1)))) expr ctx)))))
-
-(define/match (prec->bf-bits prec)
-  [('binary80) 64]
-  [('binary64) 53]
-  [('binary32) 24]
-  [('integer)  128])
-
-(define/match (fpcore->bf-round roundmode) ; TODO: move to separate file
-  [('nearestEven) 'nearest]
-  [('nearestAway) (error 'fpcore->bf-round "math/bigfloat does not support 'nearestAway")]
-  [('toPositive)  'up]
-  [('toNegative)  'down]
-  [('toZero)      'zero])
-
-(define (extfl->real x) 
-  (cond
-    [(equal? x +inf.t)  +inf.0] 
-    [(equal? x -inf.t)  -inf.0]
-    [(equal? x +nan.t)  +nan.0] 
-    [(equal? x -nan.t)  -nan.0]
-    [else (extfl->exact x)])) 
 
 ;;; Tester core
 
@@ -151,6 +130,7 @@
     (define results  ; run test
       (parameterize ([ulps (if (equal? ulps-override #f) ulps ulps-override)])
         (for/list ([i (in-range (tests-to-run))])
+          ; Sample points
           (define-values (ctx precond-met)
             (cond 
               [(or (not (use-precond)) (equal? precond '()))                  ; --no-precond flag or no precondition
@@ -165,51 +145,32 @@
                         (cons var (sample-float (dict-ref range-table var (list (make-interval -inf.0 +inf.0))) vtype)))
                     #t)]))
 
+          ; Evaluate with reference interpreter
           (define ctx*
             (for/list ([entry ctx] [type var-types])
               (define evaltor* (get-evaluator (expand-prec type) rnd-mode))
               (set-evaluator-params! evaltor*)
               (cons (car entry) ((evaluator-real evaltor*) (cdr entry)))))
-
           (set-evaluator-params! evaltor)    
-          (define repr-out
+          (define result
             ((eval-fuel-expr evaltor
                              (if precond-met (fuel-good-input) (fuel-bad-input))
                              'timeout)
               body ctx*))
-          (define result
-            (match repr-out
-             [(? gfl?)  (gfl->real repr-out)]
-             [_         repr-out]))
-
           (define out
             (match result
-              [(? real? result)
-                ((match type
-                  ['binary64 real->double-flonum] 
-                  ['binary32 real->single-flonum]
-                  ['integer inexact->exact])
-                result)]
-              [(? extflonum? result)
-                ((match type
-                  ['binary80 identity]
-                  ['binary64 extfl->inexact]
-                  ['binary32 (compose real->single-flonum extfl->inexact)]
-                  ['integer (compose inexact->exact extfl->inexact)])
-                result)]
-              [(? complex? result)
-                (match type
-                  ['binary64 +nan.0]
-                  ['binary32 +nan.f])]
+              [(? gfl?) result]
+              [(? complex?) +nan.gfl]
               ['timeout 'timeout]
-              [(? boolean? result)
-                result]))
+              [(? boolean?) result]))
           (when (equal? out 'timeout)
             (set! timeout (+ timeout 1)))
+
+          ; evaluate with language
           (define out*
             (if (equal? out 'timeout) 
                 (cons 'timeout "")
-                (let ([out* (run-test exec-name ctx type i)])
+                (let ([out* (run-test exec-name ctx* type i)])
                   (if (equal? (car out*) 'timeout)
                       (begin
                         (set! timeout (+ timeout 1))
@@ -223,7 +184,7 @@
     (unless (null? results) ; display results
       (define successful 
         (for/fold ([success 0]) ([result results] [ignore? (*ignore-by-run*)])
-          (if (=* (second result) (car (third result)) ignore?)
+          (if (=* (second result) (car (third result)) type ignore?)
             (add1 success)
             success)))
       (define result-len (length results))
@@ -241,7 +202,7 @@
       (set! err (+ err (- result-len successful)))
       (set! ignored (+ ignored (for/sum ([ignore? (*ignore-by-run*)]) (if ignore? 1 0))))
       (for ([i (in-naturals 1)] [x (in-list results)] [ignore? (*ignore-by-run*)])
-        (define test-passed (=* (second x) (car (third x)) ignore?))
+        (define test-passed (=* (second x) (car (third x)) type ignore?))
         (unless (and (not (verbose)) test-passed)
           (printf "\t~a\t~a\t(Expected) ~a\t(Output) ~a\t(Args) ~a\n" 
                   i (if test-passed "Pass" "Fail") (second x)                          

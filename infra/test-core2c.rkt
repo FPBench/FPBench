@@ -1,7 +1,7 @@
 #lang racket
 
-(require math/flonum racket/extflonum math/bigfloat)
-(require "test-common.rkt" "../src/core2c.rkt" "../src/sampler.rkt")
+(require generic-flonum)
+(require "test-common.rkt" "../src/core2c.rkt" "../src/evaluator.rkt")
 
 (define (compile->c prog ctx type test-file)
   (call-with-output-file test-file #:exists 'replace
@@ -18,25 +18,25 @@
   (system (format "cc ~a -lm -frounding-math -o ~a" test-file c-file))
   c-file)
 
-(define (extfl->real x)
-  (cond
-    [(equal? x +inf.t)  +inf.0] 
-    [(equal? x -inf.t)  -inf.0]
-    [(equal? x +nan.t)  +nan.0] 
-    [(equal? x -nan.t)  -nan.0]
-    [else (extfl->exact x)]))  
+(define (float->string x)
+  (match x
+   [(? gfl?)  (gfl->string x)]
+   [(? real?) (~a x)]))
+
+(define (float->output x prec)
+  (define-values (es nbits)
+    (match prec
+     ['binary80 (values 15 80)]
+     ['binary64 (values 11 64)]
+     ['binary32 (values 8 32)]))
+  (parameterize ([gfl-exponent es] [gfl-bits nbits])
+    (gfl x)))
 
 (define (run<-c exec-name ctx type number)
-  (define real->float
-    (match type
-      ['binary80 (λ (x) (parameterize ([bf-precision 64]) (bigfloat->string (bf (extfl->real x)))))]
-      ['binary64 real->double-flonum]
-      ['binary32 real->double-flonum]
-      ['integer identity]))
   (define out
     (with-output-to-string
      (λ ()
-       (system (string-join (cons exec-name (map (compose ~a real->float) (dict-values ctx))) " ")))))
+       (system (string-join (cons exec-name (map float->string (dict-values ctx))) " ")))))
   (define out*
     (match out
       ["nan" "+nan.0"]
@@ -44,29 +44,15 @@
       ["inf" "+inf.0"]
       ["-inf" "-inf.0"]
       [x x]))
-  (match type
-    ['binary80 (cons (parameterize ([bf-precision 64]) (real->extfl (bigfloat->real (bf out*)))) out*)]
-    ['binary64 (cons (real->double-flonum (string->number out*)) out*)]
-    ['binary32 (cons (real->single-flonum (string->number out*)) out*)]
-    ['integer  (cons (string->number out*) out*)]))
+  (cons (float->output out* type) out*))
 
-(define (c-equality a b ulps ignore?)
+(define (c-equality a b ulps type ignore?)
   (cond
-    [(equal? a 'timeout) true]
-    [(extflonum? b)
-     (let ([a* (real->extfl a)])
-      (or (extfl= a* b)
-          (and (equal? a* +nan.t) (equal? b +nan.t))
-          (and (parameterize ([bf-precision 64]) 
-                  (<= (abs (bigfloats-between (bf (extfl->real a)) (bf (extfl->real b))))
-                      ulps)))))]
-    [else
-      (or (= a b)
-          (and (nan? a) (nan? b))
-          (and (single-flonum? a)
-               (parameterize ([bf-precision 24])
-                 (<= (abs (- (float->ordinal a 'binary32) (float->ordinal b 'binary32))) ulps)))
-          (and (double-flonum? a) (<= (abs (flonums-between a b)) ulps)))]))
+   [(equal? a 'timeout) true]
+   [else
+    (define a* (gflcopy a))
+    (define b* (gflcopy b))
+    (<= (abs (gfls-between a* b*)) ulps)]))
           
 (define (c-format-args var val type)
   (format "~a = ~a" var val))

@@ -1,0 +1,46 @@
+evaluate -i tests/tensor/2x2-identity.fpcore
+.
+evaluate -i tests/tensor/2x3-dim.fpcore
+.
+evaluate -i tests/tensor/2x3-size.fpcore
+.
+evaluate -i tests/tensor/ref.fpcore
+.
+evaluate -i tests/tensor/transpose.fpcore
+.
+evaluate -i tests/tensor/fib.fpcore 10
+.
+evaluate -i tests/tensor/sum-1d.fpcore 10
+.
+evaluate -i tests/tensor/matmul.fpcore
+.
+evaluate -i tests/tensor/alt-sum.fpcore
+.
+evaluate -i tests/tensor/mat-add4.fpcore
+.
+evaluate -i tests/tensor/mat-add4_sqr.fpcore
+.
+evaluate -i tests/tensor/mat-add4_pre.fpcore
+.
+evaluate -i tests/tensor/mul-add.fpcore
+.
+evaluate -i tests/tensor/expand.fpcore
+.
+evaluate -i tests/tensor/array.fpcore
+.
+evaluate -i tests/tensor/array2.fpcore
+.
+evaluate -i tests/tensor/fib2.fpcore --no-check 10
+.
+evaluate -i tests/tensor/mut-rec.fpcore --no-check 10
+.
+evaluate -i tests/tensor/integer.fpcore 1
+.
+evaluate -i tests/tensor/newton.fpcore 1e100
+.
+evaluate -i tests/tensor/dotprod.fpcore
+.
+evaluate -i tests/tensor/newton2.fpcore 1000
+.
+evaluate -i tests/tensor/rk4-3d.fpcore --no-check
+.

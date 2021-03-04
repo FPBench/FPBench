@@ -1,5 +1,6 @@
 #lang racket
 
+(require generic-flonum)
 (require "test-common.rkt" "../src/core2smtlib2.rkt")
 
 (define (translate->smt prog ctx type test-file)
@@ -17,7 +18,7 @@
       (for ([arg ctx] [i (in-naturals)])
         (match-define (cons var value) arg)
         (fprintf port "(define-const arg~a (_ FloatingPoint ~a ~a) ~a)\n"
-                 i w p (number->smt value w p 'nearestEven)))
+                 i w p (number->smt (value->real value) w p 'nearestEven)))
       (fprintf port "(check-sat)\n")
       (if (= (length ctx) 0)
           (fprintf port "(eval f)\n")
@@ -35,20 +36,11 @@
 
   (define out*
     (match (syntax-e stx)
-      [(list (app syntax-e '_) (app syntax-e 'NaN) stxw stxp)
-       (match type
-         ['binary32 +nan.f]
-         ['binary64 +nan.0])]
-      [(list (app syntax-e '_) (app syntax-e '+oo) stxw stxp)
-       (match type
-         ['binary32 +inf.f]
-         ['binary64 +inf.0])]
-      [(list (app syntax-e '_) (app syntax-e '-oo) stxw stxp)
-       (match type
-         ['binary32 -inf.f]
-         ['binary64 -inf.0])]
-      [(list (app syntax-e '_) (app syntax-e '+zero) stxw stxp) 0.0]
-      [(list (app syntax-e '_) (app syntax-e '-zero) stxw stxp) -0.0]
+      [(list (app syntax-e '_) (app syntax-e 'NaN) stxw stxp)    +nan.0]
+      [(list (app syntax-e '_) (app syntax-e '+oo) stxw stxp)    +inf.0]
+      [(list (app syntax-e '_) (app syntax-e '-oo) stxw stxp)    -inf.0]
+      [(list (app syntax-e '_) (app syntax-e '+zero) stxw stxp)  0]
+      [(list (app syntax-e '_) (app syntax-e '-zero) stxw stxp)  -0]
       [(list (app syntax-e 'fp) stxS stxE stxC)
        (let
            ([S (syntax->datum stxS)]
@@ -63,17 +55,23 @@
             (floating-point-bytes->real (integer->integer-bytes
                                          (bitwise-ior (arithmetic-shift S 63) (arithmetic-shift E 52) C)
                                          8 #f))]))]))
-  (cons out* (format "~a" out*)))
+  (cons (->value out* type) (format "~a" out*)))
 
-(define (smt-equality a b ulps ignore?)
-  (or (equal? a b) (= a b) (and (nan? a) (nan? b))))
+(define (smt-equality a b ulps type ignore?)
+  (cond
+   [(equal? a 'timeout) true]
+   [(and (gflnan? a) (gflnan? b)) #t]
+   [else
+    (define a* (->value a type))
+    (define b* (->value b type))
+    (gfl= a* b*)]))
 
 (define (smt-format-args var val type)
   (define-values (w p)
         (match type
           ['binary32 (values 8 24)]
           ['binary64 (values 11 53)]))
-  (format "~a = ~a\n\t~a = ~a" var val var (number->smt val w p 'nearestEven)))
+  (format "~a = ~a\n\t~a = ~a" var val var (number->smt (value->real val) w p 'nearestEven)))
 
 (define (smt-format-output result)
   (format "~a" result))

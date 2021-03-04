@@ -1,5 +1,4 @@
 FILTER = racket infra/filter.rkt
-known_inaccurate = "round" "isnormal" "fmod" "remainder"
 
 ### Byte-compile
 
@@ -7,9 +6,7 @@ setup:
 	raco make main.rkt export.rkt transform.rkt toolserver.rkt evaluate.rkt 
 
 testsetup:
-	raco make infra/filter.rkt \
-		infra/test-core2c.rkt infra/test-core2fptaylor.rkt infra/test-core2js.rkt infra/test-core2go.rkt infra/test-core2smtlib2.rkt infra/test-core2sollya.rkt \
-		infra/test-core2wls.rkt infra/test-core2cml.rkt infra/test-core2scala.rkt
+	raco make infra/*.rkt
 
 ##### Testing
 
@@ -86,16 +83,14 @@ raco-test:
 
 c-test:
 ifneq (, $(shell which $(CC)))
-	cat benchmarks/*.fpcore tests/*.fpcore | $(FILTER) not-operators $(known_inaccurate) \
-	| racket infra/test-core2c.rkt --error 3
+	cat benchmarks/*.fpcore tests/*.fpcore | racket infra/test-core2c.rkt --error 3
 else
 	$(warning skipping C tests; unable to find C compiler $(CC))
 endif
 
 fptaylor-test:
 ifneq (, $(shell which fptaylor))
-	cat benchmarks/*.fpcore tests/metadata.fpcore | $(FILTER) not-operators $(known_inaccurate) \
-	| racket infra/test-core2fptaylor.rkt --error 3
+	cat benchmarks/*.fpcore tests/*.fpcore | racket infra/test-core2fptaylor.rkt --error 3
 	$(RM) -r log tmp
 else
 	$(warning skipping fptaylor tests; unable to find fptaylor)
@@ -103,40 +98,35 @@ endif
 
 js-test:
 ifneq (, $(shell which node))
-	cat benchmarks/*.fpcore tests/*.fpcore | $(FILTER) not-operators $(known_inaccurate) \
-	| racket infra/test-core2js.rkt --error 150
+	cat benchmarks/*.fpcore tests/*.fpcore | racket infra/test-core2js.rkt --error 150
 else
 	$(warning skipping javascript tests; unable to find node)
 endif
 
 smtlib2-test:
 ifneq (, $(shell which z3))
-	cat benchmarks/*.fpcore tests/*.fpcore | $(FILTER) not-operators $(known_inaccurate) \
-	| racket infra/test-core2smtlib2.rkt
+	cat benchmarks/*.fpcore tests/*.fpcore | racket infra/test-core2smtlib2.rkt
 else
 	$(warning skipping smtlib2 tests; unable to find z3)
 endif
 
 sollya-test:
 ifneq (, $(shell which sollya))
-	cat benchmarks/*.fpcore tests/*.fpcore | $(FILTER) not-operators $(known_inaccurate) \
-	| racket infra/test-core2sollya.rkt
+	cat benchmarks/*.fpcore tests/*.fpcore | racket infra/test-core2sollya.rkt
 else
 	$(warning skipping sollya tests; unable to find sollya interpreter)
 endif
 
 cml-test:
 ifneq (, $(shell which cake))
-	cat benchmarks/*.fpcore tests/*.fpcore | $(FILTER) not-operators $(known_inaccurate) \
-	| racket infra/test-core2cml.rkt
+	cat benchmarks/*.fpcore tests/*.fpcore | racket infra/test-core2cml.rkt
 else
 	$(warning skipping CakeML tests; unable to find CakeML compiler)
 endif
 
 wls-test:
 ifneq (, $(shell which wolframscript))
-	cat benchmarks/*.fpcore tests/*.fpcore  | $(FILTER) not-operators $(known_inaccurate) \
-    | racket infra/test-core2wls.rkt -s --error 3
+	cat benchmarks/*.fpcore tests/*.fpcore  | racket infra/test-core2wls.rkt -s --error 3
 
 else
 	$(warning skipping wolframscript tests; unable to find wolframscript interpreter)
@@ -144,8 +134,7 @@ endif
 
 go-test:
 ifneq (, $(shell which go))
-	cat benchmarks/*.fpcore tests/*.fpcore | $(FILTER) not-operators $(known_inaccurate) \
-	| racket infra/test-core2go.rkt -s --error 150
+	cat benchmarks/*.fpcore tests/*.fpcore | racket infra/test-core2go.rkt -s --error 150
 else
 	$(warning skipping Go tests; unable to find Go compiler)
 endif
@@ -153,8 +142,7 @@ endif
 scala-test:
 ifneq (, $(shell which daisy))
 	cp -r $(DAISY_BASE)/library .
-	cat benchmarks/*.fpcore tests/metadata.fpcore | $(FILTER) not-operators $(known_inaccurate) \
-	| racket infra/test-core2scala.rkt
+	cat benchmarks/*.fpcore tests/*.fpcore | racket infra/test-core2scala.rkt
 	rm -r library
 else
 	$(warning skipping Scala tests; unable to find Scala compiler)
@@ -177,9 +165,13 @@ toolserver-test:
 evaluate-test:
 	tests/scripts/test-evaluate.sh
 
-tools-test: export-test transform-test toolserver-test evaluate-test
+tensor-test:
+	cat tests/tensor/batch.txt | racket toolserver.rkt
 
-test: c-test js-test go-test smtlib2-test sollya-test wls-test cml-test fptaylor-test daisy-test export-test transform-test toolserver-test evaluate-test raco-test 
+tools-test: export-test transform-test toolserver-test evaluate-test tensor-test
+
+test: c-test js-test go-test smtlib2-test sollya-test wls-test cml-test fptaylor-test \
+	  daisy-test export-test transform-test toolserver-test evaluate-test raco-test 
 
 clean:
 	$(RM) -r library tmp log *.zo *.dep
@@ -187,5 +179,7 @@ clean:
 www/benchmarks.jsonp: $(wildcard benchmarks/*.fpcore)
 	racket infra/core2json.rkt --padding load_benchmarks $^ > "$@"
 
-.PHONY: c-sanity c-test fptaylor-sanity fptaylor-test js-sanity js-test smtlib2-sanity smtlib2-test sollya-sanity sollya-test wls-sanity wls-test cml-sanity cml-test go-sanity go-test \
-		scala-sanity scala-test raco-test export-test transform-test toolserver-test evaluate-test tools-test sanity test testsetup setup update-tool-tests clean
+.PHONY: c-sanity c-test fptaylor-sanity fptaylor-test js-sanity js-test smtlib2-sanity \
+		smtlib2-test sollya-sanity sollya-test wls-sanity wls-test cml-sanity cml-test go-sanity go-test \
+		scala-sanity scala-test raco-test export-test transform-test toolserver-test evaluate-test \
+		tools-test sanity test testsetup setup update-tool-tests clean

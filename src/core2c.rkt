@@ -1,6 +1,6 @@
 #lang racket
 
-(require math/bigfloat)
+(require generic-flonum)
 (require "common.rkt" "compilers.rkt" "imperative.rkt" "supported.rkt")
 (provide c-header core->c c-supported)
 
@@ -38,6 +38,13 @@
     ['signbit   (format "signbit(~a)" args)]
     [_          (format "~a~a(~a)" op (type->c-suffix type) (string-join args ", "))]))
 
+(define (binary80->string x)
+  (parameterize ([gfl-exponent 15] [gfl-bits 80])
+    (define s (gfl->string (gfl x)))
+    (if (string-contains? s ".")
+        s
+        (string-append s ".0"))))
+
 (define (constant->c props expr)
   (define prec (dict-ref props ':precision 'binary64))
   (define type (type->c prec))
@@ -48,10 +55,11 @@
     [(? hex?) (~a expr)]
     [(? number?)
       (match prec
-        ['integer   (~a (inexact->exact expr))]
-        ['binary80  (parameterize ([bf-precision 64]) 
-                        (format "~a~a" (bigfloat->string (bf expr)) (type->c-suffix type)))]
-        [_          (format "~a~a" (real->double-flonum expr) (type->c-suffix type))])]
+       ['integer (~a (inexact->exact expr))]
+       ['binary80 
+        (parameterize ([gfl-exponent 15] [gfl-bits 80])
+          (format "~a~a" (binary80->string expr) (type->c-suffix type)))]
+       [_ (format "~a~a" (real->double-flonum expr) (type->c-suffix type))])]
     [(? symbol?) (format "((~a) M_~a)" type expr)]))
 
 (define (declaration->c props var [val #f])

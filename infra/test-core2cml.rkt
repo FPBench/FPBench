@@ -1,6 +1,6 @@
 #lang racket
 
-(require math/flonum)
+(require generic-flonum)
 (require "test-common.rkt" "../src/core2cml.rkt")
 
 (define (compile->cml prog ctx type test-file)
@@ -25,16 +25,14 @@
   (define out
     (with-output-to-string
      (λ ()
-       (system (string-join (cons exec-name (map (compose ~a real->double-flonum) (dict-values ctx))) " ")))))
+       (system (string-join (cons exec-name (map value->string (dict-values ctx))) " ")))))
   (define out* (floating-point-bytes->real (integer->integer-bytes (string->number out) 8 #f)))
-  (cons (real->double-flonum out*) (number->string out*)))
+  (cons (->value out* 'binary64) out*))
 
-(define (cml-equality a b ulps ignore?)
-  (match (list a b)
-    ['(timeout timeout) true]
-    [else
-      (or (= a b)
-          (and (nan? a) (nan? b)))]))
+(define (cml-equality a b ulps type ignore?)
+  (cond
+   [(equal? a 'timeout) true]
+   [else (<= (abs (gfls-between a b)) ulps)]))
 
 (define (cml-format-args var val type)
   (format "~a = ~a" var val))

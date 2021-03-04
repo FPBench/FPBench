@@ -1,9 +1,11 @@
 #lang racket
 
+(require generic-flonum)
 (provide parse-properties unparse-properties constants operators
-         constant? operator? variable? define-by-match dictof property? property
+         constant? operator? variable? value? 
+         define-by-match dictof property? property
          hex? hex->racket digits->number syntax-e-rec
-         trim-infix-parens)
+         trim-infix-parens expand-prec)
 
 (define (property? symb)
   (and (symbol? symb) (string-prefix? (symbol->string symb) ":")))
@@ -45,6 +47,9 @@
 
 (define (variable? var)
   (and (symbol? var) (not (constant? var))))
+
+(define (value? x)
+  (or (real? x) (gfl? x)))
 
 (define-syntax-rule (define-by-match name patterns ...)
   (define/contract name
@@ -88,6 +93,16 @@
 
 (define (digits->number m e b)
   (* m (expt b e)))
+
+(define (expand-prec prec)
+  (match prec
+   ['binary16     '(float 5 16)]
+   ['binary32     '(float 8 32)]
+   ['binary64     '(float 11 64)]
+   ['binary80     '(float 15 80)]
+   ['binary128    '(float 15 128)]
+   ['binary256    '(float 19 256)]
+   [_             prec]))
 
 ;; Returns true if the string (assumed to be infix notation) is enclosed by a matching pair of
 ;; parentheses. Note that (a + b) / (c + d) returns false.

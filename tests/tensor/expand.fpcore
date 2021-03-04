@@ -1,0 +1,6 @@
+(FPCore expand ((A n))
+  (tensor ([i n]) A))
+
+(FPCore main ()
+  (let ([A (array 1 2 3 4)])
+    (expand A)))

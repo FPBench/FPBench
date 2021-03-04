@@ -1,0 +1,20 @@
+(FPCore parsum-row ((A m n))
+ (tensor* result ([row m]
+                  [col n])
+  (if (== col 0)
+   (ref A row col)
+   (+ (ref A row col) (ref result row (# (- col 1))))
+ )))
+
+(FPCore parsom-col ((A m n))
+ (tensor* result ([row m]
+                  [col n])
+  (if (== row 0)
+   (ref A row col)
+   (+ (ref A row col) (ref result (# (- row 1)) col))
+ )))
+
+(FPCore main ()
+  (let ([A (array (array 1 0)
+                  (array 0 1))])
+    (parsum-row A)))

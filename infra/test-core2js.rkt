@@ -1,6 +1,6 @@
 #lang racket
 
-(require math/flonum)
+(require generic-flonum)
 (require "test-common.rkt" "../src/core2js.rkt")
 
 (define (compile->js prog ctx type test-file)
@@ -19,22 +19,19 @@
     (with-output-to-string
       (λ ()
         (define file-command (format "node ~a" exec-name))
-        (system (string-join (cons file-command (map (compose ~a real->double-flonum) (dict-values ctx))) " ")))))
+        (system (string-join (cons file-command (map value->string (dict-values ctx))) " ")))))
   (define out*
     (match (string-trim out)
       ["NaN" "+nan.0"]
       ["Infinity" "+inf.0"]
       ["-Infinity" "-inf.0"]
       [(? string->number x) x]))
-  (cons (real->double-flonum (string->number out*)) out*))
+  (cons (->value out* type) out*))
 
-(define (js-equality a b ulps ignore?)
-  (match (list a b)
-    ['(timeout timeout) true]
-    [else
-      (or (= a b)
-          (and (nan? a) (nan? b))
-          (<= (abs (flonums-between a b)) ulps))]))
+(define (js-equality a b ulps type ignore?)
+  (cond
+   [(equal? a 'timeout) true]
+   [else (<= (abs (gfls-between a b)) ulps)]))
 
 (define (js-format-args var val type)
   (format "~a = ~a" var val))

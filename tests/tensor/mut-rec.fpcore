@@ -1,0 +1,15 @@
+(FPCore even-int (n)
+ (if (<= n 0) TRUE
+  (odd-int (- n 1))))
+
+(FPCore odd-int (n)
+ (if (<= n 0) FALSE
+  (even-int (- n 1))))
+
+(FPCore even-odd-tensor ((A n))
+ (tensor ([i n])
+  (even-int (ref A i))))
+
+(FPCore (n)
+  (let ([A (tensor ([i n]) i)])
+   (even-odd-tensor A)))

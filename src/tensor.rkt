@@ -1,14 +1,19 @@
 #lang racket
 
-(require racket/extflonum)
 (require "common.rkt")
 (provide tensor? tensor-ref tensor-dim tensor-size tabulate->tensor)
 
+(define (tensor-val? x)
+  (match x
+   [(? value?) #t]
+   [(? boolean?) #t]
+   [(? constant?) #t]
+   [(? tensor?) #t]
+   [_ #f]))
+
 (define (tensor? x)
   (cond
-    [(list? x)
-      (for/and ([i x])
-        (or (number? i) (extflonum? i) (boolean? i) (constant? i) (tensor? i)))]
+    [(list? x) (andmap tensor-val? x)]
     [else #f]))
 
 (define (tensor-ref x n . rest)

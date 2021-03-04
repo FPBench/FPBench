@@ -1,6 +1,5 @@
 #lang racket
 
-(require racket/extflonum)
 (require "common.rkt" "fpcore-checker.rkt" "fpcore-interpreter.rkt")
 (provide read-fpcore)
 
@@ -12,7 +11,6 @@
   (-> syntax? (listof argument?) expr?)
   (match (syntax-e stx)
    [(? number? val)    val]
-   [(? extflonum? val) val]
    [(? hex? val)       val]
    [(? constant? val)  val]
    [(? symbol? var)
@@ -165,7 +163,7 @@
      (raise-syntax-error #f "Invalid tensor construction" stx)]
    [(list (app syntax-e '!) props ... expr)                     ; !
      (define expr* (check-syntax expr ctx))
-     (define props* (map syntax-e props))
+     (define props* (map syntax-e-rec props))
     `(! ,@props* ,expr*)]
    [(list (app syntax-e op) args ...)                                         ; ops
      (define children (map (curryr check-syntax ctx) args))

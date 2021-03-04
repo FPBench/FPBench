@@ -1,0 +1,16 @@
+(FPCore mat-add ((A am an) (B bm bn))
+  :pre (and (== am bm)
+            (== an bn))
+  (tensor ([row am]
+           [col an])
+    (+ (ref A row col) (ref B row col))))
+
+(FPCore mat-add4 ((A am an) (B bm bn) (C cm cn) (D dm dn))
+  (let ([A_B (mat-add A B)]
+        [C_D (mat-add C D)])
+    (mat-add A_B C_D)))
+
+(FPCore main ()
+  (let ([A (array (array 1 0)
+                  (array 0 1))])
+    (mat-add4 A A A A)))

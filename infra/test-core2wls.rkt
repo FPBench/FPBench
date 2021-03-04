@@ -1,12 +1,12 @@
 #lang racket
 
-(require math/flonum)
+(require generic-flonum)
 (require "test-common.rkt" "../src/core2wls.rkt")
 
 (define (translate->wls prog ctx type test-file)
   (*prog* (core->wls prog "f"))
   test-file)
-
+  
 (define (run<-wls exec-name ctx type number)
   (define wls-prec (prec->wls type))
   (call-with-output-file exec-name #:exists 'replace
@@ -16,7 +16,7 @@
         (format "Block[{$MinPrecision=~a,$MaxPrecision=~a,$MaxExtraPrecision=0},TimeConstrained[MemoryConstrained[Print[f[~a]//N],2^32],5]]\n"
                 wls-prec wls-prec
                 (string-join (map (λ (x) (format "N[~a, ~a]" (number->wls x) wls-prec))
-                                  (map cdr ctx)) 
+                                  (map (compose value->real cdr) ctx)) 
                             ", ")))))
   (define out 
     (with-output-to-string
@@ -34,18 +34,15 @@
       ["Indeterminate" "+nan.0"]
       [(? string->number x) x]
       [else "+nan.0"]))
-  (cons
-    (match type
-      ['binary64 (real->double-flonum (string->number out*))]
-      ['binary32 (real->single-flonum (string->number out*))])
-    out*))
+  (cons (->value out* type) out*))
 
-(define (wls-equality a b ulps ignore?)
-  (match (list a b)
-    ['(timeout timeout) true]
-    [else
-     (or (= a b) (nan? a) (nan? b)
-         (and (double-flonum? a) (double-flonum? b) (<= (abs (flonums-between a b)) ulps)))]))
+(define (wls-equality a b ulps type ignore?)
+  (cond
+   [(equal? a 'timeout) true]
+   [else
+    (define a* (->value a type))
+    (define b* (->value b type))
+    (<= (abs (gfls-between a* b*)) ulps)]))
 
 (define (wls-format-args var val type)
   (format "~a = ~a" var val))

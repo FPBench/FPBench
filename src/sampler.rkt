@@ -1,7 +1,7 @@
 #lang racket
 
-(require math/flonum racket/extflonum) 
-(require "../src/range-analysis.rkt" "fpcore-interpreter.rkt")
+(require math/flonum)
+(require "evaluator.rkt" "fpcore-interpreter.rkt" "range-analysis.rkt")
 (provide sample-float sample-by-rejection sample-random sample-tries
          float->ordinal ordinal->float)
 
@@ -15,10 +15,11 @@
 (define (float->ordinal x type)
   (define-values (w i)
     (match type
-      ['binary80 (values 80 (let ([b (extfl->floating-point-bytes (real->extfl x))])
-                              (+ (integer-bytes->integer (subbytes b 0 8) #f)
-                                 (* (integer-bytes->integer (subbytes b 8 10) #f) 
-                                    (expt 2 64)))))]
+     ; ['binary80 (values 80 (let ([b (extfl->floating-point-bytes (real->extfl x))])
+     ;                         (+ (integer-bytes->integer (subbytes b 0 8) #f)
+     ;                            (* (integer-bytes->integer (subbytes b 8 10) #f) 
+     ;                               (expt 2 64)))))]
+      ['binary80 (values 64 (integer-bytes->integer (real->floating-point-bytes x 8) #f))]  ; use double instead
       ['binary64 (values 64 (integer-bytes->integer (real->floating-point-bytes x 8) #f))]
       ['binary32 (values 32 (integer-bytes->integer (real->floating-point-bytes x 4) #f))]))
   (define s (bitwise-bit-field i (- w 1) w))
@@ -28,15 +29,16 @@
 (define (ordinal->float x type)
   (define-values (b e real->float) 
     (match type
-      ['binary80 (values 10 15 real->extfl)]
+    ; ['binary80 (values 10 15 real->extfl)]
+      ['binary80 (values 8 11 identity)]  ; use double instead
       ['binary64 (values 8 11 identity)]
       ['binary32 (values 4 8 real->single-flonum)]))
   (define w (* 8 b))
   (define inf 
     (- (expt 2 (- w 1)) 
-        (if (equal? type 'binary80)
-            (expt 2 (- (- w e) 2)) ; for +inf in binary80, the highest significand bit is 1 
-            (expt 2 (- (- w e) 1)))))
+     ;   (if (equal? type 'binary80)
+     ;      (expt 2 (- (- w e) 2)) ; for +inf in binary80, the highest significand bit is 1 
+            (expt 2 (- (- w e) 1))))
   (real->float
     (cond
       [(> x inf)     +nan.0]
@@ -46,16 +48,16 @@
       [else 
         (let ([s (if (< x 0) 1 0)]
               [u (abs x)])
-          (match type
-            ['binary80  (floating-point-bytes->extfl 
-                          (bytes-append
-                            (integer->integer-bytes (bitwise-bit-field u 0 64) 8 #f) 
-                            (integer->integer-bytes 
-                              (bitwise-ior (arithmetic-shift s (sub1 (- w 64)))
-                                           (bitwise-bit-field u 64 80))
-                              2 #f)))]
-            [_          (floating-point-bytes->real 
-                          (integer->integer-bytes (bitwise-ior (arithmetic-shift s (- w 1)) u) b #f))]))])))
+          ; (match type
+          ;  ['binary80  (floating-point-bytes->extfl 
+          ;                (bytes-append
+          ;                  (integer->integer-bytes (bitwise-bit-field u 0 64) 8 #f) 
+          ;                  (integer->integer-bytes 
+          ;                    (bitwise-ior (arithmetic-shift s (sub1 (- w 64)))
+          ;                                 (bitwise-bit-field u 64 80))
+          ;                    2 #f)))]
+          (floating-point-bytes->real 
+            (integer->integer-bytes (bitwise-ior (arithmetic-shift s (- w 1)) u) b #f)))])))
 
 ;;; Unit tests for float->ordinal and ordinal->float
 (module+ test
@@ -143,6 +145,7 @@
 
 ; Returns the float and whether or not it met the precondition
 (define (sample-by-rejection pre vars evaltor type)
+  (set-evaluator-params! evaltor)
   (for/fold ([nums (for/list ([var vars]) (sample-random type))]
              [attempts 1]
             #:result (values (for/list ([var vars] [num nums]) (cons var num)) 
@@ -151,7 +154,7 @@
             #:break ((eval-expr evaltor) pre 
                         (make-immutable-hash 
                             (for/list ([var vars] [num nums])
-                                      (cons var num)))))
+                                      (cons var ((evaluator-real evaltor) num))))))
       (values (for/list ([var vars]) (sample-random type)) (+ i 1))))
 
 ;;; Random sampler
@@ -165,9 +168,10 @@
 
 (define (sample-random type)
   (match type
-    ['binary80 (floating-point-bytes->extfl (bytes-append
-                  (integer->integer-bytes (random-exp 64) 8 #f)
-                  (integer->integer-bytes (random-exp 16) 2 #f)))]
+  ;  ['binary80 (floating-point-bytes->extfl (bytes-append
+  ;                (integer->integer-bytes (random-exp 64) 8 #f)
+  ;                (integer->integer-bytes (random-exp 16) 2 #f)))]
+    ['binary80 (floating-point-bytes->real (integer->integer-bytes (random-exp 64) 8 #f))]
     ['binary64 (floating-point-bytes->real (integer->integer-bytes (random-exp 64) 8 #f))]
     ['binary32 (real->single-flonum (floating-point-bytes->real (integer->integer-bytes (random-exp 32) 4 #f)))]
     ['integer  (- (random-exp 64) (expt 2 63) 1)]))

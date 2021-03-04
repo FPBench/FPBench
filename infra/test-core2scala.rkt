@@ -1,6 +1,8 @@
 #lang racket
  
-(require "test-common.rkt" "../src/common.rkt" "../src/core2scala.rkt" "../src/range-analysis.rkt" "../src/supported.rkt")
+(require generic-flonum)
+(require "test-common.rkt" "../src/common.rkt" "../src/core2scala.rkt" "../src/range-analysis.rkt"
+         "../src/supported.rkt")
 
 (define (compile->scala prog ctx type test-file)
   (*scala-prec-file*
@@ -43,20 +45,20 @@
   (if timeout?
     (cons 'timeout "timeout")
     (cons 
-      (match type
-       ['binary64 (cons (real->double-flonum (string->number (car out*)))
-                        (real->double-flonum (string->number (cdr out*))))]
-       ['binary32 (cons (real->single-flonum (string->number (car out*)))
-                        (real->single-flonum (string->number (cdr out*))))])
+      (cons (->value (car out*) type) (->value (cdr out*) type))
       (format "[~a, ~a]" (car out*) (cdr out*)))))
 
-(define (scala-equality a bound ulps ignore?)
-  (cond
-   [ignore? #t]
-   [(or (equal? a 'timeout) (equal? bound 'timeout)) #t]
-   [(nan? a) (or (and (nan? (car bound)) (nan? (cdr bound)))
-                 (and (infinite? (car bound)) (infinite? (cdr bound))))]
-   [else (<= (car bound) a (cdr bound))]))
+(define (scala-equality a bound ulps type ignore?)
+  (cond 
+    [ignore? #t]
+    [(or (equal? a 'timeout) (equal? bound 'timeout)) #t]
+    [(gflnan? a) (or (and (gflnan? (car bound)) (gflnan? (cdr bound)))
+                     (and (gflinfinite? (car bound)) (gflinfinite? (cdr bound))))]
+    [else
+     (define a* (->value a type))
+     (define lb (->value (car bound) type))
+     (define ub (->value (cdr bound) type))
+     (gfl<= lb a* ub)]))
 
 (define (scala-format-args var val type)
   (format "~a = ~a" var val))

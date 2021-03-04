@@ -1,0 +1,4 @@
+(FPCore I_2x2 ()
+ (let ([A (array (array 1 0)
+                 (array 0 1))])
+  A))

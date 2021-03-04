@@ -1,0 +1,10 @@
+(FPCore dim4 ((A 2 2) (B bm bn) (C cm cn) (D dm dn))
+  (let ([D (array A B C D)])
+    (dim D)))
+
+(FPCore main ()
+  (let ([A (array (array 1 0)
+                  (array 0 1))]
+        [B (array (array TRUE FALSE)
+                  (array FALSE TRUE))])
+    (dim4 A A A A)))

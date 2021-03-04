@@ -1,0 +1,9 @@
+(FPCore dotprod ((A n) (B n))
+ (for ([i n])
+  ([prod 0 (+ prod (* (ref A i) (ref B i)))])
+  prod))
+
+(FPCore main ()
+ (let ([A (array 1 2 3 4 5)]
+       [B (array 5 4 3 2 1)])
+  (dotprod A B)))

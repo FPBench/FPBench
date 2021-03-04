@@ -1,0 +1,4 @@
+(FPCore dim_2x3 ()
+ (let ([A (array (array 1 0 1)
+                 (array 0 1 1))])
+  (dim A)))

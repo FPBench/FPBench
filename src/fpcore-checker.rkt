@@ -1,6 +1,6 @@
 #lang racket
 
-(require racket/extflonum)
+(require generic-flonum)
 (require "common.rkt" "tensor.rkt")
 (provide *fpcores* *check-types* *ragged-check*
          fpcore? expr? argument? check-fpcore check-argument)
@@ -32,8 +32,7 @@
 
 (define (expr? expr)
   (match expr
-    [(? number?) true]
-    [(? extflonum?) true]
+    [(? value?) true]
     [(? constant?) true]
     [(? tensor?) true]
     [(? symbol?) true]
@@ -396,7 +395,6 @@
   (-> expr? (dictof argument? type?) (or/c type? (listof type?)))
   (match expr
    [(? number? val)       '(real)]
-   [(? extflonum? val)    '(real)]
    [(? hex? val)          '(real)]
    [(? constant? val)     (match val [(or 'TRUE 'FALSE) '(boolean)] [_ '(real)])]
    [(? symbol? var)       (dict-ref ctx var)]
@@ -607,7 +605,7 @@
 
 (define (check-scalar-arg val typename)
   (match typename
-   ['real (or (number? val) (extflonum? val) (hex? val) (set-member? (remove* '(TRUE FALSE) constants) val))]
+   ['real (or (number? val) (gfl? val) (hex? val) (set-member? (remove* '(TRUE FALSE) constants) val))]
    ['boolean (or (boolean? val) (equal? val 'TRUE) (equal? val 'FALSE))]
    [(list real boolean) (or (check-scalar-arg val 'real) (check-scalar-arg val 'boolean))]))
 

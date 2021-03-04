@@ -1,0 +1,32 @@
+(FPCore matmul ((A am an) (B bm bn))
+ :pre (== an bm)
+ (tensor ([m am]
+          [n bn])
+  (for ([i bm])
+   ([prod 0 (+ prod (* (ref A m i) (ref B i n)))])
+   prod)))
+ 
+(FPCore fib-Q ()
+ (array (array 1 1)
+        (array 1 0)))
+ 
+(FPCore fib-rec ((A 2 2) n)
+ (if (== n 2) (ref A 0 0)
+  (if (== n 1) (ref A 0 1)
+   (if (<= n 0) (ref A 1 1)
+    (fib-rec (matmul A (fib-Q)) (- n 1))))))
+ 
+(FPCore fib (n)
+ (fib-rec (fib-Q) n))
+ 
+(FPCore fib-iterative (n)
+  (for ([i n])
+   ([A (fib-Q) (matmul A (fib-Q))])
+   (ref A 1 1)))
+ 
+(FPCore main (n)
+ (tensor ([i n]
+          [method 2])
+  (if (== method 0)
+   (fib i)
+   (fib-iterative i))))

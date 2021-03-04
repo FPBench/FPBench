@@ -24,6 +24,8 @@
     "procedure isnan(x) { return (x != x); };\n"
     "procedure trunc(x) { var res; if (x < 0) then res = ceil(x) else res = floor(x); return res; };\n"
     "procedure pow(x, y) { var res; if (x == 1 && y != y) then res = 1 else res = (x ^ y); return res; };\n"
+    "procedure sin_libm(x) { var res; if (abs(x) == infty) then res = nan else res = sin(x); return res; };\n"
+    "procedure cos_libm(x) { var res; if (abs(x) == infty) then res = nan else res = cos(x); return res; };\n"
     (format "procedure div_warn(x, y) { ~areturn (x / y); };\n\n"   ;; prints a warning if division by zero occurs, alters testing behavior
       (if (*sollya-warnings*) 
           "if (x != 0 && y == 0) then print(\"[WARNING] FPBench: Division by zero. Sollya always returns NaN.\"); "
@@ -71,6 +73,8 @@
     [(list 'exp2 a)       (round->sollya (format "(2 ^ ~a)" a) props)]
     [(list 'cbrt a)       (round->sollya (format "(~a ^ (1/3))" a) props)]
     [(list 'hypot a b)    (round->sollya (format "sqrt((~a ^ 2) + (~a ^ 2))" a b) props)]
+    [(list 'sin a)        (round->sollya (format "sin_libm(~a)" a) props)]
+    [(list 'cos a)        (round->sollya (format "cos_libm(~a)" a) props)]
     [(list 'atan2 a b)    (round->sollya (format "atan(~a / ~a)" a b) props)]
     [(list 'nearbyint a)  
         (let ([rm (round-str (dict-ref props ':round 'nearestEven))])

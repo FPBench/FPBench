@@ -6,9 +6,7 @@ setup:
 	raco make main.rkt export.rkt transform.rkt toolserver.rkt evaluate.rkt 
 
 testsetup:
-	raco make infra/filter.rkt \
-		infra/test-core2c.rkt infra/test-core2fptaylor.rkt infra/test-core2js.rkt infra/test-core2go.rkt infra/test-core2smtlib2.rkt infra/test-core2sollya.rkt \
-		infra/test-core2wls.rkt infra/test-core2cml.rkt infra/test-core2scala.rkt
+	raco make infra/*.rkt
 
 ##### Testing
 
@@ -85,16 +83,14 @@ raco-test:
 
 c-test:
 ifneq (, $(shell which $(CC)))
-	cat benchmarks/*.fpcore tests/*.fpcore | $(FILTER) not-operators \
-	| racket infra/test-core2c.rkt --error 3
+	cat benchmarks/*.fpcore tests/*.fpcore | racket infra/test-core2c.rkt --error 3
 else
 	$(warning skipping C tests; unable to find C compiler $(CC))
 endif
 
 fptaylor-test:
 ifneq (, $(shell which fptaylor))
-	cat benchmarks/*.fpcore tests/metadata.fpcore | $(FILTER) not-operators \
-	| racket infra/test-core2fptaylor.rkt --error 3
+	cat benchmarks/*.fpcore tests/*.fpcore | racket infra/test-core2fptaylor.rkt --error 3
 	$(RM) -r log tmp
 else
 	$(warning skipping fptaylor tests; unable to find fptaylor)
@@ -102,40 +98,35 @@ endif
 
 js-test:
 ifneq (, $(shell which node))
-	cat benchmarks/*.fpcore tests/*.fpcore | $(FILTER) not-operators \
-	| racket infra/test-core2js.rkt --error 150
+	cat benchmarks/*.fpcore tests/*.fpcore | racket infra/test-core2js.rkt --error 150
 else
 	$(warning skipping javascript tests; unable to find node)
 endif
 
 smtlib2-test:
 ifneq (, $(shell which z3))
-	cat benchmarks/*.fpcore tests/*.fpcore | $(FILTER) not-operators \
-	| racket infra/test-core2smtlib2.rkt
+	cat benchmarks/*.fpcore tests/*.fpcore | racket infra/test-core2smtlib2.rkt
 else
 	$(warning skipping smtlib2 tests; unable to find z3)
 endif
 
 sollya-test:
 ifneq (, $(shell which sollya))
-	cat benchmarks/*.fpcore tests/*.fpcore | $(FILTER) not-operators \
-	| racket infra/test-core2sollya.rkt
+	cat benchmarks/*.fpcore tests/*.fpcore | racket infra/test-core2sollya.rkt
 else
 	$(warning skipping sollya tests; unable to find sollya interpreter)
 endif
 
 cml-test:
 ifneq (, $(shell which cake))
-	cat benchmarks/*.fpcore tests/*.fpcore | $(FILTER) not-operators \
-	| racket infra/test-core2cml.rkt
+	cat benchmarks/*.fpcore tests/*.fpcore | racket infra/test-core2cml.rkt
 else
 	$(warning skipping CakeML tests; unable to find CakeML compiler)
 endif
 
 wls-test:
 ifneq (, $(shell which wolframscript))
-	cat benchmarks/*.fpcore tests/*.fpcore  | $(FILTER) not-operators \
-    | racket infra/test-core2wls.rkt -s --error 3
+	cat benchmarks/*.fpcore tests/*.fpcore  | racket infra/test-core2wls.rkt -s --error 3
 
 else
 	$(warning skipping wolframscript tests; unable to find wolframscript interpreter)
@@ -143,8 +134,7 @@ endif
 
 go-test:
 ifneq (, $(shell which go))
-	cat benchmarks/*.fpcore tests/*.fpcore | $(FILTER) not-operators \
-	| racket infra/test-core2go.rkt -s --error 150
+	cat benchmarks/*.fpcore tests/*.fpcore | racket infra/test-core2go.rkt -s --error 150
 else
 	$(warning skipping Go tests; unable to find Go compiler)
 endif
@@ -152,8 +142,7 @@ endif
 scala-test:
 ifneq (, $(shell which daisy))
 	cp -r $(DAISY_BASE)/library .
-	cat benchmarks/*.fpcore tests/metadata.fpcore | $(FILTER) not-operators \
-	| racket infra/test-core2scala.rkt
+	cat benchmarks/*.fpcore tests/*.fpcore | racket infra/test-core2scala.rkt
 	rm -r library
 else
 	$(warning skipping Scala tests; unable to find Scala compiler)

@@ -28,15 +28,15 @@
 
 ;;; Blacklist <==> Whitelist
 
-(define (invert-op-proc proc)
+(define/contract (invert-op-proc proc)
   (-> (-> symbol? boolean?) (-> symbol? boolean?))
   (conjoin (negate proc) fpcore-ops))
 
-(define (invert-const-proc proc)
+(define/contract (invert-const-proc proc)
   (-> (-> symbol? boolean?) (-> symbol? boolean?))
   (conjoin (negate proc) fpcore-consts))
 
-(define (invert-rnd-mode-proc proc)
+(define/contract (invert-rnd-mode-proc proc)
   (-> (-> symbol? boolean?) (-> symbol? boolean?))
   (conjoin (negate proc) ieee754-rounding-modes))
 

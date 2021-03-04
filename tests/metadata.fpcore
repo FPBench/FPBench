@@ -153,6 +153,11 @@
  :precision binary64
  x)
 
+(FPCore ((! :precision binary32 x) y)
+ :name "variable annotations 2"
+ :precision binary64
+ (+ x y))
+
 (FPCore ((! :precision binary32 x))
  :name "monadius variable annotations"
  :precision binary64

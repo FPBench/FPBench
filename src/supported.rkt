@@ -45,23 +45,23 @@
 (struct supported-list (ops consts precisions round-modes))
 
 (define (valid-core core supp)
-  (define core-prec (dict-ref (property-values core) ':precision #f))
+  (define core-precs (dict-ref (property-values core) ':precision #f))
   (define core-rnd-modes (dict-ref (property-values core) ':round #f))
   (and (andmap (supported-list-ops supp) (set->list (operators-in core)))
        (andmap (supported-list-consts supp) (set->list (constants-in core)))
-       (or (not core-prec)
-           (andmap (supported-list-precisions supp) (set->list core-prec)))
+       (or (not core-precs)
+           (andmap (supported-list-precisions supp) (set->list core-precs)))
        (or (not core-rnd-modes)
            (andmap (supported-list-round-modes supp) (set->list core-rnd-modes)))))
 
 (define (unsupported-features core supp)
-  (define core-prec (dict-ref (property-values core) ':precision #f))
+  (define core-precs (dict-ref (property-values core) ':precision #f))
   (define core-rnd-modes (dict-ref (property-values core) ':round #f))
   (set-union
     (filter-not (supported-list-ops supp) (set->list (operators-in core)))
     (filter-not (supported-list-consts supp) (set->list (constants-in core)))
-    (if core-prec
-        (filter-not (supported-list-precisions supp) (set->list core-prec))
+    (if core-precs
+        (filter-not (supported-list-precisions supp) (set->list core-precs))
         '())
     (if core-rnd-modes
         (filter-not (supported-list-round-modes supp) (set->list core-rnd-modes))
@@ -128,13 +128,18 @@
        (apply (curryr hash-union #:combine/key
                       (lambda (k v1 v2) (set-union v1 v2))) args))])
 
+(define (property-values-variables prop-hash vars)
+  (for/fold ([prop-hash* prop-hash]) ([var vars] #:when (list? var))
+    (match-define (list '! props ... name) var)
+    (property-hash-add prop-hash* props)))
+
 (define/contract (property-values core)
   (-> fpcore? property-hash?)
   (define-values (args props body)
     (match core
      [(list 'FPCore (list args ...) props ... body) (values args props body)]
      [(list 'FPCore name (list args ...) props ... body) (values args props body)]))
-  (define prop-hash (property-values-expr body))
+  (define prop-hash (property-values-variables (property-values-expr body) args))
   (property-hash-add prop-hash props))
 
 (module+ test

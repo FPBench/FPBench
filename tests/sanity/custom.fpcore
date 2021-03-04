@@ -181,25 +181,27 @@
   :spec 1.0
   (if (< 1.0 0.0) 0.0 1.0))
 
-(FPCore (x)
+(FPCore ()
  :name "Test if (3/6)"
  (if TRUE (let ([y 1]) y)
   (if FALSE (let ([y 2]) y)
    (let ([y 3]) y))))
 
-(FPCore (x)
+(FPCore ()
   :name "Test if (4/6)"
-  (if TRUE x (if (let ([t FALSE]) t) x x)))
+  :spec 1.0
+  (if TRUE 1 (if (let ([t FALSE]) t) 0 0)))
 
-(FPCore (x)
+(FPCore ()
   :name "Test if (5/6)"
   (if (let ([t FALSE]) t) 0
    (if (let ([t TRUE]) t) 1
     (if (let ([t TRUE]) t) 0 0))))
 
-(FPCore (x)
+(FPCore ()
   :name "Test if (6/6)"
-  (if TRUE x (if (let ([t (let ([y x]) (> x y))]) t) 1 0)))
+  :spec 1.0
+  (if FALSE 1.0 (if (let ([t (let ([y 1]) (> 2 y))]) t) 1 0)))
 
 (FPCore ()
   :name "Test cast (1/1)"
@@ -215,3 +217,11 @@
   :name "Test FPCore identifier (FPBench 2.0)"
   :spec 1.0
   1.0)
+
+(FPCore (x)
+  :name "Arguments (1/2)"
+  x)
+
+(FPCore (x y)
+  :name "Arguments (2/2)"
+  x)

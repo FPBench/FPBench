@@ -219,9 +219,9 @@
   1.0)
 
 (FPCore (x)
-  :name "Arguments (1/2)"
+  :name "Test arguments (1/2)"
   x)
 
 (FPCore (x y)
-  :name "Arguments (2/2)"
+  :name "Test arguments (2/2)"
   x)

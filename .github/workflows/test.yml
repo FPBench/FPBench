@@ -69,75 +69,77 @@ jobs:
         run: raco pkg install --auto
 
       - name: "Unit tests"
+        id: unit
         run: make raco-test
 
       # Allow tool tests to execute even if a previous one failed
       # Bail if setup / install failed
 
       - name: "Export tool"
+        if: ${{ steps.unit.outcome == 'success' }}
         run: make export-test
 
       - name: "Transform tool"
-        if: ${{ (success() || failure()) }}
+        if: ${{ (success() || failure()) && steps.unit.outcome == 'success' }}
         run: make transform-test
 
       - name: "Toolserver tool"
-        if: ${{ (success() || failure()) }}
+        if: ${{ (success() || failure()) && steps.unit.outcome == 'success' }}
         run: make toolserver-test
 
       - name: "Evaluate tool"
-        if: ${{ (success() || failure()) }}
+        if: ${{ (success() || failure()) && steps.unit.outcome == 'success' }}
         run: make evaluate-test
 
       - name: "Tensor examples"
-        if: ${{ (success() || failure()) }}
+        if: ${{ (success() || failure()) && steps.unit.outcome == 'success' }}
         run: make tensor-test
 
       # Allow compiler tests to execute even if a previous one failed
-      # Bail if any previous step failed
 
       - name: "C sanity"
         id: c_sanity
+        if: ${{ (success() || failure()) && steps.unit.outcome == 'success' }}
         run: make c-sanity
 
       - name: "JS sanity"
         id: js_sanity
-        if: ${{ (success() || failure()) }}
+        if: ${{ (success() || failure()) && steps.unit.outcome == 'success' }}
         run: make js-sanity  
       
       - name: "Go sanity"
         id: go_sanity
-        if: ${{ (success() || failure()) }}
+        if: ${{ (success() || failure()) && steps.unit.outcome == 'success' }}
         run: make go-sanity  
       
       - name: "Sollya sanity"
         id: sollya_sanity
-        if: ${{ (success() || failure()) }}
+        if: ${{ (success() || failure()) && steps.unit.outcome == 'success' }}
         run: make sollya-sanity  
       
       - name: "Z3 sanity"
         id: z3_sanity
-        if: ${{ (success() || failure()) }}
+        if: ${{ (success() || failure()) && steps.unit.outcome == 'success' }}
         run: make smtlib2-sanity 
 
       - name: "CakeML sanity"
         id: cml_sanity
-        if: ${{ (success() || failure()) }}
+        if: ${{ (success() || failure()) && steps.unit.outcome == 'success' }}
         run: make cml-sanity 
 
       - name: "Wolfram/Mathematica sanity"
         id: wls_sanity
-        if: ${{ (success() || failure()) }}
+        if: ${{ (success() || failure()) && steps.unit.outcome == 'success' }}
         run: make wls-sanity
       
       - name: "FPTaylor sanity"
         id: fptaylor_sanity
-        if: ${{ (success() || failure()) }}
+        if: ${{ (success() || failure()) && steps.unit.outcome == 'success' }}
         run: make fptaylor-sanity
 
       - name: "Daisy sanity"
         id: daisy_sanity
-        if: ${{ (success() || failure()) }}
+        if: ${{ (success() || failure()) && steps.unit.outcome == 'success' }}
         run: make scala-sanity
 
       - name: "C test"

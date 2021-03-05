@@ -4,6 +4,13 @@ FPBench provides benchmarks, compilers, and standards for the floating-point res
 
 [![Build Status](https://github.com/FPBench/FPBench/workflows/build/badge.svg?branch=master)](https://github.com/FPBench/FPBench/actions)
 
+Setup
+----------
+
+To use FPBench tools, install [Racket 7.x](https://download.racket-lang.org). Racket 8.0 or later
+(on Chez Scheme) is not currently supported. Then, run `make setup` to install dependencies
+and compile the tools.
+
 Benchmarks
 ----------
 

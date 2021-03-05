@@ -66,59 +66,78 @@ jobs:
           echo "${PWD}/../cache/daisy" >> $GITHUB_PATH
  
       - name: "Install as Racket package"
-        id: setup
         run: raco pkg install --auto
 
-      # If any of the previous steps fail, don't continue
-      # Past this point, allow steps to execute even if previous ones fail
-
       - name: "Unit tests"
-        if: ${{ steps.setup.outcome == 'success' }}
         run: make raco-test
+
+      # Allow tool tests to execute even if a previous one failed
+      # Bail if setup / install failed
+
+      - name: "Export tool"
+        run: make export-test
+
+      - name: "Transform tool"
+        if: ${{ (success() || failure()) }}
+        run: make transform-test
+
+      - name: "Toolserver tool"
+        if: ${{ (success() || failure()) }}
+        run: make toolserver-test
+
+      - name: "Evaluate tool"
+        if: ${{ (success() || failure()) }}
+        run: make evaluate-test
+
+      - name: "Tensor examples"
+        if: ${{ (success() || failure()) }}
+        run: make tensor-test
+
+      # Allow compiler tests to execute even if a previous one failed
+      # Bail if any previous step failed
 
       - name: "C sanity"
         id: c_sanity
-        if: ${{ (success() || failure()) && steps.setup.outcome == 'success' }}
         run: make c-sanity
 
       - name: "JS sanity"
         id: js_sanity
-        if: ${{ (success() || failure()) && steps.setup.outcome == 'success' }}
+        if: ${{ (success() || failure()) }}
         run: make js-sanity  
       
       - name: "Go sanity"
         id: go_sanity
-        if: ${{ (success() || failure()) && steps.setup.outcome == 'success' }}
+        if: ${{ (success() || failure()) }}
         run: make go-sanity  
       
       - name: "Sollya sanity"
         id: sollya_sanity
-        if: ${{ (success() || failure()) && steps.setup.outcome == 'success' }}
+        if: ${{ (success() || failure()) }}
         run: make sollya-sanity  
       
       - name: "Z3 sanity"
         id: z3_sanity
-        if: ${{ (success() || failure()) && steps.setup.outcome == 'success' }}
+        if: ${{ (success() || failure()) }}
         run: make smtlib2-sanity 
 
       - name: "CakeML sanity"
         id: cml_sanity
-        if: ${{ (success() || failure()) && steps.setup.outcome == 'success' }}
+        if: ${{ (success() || failure()) }}
         run: make cml-sanity 
 
       - name: "Wolfram/Mathematica sanity"
         id: wls_sanity
-        if: ${{ (success() || failure()) && steps.setup.outcome == 'success' }}
+        if: ${{ (success() || failure()) }}
         run: make wls-sanity
       
       - name: "FPTaylor sanity"
         id: fptaylor_sanity
-        if: ${{ (success() || failure()) && steps.setup.outcome == 'success' }} 
+        if: ${{ (success() || failure()) }}
         run: make fptaylor-sanity
 
       - name: "Daisy sanity"
         id: daisy_sanity
-        if: ${{ (success() || failure()) && steps.setup.outcome == 'success' }}
+        if: ${{ (success() || failure()) }}
         run: make scala-sanity
 
       - name: "C test"
@@ -156,19 +175,3 @@ jobs:
       - name: "Daisy test"
         if: ${{ (success() || failure()) && steps.daisy_sanity.outcome == 'success' }}
         run: make scala-test
-
-      - name: "Export tool"
-        if: ${{ (success() || failure()) && steps.setup.outcome == 'success' }}
-        run: make export-test
-
-      - name: "Transform tool"
-        if: ${{ (success() || failure()) && steps.setup.outcome == 'success' }}
-        run: make transform-test
-
-      - name: "Toolserver tool"
-        if: ${{ (success() || failure()) && steps.setup.outcome == 'success' }}
-        run: make toolserver-test
-
-      - name: "Evaluate tool"
-        if: ${{ (success() || failure()) && steps.setup.outcome == 'success' }}
-        run: make evaluate-test

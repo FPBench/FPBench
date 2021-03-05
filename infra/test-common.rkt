@@ -98,6 +98,11 @@
    [(cons (? real?) 'integer) x]  
    [else (->float x prec)]))
 
+(define (value-nan? x)
+  (match x
+   [(? gfl?) (gflnan? x)]
+   [(? real?) (real? x)]))
+
 ;;; Evaluator
 
 (define ((eval-fuel-expr evaltor fuel [default #f]) expr ctx)
@@ -204,7 +209,9 @@
                         (cons 'timeout ""))
                       out*))))
           (when (equal? (tester-name (*tester*)) "wls")
-            (when (and (not (equal? out 'timeout)) (not (nan? out)) (nan? (car out*)))
+            (when (and (not (equal? out 'timeout)) 
+                       (not (value-nan? out))
+                       (value-nan? (car out*)))
               (set! nans (+ nans 1))))
           (list ctx* out out*))))
 

@@ -192,16 +192,16 @@
     (for/fold ([ctx '()]) ([var vars] [arg args])
      (append ctx
       (match var
-        [`(,(? symbol? name) ,(or (? number? sizes) (? symbol? sizes)) ...)
-         (set-evaluator-params! evaltor)
-         (arg->tensor name sizes arg evaltor ctx)]
         [`(! ,var-props* ... ,(? symbol? var*))
          (define-values (_ var-props) (parse-properties var-props*))
          (define var-precision (expand-prec (dict-ref var-props ':precision base-precision)))
          (define var-rounding (dict-ref var-props ':round base-rounding))
          (define var-evaltor (get-evaluator var-precision var-rounding))
-         (set-evaluator-params! evaltor)
+         (set-evaluator-params! var-evaltor)
          (list (cons var* (arg->expr arg var-evaltor)))]
+        [`(,(? symbol? name) ,(or (? number? sizes) (? symbol? sizes)) ...)
+         (set-evaluator-params! evaltor)
+         (arg->tensor name sizes arg evaltor ctx)]
         [(? symbol?)
          (set-evaluator-params! evaltor)
          (list (cons var (arg->expr arg evaltor)))]))))

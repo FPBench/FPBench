@@ -161,14 +161,28 @@
       (let-values ([(cx fname) (ctx-unique-name ctx (string->symbol name))])
         (set! ctx cx)
         fname))
-    (define-values (ctx* args*)
-      (for/fold ([ctx* ctx] [args* '()]) ([arg args])
-        (let-values ([(cx name) (ctx-unique-name ctx* arg)])
-          (values cx (flatten (cons args* name))))))  
+    
+    (define-values (args* arg-props)
+      (for/lists (n p) ([var args])
+        (match var
+          [(list '! props ... name) 
+            (let ([props* (apply hash-set* (ctx-props ctx) props)])
+              (values 
+                (let-values ([(cx name) (ctx-unique-name ctx name (dict-ref props* ':precision 'binary64))])
+                            (set! ctx cx)
+                            name)
+                props*))]
+          [name 
+            (values 
+                (let-values ([(cx name) (ctx-unique-name ctx name)])
+                            (set! ctx cx)
+                            name)
+                (ctx-props ctx))])))
+
     (define indent-level 
       (match (functional-name (*func-lang*))
        ["cml" "  "] 
        [_ "\t"]))
        
-    (convert-function func-name args* (convert-expr body #:ctx ctx* #:indent indent-level)
-                      ctx* (set->list (*used-names*)))))
+    (convert-function func-name args* (convert-expr body #:ctx ctx #:indent indent-level)
+                      ctx (set->list (*used-names*)))))

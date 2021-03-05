@@ -293,9 +293,15 @@
         (set! ctx cx)
         fname))  
     (define-values (ctx* args*)
-      (for/fold ([ctx* ctx] [args* '()]) 
-                ([arg args])
-        (let-values ([(cx name) (ctx-unique-name ctx* arg)])
+      (for/fold ([ctx* ctx] [args* '()]) ([arg args])
+        (define-values (arg* arg-prec)
+          (match arg
+           [(list '! props ... name)
+            (define props* (apply hash-set* (ctx-props ctx) props))
+            (values name (hash-ref props* ':precision prec))]
+           [name
+            (values name prec)]))
+        (let-values ([(cx name) (ctx-unique-name ctx* arg* arg-prec)])
             (values cx (flatten (cons args* (format "(~a ~a)" name type-str)))))))  
     (define-values (body_c w* p*) (expr->smt body ctx* w p))
   

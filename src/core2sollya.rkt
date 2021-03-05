@@ -6,7 +6,7 @@
 (define sollya-supported 
   (supported-list
     (invert-op-proc 
-      (curry set-member? '(isnormal tgamma lgamma remainder fmod round cbrt atan2 erf signbit)))
+      (curry set-member? '(isnormal tgamma lgamma remainder fmod round cbrt atan2 signbit)))
     fpcore-consts
     (curry set-member? '(binary32 binary64 binary80 integer))
     ieee754-rounding-modes))

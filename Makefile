@@ -1,8 +1,9 @@
 FILTER = racket infra/filter.rkt
 
-### Byte-compile
+### Install / Compile
 
 setup:
+	raco pkg install --skip-installed --auto generic-flonum
 	raco make main.rkt export.rkt transform.rkt toolserver.rkt evaluate.rkt 
 
 testsetup:

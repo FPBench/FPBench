@@ -106,7 +106,17 @@
 (define c-language (language "c" operator->c constant->c declaration->c assignment->c
                              round->c round-mode->c function->c))
 
+(define (function->header name args arg-props body return ctx vars)
+  (define type (type->c (ctx-lookup-prop ctx ':precision 'binary64)))
+  (format "~a ~a(~a);\n" type name (params->c args arg-props)))
+
+(define c-h-language (language "h" (const "") (const "") (const "") (const "")
+                               (const "") (const "") function->header))
+
 ;;; Exports
 
 (define (core->c  prog name) (parameterize ([*lang* c-language] [*reserved-names* c-reserved]) (convert-core prog name)))
 (define-compiler '("c") c-header core->c (const "") c-supported)
+
+(define (core->h prog name) (parameterize ([*lang* c-h-language] [*reserved-names* c-reserved]) (convert-core prog name)))
+(define-compiler '("h") (const "") core->h (const "") c-supported)

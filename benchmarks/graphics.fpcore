@@ -1,0 +1,8 @@
+;; -*- mode: scheme -*-
+
+(FPCore (a b c d)
+        :name "some eigenvalue calculation"
+        :fpbench-domain graphics
+        ;; that's some calculation
+        (- (sqrt (+ (pow (+ a d) 2) (pow (- b c) 2)))
+           (sqrt (+ (pow (- a d) 2) (pow (+ b c) 2)))))

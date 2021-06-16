@@ -5,7 +5,7 @@
 
 (define tex-supported 
   (supported-list
-    (negate (curry set-member? '(let let* while while*)))
+    (negate (curry set-member? '(while while*)))
     (curry set-member? '(PI E INFINITY NAN TRUE FALSE))
     (const #t)
     ieee754-rounding-modes))
@@ -175,6 +175,24 @@
         (format "\\color{~a}{~~a}" color)
         "~a")
       (match expr
+        [`(let ([,vars ,vals] ...) ,body)
+          (define ctx*
+            (for/fold ([ctx* ctx]) ([var vars] [val vals] [id (in-naturals 1)])
+              (let*-values ([(val*) (texify val ctx parens (cons id loc))]
+                            [(prec) (ctx-lookup-prop ctx ':precision)]
+                            [(cx name) (ctx-unique-name ctx* var prec)])
+                (printf "~a := ~a\\\\\n" name val*)
+                cx)))
+          (texify body ctx* parens loc)]
+        [`(let* ([,vars ,vals] ...) ,body)
+          (define ctx*
+            (for/fold ([ctx* ctx]) ([var vars] [val vals] [id (in-naturals 1)])
+              (let*-values ([(val*) (texify val ctx* parens (cons id loc))]
+                            [(prec) (ctx-lookup-prop ctx ':precision)]
+                            [(cx name) (ctx-unique-name ctx* var prec)])
+                (printf "~a := ~a\\\\\n" name val*)
+                cx)))
+          (texify body ctx* parens loc)]
         [`(if ,cond ,ift ,iff)
          (define NL "\\\\\n")
          (define IND "\\;\\;\\;\\;")
@@ -298,12 +316,13 @@
                               name)
                   (ctx-props ctx))])))
 
-    (define body* (expr->tex* body ctx color-loc color))
-    (if (non-empty-string? func-name)
-        (format "\\mathsf{~a}\\left(~a\\right) = ~a\n"
-                func-name
-                (string-join arg-names ", ")
-                body*)
-        body*)))
+    (let ([p (open-output-string)])
+      (parameterize ([current-output-port p])
+        (define body* (expr->tex* body ctx color-loc color))
+        (if (non-empty-string? func-name)
+            (printf "\\mathsf{~a}\\left(~a\\right) = ~a\n"
+                    func-name (string-join arg-names ", ") body*)
+            (printf "~a\n" body*))
+      (get-output-string p)))))
 
 (define-compiler '("tex") (const "") core->tex (const "") tex-supported)

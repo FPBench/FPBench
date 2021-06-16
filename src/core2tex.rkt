@@ -167,7 +167,10 @@
     [else
      (list (list #t expr loc))]))
 
-(define (expr->tex* expr ctx color-loc color)
+(define (array-add! array str)
+  (hash-set! array (hash-count array) str))
+
+(define (expr->tex* expr ctx color-loc color array)
     "Compile an expression to math mode TeX."
   (let texify ([expr expr] [ctx ctx] [parens #t] [loc '(2)])
     (format
@@ -181,7 +184,7 @@
               (let*-values ([(val*) (texify val ctx parens (cons id loc))]
                             [(prec) (ctx-lookup-prop ctx ':precision)]
                             [(cx name) (ctx-unique-name ctx* var prec)])
-                (printf "~a := ~a\\\\\n" name val*)
+                (array-add! array (format "~a := ~a" name val*))
                 cx)))
           (texify body ctx* parens loc)]
         [`(let* ([,vars ,vals] ...) ,body)
@@ -190,26 +193,22 @@
               (let*-values ([(val*) (texify val ctx* parens (cons id loc))]
                             [(prec) (ctx-lookup-prop ctx ':precision)]
                             [(cx name) (ctx-unique-name ctx* var prec)])
-                (printf "~a := ~a\\\\\n" name val*)
+                (array-add! array (format "~a := ~a" name val*))
                 cx)))
           (texify body ctx* parens loc)]
         [`(if ,cond ,ift ,iff)
-         (define NL "\\\\\n")
          (define IND "\\;\\;\\;\\;")
-         (with-output-to-string
-           (λ ()
-             (printf "\\begin{array}{l}\n")
-             (for ([branch (collect-branches expr loc)] [n (in-naturals)])
-               (match branch
-                 [(list #t bexpr bloc)
-                  (printf "\\mathbf{else}:~a~a~a~a\n"
-                          NL IND (texify bexpr ctx #t (cons 2 bloc)) NL)]
-                 [(list bcond bexpr bloc)
-                  (printf "\\mathbf{~a}\\;~a:~a~a~a~a\n"
-                          (if (= n 0) "if" "elif")
-                          (texify bcond ctx #t (cons 1 bloc))
-                          NL IND (texify bexpr ctx #t (cons 2 bloc)) NL)]))
-             (printf "\\end{array}")))]
+         (for ([branch (collect-branches expr loc)] [n (in-naturals)])
+          (match branch
+           [(list #t bexpr bloc)
+            (array-add! array "\\mathbf{else}:")
+            (array-add! array (format "~a~a" IND (texify bexpr ctx #t (cons 2 bloc))))]
+           [(list bcond bexpr bloc)
+            (array-add! array (format "\\mathbf{~a}\\;~a:"
+                                      (if (= n 0) "if" "elif")
+                                      (texify bcond ctx #t (cons 1 bloc))))
+            (array-add! array (format "~a~a" IND (texify bexpr ctx #t (cons 2 bloc))))]))
+          #f]
 
         [`(cast ,body)
           (format "\\langle ~a \\rangle_{\\text{~a}}"
@@ -276,11 +275,34 @@
                "\\left(~a\\right)")
            (application->tex op texed-args))]))))
 
+(define (format-return func-name arg-names expr)
+  (if (non-empty-string? func-name)
+      (printf "\\mathsf{~a}\\left(~a\\right) = ~a"
+              func-name (string-join arg-names ", ") expr)
+      (printf "~a" expr)))
+
+(define (format-output func-name arg-names body array)
+  (with-output-to-string
+     (λ ()
+      (cond
+       [(> (hash-count array) 0)
+        (printf "\\begin{array}{l}\n")
+        (for ([i (in-range (hash-count array))])
+          (printf "~a\\\\\n" (hash-ref array i)))
+        (when (string? body)
+          (format-return func-name arg-names body)
+          (printf "\\\\\n"))
+        (printf "\\end{array}")]
+       [else
+        (format-return func-name arg-names body)]))))
+
 ;; Exports
 
 (define (expr->tex expr #:prec [prec 'binary64] #:loc [color-loc #f] #:color [color "red"])
   (define ctx (ctx-update-props (make-compiler-ctx) (list ':precision prec)))
-  (expr->tex* expr ctx color-loc color))
+  (define array (make-hash))
+  (define expr* (expr->tex* expr ctx color-loc color array))
+  (format-output "" '() expr* array))
 
 ; Names are optional in TeX programs
 (define (core->tex prog [name ""] #:loc [color-loc #f] #:color [color "red"])
@@ -316,13 +338,13 @@
                               name)
                   (ctx-props ctx))])))
 
-    (let ([p (open-output-string)])
-      (parameterize ([current-output-port p])
-        (define body* (expr->tex* body ctx color-loc color))
-        (if (non-empty-string? func-name)
-            (printf "\\mathsf{~a}\\left(~a\\right) = ~a\n"
-                    func-name (string-join arg-names ", ") body*)
-            (printf "~a\n" body*))
-      (get-output-string p)))))
+    ; (printf "\\begin{array}{l}\n")
+    ; (printf "\\end{array}")
+
+    (define array (make-hash))
+    (format "~a\n" (format-output func-name arg-names
+                                  (expr->tex* body ctx color-loc color array)
+                                  array))))
+    
 
 (define-compiler '("tex") (const "") core->tex (const "") tex-supported)

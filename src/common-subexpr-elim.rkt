@@ -76,7 +76,7 @@
          (if (hash-ref cs-hash expr #f)
            (if (hash-has-key? name-hash expr)
              (hash-ref name-hash expr)
-             (let* ([expr-name (gensym 'i)]
+             (let* ([expr-name (gensym 't)]
                     [fixed-expr (cons op elimed-exprs)])
                (hash-set! name-hash expr expr-name)
                (set! intermediates (cons (list expr-name fixed-expr)

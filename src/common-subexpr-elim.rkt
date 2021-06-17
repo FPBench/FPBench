@@ -3,10 +3,12 @@
 ;; TODO: Once the let unroller is implemented we can eliminate more subexpressions.
 ;; Right now we don't look inside any let or while statements for eliminating, but once
 ;; the unroller is implemented, we can just expand everything for MAXIMUM elimination.
+(require racket/hash)
 (require "common.rkt" "fpcore-reader.rkt" "fpcore-visitor.rkt")
-(module+ test (require rackunit))
 
 (provide core-common-subexpr-elim)
+
+(module+ test (require rackunit))
 
 (define *names* (make-parameter (mutable-set)))
 
@@ -28,7 +30,7 @@
 
 ;;;;;; fuse let expressions
 
-(define (visit-let/fuse visitor vars vals body #:ctx [ctx '()])
+(define (visit-let/fuse visitor let_ vars vals body #:ctx [ctx '()])
   (match body
    [`(,(or 'let 'let*) ([,vars2 ,vals2] ...) ,body2)
     (define comb-vars (append vars vars2))
@@ -39,25 +41,46 @@
                    `(let* (,@(map list comb-vars (append vals vals2))) ,body2)
                    ctx))]
    [else
-    `(let (,@(for/list ([var vars] [val vals]) (list var (visit/ctx visitor val ctx))))
+    `(,let_ (,@(for/list ([var vars] [val vals]) (list var (visit/ctx visitor val ctx))))
           ,(visit/ctx visitor body ctx))]))
 
 (define/transform-expr (fuse-let expr)
-  [visit-let visit-let/fuse])
+  [visit-let_ visit-let/fuse])
 
 ;;;;;; main cse
+
+(define (filter-no-edges deps)
+  (map car (filter (compose null? cdr) deps)))
+
+; kahn's algorithm
+(define (topo-sort idxs deps)
+  (define no-edges (filter-no-edges deps))
+  (let loop ([sorted '()] [deps deps] [no-edges no-edges])
+    (cond
+     [(null? no-edges) (reverse sorted)]
+     [else 
+      (define chosen (car no-edges))
+      (define deps*
+        (for/list ([v (in-list deps)] #:unless (= (car v) chosen))
+          (cons (car v) (filter-not (curry = chosen) (cdr v)))))
+      (define edges* (filter-no-edges deps*))
+      (loop (cons chosen sorted) deps* edges*)])))
 
 (define (common-subexpr-elim vars expr)
   (define exprhash
     (make-hash
       (for/list ([var vars] [i (in-naturals)])
         (cons var i))))
-  (define common (mutable-set))
-  (define exprs '())
+  (define exprs
+    (make-hash
+      (for/list ([var vars] [i (in-naturals)])
+        (cons i (list var)))))
   (define exprc (length vars))
+
+  (define common (mutable-set))
   (define varc exprc)
 
-  ; convert to indices
+  ; convert to indices to process
   (define (munge expr)
     (cond
      [(hash-has-key? exprhash expr) ; already seen
@@ -66,74 +89,66 @@
         (set-add! common idx))
       idx]
      [else    ; new expresion
-      (define mgd
-        (match expr
-         [(list op args ...)
-          (cons op (map munge args))]
-         [_ (list expr)]))
-      (begin0 exprc
+      (define old-exprc exprc)
+      (begin0 old-exprc
         (hash-set! exprhash expr exprc)
         (set! exprc (+ 1 exprc))
-        (set! exprs (cons mgd exprs)))]))
+        (hash-set! exprs old-exprc
+                  (match expr
+                   [(list op args ...)
+                    (cond
+                     [(set-member? '(let let*) op)
+                      (for ([arg (first args)]) (add-name! arg))]
+                     [(set-member? '(while while* for for*) op)
+                      (for ([arg (second args)]) (add-name! arg))])
+                    (cons op (map munge args))]
+                   [_ 
+                    (list expr)])))]))
 
   (define root (munge expr))
-  (define exprvec (list->vector (append (map list vars) (reverse exprs))))
 
-  ; scan dependent indices
-  (define (dependent-indices root)
-    (filter (curryr >= varc)
-      (remove-duplicates
-        (let loop ([idx root])
-          (match-define (list op args ...) (vector-ref exprvec idx))
-          (define idxs (apply append (map loop args)))
-          (if (and (not (= idx root)) (set-member? common idx))
-              (cons idx idxs)
-              idxs)))))
+  ; get let locations, dependent exprs
+  (define common-deps
+    (let loop ([idx root])
+      (match-define (list op args ...) (hash-ref exprs idx))  ; 'op' can also be a const or var
+      (define hs (map loop args))
+      (define h
+        (if (set-member? common idx)
+            (hash idx (cons idx (remove-duplicates (apply append (map hash-keys hs)))))
+            (hash)))
+      (apply hash-union h hs
+             #:combine (λ (x y) (cons idx (remove-duplicates (append (cdr x) (cdr y))))))))
 
-  (define common-depends  ; idx -> list of dependent indices
-    (make-hash
-      (for/list ([idx (in-set common)])
-        (cons idx (dependent-indices idx)))))
-
-  (define bindable (mutable-set)) ; set of idxs that can be put into a let
-  (for ([idx (in-set common)])
-    (when (null? (hash-ref common-depends idx))
-      (set-remove! common idx)
-      (hash-remove! common-depends idx)
-      (set-add! bindable idx)))
+  (define common-locs (mutable-set))
+  (for ([vals (hash-values common-deps)])
+    (set-add! common-locs (car vals)))
 
   ; reconstruct expression
-  (define (gen-let-bindings)
-    (define idxs (set->list bindable)) ; copy
-    (define names (build-list (set-count bindable) (λ (_) (gensym 't))))
-    (set-clear! bindable)
-    (begin0 (for/list ([name names] [idx idxs]) ; descend
-              (list name (reconstruct idx)))
-      (for ([name names] [idx idxs])            ; then replace exprs
-        (vector-set! exprvec idx (list name)))))
-
-  (define (update-common! idx)
-    (for ([(k v) (in-hash common-depends)])
-      (hash-update! common-depends k (curry remove idx)))
-    (for ([idx (in-set common)])
-      (when (null? (hash-ref common-depends idx))
-        (set-remove! common idx)
-        (hash-remove! common-depends idx)
-        (set-add! bindable idx))))
+  (define (gen-let-bindings loc)
+    (define deps
+      (for/list ([(k v) (in-hash common-deps)]
+                #:when (= (car v) loc))
+        (cons k (cdr v))))
+    (define idxs (topo-sort (map car deps) deps))
+    (set-remove! common-locs loc)
+    (for/list ([idx idxs])
+      (define name (gensym 't))
+      (begin0 (list name (reconstruct idx))
+        (hash-set! exprs idx (list name)))))
   
   (define (reconstruct idx)
     (let loop ([idx idx])
-      (define expr (vector-ref exprvec idx))
-      (begin0 (cond
-               [(not (set-empty? bindable))
-                (define bindings (gen-let-bindings))
-                (list 'let bindings (loop idx))]
-               [(> (length expr) 1)
-                (cons (car expr) (map loop (cdr expr)))]
-               [else 
-                (if (list? (car expr)) expr (car expr))])
-        (update-common! idx))))
-  (reconstruct root))
+      (define expr (hash-ref exprs idx))
+      (cond
+       [(set-member? common-locs idx)
+        (define bindings (gen-let-bindings idx))
+        (list 'let* bindings (loop idx))]
+       [(> (length expr) 1)
+        (cons (car expr) (map loop (cdr expr)))]
+       [else 
+        (if (list? (car expr)) expr (car expr))])))
+
+  (fuse-let (reconstruct root)))
 
 ;;;;;;; top-level
 

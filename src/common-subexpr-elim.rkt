@@ -96,13 +96,13 @@
 
   (check-equal?
     (core-common-subexpr-elim '(FPCore (a) (+ (+ a a) (+ a a))))
-    '(FPCore (a) (let* ((i (+ a a))) (+ i i))))
+    '(FPCore (a) (let* ((t (+ a a))) (+ t t))))
 
   (check-equal?
     (core-common-subexpr-elim '(FPCore (a x) (+
                                                (- (+ a x) a)
                                                (- (+ a x) a))))
-    '(FPCore (a x) (let* ((i (+ a x)) (i1 (- i a))) (+ i1 i1))))
+    '(FPCore (a x) (let* ((t (+ a x)) (t1 (- t a))) (+ t1 t1))))
   
   (check-equal?
     (core-common-subexpr-elim '(FPCore (a) (let ((j0 (+ a a))) j0)))

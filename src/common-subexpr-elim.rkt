@@ -19,7 +19,7 @@
     (filter (λ (x) (string-prefix? (~a x) (~a name))) (set->list (*names*))))
   (define options
     (for/list ([_ (cons name prefixed)] [i (in-naturals)])
-      (string->symbol (format "~a~a" name i))))
+      (string->symbol (format "~a_~a" name i))))
   (define name*
     (car (set-subtract options prefixed)))
   (set-add! (*names*) name*)
@@ -66,6 +66,13 @@
       (define edges* (filter-no-edges deps*))
       (loop (cons chosen sorted) deps* edges*)])))
 
+(define (at-least-two-ops? expr)
+  (let loop ([expr expr])
+    (match expr
+     [(list op args ...) (ormap list? args)]
+     [_ #f])))
+
+
 (define (common-subexpr-elim vars expr)
   (define exprhash
     (make-hash
@@ -85,29 +92,31 @@
     (cond
      [(hash-has-key? exprhash expr) ; already seen
       (define idx (hash-ref exprhash expr))
-      (when (list? expr)
+      (when (at-least-two-ops? expr)
         (set-add! common idx))
       idx]
      [else    ; new expresion
       (define old-exprc exprc)
-      (begin0 old-exprc
-        (hash-set! exprhash expr exprc)
+      (hash-set! exprhash expr exprc)
+      (begin0 exprc
         (set! exprc (+ 1 exprc))
         (hash-set! exprs old-exprc
-                  (match expr
-                   [(list op args ...)
-                    (cond
-                     [(set-member? '(let let*) op)
-                      (for ([arg (first args)]) (add-name! arg))]
-                     [(set-member? '(while while* for for*) op)
-                      (for ([arg (second args)]) (add-name! arg))])
-                    (cons op (map munge args))]
-                   [_ 
-                    (list expr)])))]))
+          (match expr
+           [(list op args ...)
+            (cond
+             [(set-member? '(let let*) op)
+              (for ([arg (first args)]) (add-name! arg))]
+             [(set-member? '(while while* for for*) op)
+              (for ([arg (second args)]) (add-name! arg))])
+            (cons op (map munge args))]
+           [_ 
+            (list expr)])))]))
 
   (define root (munge expr))
 
   ; get let locations, dependent exprs
+  ; idx -> (loc, deps ...)
+  ; dependent exprs must be bound first
   (define common-deps
     (let loop ([idx root])
       (match-define (list op args ...) (hash-ref exprs idx))  ; 'op' can also be a const or var

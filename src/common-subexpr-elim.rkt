@@ -10,84 +10,125 @@
 
 (define *names* (make-parameter (mutable-set)))
 
+;; old gen-sym
 (define (gensym name)
   (define prefixed
     (filter (λ (x) (string-prefix? (~a x) (~a name))) (set->list (*names*))))
   (define options
-    (cons name (for/list ([_ prefixed] [i (in-naturals)]) (string->symbol (format "~a~a" name (+ i 1))))))
+    (cons name
+      (for/list ([_ prefixed] [i (in-naturals)])
+        (string->symbol (format "~a~a" name i)))))
   (define name*
     (car (set-subtract options prefixed)))
   (set-add! (*names*) name*)
   name*)
 
-(define (core-common-subexpr-elim prog)
+(define (add-name! name)
+  (set-add! (*names*) name))
+
+(define (common-subexpr-elim vars expr)
+  (define exprhash
+    (make-hash
+      (for/list ([var vars] [i (in-naturals)])
+        (cons var i))))
+  (define common (mutable-set))
+  (define exprs (map list vars))
+  (define exprc (length vars))
+  (define varc exprc)
+
+  ; convert to indices
+  (define (munge expr)
+    (cond
+     [(hash-has-key? exprhash expr)
+      (define idx (hash-ref exprhash expr))
+      (when (list? expr)
+        (set-add! common idx))
+      idx]
+     [else
+      (define mgd
+        (match expr
+         [(list op args ...)
+          (cons op (map munge args))]
+         [_ (list expr)]))
+      (begin0 exprc
+        (hash-set! exprhash expr exprc)
+        (set! exprc (+ 1 exprc))
+        (set! exprs (cons mgd exprs)))]))
+
+  (define root (munge expr))
+  (define exprvec (list->vector (reverse exprs)))
+
+  ; scan dependent indices
+  (define (dependent-indices idx)
+    (filter (curryr >= varc)
+      (remove-duplicates
+        (let loop ([idx idx])
+          (define expr (vector-ref exprvec idx))
+          (match expr
+           [(list op args ...) (apply append (map loop args))]
+           [else (list expr)])))))
+
+  (define common-depends  ; idx -> list of dependent indices
+    (make-hash
+      (for/list ([idx (in-set common)])
+        (cons idx (dependent-indices idx)))))
+
+  (define bindable (mutable-set)) ; set of idxs that can be put into a let
+  (for ([idx (in-set common)])
+    (when (null? (hash-ref common-depends idx))
+      (set-remove! common idx)
+      (hash-remove! common-depends idx)
+      (set-add! bindable idx)))
+  
+  (displayln exprvec)
+  (displayln common-depends)
+  (displayln bindable)
+
+  ; reconstruct expression
+  (define (gen-let-bindings)
+    (define idxs (set->list bindable)) ; copy
+    (set-clear! bindable)
+    (for/list ([idx idxs])
+      (define name (gensym 't))
+      (begin0 (list name (reconstruct idx))
+        (vector-set! exprvec idx (list name)))))
+
+  (define (update-common idx)
+    idx)
+  
+  (define (reconstruct idx)
+    (let loop ([idx idx])
+      (define expr (vector-ref exprvec idx))
+      (cond
+       [(not (set-empty? bindable))
+        (define bindings (gen-let-bindings))
+        (list 'let bindings (loop idx))]
+       [(> (length expr) 1)
+        (cons (car expr) (map loop (cdr expr)))]
+       [else (car expr)])))
+  (reconstruct root))
+
+
+(define (core-common-subexpr-elim core)
   (*names* (mutable-set))
   (define-values (name args props body)
-    (match prog
+    (match core
      [(list 'FPCore (list args ...) props ... body) (values #f args props body)]
      [(list 'FPCore name (list args ...) props ... body) (values name args props body)]))
-  (define cs-hash (count-common-subexpr body))
-  (define cse-body (common-subexpr-elim cs-hash body))
+  (define cse-body (common-subexpr-elim args body))
   (if name
     `(FPCore ,name ,args ,@props ,cse-body)
     `(FPCore ,args ,@props ,cse-body)))
 
-(define (combine-common-subexpr-hash h1 h2)
-  (for ([(k v) (in-hash h2)])
-    (if (hash-has-key? h1 k)
-      (hash-set! h1 k #t)
-      (hash-set! h1 k v)))
-  h1)
 
-(define (add-binding-names expr)
-  (when (list? expr)
-    (match-define (list op bindings bind-body) expr)
-    (when (set-member? '(let let* while while*) op)
-      (for ([bind bindings])
-        (match-define (list name bind-expr) bind)
-        (set-add! (*names*) name)
-        (add-binding-names bind-expr)))
-    (add-binding-names bind-body)))
-
-(define (count-common-subexpr expr)
-  (cond 
-    [(list? expr)
-     (match-define (list op args ...) expr)
-     (if (set-member? '(let let* while while*) op)
-       (begin
-         (add-binding-names expr)
-         (make-hash))
-       (let ([cs-hash (make-hash (list (cons expr #f)))])
-         (for ([e args])
-           (combine-common-subexpr-hash cs-hash (count-common-subexpr e)))
-         cs-hash))]
-    [else (make-hash)]))
-
-(define (common-subexpr-elim cs-hash start-expr)
-  (define intermediates '())
-  (define name-hash (make-hash))
-
-  (define final-expr (let common-subexpr-body ([expr start-expr])
-    (cond
-      [(list? expr)
-       (match-define (list op args ...) expr)
-       (let ([elimed-exprs (for/list ([arg args])
-                             (common-subexpr-body arg))])
-         (if (hash-ref cs-hash expr #f)
-           (if (hash-has-key? name-hash expr)
-             (hash-ref name-hash expr)
-             (let* ([expr-name (gensym 't)]
-                    [fixed-expr (cons op elimed-exprs)])
-               (hash-set! name-hash expr expr-name)
-               (set! intermediates (cons (list expr-name fixed-expr)
-                                         intermediates))
-               expr-name))
-           `(,op ,@(for/list ([arg args])
-                     (common-subexpr-body arg)))))]
-      [else expr])))
-  (if (empty? intermediates)
-    final-expr
-    `(let* (,@(reverse intermediates)) ,final-expr)))
+(module+ main
+  (require racket/cmdline)
+  (command-line
+   #:program "common-subexpr-elim.rkt"
+   #:args ()
+   (port-count-lines! (current-input-port))
+   (for ([expr (in-port (curry read-fpcore "stdin"))] [n (in-naturals)])
+     (printf "~a\n" (core-common-subexpr-elim expr)))))
 
 (module+ test
   (check-equal?
@@ -96,13 +137,13 @@
 
   (check-equal?
     (core-common-subexpr-elim '(FPCore (a) (+ (+ a a) (+ a a))))
-    '(FPCore (a) (let* ((t (+ a a))) (+ t t))))
+    '(FPCore (a) (let ((t (+ a a))) (+ t t))))
 
   (check-equal?
     (core-common-subexpr-elim '(FPCore (a x) (+
                                                (- (+ a x) a)
                                                (- (+ a x) a))))
-    '(FPCore (a x) (let* ((t (+ a x)) (t1 (- t a))) (+ t1 t1))))
+    '(FPCore (a x) (let ((t (- (+ x a) x))) (+ t t))))
   
   (check-equal?
     (core-common-subexpr-elim '(FPCore (a) (let ((j0 (+ a a))) j0)))
@@ -119,13 +160,3 @@
   (check-equal?
     (core-common-subexpr-elim '(FPCore (a) (let ((x (- a a))) (let ((x (+ a a))) x))))
     '(FPCore (a) (let ((x (- a a))) (let ((x (+ a a))) x)))))
-
-(module+ main
-  (require racket/cmdline)
-
-  (command-line
-   #:program "common-subexpr-elim.rkt"
-   #:args ()
-   (port-count-lines! (current-input-port))
-   (for ([expr (in-port (curry read-fpcore "stdin"))] [n (in-naturals)])
-     (printf "~a\n" (core-common-subexpr-elim expr)))))

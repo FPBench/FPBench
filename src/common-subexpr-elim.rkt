@@ -39,12 +39,12 @@
   ; convert to indices
   (define (munge expr)
     (cond
-     [(hash-has-key? exprhash expr)
+     [(hash-has-key? exprhash expr) ; already seen
       (define idx (hash-ref exprhash expr))
       (when (list? expr)
         (set-add! common idx))
       idx]
-     [else
+     [else    ; new expresion
       (define mgd
         (match expr
          [(list op args ...)
@@ -79,10 +79,6 @@
       (set-remove! common idx)
       (hash-remove! common-depends idx)
       (set-add! bindable idx)))
-  
-  (displayln exprvec)
-  (displayln common-depends)
-  (displayln bindable)
 
   ; reconstruct expression
   (define (gen-let-bindings)
@@ -93,19 +89,28 @@
       (begin0 (list name (reconstruct idx))
         (vector-set! exprvec idx (list name)))))
 
-  (define (update-common idx)
-    idx)
+  (define (update-common! idx)
+    (for ([(k v) (in-hash common-depends)])
+      (hash-update! common-depends k (curry remove)))
+    (for ([idx (in-set common)])
+      (when (null? (hash-ref common-depends idx))
+        (set-remove! common idx)
+        (hash-remove! common-depends idx)
+        (set-add! bindable idx))))
   
   (define (reconstruct idx)
     (let loop ([idx idx])
       (define expr (vector-ref exprvec idx))
-      (cond
-       [(not (set-empty? bindable))
-        (define bindings (gen-let-bindings))
-        (list 'let bindings (loop idx))]
-       [(> (length expr) 1)
-        (cons (car expr) (map loop (cdr expr)))]
-       [else (car expr)])))
+      (begin0 (cond
+               [(not (set-empty? bindable))
+                (define bindings (gen-let-bindings))
+                (list 'let bindings (loop idx))]
+               [(> (length expr) 1)
+                (cons (car expr) (map loop (cdr expr)))]
+               [else 
+                (if (list? (car expr)) expr (car expr))])
+        (update-common! idx))))
+
   (reconstruct root))
 
 
@@ -115,6 +120,7 @@
     (match core
      [(list 'FPCore (list args ...) props ... body) (values #f args props body)]
      [(list 'FPCore name (list args ...) props ... body) (values name args props body)]))
+  (for ([arg args]) (add-name! arg))
   (define cse-body (common-subexpr-elim args body))
   (if name
     `(FPCore ,name ,args ,@props ,cse-body)
@@ -155,7 +161,7 @@
 
   (check-equal?
     (core-common-subexpr-elim '(FPCore (a) (let ((i0 (- a a))) (- (+ (+ a a) (+ a a)) i0))))
-    '(FPCore (a) (let ((i0 (- a a))) (- (+ (+ a a) (+ a a)) i0))))
+    '(FPCore (a) (let ((t (+ a a))) (let ((i0 (- a a))) (- (+ t t) i0)))))
 
   (check-equal?
     (core-common-subexpr-elim '(FPCore (a) (let ((x (- a a))) (let ((x (+ a a))) x))))

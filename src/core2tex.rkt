@@ -171,7 +171,6 @@
   (hash-set! array (hash-count array) str))
 
 (define (expr->tex* expr ctx color-loc color array)
-    "Compile an expression to math mode TeX."
   (let texify ([expr expr] [ctx ctx] [parens #t] [loc '(2)])
     (format
       (if (and color-loc (equal? (reverse color-loc) loc))
@@ -208,7 +207,7 @@
                                       (if (= n 0) "if" "elif")
                                       (texify bcond ctx #t (cons 1 bloc))))
             (array-add! array (format "~a~a" IND (texify bexpr ctx #t (cons 2 bloc))))]))
-          #f]
+          ""]
 
         [`(cast ,body)
           (format "\\langle ~a \\rangle_{\\text{~a}}"
@@ -275,13 +274,7 @@
                "\\left(~a\\right)")
            (application->tex op texed-args))]))))
 
-(define (format-return func-name arg-names expr)
-  (if (non-empty-string? func-name)
-      (printf "\\mathsf{~a}\\left(~a\\right) = ~a"
-              func-name (string-join arg-names ", ") expr)
-      (printf "~a" expr)))
-
-(define (format-output func-name arg-names body array)
+(define (format-output body array)
   (with-output-to-string
      (λ ()
       (cond
@@ -289,12 +282,10 @@
         (printf "\\begin{array}{l}\n")
         (for ([i (in-range (hash-count array))])
           (printf "~a\\\\\n" (hash-ref array i)))
-        (when (string? body)
-          (format-return func-name arg-names body)
-          (printf "\\\\\n"))
+        (when (non-empty-string? body)
+          (printf "~a\\\\\n" body))
         (printf "\\end{array}")]
-       [else
-        (format-return func-name arg-names body)]))))
+       [else (printf "~a" body)]))))
 
 ;; Exports
 
@@ -302,7 +293,7 @@
   (define ctx (ctx-update-props (make-compiler-ctx) (list ':precision prec)))
   (define array (make-hash))
   (define expr* (expr->tex* expr ctx color-loc color array))
-  (format-output "" '() expr* array))
+  (format-output expr* array))
 
 ; Names are optional in TeX programs
 (define (core->tex prog [name ""] #:loc [color-loc #f] #:color [color "red"])
@@ -338,13 +329,11 @@
                               name)
                   (ctx-props ctx))])))
 
-    ; (printf "\\begin{array}{l}\n")
-    ; (printf "\\end{array}")
-
     (define array (make-hash))
-    (format "~a\n" (format-output func-name arg-names
-                                  (expr->tex* body ctx color-loc color array)
-                                  array))))
+    (define body* (format-output (expr->tex* body ctx color-loc color array) array))
+    (if (non-empty-string? func-name)
+        (format "\\mathsf{~a}\\left(~a\\right) = ~a\n"
+                func-name (string-join arg-names ", ") body*)
+        (format "~a\n" body*))))
     
-
 (define-compiler '("tex") (const "") core->tex (const "") tex-supported)

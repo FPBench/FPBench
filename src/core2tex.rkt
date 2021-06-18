@@ -167,8 +167,12 @@
     [else
      (list (list #t expr loc))]))
 
+(define *array-depth* (make-parameter 0))
+
 (define (array-add! array str)
-  (hash-set! array (hash-count array) str))
+  (hash-set! array (hash-count array) (cons str (*array-depth*))))
+
+;; Main texifier
 
 (define (expr->tex* expr ctx color-loc color array)
   (let texify ([expr expr] [ctx ctx] [parens #t] [loc '(2)])
@@ -196,17 +200,22 @@
                 cx)))
           (texify body ctx* parens loc)]
         [`(if ,cond ,ift ,iff)
-         (define IND "\\;\\;\\;\\;")
          (for ([branch (collect-branches expr loc)] [n (in-naturals)])
           (match branch
            [(list #t bexpr bloc)
             (array-add! array "\\mathbf{else}:")
-            (array-add! array (format "~a~a" IND (texify bexpr ctx #t (cons 2 bloc))))]
+            (parameterize ([*array-depth* (+ (*array-depth*) 1)])
+              (let ([bexpr* (texify bexpr ctx #t (cons 2 bloc))])
+                (when (non-empty-string? bexpr*)
+                  (array-add! array bexpr*))))]
            [(list bcond bexpr bloc)
             (array-add! array (format "\\mathbf{~a}\\;~a:"
                                       (if (= n 0) "if" "elif")
                                       (texify bcond ctx #t (cons 1 bloc))))
-            (array-add! array (format "~a~a" IND (texify bexpr ctx #t (cons 2 bloc))))]))
+            (parameterize ([*array-depth* (+ (*array-depth*) 1)])
+              (let ([bexpr* (texify bexpr ctx #t (cons 2 bloc))])
+                (when (non-empty-string? bexpr*)
+                  (array-add! array bexpr*))))]))
           ""]
 
         [`(cast ,body)
@@ -275,13 +284,16 @@
            (application->tex op texed-args))]))))
 
 (define (format-output body array)
+  (define IND "\\;\\;\\;\\;")
   (with-output-to-string
      (λ ()
       (cond
        [(> (hash-count array) 0)
         (printf "\\begin{array}{l}\n")
         (for ([i (in-range (hash-count array))])
-          (printf "~a\\\\\n" (hash-ref array i)))
+          (define v (hash-ref array i))
+          (for ([i (in-range (cdr v))]) (printf "~a" IND))
+          (printf "~a\\\\\n" (car v)))
         (when (non-empty-string? body)
           (printf "~a\\\\\n" body))
         (printf "\\end{array}")]

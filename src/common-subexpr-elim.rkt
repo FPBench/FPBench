@@ -6,11 +6,12 @@
 (require racket/hash)
 (require "common.rkt" "fpcore-reader.rkt" "fpcore-visitor.rkt")
 
-(provide core-common-subexpr-elim)
+(provide core-common-subexpr-elim *expr-cse-able?*)
 
 (module+ test (require rackunit))
 
 (define *names* (make-parameter (mutable-set)))
+(define *expr-cse-able?* (make-parameter list?))
 
 ;;;;;; old gensym
 
@@ -54,8 +55,7 @@
 
 ; kahn's algorithm
 (define (topo-sort idxs deps)
-  (define no-edges (filter-no-edges deps))
-  (let loop ([sorted '()] [deps deps] [no-edges no-edges])
+  (let loop ([sorted '()] [deps deps] [no-edges (filter-no-edges deps)])
     (cond
      [(null? no-edges) (reverse sorted)]
      [else 
@@ -66,24 +66,17 @@
       (define edges* (filter-no-edges deps*))
       (loop (cons chosen sorted) deps* edges*)])))
 
-(define (at-least-two-ops? expr)
-  (let loop ([expr expr])
-    (match expr
-     [(list op args ...) (ormap list? args)]
-     [_ #f])))
-
 
 (define (common-subexpr-elim vars expr)
-  (define exprhash
+  (define exprhash  ; expr -> idx
     (make-hash
       (for/list ([var vars] [i (in-naturals)])
         (cons var i))))
-  (define exprs
+  (define exprs ; idx -> munged expr
     (make-hash
       (for/list ([var vars] [i (in-naturals)])
         (cons i (list var)))))
   (define exprc (length vars))
-
   (define common (mutable-set))
   (define varc exprc)
 
@@ -92,7 +85,7 @@
     (cond
      [(hash-has-key? exprhash expr) ; already seen
       (define idx (hash-ref exprhash expr))
-      (when (at-least-two-ops? expr)
+      (when ((*expr-cse-able?*) expr)
         (set-add! common idx))
       idx]
      [else    ; new expresion
@@ -103,7 +96,7 @@
         (hash-set! exprs old-exprc
           (match expr
            [(list op args ...)
-            (cond
+            (cond   ; add variables names if needed
              [(set-member? '(let let*) op)
               (for ([arg (first args)]) (add-name! arg))]
              [(set-member? '(while while* for for*) op)
@@ -138,9 +131,8 @@
       (for/list ([(k v) (in-hash common-deps)]
                 #:when (= (car v) loc))
         (cons k (cdr v))))
-    (define idxs (topo-sort (map car deps) deps))
     (set-remove! common-locs loc)
-    (for/list ([idx idxs])
+    (for/list ([idx (topo-sort (map car deps) deps)]) ; assign based on dependence
       (define name (gensym 't))
       (begin0 (list name (reconstruct idx))
         (hash-set! exprs idx (list name)))))
@@ -191,11 +183,11 @@
              '(FPCore (a) a))
 
   (check-cse '(FPCore (a) (+ (+ a a) (+ a a)))
-             '(FPCore (a) (let ((t (+ a a))) (+ t t))))
+             '(FPCore (a) (let* ((t_0 (+ a a))) (+ t_0 t_0))))
 
   (check-cse '(FPCore (a x) (+ (- (+ a x) a)
                                (- (+ a x) a)))
-             '(FPCore (a x) (let ((t (- (+ x a) x))) (+ t t))))
+             '(FPCore (a x) (let* ((t_0 (- (+ a x) a))) (+ t_0 t_0))))
   
   (check-cse '(FPCore (a) (let ((j0 (+ a a))) j0))
              '(FPCore (a) (let ((j0 (+ a a))) j0)))
@@ -204,7 +196,7 @@
              '(FPCore (a) (let ((j0 (+ a a))) (+ (+ a a) j0))))
 
   (check-cse '(FPCore (a) (let ((i0 (- a a))) (- (+ (+ a a) (+ a a)) i0)))
-             '(FPCore (a) (let* ((t (+ a a)) (i0 (- a a))) (- (+ t t) i0))))
+             '(FPCore (a) (let ((i0 (- a a))) (- (let* ((t_0 (+ a a))) (+ t_0 t_0)) i0))))
 
   (check-cse '(FPCore (a) (let ((x (- a a))) (let ((x (+ a a))) x)))
              '(FPCore (a) (let ((x (- a a))) (let ((x (+ a a))) x))))

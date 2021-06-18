@@ -172,6 +172,10 @@
 (define (array-add! array str)
   (hash-set! array (hash-count array) (cons str (*array-depth*))))
 
+(define (merge-arrays! array1 array2)
+  (for ([(_ v) (in-hash array2)] [i (in-naturals (hash-count array1))])
+    (hash-set! array1 i v)))
+
 ;; Main texifier
 
 (define (expr->tex* expr ctx color-loc color array)
@@ -184,20 +188,32 @@
         [`(let ([,vars ,vals] ...) ,body)
           (define ctx*
             (for/fold ([ctx* ctx]) ([var vars] [val vals] [id (in-naturals 1)])
-              (let*-values ([(val*) (texify val ctx parens (cons id loc))]
-                            [(prec) (ctx-lookup-prop ctx ':precision)]
-                            [(cx name) (ctx-unique-name ctx* var prec)])
-                (array-add! array (format "~a := ~a" name val*))
-                cx)))
+              (define prec (ctx-lookup-prop ctx ':precision))
+              (define-values (cx name) (ctx-unique-name ctx* var prec))
+              (define array* array)
+              (set! array (make-hash))
+              (define val*
+                (parameterize ([*array-depth* (+ (*array-depth*) 1)])
+                  (texify val ctx parens (cons id loc))))
+              (array-add! array* (format "~a := ~a" name val*))
+              (merge-arrays! array* array)
+              (set! array array*)
+              cx))
           (texify body ctx* parens loc)]
         [`(let* ([,vars ,vals] ...) ,body)
           (define ctx*
             (for/fold ([ctx* ctx]) ([var vars] [val vals] [id (in-naturals 1)])
-              (let*-values ([(val*) (texify val ctx* parens (cons id loc))]
-                            [(prec) (ctx-lookup-prop ctx ':precision)]
-                            [(cx name) (ctx-unique-name ctx* var prec)])
-                (array-add! array (format "~a := ~a" name val*))
-                cx)))
+              (define prec (ctx-lookup-prop ctx ':precision))
+              (define-values (cx name) (ctx-unique-name ctx* var prec))
+              (define array* array)
+              (set! array (make-hash))
+              (define val*
+                (parameterize ([*array-depth* (+ (*array-depth*) 1)])
+                  (texify val ctx* parens (cons id loc))))
+              (array-add! array* (format "~a := ~a" name val*))
+              (merge-arrays! array* array)
+              (set! array array*)
+              cx))
           (texify body ctx* parens loc)]
         [`(if ,cond ,ift ,iff)
          (for ([branch (collect-branches expr loc)] [n (in-naturals)])

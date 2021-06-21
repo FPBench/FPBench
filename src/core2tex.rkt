@@ -167,6 +167,13 @@
     [else
      (list (list #t expr loc))]))
 
+(define (let-bindings->tex bindings)
+  (define names (map car bindings))
+  (define vals (map cdr bindings))
+  (format "~a := ~a"
+          (string-join names ", ")
+          (string-join vals ", ")))
+
 (define *array-depth* (make-parameter 0))
 
 (define (array-add! array str)
@@ -186,8 +193,9 @@
         "~a")
       (match expr
         [`(let ([,vars ,vals] ...) ,body)
-          (define ctx*
-            (for/fold ([ctx* ctx]) ([var vars] [val vals] [id (in-naturals 1)])
+          (define-values (ctx* bindings)
+            (for/fold ([ctx* ctx] [bindings '()])
+                      ([var vars] [val vals] [id (in-naturals 1)])
               (define prec (ctx-lookup-prop ctx ':precision))
               (define-values (cx name) (ctx-unique-name ctx* var prec))
               (define array* array)
@@ -195,10 +203,19 @@
               (define val*
                 (parameterize ([*array-depth* (+ (*array-depth*) 1)])
                   (texify val ctx parens (cons id loc))))
-              (array-add! array* (format "~a := ~a" name val*))
-              (merge-arrays! array* array)
-              (set! array array*)
-              cx))
+              (cond                 ; single-line values are nice
+               [(hash-empty? array) ; store bindings in an alist, and defer printing
+                (set! array array*)
+                (values cx (cons (cons name val*) bindings))]
+               [else                ; multi-line value messes things up!
+                (when (not (null? bindings))      ; print previous bindings
+                  (array-add! array* (let-bindings->tex (reverse bindings))))
+                (array-add! array* (format "~a := ~a" name val*))
+                (merge-arrays! array* array)      ; output this binding
+                (set! array array*) 
+                (values cx '())])))               ; clear and continue
+          (when (not (null? bindings))            ; print any remaining bindings
+            (array-add! array (let-bindings->tex (reverse bindings))))
           (texify body ctx* parens loc)]
         [`(let* ([,vars ,vals] ...) ,body)
           (define ctx*

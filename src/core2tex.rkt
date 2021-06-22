@@ -59,21 +59,20 @@
          (string char)))
    ""))
 
-(define (variable->tex expr ctx)
-  (match expr
-   ['l       "\\ell"]
-   ['eps     "\\varepsilon"]
-   ['epsilon "\\varepsilon"]
-   ['alpha   "\\alpha"]
-   ['beta    "\\beta"]
-   ['gamma   "\\gamma"]
-   ['phi     "\\phi"]
-   ['phi1    "\\phi_1"]
-   ['phi2    "\\phi_2"]
-   ['lambda  "\\lambda"]
-   ['lambda1 "\\lambda_1"]
-   ['lambda2 "\\lambda_2"]
-   [_ (ctx-lookup-name ctx expr)]))
+(define/match (variable->tex expr)
+  [('l)       "\\ell"]
+  [('eps)     "\\varepsilon"]
+  [('epsilon) "\\varepsilon"]
+  [('alpha)   "\\alpha"]
+  [('beta)    "\\beta"]
+  [('gamma)   "\\gamma"]
+  [('phi)     "\\phi"]
+  [('phi1)    "\\phi_1"]
+  [('phi2)    "\\phi_2"]
+  [('lambda)  "\\lambda"]
+  [('lambda1) "\\lambda_1"]
+  [('lambda2) "\\lambda_2"]
+  [(_) (symbol->string expr)])
 
 (define/match (constant->tex expr)
   [('PI)            "\\pi"]

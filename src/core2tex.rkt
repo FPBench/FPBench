@@ -59,20 +59,21 @@
          (string char)))
    ""))
 
-(define/match (variable->tex expr)
-  [('l)       "\\ell"]
-  [('eps)     "\\varepsilon"]
-  [('epsilon) "\\varepsilon"]
-  [('alpha)   "\\alpha"]
-  [('beta)    "\\beta"]
-  [('gamma)   "\\gamma"]
-  [('phi)     "\\phi"]
-  [('phi1)    "\\phi_1"]
-  [('phi2)    "\\phi_2"]
-  [('lambda)  "\\lambda"]
-  [('lambda1) "\\lambda_1"]
-  [('lambda2) "\\lambda_2"]
-  [(_) (symbol->string expr)])
+(define (variable->tex expr ctx)
+  (match expr
+   ['l       "\\ell"]
+   ['eps     "\\varepsilon"]
+   ['epsilon "\\varepsilon"]
+   ['alpha   "\\alpha"]
+   ['beta    "\\beta"]
+   ['gamma   "\\gamma"]
+   ['phi     "\\phi"]
+   ['phi1    "\\phi_1"]
+   ['phi2    "\\phi_2"]
+   ['lambda  "\\lambda"]
+   ['lambda1 "\\lambda_1"]
+   ['lambda2 "\\lambda_2"]
+   [_ (ctx-lookup-name ctx expr)]))
 
 (define/match (constant->tex expr)
   [('PI)            "\\pi"]
@@ -167,178 +168,220 @@
     [else
      (list (list #t expr loc))]))
 
-(define (let-bindings->tex bindings)
+(define (let-bindings->tex bindings indent)
   (define names (map car bindings))
   (define vals (map cdr bindings))
-  (format "~a := ~a"
+  (printf "~a~a := ~a\\\\\n"
+          (indent->tex indent)
           (string-join names ", ")
           (string-join vals ", ")))
 
-(define *array-depth* (make-parameter 0))
-
-(define (array-add! array str)
-  (hash-set! array (hash-count array) (cons str (*array-depth*))))
-
-(define (merge-arrays! array1 array2)
-  (for ([(_ v) (in-hash array2)] [i (in-naturals (hash-count array1))])
-    (hash-set! array1 i v)))
+(define (indent->tex level)
+  (apply string-append (build-list level (λ (_) "\\;\\;\\;\\;"))))
 
 ;; Main texifier
 
-(define (expr->tex* expr ctx color-loc color array)
+(define (datum->tex expr ctx parens)
+  (match expr
+   [(list 'digits (? number? m) (? number? e) (? number? b))
+    (datum->tex (digits->number m e b) ctx parens)]
+   [(? exact-integer?)
+    (number->string expr)]
+   [(and (? rational?) (? exact?))
+    (format "\\frac{~a}{~a}" (numerator expr) (denominator expr))]
+   [(? (conjoin complex? (negate real?))) ;; Herbie stuff
+    (format "~a ~a ~a i"
+            (datum->tex (real-part expr) ctx '+)
+            (if (or (< (imag-part expr) 0) (equal? (imag-part expr) -0.0)) '- '+)
+            (datum->tex (abs (imag-part expr)) ctx '+))]
+   [(? hex?)
+    (datum->tex (hex->racket expr) ctx parens)]
+   [(or (? hex?) (? number?))
+    (define expr* (number->string expr))
+    (match expr*
+     [(or "+inf.0" "+inf.f") "+\\infty"]
+     [(or "-inf.0" "-inf.f") "-\\infty"]
+     [(or "+nan.0" "+nan.f") "\\mathsf{NaN}"]
+     [_  
+      (match (string-split (string-trim expr* ".0") #rx"e|f")
+       [(list num) num]
+       [(list significand exp)
+        (define num
+          (if (equal? significand "1")
+              (format "10^{~a}" exp)
+              (format "~a \\cdot 10^{~a}" significand exp)))
+        (if (precedence< parens #f)
+            num
+            (format "\\left( ~a \\right)" num))])])]
+   [(? constant?) (constant->tex expr)]
+   [(? symbol?) (variable->tex expr ctx)]))
+  
+
+(define (stmt->tex expr ctx color-loc color loc parens indent)
+  (define initial-loc loc)
+  (let texify ([expr expr] [ctx ctx] [parens parens] [loc loc] [indent indent])
+    (format
+      (if (and color-loc
+               (equal? (reverse color-loc) loc)
+               (not (equal? loc initial-loc)))   ; avoid double color
+        (format "\\color{~a}{~~a}" color)
+        "~a")
+      (match expr
+       [`(let ([,vars ,vals] ...) ,body)
+        (define-values (ctx* bindings)
+          (for/fold ([ctx* ctx] [bindings '()])
+                    ([var vars] [val vals] [id (in-naturals 1)])
+            (define prec (ctx-lookup-prop ctx ':precision))
+            (define-values (cx name) (ctx-unique-name ctx* var prec))
+            (define-values (val* multi) ; based on imperative.rkt
+              (let ([p (open-output-string)])
+                (parameterize ([current-output-port p])
+                  (define val* (texify val ctx* parens (cons id loc) (+ indent 1)))
+                  (values val* (get-output-string p)))))
+            (cond                 
+             [(non-empty-string? multi)                               ; multi-line value messes things up!
+              (when (not (null? bindings))                            ; print previous bindings
+                (let-bindings->tex (reverse bindings) indent))
+              (printf "~a~a := ~a\\\\\n" (indent->tex indent) name val*)  ; output this binding
+              (when (non-empty-string? multi)
+                (printf "~a" multi))
+              (values cx '())]                                        ; clear and continue
+             [else                                              ; single-line values are nice
+              (values cx (cons (cons name val*) bindings))])))  ; store bindings in an alist, and defer printing
+        (when (not (null? bindings))            ; print any remaining bindings
+          (let-bindings->tex (reverse bindings) indent))
+        (texify body ctx* parens loc indent)]
+       [`(let* ([,vars ,vals] ...) ,body)
+        (define ctx*
+          (for/fold ([ctx* ctx]) ([var vars] [val vals] [id (in-naturals 1)])
+            (define prec (ctx-lookup-prop ctx ':precision))
+            (define-values (cx name) (ctx-unique-name ctx* var prec))
+            (define-values (val* multi) ; based on imperative.rkt
+              (let ([p (open-output-string)])
+                (parameterize ([current-output-port p])
+                  (define val* (texify val ctx* parens (cons id loc) (+ indent 1)))
+                  (values val* (get-output-string p)))))
+            (printf "~a~a := ~a\\\\\n" (indent->tex indent) name val*)
+            (when (non-empty-string? multi)
+              (printf "~a\\\\\n" multi))
+            cx))
+        (texify body ctx* parens loc indent)]
+       [`(if ,cond ,ift ,iff)
+        (for ([branch (collect-branches expr loc)] [n (in-naturals)])
+          (match branch
+           [(list #t bexpr bloc)
+            (printf "~a\\mathbf{else}:\\\\\n" (indent->tex indent))
+            (let ([bexpr* (texify bexpr ctx #t (cons 2 bloc) (+ indent 1))])
+              (when (non-empty-string? bexpr*)
+                (printf "~a~a\\\\\n" (indent->tex (+ indent 1)) bexpr*)))]
+           [(list bcond bexpr bloc)
+            (printf "~a\\mathbf{~a}\\;~a:\\\\\n" (indent->tex indent)
+                                             (if (= n 0) "if" "elif")
+                                             (texify bcond ctx #t (cons 1 bloc) (+ indent 1)))
+            (let ([bexpr* (texify bexpr ctx #t (cons 2 bloc) (+ indent 1))])
+              (when (non-empty-string? bexpr*)
+                (printf "~a~a\\\\\n" (indent->tex (+ indent 1)) bexpr*)))]))
+         ""]
+        
+        [`(cast ,body)
+        (format "\\langle ~a \\rangle_{\\text{~a}}"
+                (texify body ctx parens loc indent) (ctx-lookup-prop ctx ':precision))]
+       [`(! ,props ... ,body) 
+        (define curr-prec (ctx-lookup-prop ctx ':precision))
+        (define curr-rnd (ctx-lookup-prop ctx ':round))
+        (define ctx* (ctx-update-props ctx props))
+        (define body* (texify body ctx* parens loc indent))
+        (define new-prec (ctx-lookup-prop ctx* ':precision curr-prec))
+        (define new-rnd (ctx-lookup-prop ctx* ':round curr-rnd))
+        (cond
+         [(and (not (equal? curr-prec new-prec)) (not (equal? curr-rnd new-rnd)))
+          (format "\\left( ~a \\right)_{\\text{~a}, \\text{~a}}" body* (round-mode->tex new-rnd) new-prec)]
+         [(not (equal? curr-prec new-prec))
+          (format "\\left( ~a \\right)_{\\text{~a}}" body* new-prec)]
+         [(not (equal? curr-rnd new-rnd))
+          (format "\\left( ~a \\right)_{\\text{~a}}" body* (round-mode->tex new-rnd))]
+         [else body*])]
+        
+       [(list 'digits (? number? m) (? number? e) (? number? b))
+        (datum->tex expr ctx parens)]
+       [`(<= ,x ,(or -inf.0 -inf.f))
+        (texify `(== ,x -inf.0) ctx parens loc indent)]
+       [(list op args ...)
+        (define-values (self-paren-level arg-paren-level) (precedence-levels op))
+        (define texed-args
+          (for/list ([arg args] [id (in-naturals 1)])
+            (texify arg ctx arg-paren-level (cons id loc) indent)))
+        (format ; omit parens if parent contex has lower precedence
+          (if (or (precedence< parens self-paren-level) (equal? self-paren-level 'fn)) 
+              "~a" 
+              "\\left(~a\\right)")
+          (application->tex op texed-args))]
+       [_ (datum->tex expr ctx parens)]))))
+
+(define (array->tex expr ctx color-loc color loc parens)
+  (with-output-to-string
+    (λ ()
+      (printf "\\begin{array}{l}\n")
+      (define val (stmt->tex expr ctx color-loc color loc parens 0))
+      (when (non-empty-string? val)
+        (printf "~a\n" val))
+      (printf "\\end{array}"))))
+    
+(define (expr->tex* expr ctx color-loc color)
   (let texify ([expr expr] [ctx ctx] [parens #t] [loc '(2)])
     (format
       (if (and color-loc (equal? (reverse color-loc) loc))
         (format "\\color{~a}{~~a}" color)
         "~a")
       (match expr
-        [`(let ([,vars ,vals] ...) ,body)
-          (define-values (ctx* bindings)
-            (for/fold ([ctx* ctx] [bindings '()])
-                      ([var vars] [val vals] [id (in-naturals 1)])
-              (define prec (ctx-lookup-prop ctx ':precision))
-              (define-values (cx name) (ctx-unique-name ctx* var prec))
-              (define array* array)
-              (set! array (make-hash))
-              (define val*
-                (parameterize ([*array-depth* (+ (*array-depth*) 1)])
-                  (texify val ctx parens (cons id loc))))
-              (cond                 ; single-line values are nice
-               [(hash-empty? array) ; store bindings in an alist, and defer printing
-                (set! array array*)
-                (values cx (cons (cons name val*) bindings))]
-               [else                ; multi-line value messes things up!
-                (when (not (null? bindings))      ; print previous bindings
-                  (array-add! array* (let-bindings->tex (reverse bindings))))
-                (array-add! array* (format "~a := ~a" name val*))
-                (merge-arrays! array* array)      ; output this binding
-                (set! array array*) 
-                (values cx '())])))               ; clear and continue
-          (when (not (null? bindings))            ; print any remaining bindings
-            (array-add! array (let-bindings->tex (reverse bindings))))
-          (texify body ctx* parens loc)]
-        [`(let* ([,vars ,vals] ...) ,body)
-          (define ctx*
-            (for/fold ([ctx* ctx]) ([var vars] [val vals] [id (in-naturals 1)])
-              (define prec (ctx-lookup-prop ctx ':precision))
-              (define-values (cx name) (ctx-unique-name ctx* var prec))
-              (define array* array)
-              (set! array (make-hash))
-              (define val*
-                (parameterize ([*array-depth* (+ (*array-depth*) 1)])
-                  (texify val ctx* parens (cons id loc))))
-              (array-add! array* (format "~a := ~a" name val*))
-              (merge-arrays! array* array)
-              (set! array array*)
-              cx))
-          (texify body ctx* parens loc)]
-        [`(if ,cond ,ift ,iff)
-         (for ([branch (collect-branches expr loc)] [n (in-naturals)])
-          (match branch
-           [(list #t bexpr bloc)
-            (array-add! array "\\mathbf{else}:")
-            (parameterize ([*array-depth* (+ (*array-depth*) 1)])
-              (let ([bexpr* (texify bexpr ctx #t (cons 2 bloc))])
-                (when (non-empty-string? bexpr*)
-                  (array-add! array bexpr*))))]
-           [(list bcond bexpr bloc)
-            (array-add! array (format "\\mathbf{~a}\\;~a:"
-                                      (if (= n 0) "if" "elif")
-                                      (texify bcond ctx #t (cons 1 bloc))))
-            (parameterize ([*array-depth* (+ (*array-depth*) 1)])
-              (let ([bexpr* (texify bexpr ctx #t (cons 2 bloc))])
-                (when (non-empty-string? bexpr*)
-                  (array-add! array bexpr*))))]))
-          ""]
+       [`(let ([,vars ,vals] ...) ,body)
+        (array->tex expr ctx color-loc color loc parens)]
+       [`(let* ([,vars ,vals] ...) ,body)
+        (array->tex expr ctx color-loc color loc parens)]
+       [`(if ,cond ,ift ,iff)
+        (array->tex expr ctx color-loc color loc parens)]
 
-        [`(cast ,body)
-          (format "\\langle ~a \\rangle_{\\text{~a}}"
-                  (texify body ctx parens loc) (ctx-lookup-prop ctx ':precision))]
-
-        [`(! ,props ... ,body) 
-          (define curr-prec (ctx-lookup-prop ctx ':precision))
-          (define curr-rnd (ctx-lookup-prop ctx ':round))
-          (define ctx* (ctx-update-props ctx props))
-          (define body* (texify body ctx* parens loc))
-          (define new-prec (ctx-lookup-prop ctx* ':precision curr-prec))
-          (define new-rnd (ctx-lookup-prop ctx* ':round curr-rnd))
-          (cond
-            [(and (not (equal? curr-prec new-prec)) (not (equal? curr-rnd new-rnd)))
-             (format "\\left( ~a \\right)_{\\text{~a}, \\text{~a}}" body* (round-mode->tex new-rnd) new-prec)]
-            [(not (equal? curr-prec new-prec))
-             (format "\\left( ~a \\right)_{\\text{~a}}" body* new-prec)]
-            [(not (equal? curr-rnd new-rnd))
-             (format "\\left( ~a \\right)_{\\text{~a}}" body* (round-mode->tex new-rnd))]
-            [else body*])]
-
-        [(? exact-integer?)
-         (number->string expr)]
-        [(and (? rational?) (? exact?))
-         (format "\\frac{~a}{~a}" (numerator expr) (denominator expr))]
-        [(? (conjoin complex? (negate real?))) ;; Herbie stuff
-         (format "~a ~a ~a i"
-                 (texify (real-part expr) ctx '+ loc)
-                 (if (or (< (imag-part expr) 0) (equal? (imag-part expr) -0.0)) '- '+)
-                 (texify (abs (imag-part expr)) ctx '+ loc))]
-        [(or (list 'digits (? number?) (? number?) (? number?)) (? hex?) (? number?))
-         (define expr*
-           (number->string
-            (match expr
-              [(list digits m e b) (digits->number m e b)]
-              [(? hex?) (hex->racket expr)]
-              [_ expr])))
-         (match expr*
-          [(or "+inf.0" "+inf.f") "+\\infty"]
-          [(or "-inf.0" "-inf.f") "-\\infty"]
-          [(or "+nan.0" "+nan.f") "\\mathsf{NaN}"]
-          [_  
-            (match (string-split (string-trim expr* ".0") #rx"e|f")
-              [(list num) num]
-              [(list significand exp)
-                (define num
-                  (if (equal? significand "1")
-                      (format "10^{~a}" exp)
-                      (format "~a \\cdot 10^{~a}" significand exp)))
-                (if (precedence< parens #f) num (format "\\left( ~a \\right)" num))])])]
-        [(? constant?) (constant->tex expr)]
-        [(? symbol?) (variable->tex expr)]
+       [`(cast ,body)
+        (format "\\langle ~a \\rangle_{\\text{~a}}"
+                (texify body ctx parens loc) (ctx-lookup-prop ctx ':precision))]
+       [`(! ,props ... ,body) 
+        (define curr-prec (ctx-lookup-prop ctx ':precision))
+        (define curr-rnd (ctx-lookup-prop ctx ':round))
+        (define ctx* (ctx-update-props ctx props))
+        (define body* (texify body ctx* parens loc))
+        (define new-prec (ctx-lookup-prop ctx* ':precision curr-prec))
+        (define new-rnd (ctx-lookup-prop ctx* ':round curr-rnd))
+        (cond
+         [(and (not (equal? curr-prec new-prec)) (not (equal? curr-rnd new-rnd)))
+          (format "\\left( ~a \\right)_{\\text{~a}, \\text{~a}}" body* (round-mode->tex new-rnd) new-prec)]
+         [(not (equal? curr-prec new-prec))
+          (format "\\left( ~a \\right)_{\\text{~a}}" body* new-prec)]
+         [(not (equal? curr-rnd new-rnd))
+          (format "\\left( ~a \\right)_{\\text{~a}}" body* (round-mode->tex new-rnd))]
+         [else body*])]
         
-        [`(<= ,x ,(or -inf.0 -inf.f))
-         (texify `(== ,x -inf.0) ctx parens loc)]
-        [(list op args ...)
-         (define-values (self-paren-level arg-paren-level) (precedence-levels op))
-         (define texed-args
-           (for/list ([arg args] [id (in-naturals 1)])
-             (texify arg ctx arg-paren-level (cons id loc))))
-         (format ; omit parens if parent contex has lower precedence
-           (if (or (precedence< parens self-paren-level) (equal? self-paren-level 'fn)) 
-               "~a" 
-               "\\left(~a\\right)")
-           (application->tex op texed-args))]))))
-
-(define (format-output body array)
-  (define IND "\\;\\;\\;\\;")
-  (with-output-to-string
-     (λ ()
-      (cond
-       [(> (hash-count array) 0)
-        (printf "\\begin{array}{l}\n")
-        (for ([i (in-range (hash-count array))])
-          (define v (hash-ref array i))
-          (for ([i (in-range (cdr v))]) (printf "~a" IND))
-          (printf "~a\\\\\n" (car v)))
-        (when (non-empty-string? body)
-          (printf "~a\\\\\n" body))
-        (printf "\\end{array}")]
-       [else (printf "~a" body)]))))
+       [(list 'digits (? number? m) (? number? e) (? number? b))
+        (datum->tex expr ctx parens)]
+       [`(<= ,x ,(or -inf.0 -inf.f))
+        (texify `(== ,x -inf.0) ctx parens loc)]
+       [(list op args ...)
+        (define-values (self-paren-level arg-paren-level) (precedence-levels op))
+        (define texed-args
+          (for/list ([arg args] [id (in-naturals 1)])
+            (texify arg ctx arg-paren-level (cons id loc))))
+        (format ; omit parens if parent contex has lower precedence
+          (if (or (precedence< parens self-paren-level) (equal? self-paren-level 'fn)) 
+              "~a" 
+              "\\left(~a\\right)")
+          (application->tex op texed-args))]
+       [_ (datum->tex expr ctx parens)]))))
 
 ;; Exports
 
 (define (expr->tex expr #:prec [prec 'binary64] #:loc [color-loc #f] #:color [color "red"])
   (define ctx (ctx-update-props (make-compiler-ctx) (list ':precision prec)))
-  (define array (make-hash))
-  (define expr* (expr->tex* expr ctx color-loc color array))
-  (format-output expr* array))
+  (define expr* (expr->tex* expr ctx color-loc color))
+  expr*)
 
 ; Names are optional in TeX programs
 (define (core->tex prog [name ""] #:loc [color-loc #f] #:color [color "red"])
@@ -374,8 +417,7 @@
                               name)
                   (ctx-props ctx))])))
 
-    (define array (make-hash))
-    (define body* (format-output (expr->tex* body ctx color-loc color array) array))
+    (define body* (expr->tex* body ctx color-loc color))
     (if (non-empty-string? func-name)
         (format "\\mathsf{~a}\\left(~a\\right) = ~a\n"
                 func-name (string-join arg-names ", ") body*)

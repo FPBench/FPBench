@@ -225,13 +225,10 @@
    [(? symbol?) (variable->tex expr ctx)]))
   
 
-(define (stmt->tex expr ctx color-loc color loc parens indent)
-  (define initial-loc loc)
-  (let texify ([expr expr] [ctx ctx] [parens parens] [loc loc] [indent indent])
+(define (stmt->tex expr ctx color-loc color [loc '(2)] [parens #t])
+  (let texify ([expr expr] [ctx ctx] [parens parens] [loc loc] [indent 0])
     (format
-      (if (and color-loc
-               (equal? (reverse color-loc) loc)
-               (not (equal? loc initial-loc)))   ; avoid double color
+      (if (and color-loc (equal? (reverse color-loc) loc))
         (format "\\color{~a}{~~a}" color)
         "~a")
       (match expr
@@ -271,7 +268,7 @@
                   (values val* (get-output-string p)))))
             (printf "~a~a := ~a\\\\\n" (indent->tex indent) name val*)
             (when (non-empty-string? multi)
-              (printf "~a\\\\\n" multi))
+              (printf "~a" multi))
             cx))
         (texify body ctx* parens loc indent)]
        [`(if ,cond ,ift ,iff)
@@ -288,7 +285,7 @@
                   (with-output-to-string  ; modified array->tex (val comes after)
                     (λ ()
                       (printf "\\begin{array}{l}\n")
-                      (define val (stmt->tex bcond ctx color-loc color loc parens 0))
+                      (define val (stmt->tex bcond ctx color-loc color loc parens))
                       (printf "\\end{array}")
                       (when (non-empty-string? val)
                         (printf "~a\n" val))))
@@ -336,11 +333,11 @@
           (application->tex op texed-args))]
        [_ (datum->tex expr ctx parens)]))))
 
-(define (array->tex expr ctx color-loc color loc parens)
+(define (array->tex expr ctx color-loc color)
   (with-output-to-string
     (λ ()
       (printf "\\begin{array}{l}\n")
-      (define val (stmt->tex expr ctx color-loc color loc parens 0))
+      (define val (stmt->tex expr ctx color-loc color))
       (when (non-empty-string? val)
         (printf "~a\n" val))
       (printf "\\end{array}"))))
@@ -352,13 +349,6 @@
         (format "\\color{~a}{~~a}" color)
         "~a")
       (match expr
-       [`(let ([,vars ,vals] ...) ,body)
-        (array->tex expr ctx color-loc color loc parens)]
-       [`(let* ([,vars ,vals] ...) ,body)
-        (array->tex expr ctx color-loc color loc parens)]
-       [`(if ,cond ,ift ,iff)
-        (array->tex expr ctx color-loc color loc parens)]
-
        [`(cast ,body)
         (format "\\langle ~a \\rangle_{\\text{~a}}"
                 (texify body ctx parens loc) (ctx-lookup-prop ctx ':precision))]
@@ -434,7 +424,10 @@
                               name)
                   (ctx-props ctx))])))
 
-    (define body* (expr->tex* body ctx color-loc color))
+    (define body*
+      (if (multiline-expr? body)
+          (array->tex body ctx color-loc color)
+          (expr->tex* body ctx color-loc color)))
     (if (non-empty-string? func-name)
         (format "\\mathsf{~a}\\left(~a\\right) = ~a\n"
                 func-name (string-join arg-names ", ") body*)

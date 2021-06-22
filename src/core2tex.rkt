@@ -179,6 +179,14 @@
 (define (indent->tex level)
   (apply string-append (build-list level (λ (_) "\\;\\;\\;\\;"))))
 
+(define (multiline-expr? expr)
+  (match expr
+   [`(let ([,vars ,vals] ...) ,body) #t]
+   [`(let* ([,vars ,vals] ...) ,body) #t]
+   [`(if ,cond ,ift ,iff) #t]
+   [`(,op ,args ...) (ormap multiline-expr? args)]
+   [_ #f]))
+
 ;; Main texifier
 
 (define (datum->tex expr ctx parens)
@@ -275,9 +283,19 @@
               (when (non-empty-string? bexpr*)
                 (printf "~a~a\\\\\n" (indent->tex (+ indent 1)) bexpr*)))]
            [(list bcond bexpr bloc)
+            (define val*
+              (if (multiline-expr? bcond) ; multi-line conditions require nested array environment
+                  (with-output-to-string  ; modified array->tex (val comes after)
+                    (λ ()
+                      (printf "\\begin{array}{l}\n")
+                      (define val (stmt->tex bcond ctx color-loc color loc parens 0))
+                      (printf "\\end{array}")
+                      (when (non-empty-string? val)
+                        (printf "~a\n" val))))
+                  (texify bcond ctx #t (cons 1 bloc) (+ indent 1))))
             (printf "~a\\mathbf{~a}\\;~a:\\\\\n" (indent->tex indent)
-                                             (if (= n 0) "if" "elif")
-                                             (texify bcond ctx #t (cons 1 bloc) (+ indent 1)))
+                                                 (if (= n 0) "if" "elif")
+                                                 val*)
             (let ([bexpr* (texify bexpr ctx #t (cons 2 bloc) (+ indent 1))])
               (when (non-empty-string? bexpr*)
                 (printf "~a~a\\\\\n" (indent->tex (+ indent 1)) bexpr*)))]))
@@ -380,8 +398,7 @@
 
 (define (expr->tex expr #:prec [prec 'binary64] #:loc [color-loc #f] #:color [color "red"])
   (define ctx (ctx-update-props (make-compiler-ctx) (list ':precision prec)))
-  (define expr* (expr->tex* expr ctx color-loc color))
-  expr*)
+  (expr->tex* expr ctx color-loc color))
 
 ; Names are optional in TeX programs
 (define (core->tex prog [name ""] #:loc [color-loc #f] #:color [color "red"])

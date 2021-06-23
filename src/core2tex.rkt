@@ -179,7 +179,7 @@
 (define (stmt->tex expr ctx color-loc color [parens #t] [loc '(2)])
   (tex->color color-loc loc color
     (match expr
-      [`(let ([,vars ,vals] ...) ,body)
+     [`(let ([,vars ,vals] ...) ,body)
       (define vals*
         (for/list ([val vals] [id (in-naturals 0)])
           (expr->tex val ctx color-loc color parens
@@ -189,7 +189,7 @@
                 (string-join (map ~a vars) ", ")
                 (string-join vals* ", ")
                 (stmt->tex body ctx color-loc color parens (cons 2 loc))))]
-      [`(let* ([,vars ,vals] ...) ,body)
+     [`(let* ([,vars ,vals] ...) ,body)
       (define vals*
         (for/list ([val vals] [id (in-naturals 0)])
           (expr->tex val ctx color-loc color parens
@@ -200,102 +200,101 @@
                   (format "~a := ~a\\\\" var val))
                 "\n")
               (stmt->tex body ctx color-loc color parens (cons 2 loc)))]
-      [`(if ,cond ,ift ,iff)
-        (define NL "\\\\\n")
-        (define IND "\\;\\;\\;\\;")
-        (with-output-to-string
-          (λ ()
-            (for ([branch (collect-branches expr loc)] [n (in-naturals)])
-              (match branch
-                [(list #t bexpr bloc)
-                (printf "\\mathbf{else}:~a~a~a~a\n" NL IND
-                        (expr->tex bexpr ctx color-loc color #t (cons 2 bloc))
-                        NL)]
-                [(list bcond bexpr bloc)
-                (printf "\\mathbf{~a}\\;~a:~a~a~a~a\n"
-                        (if (= n 0) "if" "elif")
-                        (expr->tex bcond ctx color-loc color #t (cons 1 bloc))
-                        NL IND
-                        (expr->tex bexpr ctx color-loc color #t (cons 2 bloc))
-                        NL)]))))]
-      [_ (expr->tex expr ctx color-loc color parens loc)])))
+     [`(if ,cond ,ift ,iff)
+      (define NL "\\\\\n")
+      (define IND "\\;\\;\\;\\;")
+      (with-output-to-string
+        (λ ()
+          (for ([branch (collect-branches expr loc)] [n (in-naturals)])
+            (match branch
+              [(list #t bexpr bloc)
+              (printf "\\mathbf{else}:~a~a~a~a\n" NL IND
+                      (expr->tex bexpr ctx color-loc color #t (cons 2 bloc))
+                      NL)]
+              [(list bcond bexpr bloc)
+              (printf "\\mathbf{~a}\\;~a:~a~a~a~a\n"
+                      (if (= n 0) "if" "elif")
+                      (expr->tex bcond ctx color-loc color #t (cons 1 bloc))
+                      NL IND
+                      (expr->tex bexpr ctx color-loc color #t (cons 2 bloc))
+                      NL)]))))]
+     [_ (expr->tex expr ctx color-loc color parens loc)])))
 
 (define (expr->tex expr ctx color-loc color [parens #t] [loc '(2)])
-  (let texify ([expr expr] [ctx ctx] [parens parens] [loc loc])
-    (tex->color color-loc loc color
-      (match expr
-       [`(let ([,vars ,vals] ...) ,body)
-        (format "\\begin{array}{l}\n~a\n\\end{array}"
-          (stmt->tex expr ctx color-loc color parens loc))]
-       [`(let* ([,vars ,vals] ...) ,body)
-        (format "\\begin{array}{l}\n~a\n\\end{array}"
-          (stmt->tex expr ctx color-loc color parens loc))]
-       [`(if ,cond ,ift ,iff)
-        (format "\\begin{array}{l}\n~a\n\\end{array}"
-          (stmt->tex expr ctx color-loc color parens loc))]
+  (tex->color color-loc loc color
+    (match expr
+     [`(let ([,vars ,vals] ...) ,body)
+      (format "\\begin{array}{l}\n~a\n\\end{array}"
+        (stmt->tex expr ctx color-loc color parens loc))]
+     [`(let* ([,vars ,vals] ...) ,body)
+      (format "\\begin{array}{l}\n~a\n\\end{array}"
+        (stmt->tex expr ctx color-loc color parens loc))]
+     [`(if ,cond ,ift ,iff)
+      (format "\\begin{array}{l}\n~a\n\\end{array}"
+        (stmt->tex expr ctx color-loc color parens loc))]
 
-       [`(cast ,body)
-        (format "\\langle ~a \\rangle_{\\text{~a}}"
-                (texify body ctx parens loc) (ctx-lookup-prop ctx ':precision))]
-       [`(! ,props ... ,body) 
-        (define curr-prec (ctx-lookup-prop ctx ':precision))
-        (define curr-rnd (ctx-lookup-prop ctx ':round))
-        (define ctx* (ctx-update-props ctx props))
-        (define body* (texify body ctx* parens loc))
-        (define new-prec (ctx-lookup-prop ctx* ':precision curr-prec))
-        (define new-rnd (ctx-lookup-prop ctx* ':round curr-rnd))
-        (cond
-         [(and (not (equal? curr-prec new-prec)) (not (equal? curr-rnd new-rnd)))
-          (format "\\left( ~a \\right)_{\\text{~a}, \\text{~a}}" body* (round-mode->tex new-rnd) new-prec)]
-         [(not (equal? curr-prec new-prec))
-          (format "\\left( ~a \\right)_{\\text{~a}}" body* new-prec)]
-         [(not (equal? curr-rnd new-rnd))
-          (format "\\left( ~a \\right)_{\\text{~a}}" body* (round-mode->tex new-rnd))]
-         [else body*])]
+     [`(cast ,body)
+      (format "\\langle ~a \\rangle_{\\text{~a}}"
+              (expr->tex body ctx color-loc color parens loc) (ctx-lookup-prop ctx ':precision))]
+     [`(! ,props ... ,body) 
+      (define curr-prec (ctx-lookup-prop ctx ':precision))
+      (define curr-rnd (ctx-lookup-prop ctx ':round))
+      (define ctx* (ctx-update-props ctx props))
+      (define body* (expr->tex body ctx* color-loc color parens loc))
+      (define new-prec (ctx-lookup-prop ctx* ':precision curr-prec))
+      (define new-rnd (ctx-lookup-prop ctx* ':round curr-rnd))
+      (cond
+        [(and (not (equal? curr-prec new-prec)) (not (equal? curr-rnd new-rnd)))
+        (format "\\left( ~a \\right)_{\\text{~a}, \\text{~a}}" body* (round-mode->tex new-rnd) new-prec)]
+        [(not (equal? curr-prec new-prec))
+        (format "\\left( ~a \\right)_{\\text{~a}}" body* new-prec)]
+        [(not (equal? curr-rnd new-rnd))
+        (format "\\left( ~a \\right)_{\\text{~a}}" body* (round-mode->tex new-rnd))]
+        [else body*])]
+      
+     [(list 'digits (? number? m) (? number? e) (? number? b))
+      (expr->tex (digits->number m e b) ctx color-loc color parens loc)]
+     [`(<= ,x ,(or -inf.0 -inf.f))
+       ( `(== ,x -inf.0) ctx parens loc)]
+     [(list op args ...)
+      (define-values (self-paren-level arg-paren-level) (precedence-levels op))
+      (define texed-args
+        (for/list ([arg args] [id (in-naturals 1)])
+          (expr->tex arg ctx color-loc color arg-paren-level (cons id loc))))
+      (format ; omit parens if parent contex has lower precedence
+        (if (or (precedence< parens self-paren-level) (equal? self-paren-level 'fn)) 
+            "~a" 
+            "\\left(~a\\right)")
+        (application->tex op texed-args))]
         
-       [(list 'digits (? number? m) (? number? e) (? number? b))
-        (texify (digits->number m e b) ctx parens loc)]
-       [`(<= ,x ,(or -inf.0 -inf.f))
-        (texify `(== ,x -inf.0) ctx parens loc)]
-       [(list op args ...)
-        (define-values (self-paren-level arg-paren-level) (precedence-levels op))
-        (define texed-args
-          (for/list ([arg args] [id (in-naturals 1)])
-            (texify arg ctx arg-paren-level (cons id loc))))
-        (format ; omit parens if parent contex has lower precedence
-          (if (or (precedence< parens self-paren-level) (equal? self-paren-level 'fn)) 
-              "~a" 
-              "\\left(~a\\right)")
-          (application->tex op texed-args))]
-          
-       [(? hex?)
-        (texify (hex->racket expr) ctx parens loc)]
-       [(? exact-integer?)
-        (number->string expr)]
-       [(and (? rational?) (? exact?))
-        (format "\\frac{~a}{~a}" (numerator expr) (denominator expr))]
-       [(? (conjoin complex? (negate real?))) ;; Herbie stuff
-        (format "~a ~a ~a i"
-                (texify (real-part expr) ctx '+ loc)
-                (if (or (< (imag-part expr) 0) (equal? (imag-part expr) -0.0)) '- '+)
-                (texify (abs (imag-part expr)) ctx '+ loc))]
-       [(or (list 'digits (? number?) (? number?) (? number?)) (? hex?) (? number?))
-        (define expr* (number->string expr))
-        (match expr*
-         [(or "+inf.0" "+inf.f") "+\\infty"]
-         [(or "-inf.0" "-inf.f") "-\\infty"]
-         [(or "+nan.0" "+nan.f") "\\mathsf{NaN}"]
-         [_  
-          (match (string-split (string-trim expr* ".0") #rx"e|f")
-            [(list num) num]
-            [(list significand exp)
-              (define num
-                (if (equal? significand "1")
-                    (format "10^{~a}" exp)
-                    (format "~a \\cdot 10^{~a}" significand exp)))
-              (if (precedence< parens #f) num (format "\\left( ~a \\right)" num))])])]
-       [(? constant?) (constant->tex expr)]
-       [(? symbol?) (variable->tex expr)]))))
+     [(? hex?)
+      (expr->tex (hex->racket expr) ctx color-loc color parens loc)]
+     [(? exact-integer?)
+      (number->string expr)]
+     [(and (? rational?) (? exact?))
+      (format "\\frac{~a}{~a}" (numerator expr) (denominator expr))]
+     [(? (conjoin complex? (negate real?))) ;; Herbie stuff
+      (format "~a ~a ~a i"
+              (expr->tex (real-part expr) ctx color-loc color '+ loc)
+              (if (or (< (imag-part expr) 0) (equal? (imag-part expr) -0.0)) '- '+)
+              (expr->tex (abs (imag-part expr)) ctx color-loc color '+ loc))]
+     [(or (list 'digits (? number?) (? number?) (? number?)) (? hex?) (? number?))
+      (define expr* (number->string expr))
+      (match expr*
+        [(or "+inf.0" "+inf.f") "+\\infty"]
+        [(or "-inf.0" "-inf.f") "-\\infty"]
+        [(or "+nan.0" "+nan.f") "\\mathsf{NaN}"]
+        [_  
+        (match (string-split (string-trim expr* ".0") #rx"e|f")
+          [(list num) num]
+          [(list significand exp)
+            (define num
+              (if (equal? significand "1")
+                  (format "10^{~a}" exp)
+                  (format "~a \\cdot 10^{~a}" significand exp)))
+            (if (precedence< parens #f) num (format "\\left( ~a \\right)" num))])])]
+     [(? constant?) (constant->tex expr)]
+     [(? symbol?) (variable->tex expr)])))
 
 ;; Exports
 

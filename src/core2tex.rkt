@@ -317,8 +317,8 @@
     (define arg-names
       (for/list ([var args])
         (match var
-          [(list '! props ... name) name]
-          [_ var])))
+         [(list '! props ... name) (fix-name (~a name))]
+         [_ (fix-name (~a var))])))
 
     (define body* (expr->tex body ctx color-loc color))
     (if (non-empty-string? name)

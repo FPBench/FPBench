@@ -31,6 +31,9 @@
 
 ;;;;;; main cse
 
+(define (syntax? name)
+  (set-member? '(if let let* while while* for for* tensor tensor* !) name))
+
 (define (filter-no-edges deps)
   (map car (filter (compose null? cdr) deps)))
 
@@ -76,7 +79,7 @@
         (set! exprc (+ 1 exprc))
         (hash-set! exprs old-exprc
           (match expr
-           [(list op args ...)
+           [(list op args ...)  ; don't check let vals
             (cond   ; add variables names if needed
              [(set-member? '(let let*) op)
               (for ([arg (first args)]) (add-name! arg))]
@@ -84,9 +87,9 @@
               (for ([arg (second args)]) (add-name! arg))])
             (cons op (map munge args))]
            [_ 
-            (list expr)])))]))
+            (list expr)])))]))  ; put constants into lists so its not confused with indices
 
-  (define root (munge expr))
+  (define root (munge expr))  ; fill `exprhash` and `exprs` and store top index
 
   ; let locations (lowest common ancestor), dependent idxs
   ; idx -> (loc, deps ...)
@@ -99,8 +102,18 @@
         (if (set-member? common idx)
             (hash idx (cons idx (remove-duplicates (apply append (map hash-keys hs)))))
             (hash)))
-      (apply hash-union h hs
-             #:combine (λ (x y) (cons idx (remove-duplicates (append (cdr x) (cdr y))))))))
+      (define h* (apply hash-union h hs #:combine (λ (x y) (cons idx (remove-duplicates (append (cdr x) (cdr y)))))))
+      (cond
+       [(syntax? op) h*]    ; do not attempt to propogate up let bindings
+       [else
+        (define possible  ; gather all common idxs bound one level below
+          (for/hash ([(k v) (in-hash h*)] #:when (set-member? args (car v)))
+            (values k v)))
+        (define prop-up   ; cannot be dependent on locs above this level
+          (for/hash ([(k v) (in-hash possible)]
+                    #:when (andmap (curry hash-has-key? possible) (cdr v)))
+            (values k (cons idx (cdr v)))))
+        (hash-union h* prop-up #:combine (λ (x y) y))])))
 
   (define common-locs (mutable-set))
   (for ([vals (hash-values common-deps)])
@@ -126,12 +139,12 @@
        [(set-member? common-locs idx) ; location for let bindings
         (define bindings (gen-let-bindings idx))
         (list 'let* bindings (loop idx))]
-       [(> (length expr) 1)
+       [(> (length expr) 1) ; (op args ...)
         (cons (car expr) (map loop (cdr expr)))]
        [else 
         (if (list? (car expr)) expr (car expr))])))
 
-  (reconstruct root))
+  (reconstruct root)) ; reconstruct expression top-down
 
 ;;;;;;; top-level
 

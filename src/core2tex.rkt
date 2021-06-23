@@ -169,7 +169,7 @@
 
 (define (tex->color color-loc loc color expr)
   (cond 
-   [(string-prefix? expr "\\color{") expr]
+   [(string-prefix? expr "\\color{") expr]  ; avoid double coloring
    [(and color-loc (equal? (reverse color-loc) loc))
     (format "\\color{~a}{~a}" color expr)]
    [else expr]))
@@ -177,50 +177,48 @@
 ;; Main texifier
 
 (define (stmt->tex expr ctx color-loc color [parens #t] [loc '(2)])
-  (let texify ([expr expr] [ctx ctx] [parens parens] [loc loc])
-    (tex->color color-loc loc color
-     (match expr
-       [`(let ([,vars ,vals] ...) ,body)
-        (define vals*
-          (for/list ([val vals] [id (in-naturals 0)])
-            (expr->tex val ctx color-loc color parens
-                       (append (list 1 id 1) loc))))         
-        (string-append
-          (format "~a := ~a\\\\\n~a"
-                  (string-join (map ~a vars) ", ")
-                  (string-join vals* ", ")
-                  (texify body ctx parens (cons 2 loc))))]
-       [`(let* ([,vars ,vals] ...) ,body)
-        (define vals*
-          (for/list ([val vals] [id (in-naturals 0)])
-            (expr->tex val ctx color-loc color parens
-                       (append (list 1 id 1) loc))))
-        (string-append
-          (string-join
-            (for/list ([var vars] [val vals*])
-              (format "~a := ~a\\\\" var val))
-            "\n")
-          "\n"
-          (texify body ctx parens (cons 2 loc)))]
-       [`(if ,cond ,ift ,iff)
-         (define NL "\\\\\n")
-         (define IND "\\;\\;\\;\\;")
-         (with-output-to-string
-           (λ ()
-             (for ([branch (collect-branches expr loc)] [n (in-naturals)])
-               (match branch
-                 [(list #t bexpr bloc)
-                  (printf "\\mathbf{else}:~a~a~a~a\n" NL IND
-                          (expr->tex bexpr ctx color-loc color #t (cons 2 bloc))
-                          NL)]
-                 [(list bcond bexpr bloc)
-                  (printf "\\mathbf{~a}\\;~a:~a~a~a~a\n"
-                          (if (= n 0) "if" "elif")
-                          (expr->tex bcond ctx color-loc color #t (cons 1 bloc))
-                          NL IND 
-                          (expr->tex bexpr ctx color-loc color #t (cons 2 bloc))
-                          NL)]))))]
-       [_ (expr->tex expr ctx color-loc color parens loc)]))))
+  (tex->color color-loc loc color
+    (match expr
+      [`(let ([,vars ,vals] ...) ,body)
+      (define vals*
+        (for/list ([val vals] [id (in-naturals 0)])
+          (expr->tex val ctx color-loc color parens
+                      (append (list 1 id 1) loc))))         
+      (string-append
+        (format "~a := ~a\\\\\n~a"
+                (string-join (map ~a vars) ", ")
+                (string-join vals* ", ")
+                (stmt->tex body ctx color-loc color parens (cons 2 loc))))]
+      [`(let* ([,vars ,vals] ...) ,body)
+      (define vals*
+        (for/list ([val vals] [id (in-naturals 0)])
+          (expr->tex val ctx color-loc color parens
+                      (append (list 1 id 1) loc))))
+      (format "~a\n~a"
+              (string-join
+                (for/list ([var vars] [val vals*])
+                  (format "~a := ~a\\\\" var val))
+                "\n")
+              (stmt->tex body ctx color-loc color parens (cons 2 loc)))]
+      [`(if ,cond ,ift ,iff)
+        (define NL "\\\\\n")
+        (define IND "\\;\\;\\;\\;")
+        (with-output-to-string
+          (λ ()
+            (for ([branch (collect-branches expr loc)] [n (in-naturals)])
+              (match branch
+                [(list #t bexpr bloc)
+                (printf "\\mathbf{else}:~a~a~a~a\n" NL IND
+                        (expr->tex bexpr ctx color-loc color #t (cons 2 bloc))
+                        NL)]
+                [(list bcond bexpr bloc)
+                (printf "\\mathbf{~a}\\;~a:~a~a~a~a\n"
+                        (if (= n 0) "if" "elif")
+                        (expr->tex bcond ctx color-loc color #t (cons 1 bloc))
+                        NL IND
+                        (expr->tex bexpr ctx color-loc color #t (cons 2 bloc))
+                        NL)]))))]
+      [_ (expr->tex expr ctx color-loc color parens loc)])))
 
 (define (expr->tex expr ctx color-loc color [parens #t] [loc '(2)])
   (let texify ([expr expr] [ctx ctx] [parens parens] [loc loc])
@@ -326,7 +324,9 @@
     (define body* (expr->tex body ctx color-loc color))
     (if (non-empty-string? name)
         (format "\\mathsf{~a}\\left(~a\\right) = ~a\n"
-                name (string-join arg-names ", ") body*)
+                name
+                (string-join arg-names ", ")
+                body*)
         (format "~a\n" body*))))
     
 (define-compiler '("tex") (const "") core->tex (const "") tex-supported)

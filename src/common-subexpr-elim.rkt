@@ -29,6 +29,25 @@
 (define (add-name! name)
   (set-add! (*names*) name))
 
+;;;;;; fuse let expressions
+
+(define (visit-let/fuse visitor let_ vars vals body #:ctx [ctx '()])
+  (match body
+   [`(,(or 'let 'let*) ([,vars2 ,vals2] ...) ,body2)
+    (define comb-vars (append vars vars2))
+    (if (check-duplicates comb-vars) ; don't fuse with duplicates
+        `(let (,@(for/list ([var vars] [val vals]) (list var (visit/ctx visitor val ctx))))
+              ,(visit/ctx visitor body ctx))
+        (visit/ctx visitor
+                   `(let* (,@(map list comb-vars (append vals vals2))) ,body2)
+                   ctx))]
+   [else
+    `(,let_ (,@(for/list ([var vars] [val vals]) (list var (visit/ctx visitor val ctx))))
+          ,(visit/ctx visitor body ctx))]))
+
+(define/transform-expr (fuse-let expr)
+  [visit-let_ visit-let/fuse])
+
 ;;;;;; main cse
 
 (define (syntax? name)
@@ -144,7 +163,7 @@
        [else 
         (if (list? (car expr)) expr (car expr))])))
 
-  (reconstruct root)) ; reconstruct expression top-down
+  (fuse-let (reconstruct root))) ; reconstruct expression top-down
 
 ;;;;;;; top-level
 
@@ -191,7 +210,7 @@
              '(FPCore (a) (let ((j0 (+ a a))) (+ (+ a a) j0))))
 
   (check-cse '(FPCore (a) (let ((i0 (- a a))) (- (+ (+ a a) (+ a a)) i0)))
-             '(FPCore (a) (let ((i0 (- a a))) (- (let* ((t_0 (+ a a))) (+ t_0 t_0)) i0))))
+             '(FPCore (a) (let* ((i0 (- a a)) (t_0 (+ a a))) (- (+ t_0 t_0) i0))))
 
   (check-cse '(FPCore (a) (let ((x (- a a))) (let ((x (+ a a))) x)))
              '(FPCore (a) (let ((x (- a a))) (let ((x (+ a a))) x))))

@@ -29,25 +29,6 @@
 (define (add-name! name)
   (set-add! (*names*) name))
 
-;;;;;; fuse let expressions
-
-(define (visit-let/fuse visitor let_ vars vals body #:ctx [ctx '()])
-  (match body
-   [`(,(or 'let 'let*) ([,vars2 ,vals2] ...) ,body2)
-    (define comb-vars (append vars vars2))
-    (if (check-duplicates comb-vars) ; don't fuse with duplicates
-        `(let (,@(for/list ([var vars] [val vals]) (list var (visit/ctx visitor val ctx))))
-              ,(visit/ctx visitor body ctx))
-        (visit/ctx visitor
-                   `(let* (,@(map list comb-vars (append vals vals2))) ,body2)
-                   ctx))]
-   [else
-    `(,let_ (,@(for/list ([var vars] [val vals]) (list var (visit/ctx visitor val ctx))))
-          ,(visit/ctx visitor body ctx))]))
-
-(define/transform-expr (fuse-let expr)
-  [visit-let_ visit-let/fuse])
-
 ;;;;;; main cse
 
 (define (filter-no-edges deps)
@@ -132,7 +113,7 @@
                 #:when (= (car v) loc))
         (cons k (cdr v))))
     (set-remove! common-locs loc)
-    (for/list ([idx (topo-sort deps)]) ; assign based on dependence
+    (for/list ([idx (topo-sort deps)]) ; break ties with topo sort (dependency graph)
       (define name (gensym 't))
       (begin0 (list name (reconstruct idx))
         (hash-set! exprs idx (list name)))))
@@ -150,7 +131,7 @@
        [else 
         (if (list? (car expr)) expr (car expr))])))
 
-  (fuse-let (reconstruct root)))
+  (reconstruct root))
 
 ;;;;;;; top-level
 

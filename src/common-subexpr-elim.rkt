@@ -54,10 +54,10 @@
   (map car (filter (compose null? cdr) deps)))
 
 ; kahn's algorithm
-(define (topo-sort idxs deps)
+(define (topo-sort deps)
   (let loop ([sorted '()] [deps deps] [no-edges (filter-no-edges deps)])
     (cond
-     [(null? no-edges) (reverse sorted)]
+     [(null? no-edges) (append (reverse sorted) (map car deps))]
      [else 
       (define chosen (car no-edges))
       (define deps*
@@ -66,7 +66,7 @@
       (define edges* (filter-no-edges deps*))
       (loop (cons chosen sorted) deps* edges*)])))
 
-
+; main cse
 (define (common-subexpr-elim vars expr)
   (define exprhash  ; expr -> idx
     (make-hash
@@ -107,7 +107,7 @@
 
   (define root (munge expr))
 
-  ; get let locations, dependent exprs
+  ; let locations (lowest common ancestor), dependent idxs
   ; idx -> (loc, deps ...)
   ; dependent exprs must be bound first
   (define common-deps
@@ -125,23 +125,24 @@
   (for ([vals (hash-values common-deps)])
     (set-add! common-locs (car vals)))
 
-  ; reconstruct expression
+  ; create let bindings: ([var val] ...)
   (define (gen-let-bindings loc)
     (define deps
       (for/list ([(k v) (in-hash common-deps)]
                 #:when (= (car v) loc))
         (cons k (cdr v))))
     (set-remove! common-locs loc)
-    (for/list ([idx (topo-sort (map car deps) deps)]) ; assign based on dependence
+    (for/list ([idx (topo-sort deps)]) ; assign based on dependence
       (define name (gensym 't))
       (begin0 (list name (reconstruct idx))
         (hash-set! exprs idx (list name)))))
-  
+
+  ; reconstruct expression
   (define (reconstruct idx)
     (let loop ([idx idx])
       (define expr (hash-ref exprs idx))
       (cond
-       [(set-member? common-locs idx)
+       [(set-member? common-locs idx) ; location for let bindings
         (define bindings (gen-let-bindings idx))
         (list 'let* bindings (loop idx))]
        [(> (length expr) 1)

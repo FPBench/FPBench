@@ -76,7 +76,7 @@
          (if (hash-ref cs-hash expr #f)
            (if (hash-has-key? name-hash expr)
              (hash-ref name-hash expr)
-             (let* ([expr-name (gensym 'i)]
+             (let* ([expr-name (gensym 't)]
                     [fixed-expr (cons op elimed-exprs)])
                (hash-set! name-hash expr expr-name)
                (set! intermediates (cons (list expr-name fixed-expr)
@@ -96,13 +96,13 @@
 
   (check-equal?
     (core-common-subexpr-elim '(FPCore (a) (+ (+ a a) (+ a a))))
-    '(FPCore (a) (let* ((i (+ a a))) (+ i i))))
+    '(FPCore (a) (let* ((t (+ a a))) (+ t t))))
 
   (check-equal?
     (core-common-subexpr-elim '(FPCore (a x) (+
                                                (- (+ a x) a)
                                                (- (+ a x) a))))
-    '(FPCore (a x) (let* ((i (+ a x)) (i1 (- i a))) (+ i1 i1))))
+    '(FPCore (a x) (let* ((t (+ a x)) (t1 (- t a))) (+ t1 t1))))
   
   (check-equal?
     (core-common-subexpr-elim '(FPCore (a) (let ((j0 (+ a a))) j0)))

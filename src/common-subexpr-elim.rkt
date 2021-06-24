@@ -69,7 +69,7 @@
       (define edges* (filter-no-edges deps*))
       (loop (cons chosen sorted) deps* edges*)])))
 
-; main cse
+;; eliminator
 (define (common-subexpr-elim vars expr)
   (define exprhash  ; expr -> idx
     (make-hash
@@ -110,27 +110,25 @@
 
   (define root (munge expr))  ; fill `exprhash` and `exprs` and store top index
 
-  ; let locations (lowest common ancestor), dependent idxs
+  ; let locations, dependent idxs
   ; idx -> (loc, deps ...)
-  ; dependent exprs must be bound first
+  ; order of let bindings must respect dependencies
   (define common-deps
     (let loop ([idx root])
       (match-define (list op args ...) (hash-ref exprs idx))  ; 'op' can also be a const or var
       (define hs (map loop args))
-      (define h
+      (define h       ; add current index if it is common
         (if (set-member? common idx)
             (hash idx (cons idx (remove-duplicates (apply append (map hash-keys hs)))))
             (hash)))
-      (define h* (apply hash-union h hs #:combine (λ (x y) (cons idx (remove-duplicates (append (cdr x) (cdr y)))))))
+      (define h*      ; combine child tables with this one
+        (apply hash-union h hs
+               #:combine (λ (x y) (cons idx (remove-duplicates (append (cdr x) (cdr y)))))))
       (cond
-       [(syntax? op) h*]    ; do not attempt to propogate up let bindings
+       [(syntax? op) h*]    ; do not attempt to propogate up let bindings past block
        [else
-        (define possible  ; gather all common idxs bound one level below
+        (define prop-up  ; pull up all common idxs bound one level below
           (for/hash ([(k v) (in-hash h*)] #:when (set-member? args (car v)))
-            (values k v)))
-        (define prop-up   ; cannot be dependent on locs above this level
-          (for/hash ([(k v) (in-hash possible)]
-                    #:when (andmap (curry hash-has-key? possible) (cdr v)))
             (values k (cons idx (cdr v)))))
         (hash-union h* prop-up #:combine (λ (x y) y))])))
 

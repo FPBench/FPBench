@@ -29,20 +29,32 @@
 (define (add-name! name)
   (set-add! (*names*) name))
 
-;;;;;; fuse let* expressions
+;;;;;; fuse let expressions
 
-(define (visit-let*/fuse visitor vars vals body #:ctx [ctx '()])
-  (match body
-   [`(let* ([,vars2 ,vals2] ...) ,body2)
+(define (visit-let/fuse visitor let_ vars vals body #:ctx [ctx '()])
+  (match (list let_ vars body)
+   [(list 'let (list var) `(let ([,var2 ,val2]) ,body2))          ; (let ([a ...]) (let ([b ...]) ...))
+    (visit/ctx visitor
+              `(let* (,(list var (car vals)) ,(list var2 val2)) ,body2)
+               ctx)]
+   [(list 'let (list var) `(let* ([,vars2 ,vals2] ...) ,body2))   ; (let ([a ...]) (let* ([b ...] ...) ...))
+    (visit/ctx visitor
+              `(let* (,@(map list (cons var vars2) (cons (car vals) vals2))) ,body2)
+               ctx)]
+   [(list 'let* _ `(let ([,var2 ,val2]) ,body2))   ; (let* ([a ...] ...) (let ([b ...]) ...))
+    (visit/ctx visitor
+              `(let* (,@(map list vars vals) ,(list var2 val2)) ,body2)
+               ctx)]
+   [(list 'let* _ `(let* ([,vars2 ,vals2] ...) ,body2))   ; (let* ([a ...] ...) (let* ([b ...] ...) ...))
     (visit/ctx visitor
               `(let* (,@(map list (append vars vars2) (append vals vals2))) ,body2)
                ctx)]
-   [else
-    `(let* (,@(for/list ([var vars] [val vals]) (list var (visit/ctx visitor val ctx))))
+   [_
+    `(,let_ (,@(for/list ([var vars] [val vals]) (list var (visit/ctx visitor val ctx))))
           ,(visit/ctx visitor body ctx))]))
 
-(define/transform-expr (fuse-let* expr)
-  [visit-let* visit-let*/fuse])
+(define/transform-expr (fuse-let expr)
+  [visit-let_ visit-let/fuse])
 
 ;;;;;; main cse
 
@@ -157,7 +169,7 @@
        [else 
         (if (list? (car expr)) expr (car expr))])))
 
-  (fuse-let* (reconstruct root))) ; reconstruct expression top-down
+  (fuse-let (reconstruct root))) ; reconstruct expression top-down
 
 ;;;;;;; top-level
 
@@ -184,8 +196,12 @@
      (printf "~a\n" (core-common-subexpr-elim expr)))))
 
 (module+ test
-  (define (check-cse in out)
+
+  (define-syntax-rule (check-cse in out)
     (check-equal? (core-common-subexpr-elim in) out))
+
+  (define-syntax-rule (check-fuse-let in out)
+    (check-equal? (fuse-let in) out))
 
   (check-cse '(FPCore (a) a)
              '(FPCore (a) a))
@@ -207,5 +223,18 @@
              '(FPCore (a) (let* ((i0 (- a a)) (t_0 (+ a a))) (- (+ t_0 t_0) i0))))
 
   (check-cse '(FPCore (a) (let ((x (- a a))) (let ((x (+ a a))) x)))
-             '(FPCore (a) (let ((x (- a a))) (let ((x (+ a a))) x))))
+             '(FPCore (a) (let* ((x (- a a)) (x (+ a a))) x)))
+
+
+  (check-fuse-let '(let ([a 1]) (let* ([a 2] [b 3]) (+ a b)))
+                  '(let* ([a 1] [a 2] [b 3]) (+ a b)))
+
+  (check-fuse-let '(let ([a 1]) (let ([b 2]) (let ([c 3]) (+ (* a b) c))))
+                  '(let* ([a 1] [b 2] [c 3]) (+ (* a b) c)))
+
+  (check-fuse-let '(let* ([a 1] [b 2]) (let ([c 3]) (+ (* a b) c)))
+                  '(let* ([a 1] [b 2] [c 3]) (+ (* a b) c)))
+
+  (check-fuse-let '(let* ([a 1] [b 2]) (let* ([c 3] [d 4]) (+ (* a b) (* c d))))
+                  '(let* ([a 1] [b 2] [c 3] [d 4]) (+ (* a b) (* c d))))
 )

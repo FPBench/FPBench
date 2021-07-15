@@ -7,7 +7,8 @@ env:
   FPTAYLOR_VERSION: 'fabc895ddc595dc41fbe7ce511049c745e1f9136'
   CAKEML_VERSION: 'v1217'
   CAKEML_BASE: '../cache/cake'
-  DAISY_VERSION: '8f26766b3a6a42de644f259cd2b85cf7f7f08477'
+  SBT_VERSION: '1.5.5'
+  DAISY_VERSION: '33bc509d927bdbda08c6dccd0f56285dc265b049'
   DAISY_BASE: '../cache/daisy'
 
 # Daisy must run on Java 8, changing runner OS may break this
@@ -58,9 +59,10 @@ jobs:
           (cd ../cache/fptaylor && git checkout ${FPTAYLOR_VERSION} && make clean-all && make)
           (mkdir ../cache/cake && curl -L https://github.com/CakeML/cakeml/releases/download/${CAKEML_VERSION}/cake-x64-64.tar.gz | \
             tar -xz -C ../cache/cake --strip-components 1 && (cd ../cache/cake && make cake))
-          (mkdir ../cache/sbt && curl -L -O https://piccolo.link/sbt-0.13.18.tgz && tar -xf sbt-0.13.18.tgz -C ../cache/sbt --strip-components 1)
-          (git clone https://github.com/malyzajko/daisy ../cache/daisy && cd ../cache/daisy && git checkout ${DAISY_VERSION} && ../sbt/bin/sbt compile && \
-            ../sbt/bin/sbt script)
+          (mkdir ../cache/sbt && curl -L -O https://github.com/sbt/sbt/releases/download/v${SBT_VERSION}/sbt-${SBT_VERSION}.tgz && \
+            tar -xzf sbt-${SBT_VERSION}.tgz -C ../cache/sbt --strip-components 1)
+          (git clone --recurse-submodules https://github.com/malyzajko/daisy ../cache/daisy && cd ../cache/daisy && \
+            git checkout ${DAISY_VERSION} && ../sbt/bin/sbt compile && ../sbt/bin/sbt script)
           echo "${PWD}/../cache/fptaylor" >> $GITHUB_PATH
           echo "${PWD}/../cache/cake" >> $GITHUB_PATH
           echo "${PWD}/../cache/daisy" >> $GITHUB_PATH

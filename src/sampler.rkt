@@ -1,7 +1,7 @@
 #lang racket
 
 (require math/flonum)
-(require "evaluator.rkt" "fpcore-interpreter.rkt" "range-analysis.rkt")
+(require "evaluator.rkt" "float32.rkt" "fpcore-interpreter.rkt" "range-analysis.rkt")
 (provide sample-float sample-by-rejection sample-random sample-tries
          float->ordinal ordinal->float)
 
@@ -32,7 +32,7 @@
     ; ['binary80 (values 10 15 real->extfl)]
       ['binary80 (values 8 11 identity)]  ; use double instead
       ['binary64 (values 8 11 identity)]
-      ['binary32 (values 4 8 real->single-flonum)]))
+      ['binary32 (values 4 8 ->float32)]))
   (define w (* 8 b))
   (define inf 
     (- (expt 2 (- w 1)) 
@@ -173,5 +173,5 @@
   ;                (integer->integer-bytes (random-exp 16) 2 #f)))]
     ['binary80 (floating-point-bytes->real (integer->integer-bytes (random-exp 64) 8 #f))]
     ['binary64 (floating-point-bytes->real (integer->integer-bytes (random-exp 64) 8 #f))]
-    ['binary32 (real->single-flonum (floating-point-bytes->real (integer->integer-bytes (random-exp 32) 4 #f)))]
+    ['binary32 (->float32 (floating-point-bytes->real (integer->integer-bytes (random-exp 32) 4 #f)))]
     ['integer  (- (random-exp 64) (expt 2 63) 1)]))

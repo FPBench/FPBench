@@ -15,16 +15,16 @@ env:
   
 jobs:
   build:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       
       # - name: "Restore cache"
-      #   uses: actions/cache@v1
+      #   uses: actions/cache@v2
       #   id: cache
       #   with:
       #     path: ../cache
-      #     key: ${{ runner.os }}-deps2   # Might need to change this every now and then (or wait a week) if cache is out-of-date
+      #     key: ${{ runner.os }}-deps   # Might need to change this every now and then (or wait a week) if cache is out-of-date
         
       - name: "Install Node.js"
         uses: actions/setup-node@v2
@@ -53,7 +53,7 @@ jobs:
       - name: "Setup environment"
         run: |     
           sudo apt-get update
-          sudo apt-get install -y gnuplot libmpfr-dev libmpfi-dev libxml2-dev flex bison opam sollya
+          sudo apt-get install -y gnuplot libmpfr-dev libmpfi-dev libxml2-dev opam sollya
           opam init && opam switch create 4.04.2 && eval `opam config env`
           (git clone https://github.com/soarlab/FPTaylor.git ../cache/fptaylor || echo "Asuming FPTaylor cached, skipping clone")
           (cd ../cache/fptaylor && git checkout ${FPTAYLOR_VERSION} && make clean-all && make)

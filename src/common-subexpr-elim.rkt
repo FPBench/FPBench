@@ -78,7 +78,7 @@
       (loop (cons chosen sorted) deps* edges*)])))
 
 ;; eliminator
-(define (common-subexpr-elim vars expr)
+(define (common-subexpr-elim vars prec expr)
   (define exprhash  ; expr -> idx
     (make-hash
       (for/list ([var vars] [i (in-naturals)])
@@ -93,28 +93,32 @@
 
   ; convert to indices to process
   (define (munge expr)
-    (cond
-     [(hash-has-key? exprhash expr) ; already seen
-      (define idx (hash-ref exprhash expr))
-      (when ((*expr-cse-able?*) expr)
-        (set-add! common idx))
-      idx]
-     [else    ; new expresion
-      (define old-exprc exprc)
-      (hash-set! exprhash expr exprc)
-      (begin0 exprc
-        (set! exprc (+ 1 exprc))
-        (hash-set! exprs old-exprc
-          (match expr
-           [(list op args ...)  ; don't check let vals
-            (cond   ; add variables names if needed
-             [(set-member? '(let let*) op)
-              (for ([arg (first args)]) (add-name! arg))]
-             [(set-member? '(while while* for for*) op)
-              (for ([arg (second args)]) (add-name! arg))])
-            (cons op (map munge args))]
-           [_ 
-            (list expr)])))]))  ; put constants into lists so its not confused with indices
+    (let loop ([expr expr] [prec prec])
+      (define key (cons expr prec))
+      (cond
+       [(hash-has-key? exprhash key) ; already seen
+        (define idx (hash-ref exprhash key))
+        (when ((*expr-cse-able?*) expr)
+          (set-add! common idx))
+        idx]
+       [else    ; new expresion
+        (define old-exprc exprc)
+        (hash-set! exprhash key exprc)
+        (begin0 exprc
+          (set! exprc (+ 1 exprc))
+          (hash-set! exprs old-exprc
+            (match expr
+             [(list '! props ... body)
+              (define props* (apply dict-set* '() props))
+              (cons (cons '! props) (list (loop body (dict-ref props* ':precision prec))))]
+             [(list op args ...)  ; don't check let vals
+              (cond   ; add variables names if needed
+               [(set-member? '(let let*) op)
+                (for ([arg (first args)]) (add-name! arg))]
+               [(set-member? '(while while* for for*) op)
+                (for ([arg (second args)]) (add-name! arg))])
+              (cons op (map (curryr loop prec) args))]
+             [_  (list expr)])))])))  ; put constants into lists so its not confused with indices
 
   (define root (munge expr))  ; fill `exprhash` and `exprs` and store top index
 
@@ -165,7 +169,9 @@
         (define bindings (gen-let-bindings idx))
         (list 'let* bindings (loop idx))]
        [(> (length expr) 1) ; (op args ...)
-        (cons (car expr) (map loop (cdr expr)))]
+        (if (list? (car expr))    ; (! props ... body)
+            (append (car expr) (map loop (cdr expr)))
+            (cons (car expr) (map loop (cdr expr))))]
        [else 
         (if (list? (car expr)) expr (car expr))])))
 
@@ -179,8 +185,10 @@
     (match core
      [(list 'FPCore (list args ...) props ... body) (values #f args props body)]
      [(list 'FPCore name (list args ...) props ... body) (values name args props body)]))
+  (define props* (apply dict-set* '() props))
+  (define prec (dict-ref props* ':precision 'binary64))
   (for ([arg args]) (add-name! arg))
-  (define cse-body (common-subexpr-elim args body))
+  (define cse-body (common-subexpr-elim args prec body))
   (if name
     `(FPCore ,name ,args ,@props ,cse-body)
     `(FPCore ,args ,@props ,cse-body)))
@@ -225,6 +233,8 @@
   (check-cse '(FPCore (a) (let ((x (- a a))) (let ((x (+ a a))) x)))
              '(FPCore (a) (let* ((x (- a a)) (x (+ a a))) x)))
 
+  (check-cse '(FPCore (a) (+ (* a a) (! :precision binary32 (* a a))))
+             '(FPCore (a) (+ (* a a) (! :precision binary32 (* a a)))))
 
   (check-fuse-let '(let ([a 1]) (let* ([a 2] [b 3]) (+ a b)))
                   '(let* ([a 1] [a 2] [b 3]) (+ a b)))

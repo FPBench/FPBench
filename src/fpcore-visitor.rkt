@@ -138,13 +138,15 @@
             (visit-call func args)
             (visit-op_ func args))]))
 
-(define-syntax-rule (visit vtor arg)
+;; Useful shorthands
+
+(define (visit vtor arg)
   ((visitor-visit-expr vtor) vtor arg))
 
-(define-syntax-rule (visit/ctx vtor arg ctx)
+(define (visit/ctx vtor arg ctx)
   ((visitor-visit-expr vtor) vtor arg #:ctx ctx))
 
-(define-syntax-rule (reduce vtor args ...)
+(define (reduce vtor args ...)
   ((visitor-reduce vtor) args ...))
 
 ;; default visitor

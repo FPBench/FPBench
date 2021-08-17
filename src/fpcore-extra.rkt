@@ -1,8 +1,8 @@
 #lang racket
 
-(require "common.rkt" "fpcore-checker.rkt" "range-analysis.rkt")
+(require "common.rkt" "fpcore-checker.rkt" "fpcore-visitor.rkt" "range-analysis.rkt")
 (provide fix-file-name round-decimal format-number
-         free-variables remove-let canonicalize
+         canonicalize
          split-expr to-dnf all-subexprs unroll-loops skip-loops
          expand-let* expand-while* precondition-ranges
          fpcore-split-or fpcore-all-subexprs fpcore-split-intervals
@@ -10,7 +10,10 @@
          fpcore-expand-let* fpcore-expand-while* fpcore-precondition-ranges
          fpcore-override-props fpcore-override-arg-precision
          fpcore-transform
-         fpcore-name)
+         fpcore-name
+         (contract-out
+          [free-variables (-> expr? (listof symbol?))]
+          [remove-let (->* (expr?) ((dictof symbol? expr?)) expr?)]))
 
 (define (fix-file-name name)
   (string-join
@@ -67,35 +70,79 @@
             (format "~a~a" n (make-string e #\0))]
            [else (format "~ae~a" n e)]))])))
 
-;; from imp2core.rkt
-(define/contract (free-variables expr)
-  (-> expr? (listof symbol?))
-  (match expr
-    [(? number?) '()]
-    [(? constant?) '()]
-    [(? symbol?) (list expr)]
-    [`(if ,test ,ift ,iff)
-     (set-union (free-variables test) (free-variables ift) (free-variables iff))]
-    [`(let ([,vars ,exprs] ...) ,body)
-     (set-union (append-map free-variables exprs) (set-subtract (free-variables body) vars))]
-    [`(while ,test ([,vars ,inits ,updates] ...) ,body)
-     (set-union (free-variables test)
-                (append-map free-variables inits)
-                (set-subtract (append-map free-variables updates) vars)
-                (set-subtract (free-variables body) vars))]
-    [(list _ exprs ...)
-     (append-map free-variables exprs)]))
+;; more powerful version
+(define (free-variables* expr)
+  (define varhash (make-hash))
+  (define (add-var! var)
+    (hash-update! varhash var
+                  (curry cons #t)
+                  (list)))
 
-(define/contract (remove-let expr [bindings '()])
-  (->* (expr?) ((dictof symbol? expr?)) expr?)
-  (match expr
-    [(? constant?) expr]
-    [(? number?) expr]
-    [(? symbol?) (dict-ref bindings expr expr)]
-    [`(let ([,vars ,vals] ...) ,body)
-     (define vals* (map (curryr remove-let bindings) vals))
-     (remove-let body (apply dict-set* bindings (append-map list vars vals*)))]
-    [`(,op ,args ...) (cons op (map (curryr remove-let bindings) args))]))
+  (define (unmark-var! var)
+    (hash-update! varhash var
+                  (λ (x) (cons #f (cdr x)))
+                  (lambda ()
+                    (error 'free-variables* "Unknown variable ~a in ~a" var expr))))
+
+  (define/visit-expr (search! expr)
+    [(visit-if vtor cond ift iff #:ctx [ctx '()])
+      (visit vtor cond)
+      (visit vtor ift)
+      (visit vtor iff)
+      (void)]
+    [(visit-let vtor vars vals body #:ctx [ctx '()])
+      (for-each (curry visit vtor) vals)
+      (for-each add-var! vars)
+      (visit vtor body)]
+    [(visit-let* vtor vars vals body #:ctx [ctx '()])
+      (for ([var vars] [val vals])
+        (visit vtor val)
+        (add-var! var))
+      (visit vtor body)]
+    [(visit-while vtor cond vars inits updates body #:ctx [ctx '()])
+      (visit vtor cond)
+      (for-each (curry visit vtor) inits)
+      (for-each add-var! vars)
+      (for-each (curry visit vtor) updates)
+      (visit vtor body)]
+    [(visit-while* vtor cond vars inits updates body #:ctx [ctx '()])
+      (visit vtor cond)
+      (for ([var vars] [init inits] [update updates])
+        (visit vtor init)
+        (add-var! var)
+        (visit vtor update))
+      (visit vtor body)]
+    [(visit-symbol vtor x #:ctx [ctx '()])
+      (unmark-var! x)])
+  
+  (search! expr)
+  (for/fold ([free '()]) ([(var counts) (in-hash varhash)])
+    (append free
+      (for/list ([free? (in-list (reverse counts))] [i (in-naturals 1)] #:when free?)
+        (cons var i)))))
+
+; only return names
+(define (free-variables expr)
+  (remove-duplicates (map car (free-variables* expr))))
+
+(define (remove-let expr [bindings '()])
+  (define/transform-expr (visit expr ctx)
+    [(visit-let vtor vars vals body #:ctx [ctx '()])
+      (define vals* (for/list ([val vals]) (visit/ctx vtor val ctx)))
+      (define ctx*
+        (for/fold ([ctx ctx]) ([var vars] [val vals*])
+          (dict-set ctx var val)))
+      (visit/ctx vtor body ctx*)]
+    [(visit-let* vtor vars vals body #:ctx [ctx '()])
+      (define ctx*
+        (for/fold ([ctx ctx]) ([var vars] [val vals])
+          (dict-set ctx var (visit/ctx vtor val ctx))))
+      (visit/ctx vtor body ctx*)]
+    [(visit-op_ vtor op args #:ctx [ctx '()])
+     `(,op ,@(for/list ([arg args]) (visit/ctx vtor arg ctx)))]
+    [(visit-symbol vtor x #:ctx [ctx '()])
+      (dict-ref ctx x x)])
+  (visit expr bindings))
 
 (define/match (negate-cmp cmp)
   [('==) '!=]
@@ -550,6 +597,28 @@
        (string->number (string-trim (format-number n) #px"[()]"))
        (inexact->exact n))))
 
+  (check-equal? 
+    (free-variables '(let ([x 1] [y 2]) (+ 1 2)))
+    '(y x))
+
+  (check-equal? 
+    (free-variables '(let ([x 1] [y 2]) (+ x 2)))
+    '(y))
+
+  (check-equal? 
+    (free-variables '(let ([x 1] [y 2])
+                      (let ([x y] [y x])
+                       (+ x 1))))
+    '(y))
+
+  (check-equal? 
+    (free-variables '(let* ([x 1] [y x]) 1))
+    '(y))
+
+  (check-equal? 
+    (free-variables '(while TRUE ([i 0 (+ i 1)]) 0))
+    '(i))
+
   (check-equal?
    (remove-let '(let ([x (+ a b)]) (+ x a)))
    '(+ (+ a b) a))
@@ -568,6 +637,10 @@
    '(if (== (- (+ a b) 0) (+ a b))
         (- (+ a b) a)
         y))
+
+  (check-equal?
+   (remove-let '(let* ([x (+ a b)] [y (+ a x)]) (* x y)))
+   '(* (+ a b) (+ a (+ a b))))
 
   (check-equal?
    (canonicalize '(let ([x (+ a b)])

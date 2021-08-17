@@ -73,52 +73,83 @@
 ;; more powerful version
 (define (free-variables* expr)
   (define varhash (make-hash))
-  (define (add-var! var)
-    (hash-update! varhash var
-                  (curry cons #t)
-                  (list)))
 
-  (define (unmark-var! var)
-    (hash-update! varhash var
-                  (λ (x) (cons #f (cdr x)))
-                  (lambda ()
-                    (error 'free-variables* "Unknown variable ~a in ~a" var expr))))
+  (define (add-var var)
+    (let ([cell (box #t)])
+      (hash-update! varhash var (curry cons cell) (list))
+      cell))
 
-  (define/visit-expr (search! expr)
+  (define (unmark-var! dict var)
+    (dict-update dict var (curryr set-box! #f)
+                 (lambda () (error 'free-variables* "Unknown variable `~a` in: ~a" var expr))))
+
+  (define/visit-expr (search! visit ctx)
     [(visit-if vtor cond ift iff #:ctx [ctx '()])
-      (visit vtor cond)
-      (visit vtor ift)
-      (visit vtor iff)
-      (void)]
+      (visit/ctx vtor cond ctx)
+      (visit/ctx vtor ift ctx)
+      (visit/ctx vtor iff ctx)]
     [(visit-let vtor vars vals body #:ctx [ctx '()])
-      (for-each (curry visit vtor) vals)
-      (for-each add-var! vars)
-      (visit vtor body)]
+      (for ([val vals]) (visit/ctx vtor val ctx))
+      (define ctx*
+        (for/fold ([ctx ctx]) ([var vars])
+          (dict-set ctx var (add-var var))))
+      (visit/ctx vtor body ctx*)]
     [(visit-let* vtor vars vals body #:ctx [ctx '()])
-      (for ([var vars] [val vals])
-        (visit vtor val)
-        (add-var! var))
-      (visit vtor body)]
+      (define ctx*
+        (for/fold ([ctx ctx]) ([var vars] [val vals])
+          (visit/ctx vtor val ctx)
+          (dict-set ctx var (add-var var))))
+      (visit/ctx vtor body ctx*)]
     [(visit-while vtor cond vars inits updates body #:ctx [ctx '()])
-      (visit vtor cond)
-      (for-each (curry visit vtor) inits)
-      (for-each add-var! vars)
-      (for-each (curry visit vtor) updates)
-      (visit vtor body)]
+      (for ([init inits]) (visit/ctx vtor init ctx))
+      (define ctx*
+        (for/fold ([ctx ctx]) ([var vars])
+          (dict-set ctx var (add-var var))))
+      (for ([update updates]) (visit/ctx vtor update ctx*))
+      (visit/ctx vtor cond ctx*)
+      (visit/ctx vtor body ctx*)]
     [(visit-while* vtor cond vars inits updates body #:ctx [ctx '()])
-      (visit vtor cond)
-      (for ([var vars] [init inits] [update updates])
-        (visit vtor init)
-        (add-var! var)
-        (visit vtor update))
-      (visit vtor body)]
+      (define ctx*
+        (for/fold ([ctx ctx]) ([var vars] [init inits])
+          (visit/ctx vtor init ctx)
+          (dict-set ctx var (add-var var))))
+      (for ([update updates]) (visit/ctx vtor update ctx*))
+      (visit/ctx vtor cond ctx*)
+      (visit/ctx vtor body ctx*)]
+    [(visit-for_ vtor for_ vars vals accums inits updates body #:ctx [ctx '()]) ; convert to while loop
+      (define while_ (if (equal? for_ 'for) 'while 'while*))
+      (visit/ctx vtor
+                `(,while_ (and ,@(map (curry list '<) vars vals))
+                          (,@(map (λ (v) (list v 0 `(+ ,v 1))) vars)
+                           ,@(map list accums inits updates))
+                          ,body)
+                 ctx)]
+    [(visit-tensor vtor vars vals body #:ctx [ctx '()])
+      (define ctx*    ; iteration variables are automatically bound
+        (for/fold ([ctx ctx]) ([var vars])
+          (dict-set ctx var (add-var var))))
+      (for ([var vars]) (unmark-var! ctx* var))
+      (visit/ctx vtor body ctx*)]
+    [(visit-tensor* vtor vars vals accums inits updates body #:ctx [ctx '()])
+      (define ctx*    ; iteration variables are automatically bound
+        (for/fold ([ctx ctx]) ([var vars])
+          (dict-set ctx var (add-var var))))
+      (for ([var vars]) (unmark-var! ctx* var))
+      (define ctx**
+        (for/fold ([ctx ctx*]) ([accum accums] [init inits])
+          (visit/ctx vtor init ctx)
+          (dict-set ctx accum (add-var accum))))
+     (for ([update updates]) (visit/ctx vtor update ctx**))
+     (visit/ctx vtor body ctx**)]
+    [(visit-op_ vtor op args #:ctx [ctx '()])
+      (for ([arg args]) (visit/ctx vtor arg ctx))]
     [(visit-symbol vtor x #:ctx [ctx '()])
-      (unmark-var! x)])
+      (unmark-var! ctx x)])
   
-  (search! expr)
+  (search! expr '())
   (for/fold ([free '()]) ([(var counts) (in-hash varhash)])
     (append free
-      (for/list ([free? (in-list (reverse counts))] [i (in-naturals 1)] #:when free?)
+      (for/list ([free? (in-list (reverse counts))] [i (in-naturals 1)] #:when (unbox free?))
         (cons var i)))))
 
 ; only return names
@@ -616,8 +647,28 @@
     '(y))
 
   (check-equal? 
-    (free-variables '(while TRUE ([i 0 (+ i 1)]) 0))
-    '(i))
+    (free-variables '(while TRUE ([i 0 (+ i 1)] [j 1 (+ i 1)]) 0))
+    '(j))
+
+  (check-equal? 
+    (free-variables '(while* TRUE ([i 0 (+ i 1)] [j i (+ i 1)]) 0))
+    '(j))
+
+  (check-equal? 
+    (free-variables '(for ([i 10]) ([m 0 0]) 1))
+    '(m))
+
+  (check-equal? 
+    (free-variables '(for* ([i 10]) ([m 0 (+ i 1)]) 1))
+    '(m))
+
+  (check-equal? 
+    (free-variables '(tensor ([i 3] [j 3]) (if (= i 1) 1 0)))
+    '())
+
+  (check-equal? 
+    (free-variables '(tensor* ([i 10]) ([m 0 (+ i 1)]) 1))
+    '(m))
 
   (check-equal?
    (remove-let '(let ([x (+ a b)]) (+ x a)))

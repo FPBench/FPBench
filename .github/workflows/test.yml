@@ -49,12 +49,17 @@ jobs:
         uses: pavpanchekha/setup-z3@1.2.2
         with:
           version: '4.8.8'
+
+      - name: "Install OCaml"
+        uses: ocaml/setup-ocaml@v2
+        with:
+          ocaml-compiler: '4.04.2'
           
       - name: "Setup environment"
         run: |     
           sudo apt-get update
-          sudo apt-get install -y gnuplot libmpfr-dev libmpfi-dev libxml2-dev opam sollya
-          opam init && opam switch create 4.04.2 && eval `opam config env`
+          sudo apt-get install -y gnuplot libmpfr-dev libmpfi-dev libxml2-dev sollya
+          eval $(opam env)
           (git clone https://github.com/soarlab/FPTaylor.git ../cache/fptaylor || echo "Asuming FPTaylor cached, skipping clone")
           (cd ../cache/fptaylor && git checkout ${FPTAYLOR_VERSION} && make clean-all && make)
           (mkdir ../cache/cake && curl -L https://github.com/CakeML/cakeml/releases/download/${CAKEML_VERSION}/cake-x64-64.tar.gz | \

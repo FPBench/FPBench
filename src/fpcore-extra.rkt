@@ -1,19 +1,22 @@
 #lang racket
 
 (require "common.rkt" "fpcore-checker.rkt" "fpcore-visitor.rkt" "range-analysis.rkt")
-(provide fix-file-name round-decimal format-number
-         canonicalize
-         split-expr to-dnf all-subexprs unroll-loops skip-loops
-         expand-let* expand-while* precondition-ranges
-         fpcore-split-or fpcore-all-subexprs fpcore-split-intervals
-         fpcore-unroll-loops fpcore-skip-loops
-         fpcore-expand-let* fpcore-expand-while* fpcore-precondition-ranges
-         fpcore-override-props fpcore-override-arg-precision
-         fpcore-transform
-         fpcore-name
-         (contract-out
-          [free-variables (-> expr? (listof symbol?))]
-          [remove-let (->* (expr?) ((dictof symbol? expr?)) expr?)]))
+(provide
+  ; contractless first
+  fix-file-name round-decimal format-number
+  split-expr to-dnf all-subexprs skip-loops
+  expand-let* expand-while* precondition-ranges
+  fpcore-split-or fpcore-all-subexprs fpcore-split-intervals
+  fpcore-unroll-loops fpcore-skip-loops
+  fpcore-expand-let* fpcore-expand-while* fpcore-precondition-ranges
+  fpcore-override-props fpcore-override-arg-precision
+  fpcore-transform
+  fpcore-name
+  (contract-out
+   [free-variables (-> expr? (listof symbol?))]
+   [remove-let (->* (expr?) ((dictof symbol? expr?)) expr?)]
+   [canonicalize (->* (expr?) (#:neg boolean?) expr?)]
+   [unroll-loops (-> exact-nonnegative-integer? expr? expr?)]))
 
 (define (fix-file-name name)
   (string-join
@@ -80,8 +83,8 @@
       cell))
 
   (define (unmark-var! dict var)
-    (dict-update dict var (curryr set-box! #f)
-                 (lambda () (error 'free-variables* "Unknown variable `~a` in: ~a" var expr))))
+    (when (dict-has-key? dict var)  ; do nothing on miss
+      (dict-update dict var (curryr set-box! #f))))
 
   (define/visit-expr (search! visit ctx)
     [(visit-if vtor cond ift iff #:ctx [ctx '()])
@@ -184,45 +187,55 @@
   [('>=) '<]
   [(_) (error 'negate-cmp "Unsupported operation ~a" cmp)])
 
-(define/contract (canonicalize expr #:neg [neg #f])
-  ;; Transforms multiple argument operations (comparisons, and, or) into binary operations.
-  ;; Removes logical negations.
-  ; TODO: negation of 'if and 'while
-  (-> expr? expr?)
-  (match expr
-    ['TRUE (if neg 'FALSE 'TRUE)]
-    ['FALSE (if neg 'TRUE 'FALSE)]
-    [(? constant?) expr]
-    [(? number?) expr]
-    [(? symbol?) (if neg `(not ,expr) expr)]
-    [`(let ([,vars ,vals] ...) ,body)
-     `(let (,@(for/list ([var vars] [val vals]) (list var (canonicalize val))))
-        ,(canonicalize body #:neg neg))]
-    [(list (and (or '== '< '> '<= '>=) op) args ...)
-     (define args* (map canonicalize args))
-     (define op* (if neg (negate-cmp op) op))
-     (define conj (if neg 'or 'and))
-     (for/fold ([expr* (if neg 'FALSE 'TRUE)]) ([a args*] [b (cdr args*)])
-       (if (constant? expr*) `(,op* ,a ,b) `(,conj ,expr* (,op* ,a ,b))))]
-    [(list '!= args ...)
-     (define args* (map canonicalize args))
-     (define op (if neg '== '!=))
-     (define conj (if neg 'or 'and))
-     (let loop ([args args*] [expr (if neg 'FALSE 'TRUE)])
-       (if (<= (length args) 1)
-           expr
-           (loop (cdr args)
-                 (for/fold ([expr expr]) ([b (cdr args)])
-                   (if (constant? expr)
-                       `(,op ,(car args) ,b)
-                       `(,conj ,expr (,op ,(car args) ,b)))))))]
-    [(list 'not arg) (canonicalize arg #:neg (not neg))]
-    [(list (or 'and 'or) arg) (canonicalize arg #:neg neg)]
-    [(list 'and args ... arg)
-     `(,(if neg 'or 'and) ,(canonicalize (cons 'and args) #:neg neg) ,(canonicalize arg #:neg neg))]
-    [(list 'or args ... arg)
-     `(,(if neg 'and 'or) ,(canonicalize (cons 'or args) #:neg neg) ,(canonicalize arg #:neg neg))]
-    [`(,op ,args ...) `(,op ,@(map (curry canonicalize #:neg neg) args))]))
+;; Transforms multiple argument operations (comparisons, and, or) into binary operations.
+;; Removes logical negations.
+; TODO: negation of 'if and 'while
+(define (canonicalize expr #:neg [neg #f])
+  (define/transform-expr (->canon expr neg)
+    [(visit-let_ vtor let_ vars vals body #:ctx [neg #f])
+     `(,let_ ,(for/list ([var vars] [val vals]) (list var (visit vtor val)))
+             ,(visit/ctx vtor body neg))]
+    [(visit-op vtor op args #:ctx [neg #f])
+      (match* (op args)
+       [((or '== '< '> '<= '>=) _)
+        (define args* (map (curry visit vtor) args))
+        (define op* (if neg (negate-cmp op) op))
+        (define conj (if neg 'or 'and))
+        (for/fold ([expr* (if neg 'FALSE 'TRUE)]) ([a args*] [b (cdr args*)])
+          (if (constant? expr*) `(,op* ,a ,b) `(,conj ,expr* (,op* ,a ,b))))]
+       [('!= _)
+        (define args* (map (curry visit vtor) args))
+        (define op (if neg '== '!=))
+        (define conj (if neg 'or 'and))
+        (let loop ([args args*] [expr (if neg 'FALSE 'TRUE)])
+          (if (<= (length args) 1)
+              expr
+              (loop (cdr args)
+                    (for/fold ([expr expr]) ([b (cdr args)])
+                      (if (constant? expr)
+                         `(,op ,(car args) ,b)
+                         `(,conj ,expr (,op ,(car args) ,b)))))))]
+       [('not (list arg))
+        (visit/ctx vtor arg (not neg))]
+       [((or 'and 'or) (list arg))
+        (visit/ctx vtor arg neg)]
+       [('and (list args ... arg))
+       `(,(if neg 'or 'and) ,(visit/ctx vtor (cons 'and args) neg)
+                            ,(visit/ctx vtor arg neg))]
+       [('or (list args ... arg))
+       `(,(if neg 'and 'or) ,(visit/ctx vtor (cons 'or args) neg)
+                            ,(visit/ctx vtor arg neg))]
+       [(_ _)
+       `(,op ,@(for/list ([arg args]) (visit/ctx vtor arg neg)))])]
+    [(visit-symbol vtor x #:ctx [neg #f])
+      (if neg `(not ,x) x)]
+    [(visit-constant vtor x #:ctx [neg #f])
+      (match x
+       ['TRUE (if neg 'FALSE 'TRUE)]
+       ['FALSE (if neg 'TRUE 'FALSE)]
+       [_ x])])
+
+  (->canon expr neg))
 
 (define/contract (split-expr op expr)
   (-> symbol? expr? (listof expr?))
@@ -313,34 +326,23 @@
     (define props* (dict-set properties ':name name*))
     `(FPCore ,args ,@(unparse-properties props*) ,expr)))
 
-(define/contract (unroll-loops n expr)
-  (-> exact-nonnegative-integer? expr? expr?)
-  (match expr
-    [`(,(and (or 'let 'let*) let_) ([,vars ,vals] ...) ,body)
-     `(,let_ (,@(for/list ([var vars] [val vals]) (list var (unroll-loops n val))))
-             ,(unroll-loops n body))]
-    [`(if ,cond ,ift ,iff)
-     `(if ,(unroll-loops n cond) ,(unroll-loops n ift) ,(unroll-loops n iff))]
-    [`(,(and (or 'while 'while*) while_) ,cond ([,vars ,inits ,updates] ...) ,retexpr)
-     (let ([let_ (match while_ ['while 'let] ['while* 'let*])]
-           [new-cond (unroll-loops n cond)]
-           [new-inits (map (curry unroll-loops n) inits)]
-           [new-updates (map (curry unroll-loops n) updates)]
-           [new-retexpr (unroll-loops n retexpr)])
-       (let loop ([n n] [loop-inits new-inits] [loop-updates new-updates])
-         (if (<= n 0)
-             `(,while_ ,new-cond (,@(map list vars loop-inits loop-updates)) ,new-retexpr)
-             `(,let_ (,@(map list vars loop-inits))
-                (if ,new-cond
-                    ,(loop (- n 1) loop-updates loop-updates)
-                    ,new-retexpr)))))]
-    [`(! ,props ... ,body)
-     `(! ,@props ,(unroll-loops n body))]
-    [`(,(? operator? op) ,args ...)
-     (cons op (map (curry unroll-loops n) args))]
-    [(? constant?) expr]
-    [(? number?) expr]
-    [(? symbol?) expr]))
+; for loops?
+(define (unroll-loops n expr)
+  (define/transform-expr (unroll expr)
+    [(visit-while_ vtor while_ cond vars inits updates body #:ctx [ctx '()])
+      (define let_ (match while_ ['while 'let] ['while* 'let*]))
+      (define cond* (visit vtor cond))
+      (define inits* (map (curry visit vtor) inits))
+      (define updates* (map (curry visit vtor) updates))
+      (define body* (visit vtor body))
+      (let loop ([n n] [inits inits*] [updates updates*])
+        (if (<= n 0)
+           `(,while_ ,cond* ,(map list vars inits updates) ,body*)
+           `(,let_ ,(map list vars inits)
+              (if ,cond*
+                  ,(loop (- n 1) updates updates)
+                  ,body))))])
+  (unroll expr))
 
 (define/contract (fpcore-unroll-loops n prog)
   ; Unrolls loops in the given FPCore program
@@ -663,7 +665,7 @@
     '(m))
 
   (check-equal? 
-    (free-variables '(tensor ([i 3] [j 3]) (if (= i 1) 1 0)))
+    (free-variables '(tensor ([i 3] [j 3]) (if (== i 1) 1 0)))
     '())
 
   (check-equal? 

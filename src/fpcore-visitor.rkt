@@ -146,8 +146,8 @@
 (define (visit/ctx vtor arg ctx)
   ((visitor-visit-expr vtor) vtor arg #:ctx ctx))
 
-(define (reduce vtor args ...)
-  ((visitor-reduce vtor) args ...))
+(define (reduce vtor . args)
+  (apply (visitor-reduce vtor) args))
 
 ;; default visitor
 

@@ -1,7 +1,7 @@
 #lang racket
 
 (require math/flonum)
-(require "evaluator.rkt" "float32.rkt" "fpcore-interpreter.rkt" "range-analysis.rkt")
+(require "evaluator.rkt" "fpcore-interpreter.rkt" "range-analysis.rkt")
 (provide sample-float sample-by-rejection sample-random sample-tries
          float->ordinal ordinal->float)
 
@@ -27,37 +27,28 @@
   (if (> s 0) (- u) u))
 
 (define (ordinal->float x type)
-  (define-values (b e real->float) 
+  (define-values (b e)
     (match type
     ; ['binary80 (values 10 15 real->extfl)]
-      ['binary80 (values 8 11 identity)]  ; use double instead
-      ['binary64 (values 8 11 identity)]
-      ['binary32 (values 4 8 ->float32)]))
+      ['binary80 (values 8 11)]  ; use double instead
+      ['binary64 (values 8 11)]
+      ['binary32 (values 4 8)]))
   (define w (* 8 b))
   (define inf 
     (- (expt 2 (- w 1)) 
-     ;   (if (equal? type 'binary80)
-     ;      (expt 2 (- (- w e) 2)) ; for +inf in binary80, the highest significand bit is 1 
-            (expt 2 (- (- w e) 1))))
-  (real->float
-    (cond
-      [(> x inf)     +nan.0]
-      [(= x inf)     +inf.0]
-      [(= x (- inf)) -inf.0]
-      [(< x (- inf)) -nan.0]
-      [else 
-        (let ([s (if (< x 0) 1 0)]
-              [u (abs x)])
-          ; (match type
-          ;  ['binary80  (floating-point-bytes->extfl 
-          ;                (bytes-append
-          ;                  (integer->integer-bytes (bitwise-bit-field u 0 64) 8 #f) 
-          ;                  (integer->integer-bytes 
-          ;                    (bitwise-ior (arithmetic-shift s (sub1 (- w 64)))
-          ;                                 (bitwise-bit-field u 64 80))
-          ;                    2 #f)))]
-          (floating-point-bytes->real 
-            (integer->integer-bytes (bitwise-ior (arithmetic-shift s (- w 1)) u) b #f)))])))
+       (expt 2 (- (- w e) 1))))
+  (cond
+   [(> x inf)     +nan.0]
+   [(= x inf)     +inf.0]
+   [(= x (- inf)) -inf.0]
+   [(< x (- inf)) -nan.0]
+   [else 
+    (let ([s (if (< x 0) 1 0)]
+          [u (abs x)])
+      (floating-point-bytes->real 
+        (integer->integer-bytes
+          (bitwise-ior (arithmetic-shift s (- w 1)) u)
+          b #f)))]))
 
 ;;; Unit tests for float->ordinal and ordinal->float
 (module+ test
@@ -173,5 +164,5 @@
   ;                (integer->integer-bytes (random-exp 16) 2 #f)))]
     ['binary80 (floating-point-bytes->real (integer->integer-bytes (random-exp 64) 8 #f))]
     ['binary64 (floating-point-bytes->real (integer->integer-bytes (random-exp 64) 8 #f))]
-    ['binary32 (->float32 (floating-point-bytes->real (integer->integer-bytes (random-exp 32) 4 #f)))]
+    ['binary32 (floating-point-bytes->real (integer->integer-bytes (random-exp 32) 4 #f))]
     ['integer  (- (random-exp 64) (expt 2 63) 1)]))

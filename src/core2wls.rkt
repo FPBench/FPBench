@@ -1,7 +1,7 @@
 #lang racket
 
 (require math/bigfloat)
-(require "common.rkt" "compilers.rkt" "float32.rkt" "functional.rkt" "supported.rkt")
+(require "common.rkt" "compilers.rkt" "functional.rkt" "supported.rkt")
 (provide core->wls wls-supported number->wls prec->wls)
 
 (define wls-supported (supported-list

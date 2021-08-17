@@ -1,7 +1,7 @@
 #lang racket
 
 (require math/bigfloat)
-(require "common.rkt" "compilers.rkt" "float32.rkt" "supported.rkt")
+(require "common.rkt" "compilers.rkt" "supported.rkt")
 (provide core->smtlib2 smt-supported rm->smt number->smt)
 
 (define smt-supported 

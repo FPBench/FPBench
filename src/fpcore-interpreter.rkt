@@ -1,6 +1,6 @@
 #lang racket
 
-(require "common.rkt" "tensor.rkt" "float32.rkt" "fpcore-checker.rkt" "evaluator.rkt")
+(require "common.rkt" "tensor.rkt" "fpcore-checker.rkt" "evaluator.rkt")
 (require math/bigfloat math/special-functions math/base generic-flonum)
 (provide eval-expr eval-expr* racket-run-fpcore)
 
@@ -175,12 +175,12 @@
   ((eval-expr evaltor) expr (hash)))
 
 (define (result->inexact x prec)
-  (match (cons x prec)
-   [(cons (? list?) _) (map (curryr result->inexact prec) x)]
-   [(cons (? boolean?) _) x]
-   [(cons _ (list 'float 11 64)) (real->double-flonum x)]
-   [(cons _ (list 'float 8 32)) (->float32 x)]
-   [(cons _ _) x]))
+  (match* (x prec)
+   [((? list?) _) (map (curryr result->inexact prec) x)]
+   [((? boolean?) _) x]
+   [(_ '(float 11 64)) (real->double-flonum x)]
+   [(_ '(float 8 32)) (real->double-flonum x)]
+   [(_ _) x]))
 
 (define (racket-run-fpcore* name vars props* body args)
   (-> fpcore? (listof string?) (or/c real? tensor? boolean?))

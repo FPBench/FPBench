@@ -211,7 +211,7 @@
         var))))
 
 (define (remove-let expr [bindings '()])
-  (define/transform-expr (visit expr ctx)
+  (define/transform-expr (rec expr ctx)
     [(visit-let vtor vars vals body #:ctx [ctx '()])
       (define vals* (for/list ([val vals]) (visit/ctx vtor val ctx)))
       (define ctx*
@@ -227,7 +227,7 @@
      `(,op ,@(for/list ([arg args]) (visit/ctx vtor arg ctx)))]
     [(visit-symbol vtor x #:ctx [ctx '()])
       (dict-ref ctx x x)])
-  (visit expr bindings))
+  (rec expr bindings))
 
 (define/match (negate-cmp cmp)
   [('==) '!=]
@@ -334,30 +334,39 @@
 
 ; Returns a list of subexpressions for the given expression
 (define (all-subexprs expr #:no-vars [no-vars #f] #:no-consts [no-consts #f])
-  (remove-duplicates #:key remove-let
-   (let loop ([expr expr])
-     (match expr
-       [(list (or '< '> '<= '>= '== '!= 'and 'or 'not 'while 'while* '!) args ...)
-        (error 'all-subexprs "Unsupported operation: ~a" expr)]
-       [(? symbol?) (if no-vars '() (list expr))]
-       [(or (? number?) (? constant?)) (if no-consts '() (list expr))]
-       [`(,(and (or 'let 'let*) let_) ([,vars ,vals] ...) ,body)
-        (define val-subexprs (append-map loop vals))
-        (define body-subexprs
-          (map (λ (e)
-                 (define free-vars (free-variables e))
-                 (define bindings
-                   (for/list ([var vars] [val vals] #:when (member var free-vars))
-                     (list var val)))
-                 (cond
-                   [(null? bindings) e]
-                   [else `(,let_ (,@bindings) ,e)]))
-               (loop body)))
-        (append body-subexprs val-subexprs)]
-       [`(if ,cond ,t ,f)
-        `(,expr ,@(loop t) ,@(loop f))]
-       [(list op args ...)
-        (cons expr (append-map loop args))]))))
+  (define/visit-expr (rec expr)
+    [(visit-if vtor cond ift iff #:ctx [ctx '()])
+     `(,(list cond ift iff) ,(visit vtor ift) ,(visit vtor iff))]
+    [(visit-let_ vtor let_ vars vals body #:ctx [ctx '()])
+      (define val-subexprs (append-map (curry visit vtor) vals))
+      (define body-subexprs
+        (for/list ([e (visit vtor body)])
+          (define free-vars (free-variables e))
+          (define bindings
+            (for/list ([var vars] [val vals] #:when (member var free-vars))
+              (list var val)))
+          (if (null? bindings) e `(,let_ ,bindings ,e))))
+      (append body-subexprs val-subexprs)]
+    [(visit-while_ vtor while_ cond vars inits updates body #:ctx [ctx '()])
+      (error 'all-subexprs "Unsupported operation: ~a" while_)]
+    [(visit-for_ vtor for_ vars vals accums inits updates body #:ctx [ctx '()])
+      (error 'all-subexprs "Unsupported operation: ~a" for_)]
+    [(visit-tensor vtor vars vals body #:ctx [ctx '()])
+      (error 'all-subexprs "Unsupported operation: tensor" )]
+    [(visit-tensor* vtor vars vals accums inits updates body #:ctx [ctx '()])
+      (error 'all-subexprs "Unsupported operation: tensor*")]
+    [(visit-op_ vtor op args #:ctx [ctx '()])
+      (when (set-member? '(< > <= >= == != and or not !) op)
+        (error 'all-subexprs "Unsupported operation: ~a" op))
+      (cons (cons op args) (append-map (curry visit vtor) args))]
+    [(visit-call vtor func args #:ctx [ctx '()])
+      (cons (cons func args) (append-map (curry visit vtor) args))]
+    [(visit-symbol vtor x #:ctx [ctx '()])
+      (if no-vars '() (list x))]
+    [(visit-terminal_ vtor x #:ctx [ctx '()])
+      (if no-consts '() (list x))])
+
+  (remove-duplicates (rec expr) #:key remove-let))
 
 ; Returns FPCore programs for all subexpressions
 (define (fpcore-all-subexprs prog #:no-vars [no-vars #f] #:no-consts [no-consts #f])

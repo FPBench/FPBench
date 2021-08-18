@@ -2,17 +2,24 @@
 
 (require "common.rkt" "fpcore-checker.rkt" "fpcore-visitor.rkt" "range-analysis.rkt")
 (provide
-  ; contractless first
-  fix-file-name round-decimal format-number
-  split-expr to-dnf all-subexprs
-  precondition-ranges
-  fpcore-split-or fpcore-all-subexprs fpcore-split-intervals
-  fpcore-precondition-ranges
-  fpcore-override-props fpcore-override-arg-precision
-  fpcore-transform
-  fpcore-name
   (contract-out
+   [fix-file-name (-> string? string?)]
+   [round-decimal (-> rational? exact-positive-integer? (or/c 'up 'down) rational?)]
+   [format-number (->* (rational?)
+                       (#:digits exact-positive-integer?
+                        #:direction (or/c #f 'up 'down))
+                       string?)]
+
    [free-variables (-> expr? (listof symbol?))]
+   [unused-variables (-> expr? (listof symbol?))]
+   [precondition-ranges (->* (expr?) (#:single-range boolean?) expr?)]
+   [all-subexprs (->* (expr?)
+                      (#:no-vars boolean? #:no-consts boolean?)
+                      (listof expr?))]
+
+   [split-expr (-> symbol? expr? (listof expr?))]
+   [to-dnf (-> expr? expr?)]
+
    [remove-let (->* (expr?) ((dictof symbol? expr?)) expr?)]
    [canonicalize (->* (expr?) (#:neg boolean?) expr?)]
    [unroll-loops (-> exact-nonnegative-integer? expr? expr?)]
@@ -20,11 +27,33 @@
    [expand-let* (-> expr? expr?)]
    [expand-while* (-> expr? expr?)]
    [expand-for (-> expr? expr?)]
+
    [fpcore-unroll-loops (-> exact-nonnegative-integer? fpcore? fpcore?)]
    [fpcore-skip-loops (-> fpcore? fpcore?)]
    [fpcore-expand-let* (-> fpcore? fpcore?)]
    [fpcore-expand-while* (-> fpcore? fpcore?)]
    [fpcore-expand-for (-> fpcore? fpcore?)]
+   [fpcore-override-arg-precision (-> symbol? fpcore? fpcore?)]
+   [fpcore-override-props (-> (listof symbol?) fpcore? fpcore?)]
+   [fpcore-name (->* (fpcore?) ((or/c #f string?)) (or/c #f string?))]
+   
+   [fpcore-all-subexprs (->* (fpcore?)
+                             (#:no-vars boolean? #:no-consts boolean?)
+                             (listof fpcore?))]
+   [fpcore-precondition-ranges (->* (fpcore?) (#:single-range boolean?) fpcore?)]
+   [fpcore-split-intervals (->* (exact-nonnegative-integer? fpcore?)
+                                (#:max exact-nonnegative-integer?)
+                                (listof fpcore?))]
+   [fpcore-split-or (-> fpcore? (listof fpcore?))]
+   [fpcore-transform (->* (fpcore?)
+                          (#:var-precision (or/c #f symbol?)
+                           #:override-props (or/c #f (listof symbol?))
+                           #:unroll (or/c #f exact-nonnegative-integer?)
+                           #:split (or/c #f exact-nonnegative-integer?)
+                           #:split-or boolean?
+                           #:subexprs boolean?)
+                           (listof fpcore?))]
+
    [pretty-expr (-> expr? string?)]
    [pretty-fpcore (-> fpcore? string?)]))
 
@@ -46,8 +75,7 @@
             (loop q (+ e 1))
             (values n e)))))
 
-(define/contract (round-decimal n digits direction)
-  (-> rational? exact-positive-integer? (or/c 'up 'down) rational?)
+(define (round-decimal n digits direction)
   (case (sgn n)
     [(0) 0]
     [(-1) (- (round-decimal (- n) digits (if (eq? direction 'up) 'down 'up)))]
@@ -61,11 +89,7 @@
            (/ (if (eq? direction 'up) (add1 r) r) p)))]))
 
 ; TODO: use (order-of-magnitude n) from racket/math to get normalized results
-(define/contract (format-number n #:digits [digits 16] #:direction [direction #f])
-  (->* (rational?)
-       (#:digits exact-positive-integer?
-        #:direction (or/c #f 'up 'down))
-       string?)
+(define (format-number n #:digits [digits 16] #:direction [direction #f])
   (define t (inexact->exact n))
   (let*-values ([(d e10) (factor (denominator t) 10)]
                 [(d e5) (factor d 5)]
@@ -264,8 +288,7 @@
 
   (->canon expr neg))
 
-(define/contract (split-expr op expr)
-  (-> symbol? expr? (listof expr?))
+(define (split-expr op expr)
   (match expr
     [(list (? (symbols op)) args ...)
      (append-map (curry split-expr op) args)]
@@ -279,9 +302,8 @@
        (for*/list ([h (car lists)] [t lists*])
          (list* h t))]))
 
-(define/contract (to-dnf expr)
-  ; Converts the given logical expression into an equivalent DNF
-  (-> expr? expr?)
+; Converts the given logical expression into an equivalent DNF
+(define (to-dnf expr)
   (match expr
     [(list (or 'let 'while) args ...)
      (error 'to-dnf "Unsupported operation ~a" expr)]
@@ -310,9 +332,8 @@
          (list* 'or ts))]
     [_ expr]))
 
-(define/contract (all-subexprs expr #:no-vars [no-vars #f] #:no-consts [no-consts #f])
-  ; Returns a list of subexpressions for the given expression
-  (->* (expr?) (#:no-vars boolean? #:no-consts boolean?) (listof expr?))
+; Returns a list of subexpressions for the given expression
+(define (all-subexprs expr #:no-vars [no-vars #f] #:no-consts [no-consts #f])
   (remove-duplicates #:key remove-let
    (let loop ([expr expr])
      (match expr
@@ -338,9 +359,8 @@
        [(list op args ...)
         (cons expr (append-map loop args))]))))
 
-(define/contract (fpcore-all-subexprs prog #:no-vars [no-vars #f] #:no-consts [no-consts #f])
-  ; Returns FPCore programs for all subexpressions
-  (->* (fpcore?) (#:no-vars boolean? #:no-consts boolean?) (listof fpcore?))
+; Returns FPCore programs for all subexpressions
+(define (fpcore-all-subexprs prog #:no-vars [no-vars #f] #:no-consts [no-consts #f])
   (define-values (args props body)
    (match prog
     [(list 'FPCore (list args ...) props ... body) (values args props body)]
@@ -353,7 +373,8 @@
     (define props* (dict-set properties ':name name*))
     `(FPCore ,args ,@(unparse-properties props*) ,expr)))
 
-; for loops?
+; unrolls loops n times
+; TODO: for loops?
 (define (unroll-loops n expr)
   (define/transform-expr (unroll expr)
     [(visit-while_ vtor while_ cond vars inits updates body #:ctx [ctx '()])
@@ -464,8 +485,7 @@
    [(list 'FPCore name (list args ...) props ... body)
     `(FPCore ,name ,args ,@props ,(expand-for body))]))
 
-(define/contract (precondition-ranges pre #:single-range [single-range #f])
-  (->* (expr?) (#:single-range boolean?) expr?)
+(define (precondition-ranges pre #:single-range [single-range #f])
   (let* ([ranges ((compose condition->range-table canonicalize remove-let) pre)]
          [bounded-vars (for/list ([var-interval (in-dict-pairs ranges)]
                                   #:when (nonempty-bounded? (cdr var-interval)))
@@ -480,9 +500,8 @@
                 `(or ,@(for/list ([int intervals])
                          (interval->condition int var)))))))))
 
-(define/contract (fpcore-precondition-ranges prog #:single-range [single-range #f])
-  ; Converts preconditions to ranges in the given FPCore program
-  (->* (fpcore?) (#:single-range boolean?) fpcore?)
+; Converts preconditions to ranges in the given FPCore program
+(define (fpcore-precondition-ranges prog #:single-range [single-range #f])
   (define-values (name args props body)
    (match prog
     [(list 'FPCore (list args ...) props ... body) (values #f args props body)]
@@ -496,32 +515,9 @@
            `(FPCore ,name ,args ,@(unparse-properties new-properties) ,body)
            `(FPCore ,args ,@(unparse-properties new-properties) ,body)))))
 
-(define/contract (fpcore-split-or prog)
-  ; Transforms preconditions into DNF and returns FPCore programs for all conjunctions
-  (-> fpcore? (listof fpcore?))
-  (define-values (name args props body)
-   (match prog
-    [(list 'FPCore (list args ...) props ... body) (values #f args props body)]
-    [(list 'FPCore name (list args ...) props ... body) (values name args props body)]))
-  (define-values (_ properties) (parse-properties props))
-  (if (not (dict-has-key? properties ':pre))
-      (list prog)
-      (let ([name (dict-ref properties ':name "ex")]
-            [pre-list ((compose (curry split-expr 'or) to-dnf remove-let)
-                       (dict-ref properties ':pre))])
-        (define multiple-pre (> (length pre-list) 1))
-        (for/list ([pre pre-list] [k (in-naturals)])
-          (define name* (if multiple-pre (format "~a_case~a" name k) name))
-          (define props* (dict-set* properties ':name name* ':pre pre))
-          `(FPCore ,args ,@(unparse-properties props*) ,body)))))
-
-
-(define/contract (fpcore-split-intervals n prog #:max [max 10000])
-  ; Uniformly splits input intervals of all bounded variables into n parts.
-  ; The total number of results is limited by the #:max parameter.
-  (->* (exact-nonnegative-integer? fpcore?)
-       (#:max exact-nonnegative-integer?)
-       (listof fpcore?))
+; Uniformly splits input intervals of all bounded variables into n parts.
+; The total number of results is limited by the #:max parameter.
+(define (fpcore-split-intervals n prog #:max [max 10000])
   (define-values (args props body)
    (match prog
     [(list 'FPCore (list args ...) props ... body) (values args props body)]
@@ -555,9 +551,26 @@
                    (append progs
                            (loop (cons new-pre pre-list) new-name (cdr vars))))]))))))
 
-(define/contract (fpcore-override-arg-precision prec prog)
-  ; Adds (! :precision prec) to all arguments
-  (-> symbol? fpcore? fpcore?)
+; Transforms preconditions into DNF and returns FPCore programs for all conjunctions
+(define (fpcore-split-or prog)
+  (define-values (name args props body)
+   (match prog
+    [(list 'FPCore (list args ...) props ... body) (values #f args props body)]
+    [(list 'FPCore name (list args ...) props ... body) (values name args props body)]))
+  (define-values (_ properties) (parse-properties props))
+  (if (not (dict-has-key? properties ':pre))
+      (list prog)
+      (let ([name (dict-ref properties ':name "ex")]
+            [pre-list ((compose (curry split-expr 'or) to-dnf remove-let)
+                       (dict-ref properties ':pre))])
+        (define multiple-pre (> (length pre-list) 1))
+        (for/list ([pre pre-list] [k (in-naturals)])
+          (define name* (if multiple-pre (format "~a_case~a" name k) name))
+          (define props* (dict-set* properties ':name name* ':pre pre))
+          `(FPCore ,args ,@(unparse-properties props*) ,body)))))
+
+; Adds (! :precision prec) to all arguments
+(define (fpcore-override-arg-precision prec prog)
   (define/match (transform-arg arg)
     [((list '! props ... name)) `(! ,@(append props `(:precision ,prec)) ,name)]
     [(name) `(! :precision ,prec ,name)])
@@ -567,30 +580,21 @@
     [(list 'FPCore name (list args ...) props ... body)
       `(FPCore ,name ,(map transform-arg args) ,@props ,body)]))
 
-(define/contract (fpcore-override-props new-props prog)
-  ; Adds given properties to the core
-  (-> (listof symbol?) fpcore? fpcore?)
+; Adds given properties to the core
+(define (fpcore-override-props new-props prog)
   (match prog
-    [(list 'FPCore (? list? args) props ... body)
-      `(FPCore ,args ,@props ,@new-props ,body)]
-    [(list 'FPCore name (? list? args) props ... body)
-      `(FPCore ,name ,args ,@props ,@new-props ,body)]))
+   [(list 'FPCore (? list? args) props ... body)
+    `(FPCore ,args ,@props ,@new-props ,body)]
+   [(list 'FPCore name (? list? args) props ... body)
+    `(FPCore ,name ,args ,@props ,@new-props ,body)]))
 
-(define/contract (fpcore-transform prog
-                                   #:var-precision [var-precision #f]
-                                   #:override-props [override-props #f]
-                                   #:unroll [unroll #f]
-                                   #:split [split #f]
-                                   #:split-or [split-or #f]
-                                   #:subexprs [subexprs #f])
-  (->* (fpcore?)
-       (#:var-precision (or/c #f symbol?)
-        #:override-props (or/c #f (listof symbol?))
-        #:unroll (or/c #f exact-nonnegative-integer?)
-        #:split (or/c #f exact-nonnegative-integer?)
-        #:split-or boolean?
-        #:subexprs boolean?)
-       (listof fpcore?))
+(define (fpcore-transform prog
+                          #:var-precision [var-precision #f]
+                          #:override-props [override-props #f]
+                          #:unroll [unroll #f]
+                          #:split [split #f]
+                          #:split-or [split-or #f]
+                          #:subexprs [subexprs #f])
   (define ((make-t cond f) progs)
     (if cond (append-map f progs) progs))
   (define transform
@@ -603,10 +607,7 @@
      (make-t unroll (compose list (curry fpcore-unroll-loops unroll)))))
   (transform (list prog)))
 
-(define/contract (fpcore-name prog [default-name #f])
-  (->* (fpcore?)
-       ((or/c #f string?))
-       (or/c #f string?))
+(define (fpcore-name prog [default-name #f])
   (define-values (name args props body)
    (match prog
     [(list 'FPCore (list args ...) props ... body) (values #f args props body)]

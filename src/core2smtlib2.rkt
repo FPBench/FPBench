@@ -74,12 +74,9 @@
    [(and (infinite? x) (negative? x)) (format "(_ -oo ~a ~a)" w p)]
    [(nan? x) (format "(_ NaN ~a ~a)" w p)]
    [else 
-      (let* ([q (if (single-flonum? x)
-                     ;; Workaround for misbehavior of inexact->exact with single-flonum inputs
-                     (inexact->exact (real->double-flonum x))
-                     (inexact->exact x))]
-              [n (numerator q)]
-              [d (denominator q)])
+      (let* ([q (inexact->exact (real->double-flonum x))]
+             [n (numerator q)]
+             [d (denominator q)])
          (if (= d 1)
              (format "((_ to_fp ~a ~a) ~a ~a)" w p (rm->smt rm) n)
              (format "((_ to_fp ~a ~a) ~a (/ ~a ~a))" w p (rm->smt rm) n d)))]))

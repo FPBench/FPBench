@@ -31,10 +31,8 @@
     [(or +inf.0 +inf.f) "Infinity"]
     [(or -inf.0 -inf.f) "(-Infinity)"]
     [(or +nan.0 +nan.f) "Indeterminate"]
-    [_ (let* ([q (if (single-flonum? x)
-                     ;; Workaround for misbehavior of inexact->exact with single-flonum inputs
-                     (parameterize ([bf-precision 24]) (inexact->exact (bigfloat->flonum (bf x))))
-                     (inexact->exact x))]
+    [_ (let* ([q ;; Workaround for misbehavior of inexact->exact with single-flonum inputs
+                 (parameterize ([bf-precision 24]) (inexact->exact (bigfloat->flonum (bf x))))]
               [n (numerator q)]
               [d (denominator q)])
         (if (= d 1)

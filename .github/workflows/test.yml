@@ -5,63 +5,70 @@ on: [push]
 
 env:
   FPTAYLOR_VERSION: 'fabc895ddc595dc41fbe7ce511049c745e1f9136'
-  FPLLL_VERSION: '5.2.1'
-  SOLLYA_VERSION: 'sollya-7.0'
   CAKEML_VERSION: 'v1217'
   CAKEML_BASE: '../cache/cake'
-  DAISY_VERSION: '8f26766b3a6a42de644f259cd2b85cf7f7f08477'
+  SBT_VERSION: '1.5.5'
+  DAISY_VERSION: '33bc509d927bdbda08c6dccd0f56285dc265b049'
   DAISY_BASE: '../cache/daisy'
 
 # Daisy must run on Java 8, changing runner OS may break this
   
 jobs:
   build:
-    runs-on: ubuntu-16.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       
-      - name: "Restore cache"
-        uses: actions/cache@v1
-        id: cache
-        with:
-          path: ../cache
-          key: ${{ runner.os }}-deps2   # Might need to change this every now and then (or wait a week) if cache is out-of-date
+      # - name: "Restore cache"
+      #   uses: actions/cache@v2
+      #   id: cache
+      #   with:
+      #     path: ../cache
+      #     key: ${{ runner.os }}-deps   # Might need to change this every now and then (or wait a week) if cache is out-of-date
         
       - name: "Install Node.js"
-        uses: actions/setup-node@v1
+        uses: actions/setup-node@v2
         with:
-          node-version: '10.15.1'
+          node-version: '16'
+
+      - name: "Install Java"
+        uses: actions/setup-java@v2
+        with:
+          distribution: 'adopt'
+          java-version: '8'
 
       - name: "Install Racket"
-        uses: Bogdanp/setup-racket@v0.7
+        uses: Bogdanp/setup-racket@v1.5
         with:
-          version: '7.9'
+          architecture: 'x64'
+          distribution: 'full'
+          variant: 'CS'
+          version: '8.0'
 
       - name: "Install Z3"
         uses: pavpanchekha/setup-z3@1.2.2
         with:
           version: '4.8.8'
+
+      - name: "Install OCaml"
+        uses: ocaml/setup-ocaml@v2
+        with:
+          ocaml-compiler: '4.04.2'
           
       - name: "Setup environment"
         run: |     
           sudo apt-get update
-          sudo apt-get install -y gnuplot libmpfr-dev libmpfi-dev libxml2-dev flex bison opam
-          opam init && opam switch 4.04.2 && eval `opam config env`
-          (git clone https://github.com/fplll/fplll.git ../cache/fplll || echo "Assuming FPLLL cached, skipping clone")
-          (cd ../cache/fplll && git checkout ${FPLLL_VERSION} && ./autogen.sh && ./configure && make && sudo make install && sudo ldconfig)
-          (git clone https://scm.gforge.inria.fr/anonscm/git/sollya/sollya.git ../cache/sollya || echo "Assuming sollya cached, skipping clone")
-          (cd ../cache/sollya && git checkout ${SOLLYA_VERSION} && ./autogen.sh && ./configure && make && sudo make install && sudo ldconfig)   
-          which sollya
+          sudo apt-get install -y gnuplot libmpfr-dev libmpfi-dev libxml2-dev sollya
+          eval $(opam env)
           (git clone https://github.com/soarlab/FPTaylor.git ../cache/fptaylor || echo "Asuming FPTaylor cached, skipping clone")
           (cd ../cache/fptaylor && git checkout ${FPTAYLOR_VERSION} && make clean-all && make)
           (mkdir ../cache/cake && curl -L https://github.com/CakeML/cakeml/releases/download/${CAKEML_VERSION}/cake-x64-64.tar.gz | \
-            tar -xz -C ../cache/cake --strip-components 1 && (cd ../cache/cake && make cake) || echo "cakeml cached")
-          (mkdir ../cache/sbt && curl -L -O https://piccolo.link/sbt-0.13.18.tgz && tar -xf sbt-0.13.18.tgz -C ../cache/sbt --strip-components 1 || \
-            echo "Assuming sbt 0.13.18 is cached, skipping download")
-          (git clone https://github.com/malyzajko/daisy ../cache/daisy && cd ../cache/daisy && git checkout ${DAISY_VERSION} && ../sbt/bin/sbt compile && \
-            ../sbt/bin/sbt script || echo "Assuming Daisy cached, skipping clone")
+            tar -xz -C ../cache/cake --strip-components 1 && (cd ../cache/cake && make cake))
+          (mkdir ../cache/sbt && curl -L -O https://github.com/sbt/sbt/releases/download/v${SBT_VERSION}/sbt-${SBT_VERSION}.tgz && \
+            tar -xzf sbt-${SBT_VERSION}.tgz -C ../cache/sbt --strip-components 1)
+          (git clone --recurse-submodules https://github.com/malyzajko/daisy ../cache/daisy && cd ../cache/daisy && \
+            git checkout ${DAISY_VERSION} && ../sbt/bin/sbt compile && ../sbt/bin/sbt script)
           echo "${PWD}/../cache/fptaylor" >> $GITHUB_PATH
-          echo "${PWD}/../cache/${Z3_DISTR}/bin" >> $GITHUB_PATH
           echo "${PWD}/../cache/cake" >> $GITHUB_PATH
           echo "${PWD}/../cache/daisy" >> $GITHUB_PATH
  

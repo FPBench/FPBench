@@ -31,41 +31,35 @@
 
 ;;;;;; fuse let expressions
 
-(define (visit-let/fuse visitor let_ vars vals body #:ctx [ctx '()])
-  (match (list let_ vars body)
-   [(list 'let (list var) `(let ([,var2 ,val2]) ,body2))          ; (let ([a ...]) (let ([b ...]) ...))
-    (visit/ctx visitor
-              `(let* (,(list var (car vals)) ,(list var2 val2)) ,body2)
-               ctx)]
-   [(list 'let (list var) `(let* ([,vars2 ,vals2] ...) ,body2))   ; (let ([a ...]) (let* ([b ...] ...) ...))
-    (visit/ctx visitor
-              `(let* (,@(map list (cons var vars2) (cons (car vals) vals2))) ,body2)
-               ctx)]
-   [(list 'let* _ `(let ([,var2 ,val2]) ,body2))   ; (let* ([a ...] ...) (let ([b ...]) ...))
-    (visit/ctx visitor
-              `(let* (,@(map list vars vals) ,(list var2 val2)) ,body2)
-               ctx)]
-   [(list 'let* _ `(let* ([,vars2 ,vals2] ...) ,body2))   ; (let* ([a ...] ...) (let* ([b ...] ...) ...))
-    (visit/ctx visitor
-              `(let* (,@(map list (append vars vars2) (append vals vals2))) ,body2)
-               ctx)]
-   [_
-    `(,let_ (,@(for/list ([var vars] [val vals]) (list var (visit/ctx visitor val ctx))))
-          ,(visit/ctx visitor body ctx))]))
-
 (define/transform-expr (fuse-let expr)
-  [visit-let_ visit-let/fuse])
+  [(visit-let_ vtor let_ vars vals body #:ctx [ctx '()])
+    (match (list let_ vars body)
+     [(list 'let (list var) `(let ([,var2 ,val2]) ,body2))          ; (let ([a ...]) (let ([b ...]) ...))
+      (visit/ctx vtor
+                `(let* (,(list var (car vals)) ,(list var2 val2)) ,body2)
+                 ctx)]
+     [(list 'let (list var) `(let* ([,vars2 ,vals2] ...) ,body2))   ; (let ([a ...]) (let* ([b ...] ...) ...))
+      (visit/ctx vtor
+                `(let* (,@(map list (cons var vars2) (cons (car vals) vals2))) ,body2)
+                 ctx)]
+     [(list 'let* _ `(let ([,var2 ,val2]) ,body2))   ; (let* ([a ...] ...) (let ([b ...]) ...))
+      (visit/ctx vtor
+                `(let* (,@(map list vars vals) ,(list var2 val2)) ,body2)
+                 ctx)]
+     [(list 'let* _ `(let* ([,vars2 ,vals2] ...) ,body2))   ; (let* ([a ...] ...) (let* ([b ...] ...) ...))
+      (visit/ctx vtor
+                `(let* (,@(map list (append vars vars2) (append vals vals2))) ,body2)
+                 ctx)]
+     [_
+      `(,let_ (,@(for/list ([var vars] [val vals]) (list var (visit/ctx vtor val ctx))))
+            ,(visit/ctx vtor body ctx))])])
 
 ;;;;;; main cse
 
-(define (syntax? name)
-  (set-member? '(if let let* while while* for for* tensor tensor* !) name))
-
-(define (filter-no-edges deps)
-  (map car (filter (compose null? cdr) deps)))
-
 ; kahn's algorithm
 (define (topo-sort deps)
+  (define (filter-no-edges deps)
+    (map car (filter (compose null? cdr) deps)))
   (let loop ([sorted '()] [deps deps] [no-edges (filter-no-edges deps)])
     (cond
      [(null? no-edges) (append (reverse sorted) (map car deps))]
@@ -91,6 +85,37 @@
   (define common (mutable-set))
   (define varc exprc)
 
+  ; visitor for munge
+  (define/visit-expr (munge/visit expr rec)
+    [(visit-if vtor cond ift iff #:ctx [rec '()])
+      (list 'if (rec cond) (rec ift) (rec iff))]
+    [(visit-let_ vtor let_ vars vals body #:ctx [rec '()]) ; special-cased below
+      (for ([var vars]) (add-name! var)) ; add variables names
+      (list let_ vars (map rec vals) (rec body))]
+    [(visit-while_ vtor while_ cond vars inits updates body #:ctx [rec '()])
+      (error 'common-subexpr-elim "Unsupported operation: `~a`" while_)]
+    [(visit-for_ vtor for_ vars vals accums inits updates body #:ctx [rec '()])
+      (error 'common-subexpr-elim "Unsupported operation: `~a`" for_)]
+    [(visit-tensor vtor vars vals body #:ctx [rec '()])
+      (error 'common-subexpr-elim "Unsupported operation: `tensor`")]
+    [(visit-tensor* vtor vars vals accums inits updates body #:ctx [rec '()])
+      (error 'common-subexpr-elim "Unsupported operation: `tensor*`")]
+    [(visit-array vtor args #:ctx [rec '()])
+      (cons 'array (map rec args))]
+    [(visit-! vtor props body #:ctx [rec '()])
+      (define props* (apply dict-set* '() props))
+      (if (dict-has-key? props* ':precision)
+          (list '! props (rec body (dict-ref props* ':precision)))
+          (list '! props (rec body)))]
+    [(visit-cast vtor body #:ctx [rec '()])
+      (cons 'cast (rec body))]
+    [(visit-op_ vtor op args #:ctx [rec '()])
+      (cons op (map rec args))]
+    [(visit-call vtor func args #:ctx [rec '()])
+      (cons func (map rec args))]
+    [(visit-terminal_ vtor x #:ctx [rec '()])
+      (list x)]) ; put constants into lists so its not confused with indices
+
   ; convert to indices to process
   (define (munge expr)
     (let loop ([expr expr] [prec prec])
@@ -107,42 +132,45 @@
         (begin0 exprc
           (set! exprc (+ 1 exprc))
           (hash-set! exprs old-exprc
-            (match expr
-             [(list '! props ... body)
-              (define props* (apply dict-set* '() props))
-              (cons (cons '! props) (list (loop body (dict-ref props* ':precision prec))))]
-             [(list op args ...)  ; don't check let vals
-              (cond   ; add variables names if needed
-               [(set-member? '(let let*) op)
-                (for ([arg (first args)]) (add-name! arg))]
-               [(set-member? '(while while* for for*) op)
-                (for ([arg (second args)]) (add-name! arg))])
-              (cons op (map (curryr loop prec) args))]
-             [_  (list expr)])))])))  ; put constants into lists so its not confused with indices
+                     (munge/visit expr (λ (e [p prec]) (loop e p)))))])))
 
-  (define root (munge expr))  ; fill `exprhash` and `exprs` and store top index
+  ; fill `exprhash` and `exprs` and store top index
+  (define root (munge expr))
 
   ; let locations, dependent idxs
   ; idx -> (loc, deps ...)
   ; order of let bindings must respect dependencies
   (define common-deps
     (let loop ([idx root])
-      (match-define (list op args ...) (hash-ref exprs idx))  ; 'op' can also be a const or var
-      (define hs (map loop args))
-      (define h       ; add current index if it is common
-        (if (set-member? common idx)
-            (hash idx (cons idx (remove-duplicates (apply append (map hash-keys hs)))))
-            (hash)))
-      (define h*      ; combine child tables with this one
+      (match (hash-ref exprs idx)
+       [(list 'let vars vals body) ; don't propogate
+        (define hs (map loop (cons body vals)))
+        (define h ; add current index if it is common
+          (if (set-member? common idx)
+              (hash idx (cons idx (remove-duplicates (append-map hash-keys hs))))
+              (hash)))
         (apply hash-union h hs
-               #:combine (λ (x y) (cons idx (remove-duplicates (append (cdr x) (cdr y)))))))
-      (cond
-       [(syntax? op) h*]    ; do not attempt to propogate up let bindings past block
-       [else
+               #:combine (λ (x y) (cons idx (remove-duplicates (append (cdr x) (cdr y))))))]
+       [(list '! props body) ; don't propogate
+        (define h (loop body))
+        (if (set-member? common idx) ; add current index if it is common
+            (hash-set h idx (cons idx (hash-keys h)))
+            h)]
+       [(list op args ..1)
+        (define hs (map loop args))
+        (define h       ; add current index if it is common
+          (if (set-member? common idx)
+              (hash idx (cons idx (remove-duplicates (append-map hash-keys hs))))
+              (hash)))
+        (define h*      ; combine child tables with this one
+          (apply hash-union h hs
+                 #:combine (λ (x y) (cons idx (remove-duplicates (append (cdr x) (cdr y)))))))
         (define prop-up  ; pull up all common idxs bound one level below
           (for/hash ([(k v) (in-hash h*)] #:when (set-member? args (car v)))
             (values k (cons idx (cdr v)))))
-        (hash-union h* prop-up #:combine (λ (x y) y))])))
+        (hash-union h* prop-up #:combine (λ (x y) y))]
+       [(list term) ; ignore constants
+        (hash)])))
 
   (define common-locs (mutable-set))
   (for ([vals (hash-values common-deps)])
@@ -163,19 +191,21 @@
   ; reconstruct expression
   (define (reconstruct idx)
     (let loop ([idx idx])
-      (define expr (hash-ref exprs idx))
-      (cond
-       [(set-member? common-locs idx) ; location for let bindings
-        (define bindings (gen-let-bindings idx))
-        (list 'let* bindings (loop idx))]
-       [(> (length expr) 1) ; (op args ...)
-        (if (list? (car expr))    ; (! props ... body)
-            (append (car expr) (map loop (cdr expr)))
-            (cons (car expr) (map loop (cdr expr))))]
-       [else 
-        (if (list? (car expr)) expr (car expr))])))
+      (match* ((hash-ref exprs idx) idx)
+       [(_ (? (curry set-member? common-locs))) ; location for let bindings
+        (list 'let* (gen-let-bindings idx) (loop idx))]
+       [((list (and (or 'let 'let*) let_) vars vals body) _)
+        (define vals* (map loop vals))
+        `(,let_ ,(map list vars vals*) ,(loop body))]
+       [((list '! props body) _)
+        `(! ,@props ,(loop body))]
+       [((list op args ..1) _)
+        (cons op (map loop args))]
+       [((list term) _)
+        term])))
 
-  (fuse-let (reconstruct root))) ; reconstruct expression top-down
+  ; reconstruct expression top-down
+  (fuse-let (reconstruct root)))
 
 ;;;;;;; top-level
 
@@ -225,7 +255,7 @@
              '(FPCore (a) (let ((j0 (+ a a))) j0)))
 
   (check-cse '(FPCore (a) (let ((j0 (+ a a))) (+ (+ a a) j0)))
-             '(FPCore (a) (let ((j0 (+ a a))) (+ (+ a a) j0))))
+             '(FPCore (a) (let* ((t_0 (+ a a)) (j0 t_0)) (+ t_0 j0))))
 
   (check-cse '(FPCore (a) (let ((i0 (- a a))) (- (+ (+ a a) (+ a a)) i0)))
              '(FPCore (a) (let* ((i0 (- a a)) (t_0 (+ a a))) (- (+ t_0 t_0) i0))))
@@ -235,6 +265,9 @@
 
   (check-cse '(FPCore (a) (+ (* a a) (! :precision binary32 (* a a))))
              '(FPCore (a) (+ (* a a) (! :precision binary32 (* a a)))))
+
+  (check-cse '(FPCore (a) (let ((x (+ a 1)) (y (- a 1))) (+ (* a x) y)))
+             '(FPCore (a) (let ((x (+ a 1)) (y (- a 1))) (+ (* a x) y))))
 
   (check-fuse-let '(let ([a 1]) (let* ([a 2] [b 3]) (+ a b)))
                   '(let* ([a 1] [a 2] [b 3]) (+ a b)))

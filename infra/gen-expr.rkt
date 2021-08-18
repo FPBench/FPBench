@@ -1,7 +1,7 @@
 #lang racket
 
-(require "../src/common.rkt" "../src/sampler.rkt" "../src/fpcore-visitor.rkt")
-(provide gen-expr pretty-fpcore pretty-expr)
+(require "../src/common.rkt" "../src/fpcore-extra.rkt" "../src/sampler.rkt")
+(provide gen-expr)
 
 (define math-const (make-parameter 0.5)) ; odds of generating a math constant
 (define random-const? (make-parameter #f))
@@ -317,29 +317,6 @@
           (set! i (add1 i))
           (out-proc expr* args props)
           (gensym-count 1))))))
-
-;; Pretty formatter
-
-(define (pretty-props props)
-  (for/list ([(prop name) (in-dict (apply dict-set* '() props))])
-    (format "~a ~a" prop name)))
-
-(define/transform-expr (pretty-expr-helper expr) ; don't call pretty-format twice
-  [(visit-! vtor props body)
-   `(! ,@(pretty-props props) ,(visit vtor body))])
-
-(define (pretty-expr expr)
-  (pretty-format (pretty-expr-helper expr) #:mode 'display))
-
-(define (pretty-fpcore core)
-  (define-values (name args props* body)
-     (match core
-      [(list 'FPCore (list args ...) props ... body) (values #f args props body)]
-      [(list 'FPCore name (list args ...) props ... body) (values name args props body)]))
-  (pretty-format `(,(if body (format "FPCore ~a" args) (format "FPCore ~a ~a" name args))
-                    ,@(pretty-props props*)
-                    ,(pretty-expr-helper body))
-                 #:mode 'display))
 
 ;; Expression wrappers
 

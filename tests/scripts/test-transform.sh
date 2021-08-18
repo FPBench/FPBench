@@ -84,7 +84,7 @@ then
     then
         diff $test $expected
     fi
-    #rm $test
+    rm $test
     exit $ret
 else
     echo "Done"

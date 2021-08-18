@@ -44,6 +44,8 @@
                     (register-pass fpcore-expand-let* 'one-to-one)]
    ["--expand-while*" "Expand each while* to a while loop with nested let* expressions"
                       (register-pass fpcore-expand-while* 'one-to-one)]
+   ["--expand-for" "Expand for and for* loops (if possible)"
+                    (register-pass fpcore-expand-for 'one-to-one)]
    ["--rational-constants" "Convert every number to a rational"
                            (register-pass 'rational-constants 'one-to-one)]
    ["--cse" "Lift each common subexpression to an intermediate variable bound by a let* expression"
@@ -107,7 +109,8 @@
        (apply apply-pass pass-shape))
 
      (for ([expr (unbox working-exprs)])
-       (pretty-print expr output-port 1)))))
+       (displayln (pretty-fpcore expr) output-port)
+       (newline output-port)))))
 
 (module+ main
   (transform-main (current-command-line-arguments) (current-input-port) (current-output-port)))

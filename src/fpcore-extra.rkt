@@ -24,7 +24,9 @@
    [fpcore-skip-loops (-> fpcore? fpcore?)]
    [fpcore-expand-let* (-> fpcore? fpcore?)]
    [fpcore-expand-while* (-> fpcore? fpcore?)]
-   [fpcore-expand-for (-> fpcore? fpcore?)]))
+   [fpcore-expand-for (-> fpcore? fpcore?)]
+   [pretty-expr (-> expr? string?)]
+   [pretty-fpcore (-> fpcore? string?)]))
 
 
 (define (fix-file-name name)
@@ -614,6 +616,32 @@
     [(dict-has-key? properties ':name) (dict-ref properties ':name)]
     [default-name]
     [else #f]))
+
+;; Pretty formatter
+
+(define (pretty-props props)
+  (for/list ([(prop name) (in-dict (apply dict-set* '() props))])
+    (format "~a ~a" prop name)))
+
+(define/transform-expr (pretty-expr-helper expr) ; don't call pretty-format twice
+  [(visit-! vtor props body #:ctx [ctx '()])
+   `(! ,@(pretty-props props) ,(visit/ctx vtor body ctx))])
+
+(define (pretty-expr expr)
+  (pretty-format (pretty-expr-helper expr) #:mode 'display))
+
+(define (pretty-fpcore core)
+  (define-values (name args props* body)
+    (match core
+     [(list 'FPCore name (list args ...) props ... body)
+      (values name args props body)]
+     [(list 'FPCore (list args ...) props ... body)
+      (values #f args props body)]))
+  (pretty-format `(,(if name (format "FPCore ~a ~a" name args) (format "FPCore ~a" args))
+                  ,@(pretty-props props*)
+                   ,(pretty-expr-helper body))
+                 #:mode 'display))
+
 
 (module+ test
   (require rackunit)

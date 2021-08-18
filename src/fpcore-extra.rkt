@@ -19,10 +19,12 @@
    [skip-loops (-> expr? expr?)]
    [expand-let* (-> expr? expr?)]
    [expand-while* (-> expr? expr?)]
+   [expand-for (-> expr? expr?)]
    [fpcore-unroll-loops (-> exact-nonnegative-integer? fpcore? fpcore?)]
    [fpcore-skip-loops (-> fpcore? fpcore?)]
    [fpcore-expand-let* (-> fpcore? fpcore?)]
-   [fpcore-expand-while* (-> fpcore? fpcore?)]))
+   [fpcore-expand-while* (-> fpcore? fpcore?)]
+   [fpcore-expand-for (-> fpcore? fpcore?)]))
 
 
 (define (fix-file-name name)
@@ -367,9 +369,8 @@
                   ,body))))])
   (unroll expr))
 
-(define/contract (fpcore-unroll-loops n prog)
   ; Unrolls loops in the given FPCore program
-  (-> exact-nonnegative-integer? fpcore? fpcore?)
+(define (fpcore-unroll-loops n prog)
   (define-values (name args props body)
    (match prog
     [(list 'FPCore (list args ...) props ... body) (values #f args props body)]
@@ -428,6 +429,38 @@
     `(FPCore ,args ,@props ,(expand-while* body))]   
    [(list 'FPCore name (list args ...) props ... body)
     `(FPCore ,name ,args ,@props ,(expand-while* body))]))
+
+(define/transform-expr (expand-for expr)
+  [(visit-for_ vtor for_ vars vals accums inits updates body #:ctx [ctx '()])
+    (cond
+     [(null? vars)
+      (define let_ (match for_ ['for 'let] ['for* 'let*]))
+      `(,let_ ,(for/list ([accum accums] [init inits])
+                (list accum (visit/ctx vtor init ctx)))
+              ,(visit/ctx vtor body ctx))]
+     [(= (length vars) 1)
+      (define while_ (match for_ ['for 'while] ['for* 'while*]))
+      `(,while_ (< ,(car vars) ,(car vals))
+                ,(for/list ([accum accums] [init inits] [update updates])
+                  (list accum
+                        (visit/ctx vtor init ctx)
+                        (visit/ctx vtor update ctx)))
+                ,(visit/ctx vtor body ctx))]
+     [else  ; multi-indexed for loops can't be desugared
+      `(,for_ ,(for/list ([var vars] [val vals]) (list var (visit/ctx vtor val ctx)))
+              ,(for/list ([accum accums] [init inits] [update updates])
+                (list accum
+                      (visit/ctx vtor init ctx)
+                      (visit/ctx vtor update ctx)))
+              ,(visit/ctx vtor body ctx))])])
+
+; Expand for/for* in the body of the given FPCore program
+(define (fpcore-expand-for prog)
+  (match prog
+   [(list 'FPCore (list args ...) props ... body)
+    `(FPCore ,args ,@props ,(expand-for body))]   
+   [(list 'FPCore name (list args ...) props ... body)
+    `(FPCore ,name ,args ,@props ,(expand-for body))]))
 
 (define/contract (precondition-ranges pre #:single-range [single-range #f])
   (->* (expr?) (#:single-range boolean?) expr?)
@@ -685,6 +718,18 @@
                          (or p (!= a (+ b 1))))))
    '(let ([p (> a b)])
       (and (not p) (== a (+ b 1)))))
+
+  (check-equal?
+    (expand-for '(for () ([x 0 (+ x 1)]) x))
+    '(let ([x 0]) x))
+
+  (check-equal?
+    (expand-for '(for ([i n]) ([x 0 (+ x 1)]) x))
+    '(while (< i n) ([x 0 (+ x 1)]) x))
+
+  (check-equal? ; no expansion
+    (expand-for '(for ([i n] [j n]) ([x 0 (+ x 1)]) x))
+    '(for ([i n] [j n]) ([x 0 (+ x 1)]) x))
 
   (check-equal?
    (split-expr 'or '(or (and a b) (or (and c d) x)))

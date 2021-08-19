@@ -13,7 +13,7 @@
 (define *names* (make-parameter (mutable-set)))
 (define *expr-cse-able?* (make-parameter list?))
 
-;;;;;; old gensym
+;;;;;; name generation
 
 (define (gensym name)
   (define prefixed
@@ -29,7 +29,10 @@
 (define (add-name! name)
   (set-add! (*names*) name))
 
-;;;;;; fuse let expressions
+(define (clear-names!)
+  (set-clear! (*names*)))
+
+;; fuse let expressions
 
 (define/transform-expr (fuse-let expr)
   [(visit-let_ vtor let_ vars vals body #:ctx [ctx '()])
@@ -54,8 +57,6 @@
       `(,let_ (,@(for/list ([var vars] [val vals]) (list var (visit/ctx vtor val ctx))))
             ,(visit/ctx vtor body ctx))])])
 
-;;;;;; main cse
-
 ; kahn's algorithm
 (define (topo-sort deps)
   (define (filter-no-edges deps)
@@ -71,7 +72,15 @@
       (define edges* (filter-no-edges deps*))
       (loop (cons chosen sorted) deps* edges*)])))
 
-;; eliminator
+(define (dict-set** dict keys vals)
+  (for/fold ([dict dict]) ([k keys] [v vals])
+    (dict-set dict k v)))
+
+(define (hash-set**! h keys vals)
+  (for ([k keys] [v vals])
+    (hash-set! h k v)))
+
+;; main cse procedure
 (define (common-subexpr-elim vars prec expr)
   (define exprhash  ; expr -> idx
     (make-hash
@@ -81,29 +90,164 @@
     (make-hash
       (for/list ([var vars] [i (in-naturals)])
         (cons i (list var)))))
-  (define exprc (length vars))
   (define common (mutable-set))
+  (define vartable (make-hash))
+  (define exprc (length vars))
   (define varc exprc)
 
+  ; reset parameters
+  (clear-names!)
+  (for ([var vars]) (add-name! var))
+
+  (define (get-name name)
+    (hash-ref vartable name name))
+
+  ; preprocessor (ensure each binding procedures a unique variable)
+  (define/transform-expr (preprocess expr ctx)
+    [(visit-let vtor vars vals body #:ctx [ctx '()])
+      (define vars* (map gensym vars))
+      (define ctx* (dict-set** ctx vars vars*))
+      (hash-set**! vartable vars* vars)
+      `(let ,(for/list ([var vars*] [val vals]) (list var (visit/ctx vtor val ctx)))
+            ,(visit/ctx vtor body ctx*))]
+    [(visit-let* vtor vars vals body #:ctx [ctx '()])
+      (define-values (ctx* vars* vals*)
+        (for/fold ([ctx ctx] [vars* '()] [vals* '()]
+                  #:result (values ctx (reverse vars*) (reverse vals*)))
+                  ([var vars] [val vals])
+          (let ([name (gensym var)])
+            (hash-set! vartable name var)
+            (values (dict-set ctx var name)
+                    (cons name vars*)
+                    (cons (visit/ctx vtor val ctx) vals*)))))
+      `(let* ,(map list vars* vals*) ,(visit/ctx vtor body ctx*))]
+    [(visit-while vtor cond vars inits updates body #:ctx [ctx '()])
+      (define vars* (map gensym vars))  ; first for updates
+      (define ctx* (dict-set** ctx vars vars*))
+      (define vars** (map gensym vars)) ; second for body (hack to avoid over combining)
+      (define ctx** (dict-set** ctx vars vars**))
+      (hash-set**! vartable (append vars* vars**) (append vars vars))
+      `(while ,(visit/ctx vtor cond ctx)
+              ,(for/list ([var vars*] [init inits] [update updates])
+                (list var (visit/ctx vtor init ctx) (visit/ctx vtor update ctx*)))
+              ,(visit/ctx vtor body ctx**))]
+    [(visit-while* vtor cond vars inits updates body #:ctx [ctx '()])
+      (define-values (ctx* vars* inits* updates*)
+        (for/fold ([ctx ctx] [vars* '()] [inits* '()] [updates* '()]
+                  #:result (values ctx (reverse vars*) (reverse inits*) (reverse updates*)))
+                  ([var vars] [init inits] [update updates])
+          (define name (gensym var))
+          (define ctx* (dict-set* ctx var name))
+          (hash-set! vartable name var)
+          (values ctx*
+                  (cons name vars*)
+                  (cons (visit/ctx vtor init ctx) inits*)
+                  (cons (visit/ctx vtor update ctx*) updates*))))
+      (define vars** (map gensym vars))
+      (define ctx** (dict-set** ctx* vars vars**))
+      (hash-set**! vartable vars** vars)
+      `(while* ,(visit/ctx vtor cond ctx)
+               ,(map list vars* inits* updates*)
+               ,(visit/ctx vtor body ctx**))]
+    [(visit-for vtor vars vals accums inits updates body #:ctx [ctx '()])
+      (define vars* (map gensym vars))      ; first for updates
+      (define accums* (map gensym accums))
+      (define ctx* (dict-set** ctx (append vars accums) (append vars* accums*)))
+      (define vars** (map gensym vars))     ; second for body (hack to avoid over combining)
+      (define accums** (map gensym accums))
+      (define ctx** (dict-set** ctx (append vars accums) (append vars** accums**)))
+      (hash-set**! vartable (append vars* vars** accums* accums**)
+                            (append vars vars accums accums))
+      `(for ,(for/list ([var vars*] [val vals]) (list var (visit/ctx vtor val ctx)))
+            ,(for/list ([accum accums*] [init inits] [update updates])
+              (list accum (visit/ctx vtor init ctx) (visit/ctx vtor update ctx*)))
+            ,(visit/ctx vtor body ctx**))]
+    [(visit-for* vtor vars vals accums inits updates body #:ctx [ctx '()])
+      (define-values (ctx* vars* vals*)
+        (for/fold ([ctx ctx] [vars* '()] [vals* '()]
+                  #:result (values ctx (reverse vars*) (reverse vals*)))
+                  ([var vars] [val vals])
+          (define name (gensym var))
+          (hash-set! vartable name var)
+          (values (dict-set* ctx var name)
+                  (cons name vars*)
+                  (cons (visit/ctx vtor val ctx) vals*))))
+      (define-values (ctx** accums* inits* updates*)
+        (for/fold ([ctx ctx*] [accums* '()] [inits* '()] [updates* '()]
+                   #:result (values ctx (reverse accums*) (reverse inits*) (reverse updates*)))
+                  ([accum accums] [init inits] [update updates])
+          (define name (gensym accum))
+          (define ctx* (dict-set* ctx accum name))
+          (hash-set! vartable name accum)
+          (values ctx*
+                  (cons name accums*)
+                  (cons (visit/ctx vtor init ctx) inits*)
+                  (cons (visit/ctx vtor update ctx*) updates*))))
+      (define vars** (map gensym vars))
+      (define accums** (map gensym accums))
+      (define ctx*** (dict-set** ctx** (append vars accums) (append vars** accums**)))
+      (hash-set**! vartable (append vars** accums**) (append vars accums))
+      `(for* ,(map list vars* vals*)
+             ,(map list accums* inits* updates*)
+             ,(visit/ctx vtor body ctx***))]
+    [(visit-tensor vtor vars vals body #:ctx [ctx '()])
+      (define vars* (map gensym vars))
+      (define ctx* (dict-set** ctx vars vars*))
+      (hash-set**! vartable vars* vars)
+      `(tensor ,(for/list ([var vars*] [val vals]) (list var (visit/ctx vtor val ctx)))
+            ,(visit/ctx vtor body ctx*))]
+    [(visit-tensor* vtor vars vals accums inits updates body #:ctx [ctx '()])
+      (define-values (ctx* vars* vals*)
+        (for/fold ([ctx ctx] [vars* '()] [vals* '()]
+                  #:result (values ctx (reverse vars*) (reverse vals*)))
+                  ([var vars] [val vals])
+          (define name (gensym var))
+          (hash-set! vartable name var)
+          (values (dict-set* ctx var name)
+                  (cons name vars*)
+                  (cons (visit/ctx vtor val ctx) vals*))))
+      (define-values (ctx** accums* inits* updates*)
+        (for/fold ([ctx ctx*] [accums* '()] [inits* '()] [updates* '()]
+                   #:result (values ctx (reverse accums*) (reverse inits*) (reverse updates*)))
+                  ([accum accums] [init inits] [update updates])
+          (define name (gensym accum))
+          (define ctx* (dict-set* ctx accum name))
+          (hash-set! vartable name accum)
+          (values ctx*
+                  (cons name accums*)
+                  (cons (visit/ctx vtor init ctx) inits*)
+                  (cons (visit/ctx vtor update ctx*) updates*))))
+      (define vars** (map gensym vars))
+      (define accums** (map gensym accums))
+      (define ctx*** (dict-set** ctx** (append vars accums) (append vars** accums**)))
+      (hash-set**! vartable (append vars** accums**) (append vars accums))
+      `(tensor* ,(map list vars* vals*)
+                ,(map list accums* inits* updates*)
+                ,(visit/ctx vtor body ctx***))]
+    [(visit-symbol vtor x #:ctx [ctx '()])
+      (dict-ref ctx x x)])
+        
   ; visitor for munge (`rec` is munge)
   (define/visit-expr (munge/visit expr rec)
     [(visit-if vtor cond ift iff #:ctx [rec '()])
       (list 'if (rec cond) (rec ift) (rec iff))]
     [(visit-let_ vtor let_ vars vals body #:ctx [rec '()]) ; special-cased below
       (for ([var vars]) (add-name! var)) ; add variables names
-      (list let_ vars (map rec vals) (rec body))]
+      (list let_ (map get-name vars) (map rec vals) (rec body))]
     [(visit-while_ vtor while_ cond vars inits updates body #:ctx [rec '()])
       (for ([var vars]) (add-name! var)) ; add variables names
-      (list while_ (rec cond) vars (map rec inits) (map rec updates) (rec body))]
+      (list while_ (rec cond) (map get-name vars) (map rec inits) (map rec updates) (rec body))]
     [(visit-for_ vtor for_ vars vals accums inits updates body #:ctx [rec '()])
       (for ([var (append vars accums)]) (add-name! var))
-      (list for_ vars (map rec vals) accums (map rec inits) (map rec updates) (rec body))]
+      (list for_ (map get-name vars) (map rec vals) (map get-name accums)
+                 (map rec inits) (map rec updates) (rec body))]
     [(visit-tensor vtor vars vals body #:ctx [rec '()])
       (for ([var vars]) (add-name! var)) ; add variables names
-      (list 'tensor vars (map rec vals) (rec body))]
+      (list 'tensor (map get-name vars) (map rec vals) (rec body))]
     [(visit-tensor* vtor vars vals accums inits updates body #:ctx [rec '()])
       (for ([var (append vars accums)]) (add-name! var)) ; add variables names
-      (list 'tensor* vars (map rec vals) accums (map rec inits) (map rec updates) (rec body))]
+      (list 'tensor* (map get-name vars) (map rec vals) (map get-name accums)
+                     (map rec inits) (map rec updates) (rec body))]
     [(visit-! vtor props body #:ctx [rec '()])
       (define props* (apply dict-set* '() props))
       (if (dict-has-key? props* ':precision)
@@ -114,7 +258,7 @@
     [(visit-call vtor func args #:ctx [rec '()])
       (cons func (map rec args))]
     [(visit-terminal_ vtor x #:ctx [rec '()])
-      (list x)]) ; put constants into lists so its not confused with indices
+      (list (hash-ref vartable x x))]) ; put constants into lists so its not confused with indices
 
   ; convert to indices to process
   (define (munge expr)
@@ -135,7 +279,11 @@
                      (munge/visit expr (λ (e [p prec]) (loop e p)))))])))
 
   ; fill `exprhash` and `exprs` and store top index
-  (define root (munge expr))
+  (define root
+    (let ([expr* (preprocess expr '())])
+      (clear-names!)
+      (for ([var vars]) (add-name! var))
+      (munge expr*)))
 
   ; helper: merges dependency tables
   (define (merge-deps idx hs)
@@ -231,7 +379,6 @@
      [(list 'FPCore name (list args ...) props ... body) (values name args props body)]))
   (define props* (apply dict-set* '() props))
   (define prec (dict-ref props* ':precision 'binary64))
-  (for ([arg args]) (add-name! arg))
   (define cse-body (common-subexpr-elim args prec body))
   (if name
     `(FPCore ,name ,args ,@props ,cse-body)
@@ -255,6 +402,8 @@
   (define-syntax-rule (check-fuse-let in out)
     (check-equal? (fuse-let in) out))
 
+  ; cse
+
   (check-cse '(FPCore (a) a)
              '(FPCore (a) a))
 
@@ -270,10 +419,6 @@
 
   (check-cse '(FPCore (a) (let ((j0 (+ a a))) (+ (+ a a) j0)))
              '(FPCore (a) (let* ((t_0 (+ a a)) (j0 t_0)) (+ t_0 j0))))
-
-  ; should not combine
-  ;;; (check-cse '(FPCore (a) (* (+ a a) (let ((a (* a 2))) (+ a a))))
-  ;;;            '(FPCore (a) (* (+ a a) (let ((a (* a 2))) (+ a a)))))
 
   (check-cse '(FPCore (a) (let ((i0 (- a a))) (- (+ (+ a a) (+ a a)) i0)))
              '(FPCore (a) (let* ((i0 (- a a)) (t_0 (+ a a))) (- (+ t_0 t_0) i0))))
@@ -304,6 +449,34 @@
 
   (check-cse '(FPCore (a n) (tensor* ((i n)) ((m (+ a a) (+ m i))) (* m (+ a a))))
              '(FPCore (a n) (let* ((t_0 (+ a a))) (tensor* ((i n)) ((m t_0 (+ m i))) (* m t_0)))))
+
+  ; cse (no combine)
+
+  (check-cse '(FPCore (a) (* (+ a a) (let ((a (* a 2))) (+ a a))))
+             '(FPCore (a) (* (+ a a) (let ((a (* a 2))) (+ a a)))))
+  
+  (check-cse '(FPCore (a) (* (+ a a) (let* ((a (* a 2))) (+ a a))))
+             '(FPCore (a) (* (+ a a) (let* ((a (* a 2))) (+ a a)))))
+
+  (check-cse '(FPCore (a) (* (+ a a) (while (< a 100) ((a 0 (+ a a))) (+ a a))))
+             '(FPCore (a) (* (+ a a) (while (< a 100) ((a 0 (+ a a))) (+ a a)))))
+  
+  (check-cse '(FPCore (a) (* (+ a a) (while* (< i a) ((a 0 (+ a a))) (+ a a))))
+             '(FPCore (a) (* (+ a a) (while* (< i a) ((a 0 (+ a a))) (+ a a)))))
+
+  (check-cse '(FPCore (a n) (* (+ a a) (for ([i n]) ((a i (+ a a))) (+ a a))))
+             '(FPCore (a n) (* (+ a a) (for ([i n]) ((a i (+ a a))) (+ a a)))))
+
+  (check-cse '(FPCore (a n) (* (+ a a) (for* ([i n]) ((a i (+ a a))) (+ a a))))
+             '(FPCore (a n) (* (+ a a) (for* ([i n]) ((a i (+ a a))) (+ a a)))))
+
+  (check-cse '(FPCore (a n) (* (+ a a) (tensor ([a n]) (+ a a))))
+             '(FPCore (a n) (* (+ a a) (tensor ([a n]) (+ a a)))))
+
+  (check-cse '(FPCore (a n) (* (+ a a) (tensor* ([i n]) ((a i (+ a a))) (+ a a))))
+             '(FPCore (a n) (* (+ a a) (tensor* ([i n]) ((a i (+ a a))) (+ a a)))))
+
+  ; fuse-let
 
   (check-fuse-let '(let ([a 1]) (let* ([a 2] [b 3]) (+ a b)))
                   '(let* ([a 1] [a 2] [b 3]) (+ a b)))

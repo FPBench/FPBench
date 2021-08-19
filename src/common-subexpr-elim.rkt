@@ -81,7 +81,7 @@
     (hash-set! h k v)))
 
 ;; main cse procedure
-(define (common-subexpr-elim vars prec expr)
+(define (common-subexpr-elim vars props expr)
   (define exprhash  ; expr -> idx
     (make-hash
       (for/list ([var vars] [i (in-naturals)])
@@ -102,7 +102,8 @@
   (define (get-name name)
     (hash-ref vartable name name))
 
-  ; preprocessor (ensure each binding procedures a unique variable)
+  ; preprocessor: ensures each bindings variable is unique
+  ; so 'munge' doesn't over-eliminate
   (define/transform-expr (preprocess expr ctx)
     [(visit-let vtor vars vals body #:ctx [ctx '()])
       (define vars* (map gensym vars))
@@ -248,11 +249,8 @@
       (for ([var (append vars accums)]) (add-name! var)) ; add variables names
       (list 'tensor* (map get-name vars) (map rec vals) (map get-name accums)
                      (map rec inits) (map rec updates) (rec body))]
-    [(visit-! vtor props body #:ctx [rec '()])
-      (define props* (apply dict-set* '() props))
-      (if (dict-has-key? props* ':precision)
-          (list '! props (rec body (dict-ref props* ':precision)))
-          (list '! props (rec body)))]
+    [(visit-! vtor props* body #:ctx [rec '()])
+      (list '! props* (rec body (apply dict-set* '() (append props props*))))]
     [(visit-op_ vtor op args #:ctx [rec '()])
       (cons op (map rec args))]
     [(visit-call vtor func args #:ctx [rec '()])
@@ -262,8 +260,8 @@
 
   ; convert to indices to process
   (define (munge expr)
-    (let loop ([expr expr] [prec prec])
-      (define key (cons expr prec))
+    (let loop ([expr expr] [props props])
+      (define key (cons expr props))
       (cond
        [(hash-has-key? exprhash key) ; already seen
         (define idx (hash-ref exprhash key))
@@ -273,10 +271,10 @@
        [else    ; new expresion
         (define old-exprc exprc)
         (hash-set! exprhash key exprc)
+        (define rec (λ (e [p props]) (loop e p)))
         (begin0 exprc
           (set! exprc (+ 1 exprc))
-          (hash-set! exprs old-exprc
-                     (munge/visit expr (λ (e [p prec]) (loop e p)))))])))
+          (hash-set! exprs old-exprc (munge/visit expr rec)))])))
 
   ; fill `exprhash` and `exprs` and store top index
   (define root
@@ -370,16 +368,15 @@
   (fuse-let (reconstruct root)))
 
 ;;;;;;; top-level
-
 (define (core-common-subexpr-elim core)
   (*names* (mutable-set))
   (define-values (name args props body)
     (match core
      [(list 'FPCore (list args ...) props ... body) (values #f args props body)]
      [(list 'FPCore name (list args ...) props ... body) (values name args props body)]))
-  (define props* (apply dict-set* '() props))
-  (define prec (dict-ref props* ':precision 'binary64))
-  (define cse-body (common-subexpr-elim args prec body))
+  (define default-props (apply dict-set* '() '(:precision binary64 round nearestEven)))
+  (define props* (apply dict-set* default-props props))
+  (define cse-body (common-subexpr-elim args props* body))
   (if name
     `(FPCore ,name ,args ,@props ,cse-body)
     `(FPCore ,args ,@props ,cse-body)))
@@ -395,10 +392,8 @@
      (printf "~a\n" (core-common-subexpr-elim expr)))))
 
 (module+ test
-
   (define-syntax-rule (check-cse in out)
     (check-equal? (core-common-subexpr-elim in) out))
-
   (define-syntax-rule (check-fuse-let in out)
     (check-equal? (fuse-let in) out))
 
@@ -425,9 +420,6 @@
 
   (check-cse '(FPCore (a) (let ((x (- a a))) (let ((x (+ a a))) x)))
              '(FPCore (a) (let* ((x (- a a)) (x (+ a a))) x)))
-
-  (check-cse '(FPCore (a) (+ (* a a) (! :precision binary32 (* a a))))
-             '(FPCore (a) (+ (* a a) (! :precision binary32 (* a a)))))
 
   (check-cse '(FPCore (a) (let ((x (+ a 1)) (y (- a 1))) (+ (* a x) y)))
              '(FPCore (a) (let ((x (+ a 1)) (y (- a 1))) (+ (* a x) y))))
@@ -475,6 +467,12 @@
 
   (check-cse '(FPCore (a n) (* (+ a a) (tensor* ([i n]) ((a i (+ a a))) (+ a a))))
              '(FPCore (a n) (* (+ a a) (tensor* ([i n]) ((a i (+ a a))) (+ a a)))))
+
+  (check-cse '(FPCore (a) (+ (* a a) (! :precision binary32 (* a a))))
+             '(FPCore (a) (+ (* a a) (! :precision binary32 (* a a)))))
+             
+  (check-cse '(FPCore (a) (+ (* a a) (! :round nearestEven (* a a))))
+             '(FPCore (a) (+ (* a a) (! :round nearestEven (* a a)))))
 
   ; fuse-let
 

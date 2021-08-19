@@ -85,7 +85,7 @@
   (define common (mutable-set))
   (define varc exprc)
 
-  ; visitor for munge
+  ; visitor for munge (`rec` is munge)
   (define/visit-expr (munge/visit expr rec)
     [(visit-if vtor cond ift iff #:ctx [rec '()])
       (list 'if (rec cond) (rec ift) (rec iff))]
@@ -93,22 +93,22 @@
       (for ([var vars]) (add-name! var)) ; add variables names
       (list let_ vars (map rec vals) (rec body))]
     [(visit-while_ vtor while_ cond vars inits updates body #:ctx [rec '()])
-      (error 'common-subexpr-elim "Unsupported operation: `~a`" while_)]
+      (for ([var vars]) (add-name! var)) ; add variables names
+      (list while_ (rec cond) vars (map rec inits) (map rec updates) (rec body))]
     [(visit-for_ vtor for_ vars vals accums inits updates body #:ctx [rec '()])
-      (error 'common-subexpr-elim "Unsupported operation: `~a`" for_)]
+      (for ([var (append vars accums)]) (add-name! var))
+      (list for_ vars (map rec vals) accums (map rec inits) (map rec updates) (rec body))]
     [(visit-tensor vtor vars vals body #:ctx [rec '()])
-      (error 'common-subexpr-elim "Unsupported operation: `tensor`")]
+      (for ([var vars]) (add-name! var)) ; add variables names
+      (list 'tensor vars (map rec vals) (rec body))]
     [(visit-tensor* vtor vars vals accums inits updates body #:ctx [rec '()])
-      (error 'common-subexpr-elim "Unsupported operation: `tensor*`")]
-    [(visit-array vtor args #:ctx [rec '()])
-      (cons 'array (map rec args))]
+      (for ([var (append vars accums)]) (add-name! var)) ; add variables names
+      (list 'tensor* vars (map rec vals) accums (map rec inits) (map rec updates) (rec body))]
     [(visit-! vtor props body #:ctx [rec '()])
       (define props* (apply dict-set* '() props))
       (if (dict-has-key? props* ':precision)
           (list '! props (rec body (dict-ref props* ':precision)))
           (list '! props (rec body)))]
-    [(visit-cast vtor body #:ctx [rec '()])
-      (cons 'cast (rec body))]
     [(visit-op_ vtor op args #:ctx [rec '()])
       (cons op (map rec args))]
     [(visit-call vtor func args #:ctx [rec '()])
@@ -137,41 +137,39 @@
   ; fill `exprhash` and `exprs` and store top index
   (define root (munge expr))
 
-  ; let locations, dependent idxs
+  ; helper: merges dependency tables
+  (define (merge-deps idx hs)
+    (define h ; add current index if it is common
+      (if (set-member? common idx)
+          (hash idx (cons idx (remove-duplicates (append-map hash-keys hs))))
+          (hash)))
+    (apply hash-union h hs ; combine child tables with this one
+           #:combine (λ (x y) (cons idx (remove-duplicates (append (cdr x) (cdr y)))))))
+
+  ; dependent idxs
   ; idx -> (loc, deps ...)
   ; order of let bindings must respect dependencies
   (define common-deps
     (let loop ([idx root])
       (match (hash-ref exprs idx)
-       [(list 'let vars vals body) ; don't propogate
-        (define hs (map loop (cons body vals)))
-        (define h ; add current index if it is common
-          (if (set-member? common idx)
-              (hash idx (cons idx (remove-duplicates (append-map hash-keys hs))))
-              (hash)))
-        (apply hash-union h hs
-               #:combine (λ (x y) (cons idx (remove-duplicates (append (cdr x) (cdr y))))))]
+       [(list (or 'let 'let* 'tensor) vars vals body) ; don't propogate
+        (merge-deps idx (map loop (cons body vals)))]
+       [(list (or 'while 'while*) cond vars inits updates body) ; don't propogate
+        (merge-deps idx (map loop (append (list cond body) inits updates)))]
+       [(list (or 'for 'for* 'tensor*) vars vals accums inits updates body) ; don't propogate
+        (merge-deps idx (map loop (append vals inits updates (list body))))]
        [(list '! props body) ; don't propogate
-        (define h (loop body))
-        (if (set-member? common idx) ; add current index if it is common
-            (hash-set h idx (cons idx (hash-keys h)))
-            h)]
+        (merge-deps idx (list (loop body)))]
        [(list op args ..1)
-        (define hs (map loop args))
-        (define h       ; add current index if it is common
-          (if (set-member? common idx)
-              (hash idx (cons idx (remove-duplicates (append-map hash-keys hs))))
-              (hash)))
-        (define h*      ; combine child tables with this one
-          (apply hash-union h hs
-                 #:combine (λ (x y) (cons idx (remove-duplicates (append (cdr x) (cdr y)))))))
+        (define deps (merge-deps idx (map loop args)))
         (define prop-up  ; pull up all common idxs bound one level below
-          (for/hash ([(k v) (in-hash h*)] #:when (set-member? args (car v)))
+          (for/hash ([(k v) (in-hash deps)] #:when (set-member? args (car v)))
             (values k (cons idx (cdr v)))))
-        (hash-union h* prop-up #:combine (λ (x y) y))]
+        (hash-union deps prop-up #:combine (λ (x y) y))]
        [(list term) ; ignore constants
         (hash)])))
 
+  ; let locations
   (define common-locs (mutable-set))
   (for ([vals (hash-values common-deps)])
     (set-add! common-locs (car vals)))
@@ -195,8 +193,24 @@
        [(_ (? (curry set-member? common-locs))) ; location for let bindings
         (list 'let* (gen-let-bindings idx) (loop idx))]
        [((list (and (or 'let 'let*) let_) vars vals body) _)
-        (define vals* (map loop vals))
-        `(,let_ ,(map list vars vals*) ,(loop body))]
+        `(,let_ ,(for/list ([var vars] [val vals]) (list var (loop val))) ,(loop body))]
+       [((list (and (or 'while 'while*) while_) cond vars inits updates body) _)
+        `(,while_ ,(loop cond)
+                  ,(for/list ([var vars] [init inits] [update updates])
+                    (list var (loop init) (loop update)))
+                  ,(loop body))]
+       [((list (and (or 'for 'for*) for_) vars vals accums inits updates body) _)
+        `(,for_ ,(for/list ([var vars] [val vals]) (list var (loop val)))
+                ,(for/list ([accum accums] [init inits] [update updates])
+                  (list accum (loop init) (loop update)))
+                ,(loop body))]
+       [((list 'tensor vars vals body) _)
+        `(tensor ,(for/list ([var vars] [val vals]) (list var (loop val))) ,(loop body))]
+       [((list 'tensor* vars vals accums inits updates body) _)
+        `(tensor* ,(for/list ([var vars] [val vals]) (list var (loop val)))
+                  ,(for/list ([accum accums] [init inits] [update updates])
+                    (list accum (loop init) (loop update)))
+                  ,(loop body))]
        [((list '! props body) _)
         `(! ,@props ,(loop body))]
        [((list op args ..1) _)
@@ -257,6 +271,10 @@
   (check-cse '(FPCore (a) (let ((j0 (+ a a))) (+ (+ a a) j0)))
              '(FPCore (a) (let* ((t_0 (+ a a)) (j0 t_0)) (+ t_0 j0))))
 
+  ; should not combine
+  ;;; (check-cse '(FPCore (a) (* (+ a a) (let ((a (* a 2))) (+ a a))))
+  ;;;            '(FPCore (a) (* (+ a a) (let ((a (* a 2))) (+ a a)))))
+
   (check-cse '(FPCore (a) (let ((i0 (- a a))) (- (+ (+ a a) (+ a a)) i0)))
              '(FPCore (a) (let* ((i0 (- a a)) (t_0 (+ a a))) (- (+ t_0 t_0) i0))))
 
@@ -268,6 +286,24 @@
 
   (check-cse '(FPCore (a) (let ((x (+ a 1)) (y (- a 1))) (+ (* a x) y)))
              '(FPCore (a) (let ((x (+ a 1)) (y (- a 1))) (+ (* a x) y))))
+
+  (check-cse '(FPCore (a) (while (< i 100) ((i (+ a a) (+ i 1))) (* i (+ a a))))
+             '(FPCore (a) (let* ((t_0 (+ a a))) (while (< i 100) ((i t_0 (+ i 1))) (* i t_0)))))
+
+  (check-cse '(FPCore (a) (while* (< i 100) ((i (+ a a) (+ i 1))) (* i (+ a a))))
+             '(FPCore (a) (let* ((t_0 (+ a a))) (while* (< i 100) ((i t_0 (+ i 1))) (* i t_0)))))
+
+  (check-cse '(FPCore (a n) (for ((i n)) ((m (+ a a) (+ m i))) (* m (+ a a))))
+             '(FPCore (a n) (let* ((t_0 (+ a a))) (for ((i n)) ((m t_0 (+ m i))) (* m t_0)))))
+
+  (check-cse '(FPCore (a n) (for* ((i n)) ((m (+ a a) (+ m i))) (* m (+ a a))))
+             '(FPCore (a n) (let* ((t_0 (+ a a))) (for* ((i n)) ((m t_0 (+ m i))) (* m t_0)))))
+
+  (check-cse '(FPCore (a n) (tensor ((i n)) (* (+ n a) (+ n a))))
+             '(FPCore (a n) (tensor ((i n)) (let* ((t_0 (+ n a))) (* t_0 t_0)))))
+
+  (check-cse '(FPCore (a n) (tensor* ((i n)) ((m (+ a a) (+ m i))) (* m (+ a a))))
+             '(FPCore (a n) (let* ((t_0 (+ a a))) (tensor* ((i n)) ((m t_0 (+ m i))) (* m t_0)))))
 
   (check-fuse-let '(let ([a 1]) (let* ([a 2] [b 3]) (+ a b)))
                   '(let* ([a 1] [a 2] [b 3]) (+ a b)))

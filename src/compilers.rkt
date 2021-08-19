@@ -1,11 +1,12 @@
 #lang racket
 
 (require "supported.rkt" "fpcore-checker.rkt")
-(provide *used-names* *gensym-divider* *gensym-collisions* *gensym-fix-name*
-          ctx-unique-name ctx-random-name ctx-lookup-name ctx-reserve-names ctx-names
-          ctx-update-props ctx-lookup-prop ctx-props ctx-lookup-prec
-          make-compiler-ctx define-compiler supported-by-lang?)
+
 (provide
+  *used-names* *gensym-divider* *gensym-collisions* *gensym-fix-name* ; contract-less
+  make-compiler-ctx define-compiler supported-by-lang?
+  (rename-out ; inherits contract
+   [compiler-ctx-props ctx-props])
   (contract-out
     [struct compiler
      ([extensions (listof string?)]
@@ -13,7 +14,18 @@
       [export (-> fpcore? string? string?)]
       [footer (-> string?)]
       [supported supported-list?])]
-    [compilers (parameter/c (listof compiler?))]))
+    [compilers (parameter/c (listof compiler?))]
+    [ctx-unique-name (->* (compiler-ctx? symbol?)
+                          ((or/c boolean? symbol?))
+                          (values compiler-ctx? string?))]
+    [ctx-random-name (->* (compiler-ctx?)
+                          ((or/c boolean? symbol?))
+                          (values compiler-ctx? string?))]
+    [ctx-reserve-names (-> compiler-ctx? (listof symbol?) compiler-ctx?)]
+    [ctx-update-props (-> compiler-ctx? (listof any/c) compiler-ctx?)]
+    [ctx-lookup-name (-> compiler-ctx? symbol? string?)]
+    [ctx-lookup-prec (-> compiler-ctx? symbol? any/c)]
+    [ctx-lookup-prop (->* (compiler-ctx? symbol?) ((or/c boolean? symbol?)) any/c)]))
 
 ;; Compiler struct
 

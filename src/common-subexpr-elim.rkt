@@ -256,7 +256,7 @@
     [(visit-call vtor func args #:ctx [rec '()])
       (cons func (map rec args))]
     [(visit-terminal_ vtor x #:ctx [rec '()])
-      (list (hash-ref vartable x x))]) ; put constants into lists so its not confused with indices
+      (box (hash-ref vartable x x))]) ; put constants into box so its not confused with indices
 
   ; convert to indices to process
   (define (munge expr)
@@ -306,14 +306,14 @@
         (merge-deps idx (map loop (append vals inits updates (list body))))]
        [(list '! props body) ; don't propogate
         (merge-deps idx (list (loop body)))]
-       [(list op args ..1)
+       [(list op args ...)
         (define deps (merge-deps idx (map loop args)))
         (define prop-up  ; pull up all common idxs bound one level below
           (for/hash ([(k v) (in-hash deps)] #:when (set-member? args (car v)))
             (values k (cons idx (cdr v)))))
         (hash-union deps prop-up #:combine (λ (x y) y))]
-       [(list term) ; ignore constants
-        (hash)])))
+       [(box x) (hash)]))) ; ignore constants
+        
 
   ; let locations
   (define common-locs (mutable-set))
@@ -330,7 +330,7 @@
     (for/list ([idx (topo-sort deps)]) ; break ties with topo sort (dependency graph)
       (define name (gensym 't))
       (begin0 (list name (reconstruct idx))
-        (hash-set! exprs idx (list name)))))
+        (hash-set! exprs idx (box name)))))
 
   ; reconstruct expression
   (define (reconstruct idx)
@@ -359,10 +359,9 @@
                   ,(loop body))]
        [((list '! props body) _)
         `(! ,@props ,(loop body))]
-       [((list op args ..1) _)
+       [((list op args ...) _)
         (cons op (map loop args))]
-       [((list term) _)
-        term])))
+       [((box term) _) term])))
 
   ; reconstruct expression top-down
   (fuse-let (reconstruct root)))
@@ -439,8 +438,11 @@
   (check-cse '(FPCore (a n) (tensor ((i n)) (* (+ n a) (+ n a))))
              '(FPCore (a n) (tensor ((i n)) (let* ((t_0 (+ n a))) (* t_0 t_0)))))
 
-  (check-cse '(FPCore (a n) (tensor* ((i n)) ((m (+ a a) (+ m i))) (* m (+ a a))))
-             '(FPCore (a n) (let* ((t_0 (+ a a))) (tensor* ((i n)) ((m t_0 (+ m i))) (* m t_0)))))
+  (check-cse '(FPCore (a) (tensor* ((i 3)) ((m (+ a a) (+ m i))) (* m (+ a a))))
+             '(FPCore (a) (let* ((t_0 (+ a a))) (tensor* ((i 3)) ((m t_0 (+ m i))) (* m t_0)))))
+
+  (check-cse '(FPCore () (+ (foo) (foo)))
+             '(FPCore () (let* ((t_0 (foo))) (+ t_0 t_0))))
 
   ; cse (no combine)
 

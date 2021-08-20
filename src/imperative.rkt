@@ -329,7 +329,7 @@
       (values (ctx-lookup-name ctx expr) (ctx-lookup-prec ctx expr))]))
 
 (define (convert-core prog name)
-  (parameterize ([*used-names* (mutable-set)] 
+  (parameterize ([*gensym-used-names* (mutable-set)] 
                  [*gensym-collisions* 1] 
                  [*gensym-fix-name* fix-name])
     (define-values (args props body)
@@ -369,4 +369,6 @@
         (parameterize ([current-output-port p])
           (define-values (out _) (convert-expr body #:ctx ctx #:indent indent))
           (values (get-output-string p) out))))
-    (convert-function func-name arg-names arg-props body-out return-out ctx (remove* non-varnames (set->list (*used-names*))))))
+    (convert-function func-name arg-names arg-props
+                      body-out return-out
+                      ctx (remove* non-varnames (set->list (*gensym-used-names*))))))

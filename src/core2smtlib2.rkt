@@ -273,7 +273,7 @@
 
 (define (core->smtlib2 prog name) 
   (parameterize ([*gensym-fix-name* fix-name] 
-                 [*used-names* (mutable-set)] 
+                 [*gensym-used-names* (mutable-set)] 
                  [*gensym-collisions* 1]) 
     (define-values (args props body)
      (match prog

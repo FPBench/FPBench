@@ -304,7 +304,7 @@
 
 ; Names are optional in TeX programs
 (define (core->tex prog [name ""] #:loc [color-loc #f] #:color [color "red"])
-  (parameterize ([*used-names* (mutable-set)] 
+  (parameterize ([*gensym-used-names* (mutable-set)] 
                  [*gensym-collisions* 1] 
                  [*gensym-fix-name* fix-name])
     (define-values (args props body)

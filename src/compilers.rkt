@@ -3,7 +3,7 @@
 (require "supported.rkt" "fpcore-checker.rkt")
 
 (provide
-  define-compiler ; contractless (syntax)
+  define-compiler compiler-ctx ; contractless
   (rename-out     ; inherits contract
    [compiler-ctx-props ctx-props])
   (contract-out   ; new contracts
@@ -30,10 +30,13 @@
                           ((or/c boolean? symbol?))
                           (values compiler-ctx? string?))]
     [ctx-reserve-names (-> compiler-ctx? (listof (or/c symbol? string?)) compiler-ctx?)]
-    [ctx-update-props (-> compiler-ctx? (listof any/c) compiler-ctx?)]
     [ctx-lookup-name (-> compiler-ctx? symbol? string?)]
     [ctx-lookup-prec (-> compiler-ctx? symbol? any/c)]
+    [ctx-update-props (-> compiler-ctx? (listof any/c) compiler-ctx?)]
     [ctx-lookup-prop (->* (compiler-ctx? symbol?) ((or/c boolean? symbol?)) any/c)]
+    [ctx-set-extra (-> compiler-ctx? any/c any/c compiler-ctx?)]
+    [ctx-update-extra (->* (compiler-ctx? any/c any/c) (any/c) compiler-ctx?)]
+    [ctx-lookup-extra (-> compiler-ctx? any/c any/c)]
     [supported-by-lang? (-> fpcore? string? boolean?)]))
 
 ;; Compiler struct
@@ -66,13 +69,14 @@
 (define (->string s)
   (if (symbol? s) (symbol->string s) s))
 
-(struct compiler-ctx (name-map prec-map props))
+(struct compiler-ctx (name-map prec-map props extra))
 
 ; Produces a new compiler context
 (define (make-compiler-ctx [name-map (make-immutable-hash)]
                            [prec-map (make-immutable-hash)]
-                           [props (make-immutable-hash)])
-  (compiler-ctx name-map prec-map props))
+                           [props (make-immutable-hash)]
+                           [extra (make-immutable-hash)])
+  (compiler-ctx name-map prec-map props extra))
 
 ; Takes a given symbol or string and maps it to a unique, printable name,
 ; returning both the updated ctx struct and the name
@@ -80,9 +84,9 @@
   (define name* (->string name))
   (define unique (gensym name*))
   (define prec* (if prec prec (dict-ref (compiler-ctx-props ctx) ':precision 'binary64)))
-  (values (compiler-ctx (dict-set (compiler-ctx-name-map ctx) name* unique) 
-                        (dict-set (compiler-ctx-prec-map ctx) name* prec*)
-                        (compiler-ctx-props ctx))
+  (values (struct-copy compiler-ctx ctx
+                      [name-map (dict-set (compiler-ctx-name-map ctx) name* unique)]
+                      [prec-map (dict-set (compiler-ctx-prec-map ctx) name* prec*)])
           unique))
 
 ; Produces a unique, printable name and returns the updated ctx struct and the name.
@@ -90,9 +94,8 @@
 (define (ctx-random-name ctx [prec #f])
   (define name (gensym "tmp"))
   (define prec* (if prec prec (dict-ref (compiler-ctx-props ctx) ':precision 'binary64)))
-  (values (compiler-ctx (compiler-ctx-name-map ctx)
-                        (dict-set (compiler-ctx-prec-map ctx) name prec*)
-                        (compiler-ctx-props ctx))
+  (values (struct-copy compiler-ctx ctx
+                       [prec-map (dict-set (compiler-ctx-prec-map ctx) name prec*)])
           name))
 
 ; Reserves the list of names and returns the updated struct
@@ -114,14 +117,31 @@
 
 ; Functionally extends a context struct's hash table of properties from the given properties.
 (define (ctx-update-props ctx props)
-  (compiler-ctx (compiler-ctx-name-map ctx)
-                (compiler-ctx-prec-map ctx)
-                (apply hash-set* (compiler-ctx-props ctx) props)))
+  (struct-copy compiler-ctx ctx
+               [props (apply hash-set* (compiler-ctx-props ctx) props)]))
 
 ; Returns the property value stored in the context struct. Returns the value at 
 ; failure otherwise.
 (define (ctx-lookup-prop ctx prop [failure #f])
   (dict-ref (compiler-ctx-props ctx) prop failure))
+
+; Add or set an extra entry
+(define (ctx-set-extra ctx k v)
+  (struct-copy compiler-ctx ctx
+               [extra (hash-set (compiler-ctx-extra ctx) k v)]))
+
+; Update an extra entry
+(define (ctx-update-extra ctx k proc [fail #f])
+  (struct-copy compiler-ctx ctx
+               [extra (if fail
+                          (hash-update (compiler-ctx-extra ctx) k proc fail)
+                          (hash-update (compiler-ctx-extra ctx) k proc))]))
+
+; Returns an extra entry
+(define (ctx-lookup-extra ctx k [fail #f])
+  (if fail
+      (hash-ref (compiler-ctx-extra ctx) k fail)
+      (hash-ref (compiler-ctx-extra ctx) k)))
 
 ;;; Misc
 

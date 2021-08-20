@@ -104,10 +104,10 @@
     [`(! ,props ... ,body)
      (vterm visitor ctx (visit-! props body))]
 
-    [(? number? n)
+    [(or (? number?) (? hex?))
      (vterm visitor ctx
-            (visit-number n)
-            (visit-terminal_ n))]
+            (visit-number expr)
+            (visit-terminal_ expr))]
     [(? constant? c)
      (vterm visitor ctx
             (visit-constant c)

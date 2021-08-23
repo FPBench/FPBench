@@ -76,6 +76,24 @@
   (define type (type->c (ctx-lookup-prop ctx ':precision)))
   (format "((~a) ~a)" type x))
 
+(define (cmp-prec prec1 prec2)
+  (define/match (prec->num prec)
+    [('binary80) 4]
+    [('binary64) 3]
+    [('binary32) 2]
+    [('integer)  1]
+    [('boolean)  0])
+  (- (prec->num prec1) (prec->num prec2)))
+
+(define (implicit-round->c op arg arg-ctx ctx)
+  (define prec (ctx-lookup-prop ctx ':precision))
+  (define arg-prec (ctx-lookup-prop arg-ctx ':precision))
+  (if (set-member? '(+ - * /) op)
+      (if (> (cmp-prec prec arg-prec) 0)
+          (round->c arg ctx)
+          arg)  ; TODO: warn unfaithful
+      arg))
+
 (define (round-mode->c mode ctx)
   (define indent (ctx-lookup-extra ctx 'indent))
   (format "~afesetround(~a);\n" indent
@@ -117,9 +135,9 @@
                         #:declare declaration->c
                         #:assign assignment->c
                         #:round round->c
+                        #:implicit-round implicit-round->c
                         #:round-mode round-mode->c
                         #:program program->c))
-
 
 (define core->c (make-imperative-compiler c-language #:reserved c-reserved))
 (define-compiler '("c") c-header core->c (const "") c-supported)

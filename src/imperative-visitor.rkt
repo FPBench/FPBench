@@ -33,6 +33,7 @@
    declare
    assign
    round
+   implicit-round
    round-mode
    program))
 
@@ -87,13 +88,16 @@
 (define compile-declaration
   (case-lambda
    [(var ctx) ((imperative-declare (*imperative-lang*)) var ctx)]
-   [(var val ctx) ((imperative-declare (*imperative-lang*)) var val ctx)]))
+   [(var val ctx) ((imperative-declare (*imperative-lang*)) var (trim-infix-parens val) ctx)]))
 
 (define (compile-assignment var val ctx)
-  ((imperative-assign (*imperative-lang*)) var val ctx))
+  ((imperative-assign (*imperative-lang*)) var (trim-infix-parens val) ctx))
 
 (define (compile-round expr ctx)
   ((imperative-round (*imperative-lang*)) expr ctx))
+
+(define (compile-implicit-round op arg ctx arg-ctx)
+  ((imperative-implicit-round (*imperative-lang*)) op arg ctx arg-ctx))
 
 (define (compile-round-mode mode ctx)
   ((imperative-round-mode (*imperative-lang*)) mode ctx))
@@ -126,7 +130,10 @@
 (define (default-compile-round expr ctx)
   expr)
 
-(define (define-compile-round-mode expr ctx)
+(define (default-compile-implicit-round op arg ctx arg-ctx)
+  arg)
+
+(define (default-compile-round-mode expr ctx)
   expr)
 
 (define (default-compile-program name args arg-ctxs body ret ctx used-vars)
@@ -148,11 +155,11 @@
                               #:declare [declare default-compile-declaration]
                               #:assign [assign default-compile-assignment]
                               #:round [round default-compile-round]
-                              #:round-mode [round-mode define-compile-round-mode]
+                              #:implicit-round [implicit-round default-compile-implicit-round]
+                              #:round-mode [round-mode default-compile-round-mode]
                               #:program [program default-compile-program])
-  (imperative name infix
-              operator constant type
-              declare assign round round-mode
+  (imperative name infix operator constant type
+              declare assign round implicit-round round-mode
               program))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;; utility ;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -291,39 +298,44 @@
 
 (define (visit-cast/imperative vtor x #:ctx ctx)
   (define-values (body* body-ctx) (visit/ctx vtor x ctx))
-  (values (compile-round body* ctx) ctx))
+  (values (compile-round body* ctx) body-ctx))
 
 (define (visit-!/imperative vtor props body #:ctx ctx)
+  (define indent (ctx-lookup-extra ctx 'indent))
   (define curr-prec (ctx-lookup-prop ctx ':precision))
   (define curr-round (ctx-lookup-prop ctx ':round))
   (define ctx* (ctx-update-props ctx props))
   (define new-prec (ctx-lookup-prop ctx* ':precision))
   (define new-round (ctx-lookup-prop ctx* ':round))
-  (define body-ctx   ; messy workaround to get body ctx
+  (define body-ctx
     (parameterize ([current-output-port (open-output-nowhere)])
       (let-values ([(_ body-ctx) (visit/ctx vtor body ctx*)])
         body-ctx)))
   (define body-prec (ctx-lookup-prop body-ctx ':precision))
-  (let-values ([(ctx* tmpvar) (ctx-random-name (ctx-update-props ctx* `(:precision ,body-prec)))])
-    (unless (equal? curr-round new-round)
-      (printf "~a" (compile-round-mode new-round ctx)))
-    (define-values (body* _) (visit/ctx vtor body ctx*))
-    (printf "~a~a\n" (ctx-lookup-extra ctx 'indent) (compile-declaration tmpvar body* ctx*))
-    (unless (equal? curr-round new-round)
-      (printf "~a" (compile-round-mode curr-round ctx)))
-    (values (if (equal? new-prec body-prec) tmpvar (compile-round tmpvar ctx))
-            body-ctx)))
+  (define-values (ctx** tmpvar)
+    (let ([ctx** (ctx-update-props ctx* `(:precision ,body-prec))])
+      (ctx-random-name ctx**)))
+  (unless (equal? curr-round new-round)
+    (printf "~a" (compile-round-mode new-round ctx)))
+  (define-values (body* _) (visit/ctx vtor body ctx*))
+  (printf "~a~a\n" indent (compile-declaration tmpvar body* ctx**))
+  (unless (equal? curr-round new-round)
+    (printf "~a" (compile-round-mode curr-round ctx)))
+  (values tmpvar body-ctx))
 
 (define (visit-op_/imperative vtor op args #:ctx ctx)
+  (define prec (ctx-lookup-prop ctx ':precision))
   (define args*
     (for/list ([arg args])
-      (define-values (arg* _) (visit/ctx vtor arg ctx))
-      arg*))
-  (define ctx*
-    (if (set-member? bool-ops op)
-        (ctx-update-props ctx (list ':precision 'boolean))
-        ctx))
-  (values (compile-operator op args* ctx) ctx*))
+      (define-values (arg* arg-ctx) (visit/ctx vtor arg ctx))
+      (define arg-prec (ctx-lookup-prop arg-ctx ':precision))
+      (if (equal? prec arg-prec)
+          arg*
+          (compile-implicit-round op arg* arg-ctx ctx))))
+  (values (compile-operator op args* ctx)
+          (if (set-member? bool-ops op)
+              (ctx-update-props ctx (list ':precision 'boolean))
+              ctx)))
 
 (define (visit-call/imperative vtor fn args #:ctx ctx)
   (define args*
@@ -345,7 +357,8 @@
               ctx)))
 
 (define (visit-symbol/imperative vtor x #:ctx ctx)
-  (values (ctx-lookup-name ctx x) ctx))
+  (define var-prec (ctx-lookup-prec ctx x))
+  (values (ctx-lookup-name ctx x) (ctx-update-props ctx `(:precision ,var-prec))))
 
 (define-transform-visitor imperative-visitor
   [visit-if visit-if/imperative]
@@ -390,16 +403,13 @@
         (for/lists (ns ps) ([arg (in-list args)])
           (match arg
            [(list '! props ... name)
-            (let ([ctx* (ctx-update-props ctx props)])
-              (values
-                (let-values ([(cx aname) (ctx-unique-name ctx name)])
-                  (begin0 name (set! ctx cx)))
-                ctx*))]
+            (define arg-ctx (ctx-update-props ctx props))
+            (define arg-prec (ctx-lookup-prop arg-ctx ':precision))
+            (define-values (cx aname) (ctx-unique-name ctx name arg-prec))
+            (begin0 (values aname arg-ctx) (set! ctx cx))]
            [name
-            (values
-              (let-values ([(cx aname) (ctx-unique-name ctx name)])
-                (begin0 name (set! ctx cx)))
-              ctx)])))
+            (define-values (cx aname) (ctx-unique-name ctx name))
+            (begin0 (values aname ctx) (set! ctx cx))])))
 
       (define non-varnames (map (curry ctx-lookup-name ctx) reserved))
       (define p (open-output-string))

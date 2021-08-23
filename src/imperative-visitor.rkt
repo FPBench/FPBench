@@ -25,19 +25,22 @@
 (define *imperative-lang* (make-parameter #f))
 
 (struct imperative
-  (name
-   infix
-   operator
-   constant
-   type
-   declare
-   assign
-   round
-   implicit-round
-   round-mode
-   program))
+  (name infix while-name operator constant type
+   declare assign round implicit-round round-mode
+   use-vars program flags))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;; flags ;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define valid-flags
+  '(no-parens-around-condition))
+
+(define (valid-flag? maybe-flag)
+  (set-member? valid-flags maybe-flag))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;; shorthands ;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define (while-name)
+  (imperative-while-name (*imperative-lang*)))
 
 (define (compile-infix-operator op args ctx)
   (match (cons op args)
@@ -102,13 +105,20 @@
 (define (compile-round-mode mode ctx)
   ((imperative-round-mode (*imperative-lang*)) mode ctx))
 
+(define (compile-use-vars vars ctx)
+  (define vars* (map (curry ctx-lookup-name ctx) vars))
+  ((imperative-use-vars (*imperative-lang*)) vars* ctx))
+
 (define (compile-program name args arg-ctxs body ret ctx used-vars)
   ((imperative-program (*imperative-lang*)) name args arg-ctxs body ret ctx used-vars))
 
+(define (compile-flag-raised? flag)
+  (set-member? (imperative-flags (*imperative-lang*)) flag))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;; defaults ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define default-infix-ops
-  '(+ - * / == != < > <= >= not and or))
+(define default-infix-ops '(+ - * / == != < > <= >= not and or))
+(define default-while-name "while")
 
 (define (default-compile-operator fn args ctx)
   (format "~a(~a)" fn (string-join (map ~a args) ", ")))
@@ -136,6 +146,9 @@
 (define (default-compile-round-mode expr ctx)
   expr)
 
+(define (default-use-vars vars ctx)
+  "")
+
 (define (default-compile-program name args arg-ctxs body ret ctx used-vars)
   (if (non-empty-string? body)
       (format "function ~a(~a) = {\n~a\treturn ~a;\n}\n"
@@ -149,6 +162,7 @@
 
 (define (make-imperative-lang name
                               #:infix-ops [infix default-infix-ops]
+                              #:while-name [while-name default-while-name]
                               #:operator [operator default-compile-operator]
                               #:constant [constant default-compile-constant]
                               #:type [type default-compile-type]
@@ -157,10 +171,14 @@
                               #:round [round default-compile-round]
                               #:implicit-round [implicit-round default-compile-implicit-round]
                               #:round-mode [round-mode default-compile-round-mode]
-                              #:program [program default-compile-program])
-  (imperative name infix operator constant type
+                              #:use-vars [use-vars default-use-vars]
+                              #:program [program default-compile-program]
+                              #:flags [flags '()])
+  (unless (andmap valid-flag? flags)
+    (error 'make-imperative-lang "Undefined imperative flags: ~a" flags))
+  (imperative name infix while-name operator constant type
               declare assign round implicit-round round-mode
-              program))
+              use-vars program flags))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;; utility ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -179,9 +197,10 @@
          (format "_~a_" (char->integer char))))
    ""))
 
-(define/match (collect-branches expr)
-  [((list 'if cond ift iff)) (cons (list cond ift) (collect-branches iff))]
-  [(_) (list (list #t expr))])
+(define (format-condition cond)
+  (if (compile-flag-raised? 'no-parens-around-condition)
+      (format "~a" cond)
+      (format "(~a)" cond)))
 
 (define bool-ops '(< > <= >= == != and or not isfinite isinf isnan isnormal signbit))
 
@@ -207,7 +226,7 @@
           (ctx-random-name (ctx-update-props ctx `(:precision ,prec)))))
       (printf "~a~a\n~aif ~a {\n"
               indent (compile-declaration tmpvar ctx*)
-              indent (format "(~a)" (trim-infix-parens cond)))
+              indent (format-condition (trim-infix-parens cond)))
       (define-values (ift* ift-ctx) (visit/ctx vtor ift ctx*))
       (printf "~a\t~a\n" indent (compile-assignment tmpvar ift* ctx))
       (loop (cdr branches) #f ctx* tmpvar)]
@@ -219,7 +238,7 @@
       (printf "~a}\n" indent)
       (values ret else-ctx)]
      [(_ (list cond elif))
-      (printf "~a} else if (~a) {\n" indent (trim-infix-parens cond))
+      (printf "~a} else if ~a {\n" indent (format-condition (trim-infix-parens cond)))
       (define ctx* (ctx-set-extra ctx 'indent (format "~a\t" indent)))
       (define-values (elif* elif-ctx) (visit/ctx vtor elif ctx*))
       (printf "~a\t~a\n" indent (compile-assignment ret elif* ctx))
@@ -235,6 +254,7 @@
       (define decl-ctx (ctx-update-props ctx* `(:precision ,prec)))
       (printf "~a~a\n" indent (compile-declaration name val* decl-ctx))
       name-ctx))
+  (printf "~a" (compile-use-vars vars ctx*))
   (visit/ctx vtor body ctx*))
 
 (define (visit-while_/imperative vtor while_ cond vars inits updates body #:ctx ctx)
@@ -252,9 +272,10 @@
   (define tmpvar
     (let-values ([(cx name) (ctx-random-name ctx)])
       (begin0 name (set! ctx cx))))
+  (printf "~a" (compile-use-vars vars ctx*))
   (define-values (cond* cond*-ctx) (visit/ctx vtor cond ctx*))
-  (printf "~a~a\n" indent (compile-declaration tmpvar cond* (ctx-update-props ctx '(:precision boolean))))
-  (printf "~awhile (~a) {\n" indent tmpvar)
+  (printf "~a~a\n" indent (compile-declaration tmpvar cond* cond*-ctx))
+  (printf "~a~a ~a {\n" indent (while-name) (format-condition tmpvar))
   (define ctx**
     (match while_
      ['while
@@ -270,6 +291,7 @@
           (define decl-ctx (ctx-update-props ctx** `(:precision ,prec)))
           (printf "~a\t~a\n" indent (compile-declaration name val* decl-ctx))
           (values name-ctx (cons name vars*))))
+      (printf "~a" (compile-use-vars vars ctx**))
       (for ([var* (in-list vars*)] [var** (in-list vars**)])
         (printf "~a\t~a\n" indent (compile-assignment var* var** ctx**)))
       ctx**]
@@ -280,7 +302,7 @@
           (printf "~a\t~a\n" indent (compile-assignment var* val* ctx**))))
       ctx**]))
   (define-values (cond** cond**-ctx) (visit/ctx vtor cond ctx**))
-  (printf "~a\t~a\n" indent (compile-assignment tmpvar cond** ctx**))
+  (printf "~a\t~a\n" indent (compile-assignment tmpvar cond** cond**-ctx))
   (printf "~a}\n" indent)
   (visit/ctx vtor body ctx*))
   

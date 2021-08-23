@@ -1,6 +1,6 @@
 #lang racket
 
-(require "common.rkt" "compilers.rkt")
+(require "common.rkt" "compilers.rkt" "imperative-visitor.rkt")
 (provide convert-core convert-expr *lang* language *reserved-names* *fix-name-format*)
 
 ;;; Abstraction for different languages

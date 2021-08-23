@@ -58,6 +58,9 @@
       (compile-infix-operator op args ctx)
       ((imperative-operator (*imperative-lang*)) op args ctx)))
 
+(define (compile-function fn args ctx)
+  ((imperative-operator (*imperative-lang*)) fn args ctx))
+
 (define (compile-constant x ctx)
   ((imperative-constant (*imperative-lang*)) x ctx))
 
@@ -66,7 +69,7 @@
 
 (define compile-declaration
   (case-lambda
-   [(var ctx) ((imperative-declare (*imperative-lang*)) var #f ctx)]
+   [(var ctx) ((imperative-declare (*imperative-lang*)) var ctx)]
    [(var val ctx) ((imperative-declare (*imperative-lang*)) var val ctx)]))
 
 (define (compile-assignment var val ctx)
@@ -111,7 +114,7 @@
 
 (define (default-compile-program name args arg-ctxs body ret ctx used-vars)
   (if (non-empty-string? body)
-      (format "function ~a(~a) = {\n\t~a\treturn ~a;\n}\n"
+      (format "function ~a(~a) = {\n~a\treturn ~a;\n}\n"
               name (string-join (map ~a args) ", ")
               body ret)
       (format "function ~a(~a) = {\n\treturn ~a;\n}\n"
@@ -153,17 +156,20 @@
    ""))
 
 (define/match (collect-branches expr)
-  [((list cond ift iff)) (cons (list cond ift) (collect-branches iff))]
+  [((list 'if cond ift iff)) (cons (list cond ift) (collect-branches iff))]
   [(_) (list (list #t expr))])
+
+(define bool-ops '(< > <= >= == != and or not isfinite isinf isnan isnormal signbit))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;; visitor ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define (visit-if/imperative vtor cond ift iff #:ctx ctx)
   (define indent (ctx-lookup-extra ctx 'indent))
-  (define branches (collect-branches (list cond ift iff)))
+  (define branches (collect-branches (list 'if cond ift iff)))
   (let loop ([branches branches] [first? #t] [ctx ctx] [ret #f])
     (match* (first? (car branches))
      [(#t (list cond ift))
+      (define-values (cond* _) (visit/ctx vtor cond ctx))
       (define-values (ctx* tmpvar)   ; messy workaround to get ift context
         (parameterize ([current-output-port (open-output-nowhere)])
           (define ctx* (ctx-set-extra ctx 'indent (format "~a\t" indent)))
@@ -171,21 +177,25 @@
           (define prec (ctx-lookup-prop ift-ctx ':precision))
           (ctx-random-name (ctx-update-props ctx `(:precision ,prec)))))
       (printf "~a~a\n~aif ~a {\n"
-              indent (compile-declaration ctx* tmpvar)
-              indent (format "(~a)" (trim-infix-parens cond)))
+              indent (compile-declaration tmpvar ctx*)
+              indent (format "(~a)" (trim-infix-parens cond*)))
       (define-values (ift* ift-ctx) (visit/ctx vtor ift ctx*))
-      (printf "~a\t~a\n" indent (convert-assignment tmpvar ift*))
+      (printf "~a\t~a\n" indent (compile-assignment tmpvar ift* ctx))
       (loop (cdr branches) #f ctx* tmpvar)]
      [(_ (list #t last))
       (printf "~a} else {\n" indent)
-      (define-values (last* else-ctx) (visit/ctx vtor last ctx))
-      (printf "~a\t~a\n" indent (compile-assignment ctx last*))
+      (define ctx* (ctx-set-extra ctx 'indent (format "~a\t" indent)))
+      (define-values (last* else-ctx) (visit/ctx vtor last ctx*))
+      (printf "~a\t~a\n" indent (compile-assignment ret last* ctx))
       (printf "~a}\n" indent)
       (values ret else-ctx)]
      [(_ (list cond elif))
-      (printf "a} else if (~a) {\n"i indent (trim-infix-parens cond))
-      
-      
+      (define-values (cond* _) (visit/ctx vtor cond ctx))
+      (printf "~a} else if (~a) {\n" indent (trim-infix-parens cond*))
+      (define ctx* (ctx-set-extra ctx 'indent (format "~a\t" indent)))
+      (define-values (elif* elif-ctx) (visit/ctx vtor elif ctx*))
+      (printf "~a\t~a\n" indent (compile-assignment ret elif* ctx))
+      (loop (cdr branches) #f ctx ret)])))
 
 (define (visit-let_/imperative vtor let_ vars vals body #:ctx ctx)
   (define indent (ctx-lookup-extra ctx 'indent))
@@ -199,6 +209,51 @@
       name-ctx))
   (visit/ctx vtor body ctx*))
 
+(define (visit-while_/imperative vtor while_ cond vars inits updates body #:ctx ctx)
+  (define indent (ctx-lookup-extra ctx 'indent))
+  (define-values (ctx* vars*)
+    (for/fold ([ctx* ctx] [vars* '()] #:result (values ctx* (reverse vars*)))
+              ([var (in-list vars)] [val (in-list inits)])
+      (define val-ctx (match while_ ['while ctx] ['while* ctx*]))
+      (define-values (val* val*-ctx) (visit/ctx vtor val val-ctx))
+      (define prec (ctx-lookup-prop val*-ctx ':precision))
+      (define-values (name-ctx name) (ctx-unique-name ctx* var prec))
+      (define decl-ctx (ctx-update-props ctx* `(:precision ,prec)))
+      (printf "~a~a\n" indent (compile-declaration name val* decl-ctx))
+      (values name-ctx (cons name vars*))))
+  (define tmpvar
+    (let-values ([(cx name) (ctx-random-name ctx)])
+      (begin0 name (set! ctx cx))))
+  (define-values (cond* cond*-ctx) (visit/ctx vtor cond ctx*))
+  (printf "~a~a\n" indent (compile-declaration tmpvar cond* (ctx-update-props ctx '(:precision boolean))))
+  (printf "~awhile (~a) {\n" indent tmpvar)
+  (define-values (ctx** vals*)
+    (match while_
+     ['while
+      (define val-ctx (ctx-set-extra ctx* 'indent (format "~a\t" indent)))
+      (for/fold ([ctx** ctx*] [vals* '()]
+                #:result (values (ctx-set-extra ctx* 'indent (format "~a\t" indent)) (reverse vals*)))
+                ([var (in-list vars)] [val (in-list updates)])
+        (define-values (val* val*-ctx) (visit/ctx vtor val val-ctx))
+        (define prec (ctx-lookup-prop val*-ctx ':precision))
+        (define-values (name-ctx name) (ctx-unique-name ctx** var prec))
+        (define decl-ctx (ctx-update-props ctx** `(:precision ,prec)))
+        (printf "~a\t~a\n" indent (compile-declaration name val* decl-ctx))
+        (values name-ctx (cons name vals*)))]
+     ['while*
+      (define ctx** (ctx-set-extra ctx* 'indent (format "~a\t" indent)))
+      (define vals*
+        (for/list ([val (in-list updates)])
+          (let-values ([(val* _) (visit/ctx vtor val ctx**)])
+            val*)))
+      (values ctx** vals*)]))
+  (for ([var (in-list vars*)] [val (in-list vals*)])
+    (printf "~a\t~a\n" indent (compile-assignment var val ctx**)))
+  (define-values (cond** cond**-ctx) (visit/ctx vtor cond ctx**))
+  (printf "~a\t~a\n" indent (compile-assignment tmpvar cond** ctx**))
+  (printf "~a}\n" indent)
+  (visit/ctx vtor body ctx*))
+  
 (define (visit-for_/imperative vtor for_ vars vals accums inits updates #:ctx ctx)
   (error 'imperative-visitor "unsupported operator: ~a" for_))
 
@@ -211,12 +266,27 @@
 (define (visit-array/imperative vtor args #:ctx ctx)
   (error 'imperative-visitor "unsupported operation: array"))
 
+(define (visit-cast/imperative vtor x #:ctx ctx)
+  (define-values (body* body-ctx) (visit/ctx vtor x ctx))
+  (values (compile-round x ctx) body-ctx))
+
 (define (visit-op_/imperative vtor op args #:ctx ctx)
   (define args*
     (for/list ([arg args])
       (define-values (arg* _) (visit/ctx vtor arg ctx))
       arg*))
-  (values (compile-operator op args* ctx) ctx))
+  (define ctx*
+    (if (set-member? bool-ops op)
+        (ctx-update-props ctx (list ':precision 'boolean))
+        ctx))
+  (values (compile-operator op args* ctx) ctx*))
+
+(define (visit-call/imperative vtor fn args #:ctx ctx)
+  (define args*
+    (for/list ([arg args])
+      (define-values (arg* _) (visit/ctx vtor arg ctx))
+      arg*))
+  (values (compile-function fn args ctx) ctx))
 
 (define (visit-number/imperative vtor x #:ctx ctx)
   (values (compile-constant x ctx) ctx))
@@ -233,9 +303,13 @@
 (define-transform-visitor imperative-visitor
   [visit-if visit-if/imperative]
   [visit-let_ visit-let_/imperative]
+  [visit-while_ visit-while_/imperative]
   [visit-for_ visit-for_/imperative]
   [visit-tensor visit-tensor/imperative]
   [visit-tensor* visit-tensor*/imperative]
+  [visit-array visit-array/imperative]
+  [visit-cast visit-cast/imperative]
+  [visit-call visit-call/imperative]
   [visit-op_ visit-op_/imperative]
   [visit-number visit-number/imperative]
   [visit-constant visit-constant/imperative]
@@ -243,7 +317,7 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;; top-level compiler ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define ((compile lang)  prog name)
+(define ((compile lang [vtor imperative-visitor]) prog name)
   (parameterize ([*gensym-used-names* (mutable-set)] 
                  [*gensym-collisions* 1]
                  [*gensym-fix-name* fix-name])
@@ -279,7 +353,7 @@
     (parameterize ([current-output-port p]
                    [*imperative-lang* (or (*imperative-lang*)
                                           (make-imperative-lang "default"))])
-      (define-values (o cx) (visit/ctx imperative-visitor body ctx))
+      (define-values (o cx) (visit/ctx vtor body ctx))
       (compile-program fname arg-names arg-ctxs
                        (get-output-string p) o
                        cx (set->list (*gensym-used-names*))))))
@@ -293,9 +367,12 @@
                       (compile0 expr (format "fn~a" i))))))
   
   (compile*
-    '(FPCore (x) (- (sqrt (+ x 1)) (sqrt x)))
-    '(FPCore (a b) (+ (* a b) (- a b)))
+    '(FPCore (x) (if (< x 0) (+ x 1) (- x 1)))
     '(FPCore (x) (let ([x 1] [y x]) (+ x y)))
     '(FPCore (x) (let* ([x 1] [y x]) (+ x y)))
-    '(FPCore (x) (if (< x 0) (+ x 1) (- x 1))))
+    '(FPCore (x) (while (< x 4) ([x 0.0 (+ x 1.0)]) x))
+    '(FPCore (x) (while* (< x 4) ([x 0.0 (+ x 1.0)]) x))
+    '(FPCore (x) (+ (foo x) 1))
+    '(FPCore (x) (- (sqrt (+ x 1)) (sqrt x)))
+    '(FPCore (a b) (+ (* a b) (- a b))))
 )

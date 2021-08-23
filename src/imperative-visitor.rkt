@@ -1,7 +1,24 @@
 #lang racket
 
 (require "common.rkt" "compilers.rkt" "fpcore-visitor.rkt")
-(provide *imperative-lang* imperative compile)
+
+(provide make-imperative-lang
+         make-imperative-compiler
+         visit-if/imperative
+         visit-let_/imperative
+         visit-while_/imperative
+         visit-for_/imperative
+         visit-tensor/imperative
+         visit-tensor*/imperative
+         visit-array/imperative
+         visit-cast/imperative
+         visit-!/imperative
+         visit-call/imperative
+         visit-op_/imperative
+         visit-digits/imperative
+         visit-number/imperative
+         visit-constant/imperative
+         visit-symbol/imperative)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;; language-specific abstractions ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -78,8 +95,8 @@
 (define (compile-round expr ctx)
   ((imperative-round (*imperative-lang*)) expr ctx))
 
-(define (compile-round-mode expr ctx)
-  ((imperative-round-mode (*imperative-lang*)) expr ctx))
+(define (compile-round-mode mode ctx)
+  ((imperative-round-mode (*imperative-lang*)) mode ctx))
 
 (define (compile-program name args arg-ctxs body ret ctx used-vars)
   ((imperative-program (*imperative-lang*)) name args arg-ctxs body ret ctx used-vars))
@@ -87,7 +104,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;; defaults ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define default-infix-ops
-  '(+ - * == != < > <= >= not and or))
+  '(+ - * / == != < > <= >= not and or))
 
 (define (default-compile-operator fn args ctx)
   (format "~a(~a)" fn (string-join (map ~a args) ", ")))
@@ -165,11 +182,16 @@
 
 (define (visit-if/imperative vtor cond ift iff #:ctx ctx)
   (define indent (ctx-lookup-extra ctx 'indent))
-  (define branches (collect-branches (list 'if cond ift iff)))
+  (define branches 
+    (let loop ([expr (list 'if cond ift iff)])
+      (match expr
+       [(list 'if cond ift iff)
+        (define-values (cond* _) (visit/ctx vtor cond ctx))
+        (cons (list cond* ift) (loop iff))]
+       [_ (list (list #t expr))])))
   (let loop ([branches branches] [first? #t] [ctx ctx] [ret #f])
     (match* (first? (car branches))
      [(#t (list cond ift))
-      (define-values (cond* _) (visit/ctx vtor cond ctx))
       (define-values (ctx* tmpvar)   ; messy workaround to get ift context
         (parameterize ([current-output-port (open-output-nowhere)])
           (define ctx* (ctx-set-extra ctx 'indent (format "~a\t" indent)))
@@ -178,7 +200,7 @@
           (ctx-random-name (ctx-update-props ctx `(:precision ,prec)))))
       (printf "~a~a\n~aif ~a {\n"
               indent (compile-declaration tmpvar ctx*)
-              indent (format "(~a)" (trim-infix-parens cond*)))
+              indent (format "(~a)" (trim-infix-parens cond)))
       (define-values (ift* ift-ctx) (visit/ctx vtor ift ctx*))
       (printf "~a\t~a\n" indent (compile-assignment tmpvar ift* ctx))
       (loop (cdr branches) #f ctx* tmpvar)]
@@ -190,8 +212,7 @@
       (printf "~a}\n" indent)
       (values ret else-ctx)]
      [(_ (list cond elif))
-      (define-values (cond* _) (visit/ctx vtor cond ctx))
-      (printf "~a} else if (~a) {\n" indent (trim-infix-parens cond*))
+      (printf "~a} else if (~a) {\n" indent (trim-infix-parens cond))
       (define ctx* (ctx-set-extra ctx 'indent (format "~a\t" indent)))
       (define-values (elif* elif-ctx) (visit/ctx vtor elif ctx*))
       (printf "~a\t~a\n" indent (compile-assignment ret elif* ctx))
@@ -227,28 +248,30 @@
   (define-values (cond* cond*-ctx) (visit/ctx vtor cond ctx*))
   (printf "~a~a\n" indent (compile-declaration tmpvar cond* (ctx-update-props ctx '(:precision boolean))))
   (printf "~awhile (~a) {\n" indent tmpvar)
-  (define-values (ctx** vals*)
+  (define ctx**
     (match while_
      ['while
       (define val-ctx (ctx-set-extra ctx* 'indent (format "~a\t" indent)))
-      (for/fold ([ctx** ctx*] [vals* '()]
-                #:result (values (ctx-set-extra ctx* 'indent (format "~a\t" indent)) (reverse vals*)))
-                ([var (in-list vars)] [val (in-list updates)])
-        (define-values (val* val*-ctx) (visit/ctx vtor val val-ctx))
-        (define prec (ctx-lookup-prop val*-ctx ':precision))
-        (define-values (name-ctx name) (ctx-unique-name ctx** var prec))
-        (define decl-ctx (ctx-update-props ctx** `(:precision ,prec)))
-        (printf "~a\t~a\n" indent (compile-declaration name val* decl-ctx))
-        (values name-ctx (cons name vals*)))]
+      (define-values (ctx** vars**)
+        (for/fold ([ctx** ctx*] [vars* '()]
+                  #:result (values (ctx-set-extra ctx* 'indent (format "~a\t" indent))
+                                   (reverse vars*)))
+                  ([var (in-list vars)] [val (in-list updates)])
+          (define-values (val* val*-ctx) (visit/ctx vtor val val-ctx))
+          (define prec (ctx-lookup-prop val*-ctx ':precision))
+          (define-values (name-ctx name) (ctx-unique-name ctx** var prec))
+          (define decl-ctx (ctx-update-props ctx** `(:precision ,prec)))
+          (printf "~a\t~a\n" indent (compile-declaration name val* decl-ctx))
+          (values name-ctx (cons name vars*))))
+      (for ([var* (in-list vars*)] [var** (in-list vars**)])
+        (printf "~a\t~a\n" indent (compile-assignment var* var** ctx**)))
+      ctx**]
      ['while*
       (define ctx** (ctx-set-extra ctx* 'indent (format "~a\t" indent)))
-      (define vals*
-        (for/list ([val (in-list updates)])
-          (let-values ([(val* _) (visit/ctx vtor val ctx**)])
-            val*)))
-      (values ctx** vals*)]))
-  (for ([var (in-list vars*)] [val (in-list vals*)])
-    (printf "~a\t~a\n" indent (compile-assignment var val ctx**)))
+      (for ([var* (in-list vars*)] [val (in-list updates)])
+        (let-values ([(val* _) (visit/ctx vtor val ctx**)])
+          (printf "~a\t~a\n" indent (compile-assignment var* val* ctx**))))
+      ctx**]))
   (define-values (cond** cond**-ctx) (visit/ctx vtor cond ctx**))
   (printf "~a\t~a\n" indent (compile-assignment tmpvar cond** ctx**))
   (printf "~a}\n" indent)
@@ -268,7 +291,28 @@
 
 (define (visit-cast/imperative vtor x #:ctx ctx)
   (define-values (body* body-ctx) (visit/ctx vtor x ctx))
-  (values (compile-round x ctx) body-ctx))
+  (values (compile-round body* ctx) ctx))
+
+(define (visit-!/imperative vtor props body #:ctx ctx)
+  (define curr-prec (ctx-lookup-prop ctx ':precision))
+  (define curr-round (ctx-lookup-prop ctx ':round))
+  (define ctx* (ctx-update-props ctx props))
+  (define new-prec (ctx-lookup-prop ctx* ':precision))
+  (define new-round (ctx-lookup-prop ctx* ':round))
+  (define body-ctx   ; messy workaround to get body ctx
+    (parameterize ([current-output-port (open-output-nowhere)])
+      (let-values ([(_ body-ctx) (visit/ctx vtor body ctx*)])
+        body-ctx)))
+  (define body-prec (ctx-lookup-prop body-ctx ':precision))
+  (let-values ([(ctx* tmpvar) (ctx-random-name (ctx-update-props ctx* `(:precision ,body-prec)))])
+    (unless (equal? curr-round new-round)
+      (printf "~a" (compile-round-mode new-round ctx)))
+    (define-values (body* _) (visit/ctx vtor body ctx*))
+    (printf "~a~a\n" (ctx-lookup-extra ctx 'indent) (compile-declaration tmpvar body* ctx*))
+    (unless (equal? curr-round new-round)
+      (printf "~a" (compile-round-mode curr-round ctx)))
+    (values (if (equal? new-prec body-prec) tmpvar (compile-round tmpvar ctx))
+            body-ctx)))
 
 (define (visit-op_/imperative vtor op args #:ctx ctx)
   (define args*
@@ -288,13 +332,16 @@
       arg*))
   (values (compile-function fn args ctx) ctx))
 
+(define (visit-digits/imperative vtor m e b #:ctx ctx)
+  (visit/ctx vtor (digits->number m e b) ctx))
+
 (define (visit-number/imperative vtor x #:ctx ctx)
   (values (compile-constant x ctx) ctx))
 
 (define (visit-constant/imperative vtor x #:ctx ctx)
   (values (compile-constant x ctx)
           (if (set-member? '(TRUE FALSE) x)
-              (ctx-update-props ':precision 'boolean)
+              (ctx-update-props ctx (list ':precision 'boolean))
               ctx)))
 
 (define (visit-symbol/imperative vtor x #:ctx ctx)
@@ -309,60 +356,64 @@
   [visit-tensor* visit-tensor*/imperative]
   [visit-array visit-array/imperative]
   [visit-cast visit-cast/imperative]
+  [visit-! visit-!/imperative]
   [visit-call visit-call/imperative]
   [visit-op_ visit-op_/imperative]
+  [visit-digits visit-digits/imperative]
   [visit-number visit-number/imperative]
   [visit-constant visit-constant/imperative]
   [visit-symbol visit-symbol/imperative])
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;; top-level compiler ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define ((compile lang [vtor imperative-visitor]) prog name)
-  (parameterize ([*gensym-used-names* (mutable-set)] 
-                 [*gensym-collisions* 1]
-                 [*gensym-fix-name* fix-name])
-    (define-values (args props body)
-     (match prog
-      [(list 'FPCore (list args ...) props ... body) (values args props body)]
-      [(list 'FPCore name (list args ...) props ... body) (values args props body)]))
-    (define ctx (ctx-update-props default-ctx props))
+(define (make-imperative-compiler lang
+                                  #:visitor [vtor imperative-visitor]
+                                  #:reserved [reserved '()])
+  (lambda (prog name)
+    (parameterize ([*gensym-used-names* (mutable-set)] 
+                   [*gensym-collisions* 1]
+                   [*gensym-fix-name* fix-name]
+                   [*imperative-lang* lang])
+      (define-values (args props body)
+      (match prog
+       [(list 'FPCore (list args ...) props ... body) (values args props body)]
+       [(list 'FPCore name (list args ...) props ... body) (values args props body)]))
+      (define ctx (ctx-reserve-names (ctx-update-props default-ctx props) reserved))
 
-    ; compiled function name
-    (define fname
-      (let-values ([(cx fname) (ctx-unique-name ctx name)])
-        (begin0 fname (set! ctx cx))))
+      ; compiled function name
+      (define fname
+        (let-values ([(cx fname) (ctx-unique-name ctx name)])
+          (begin0 fname (set! ctx cx))))
 
-    ; compiled argument names
-    (define-values (arg-names arg-ctxs)
-      (for/lists (ns ps) ([arg (in-list args)])
-        (match arg
-         [(list '! props ... name)
-          (let ([ctx* (ctx-update-props ctx props)])
+      ; compiled argument names
+      (define-values (arg-names arg-ctxs)
+        (for/lists (ns ps) ([arg (in-list args)])
+          (match arg
+           [(list '! props ... name)
+            (let ([ctx* (ctx-update-props ctx props)])
+              (values
+                (let-values ([(cx aname) (ctx-unique-name ctx name)])
+                  (begin0 name (set! ctx cx)))
+                ctx*))]
+           [name
             (values
               (let-values ([(cx aname) (ctx-unique-name ctx name)])
                 (begin0 name (set! ctx cx)))
-              ctx*))]
-         [name
-          (values
-            (let-values ([(cx aname) (ctx-unique-name ctx name)])
-              (begin0 name (set! ctx cx)))
-            ctx)])))
+              ctx)])))
 
-    ;(define non-varnames (map (curry ctx-lookup-name ctx) (*reserved-names*)))
-    (define p (open-output-string))
-    (parameterize ([current-output-port p]
-                   [*imperative-lang* (or (*imperative-lang*)
-                                          (make-imperative-lang "default"))])
-      (define-values (o cx) (visit/ctx vtor body ctx))
-      (compile-program fname arg-names arg-ctxs
-                       (get-output-string p) o
-                       cx (set->list (*gensym-used-names*))))))
+      (define non-varnames (map (curry ctx-lookup-name ctx) reserved))
+      (define p (open-output-string))
+      (parameterize ([current-output-port p])
+        (define-values (o cx) (visit/ctx vtor body ctx))
+        (compile-program fname arg-names arg-ctxs
+                         (get-output-string p) o
+                         cx (remove* non-varnames (set->list (*gensym-used-names*))))))))
 
 (module+ test
   (require rackunit)
-  (define lang (make-imperative-lang "test"))
+  (define lang (make-imperative-lang "default"))
   (define (compile* . exprs)
-    (let ([compile0 (compile lang)])
+    (let ([compile0 (make-imperative-compiler lang)])
       (apply values (for/list ([expr exprs] [i (in-naturals 1)])
                       (compile0 expr (format "fn~a" i))))))
   

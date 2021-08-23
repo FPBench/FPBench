@@ -50,7 +50,7 @@
     never-declare                     ; declarations are assignments (Sollya)
     semicolon-after-enclosing-brace   ; end 'if' or 'while' blocks with "};" (Sollya)
     if-then                           ; "if (cond) then { ... }" (Sollya)
-    while-do                          ; "while (cond)" do { ... }" (Sollya)
+    while-do                          ; "while (cond) do { ... }" (Sollya)
     round-after-operation))           ; ensure rounding after any operation (Sollya)
 
 (define (valid-flag? maybe-flag)

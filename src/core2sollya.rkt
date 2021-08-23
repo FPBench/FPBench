@@ -13,7 +13,10 @@
 
 (define *sollya-warnings* (make-parameter #t))
 
-(define sollya-reserved '(pi time)) ; Language-specific reserved names (avoid name collisions)
+(define sollya-reserved ; Language-specific reserved names (avoid name collisions)
+  '(_x_ boolean constant default do else for from function
+    if in integer list nop object of pi proc procedure
+    range return switch then time to while var))
 
 (define sollya-header
   (const

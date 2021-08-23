@@ -28,9 +28,19 @@
 (define *imperative-lang* (make-parameter #f))
 
 (struct imperative
-  (name infix operator constant type
-   declare assign round implicit-round round-mode
-   use-vars program flags))
+  (name             ; string representation of language
+   infix            ; list of ops that use default infix formatter
+   operator         ; procedure to format any non-infix operator
+   constant         ; procedure to format constants
+   type             ; procedure that returns language name of an FPCore precision
+   declare          ; procedure to format declarations
+   assign           ; procedure to format assignments
+   round            ; procedure to format (explicit) casts
+   implicit-round   ; procedure to format implicit casts
+   round-mode       ; procedure to format changes to rounding mode
+   use-vars         ; procedure to format post-processing on new variables
+   program          ; procedure to format the entire program
+   flags))          ; list of optional flags to change minor behavior
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;; flags ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

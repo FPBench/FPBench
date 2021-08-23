@@ -23,7 +23,7 @@
     (curry equal? 'binary64)
     (curry equal? 'nearestEven)))
 
-(define go-reserved ; Language-specific reserved names (avoid name collisions)
+(define go-reserved   ; Language-specific reserved names (avoid name collisions)
   '(break case chan const continue default defer else
     fallthrough for func go goto if import interface map
     package range return select struct switch type var))
@@ -83,9 +83,6 @@
     (define type (type->go (ctx-lookup-prop ctx ':precision)))
     (format "var ~a = ~a(~a)" var type val)]))
 
-(define (assignment->go var val ctx)
-  (format "~a = ~a" var val))
-
 (define (use-vars->go vars ctx)
   (define indent (ctx-lookup-extra ctx 'indent))
   (format "~aUse(~a)\n" indent (string-join vars ", ")))
@@ -105,15 +102,14 @@
 
 (define go-language
   (make-imperative-lang "go"
-                        #:while-name "for"
                         #:operator operator->go
                         #:constant constant->go
                         #:type type->go
                         #:declare declaration->go
-                        #:assign assignment->go
                         #:use-vars use-vars->go
                         #:program program->go
-                        #:flags '(no-parens-around-condition)))
+                        #:flags '(no-parens-around-condition
+                                  for-instead-of-while)))
 
 (define core->go (make-imperative-compiler go-language #:reserved go-reserved))
 (define-compiler '("go") go-header core->go (const "") go-supported)

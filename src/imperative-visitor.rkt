@@ -4,6 +4,7 @@
 
 (provide make-imperative-lang
          make-imperative-compiler
+         default-infix-ops
          visit-if/imperative
          visit-let_/imperative
          visit-while_/imperative
@@ -25,22 +26,20 @@
 (define *imperative-lang* (make-parameter #f))
 
 (struct imperative
-  (name infix while-name operator constant type
+  (name infix operator constant type
    declare assign round implicit-round round-mode
    use-vars program flags))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;; flags ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define valid-flags
-  '(no-parens-around-condition))
+  '(no-parens-around-condition
+    for-instead-of-while))
 
 (define (valid-flag? maybe-flag)
   (set-member? valid-flags maybe-flag))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;; shorthands ;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(define (while-name)
-  (imperative-while-name (*imperative-lang*)))
 
 (define (compile-infix-operator op args ctx)
   (match (cons op args)
@@ -118,7 +117,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;; defaults ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define default-infix-ops '(+ - * / == != < > <= >= not and or))
-(define default-while-name "while")
 
 (define (default-compile-operator fn args ctx)
   (format "~a(~a)" fn (string-join (map ~a args) ", ")))
@@ -151,10 +149,10 @@
 
 (define (default-compile-program name args arg-ctxs body ret ctx used-vars)
   (if (non-empty-string? body)
-      (format "function ~a(~a) = {\n~a\treturn ~a;\n}\n"
+      (format "function ~a(~a) {\n~a\treturn ~a;\n}\n"
               name (string-join (map ~a args) ", ")
               body ret)
-      (format "function ~a(~a) = {\n\treturn ~a;\n}\n"
+      (format "function ~a(~a) {\n\treturn ~a;\n}\n"
               name (string-join (map ~a args) ", ")
               ret)))
 
@@ -162,7 +160,6 @@
 
 (define (make-imperative-lang name
                               #:infix-ops [infix default-infix-ops]
-                              #:while-name [while-name default-while-name]
                               #:operator [operator default-compile-operator]
                               #:constant [constant default-compile-constant]
                               #:type [type default-compile-type]
@@ -176,7 +173,7 @@
                               #:flags [flags '()])
   (unless (andmap valid-flag? flags)
     (error 'make-imperative-lang "Undefined imperative flags: ~a" flags))
-  (imperative name infix while-name operator constant type
+  (imperative name infix operator constant type
               declare assign round implicit-round round-mode
               use-vars program flags))
 
@@ -202,7 +199,13 @@
       (format "~a" cond)
       (format "(~a)" cond)))
 
-(define bool-ops '(< > <= >= == != and or not isfinite isinf isnan isnormal signbit))
+(define (while-name)
+  (if (compile-flag-raised? 'for-instead-of-while)
+      "for"
+      "while"))
+
+(define bool-ops '(< > <= >= == != and or not
+                   isfinite isinf isnan isnormal signbit))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;; visitor ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

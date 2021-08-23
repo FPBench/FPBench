@@ -68,9 +68,6 @@
    [(var val ctx)
     (define type (type->c (ctx-lookup-prop ctx ':precision)))
     (format "~a ~a = ~a;" type var val)]))
-
-(define (assignment->c var val ctx)
-  (format "~a = ~a;" var val))
   
 (define (round->c x ctx)
   (define type (type->c (ctx-lookup-prop ctx ':precision)))
@@ -133,7 +130,6 @@
                         #:constant constant->c
                         #:type type->c
                         #:declare declaration->c
-                        #:assign assignment->c
                         #:round round->c
                         #:implicit-round implicit-round->c
                         #:round-mode round-mode->c

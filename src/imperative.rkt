@@ -1,9 +1,15 @@
+;
+;   Common compiler for all imperative languages
+;     "C"-like: C, JS, Go, Sollya, Scala
+;     Other: FPTaylor
+;
+
 #lang racket
 
 (require "common.rkt" "compilers.rkt" "fpcore-visitor.rkt" "supported.rkt")
 
-(provide make-imperative-compiler default-infix-ops imperative-visitor
-         (all-from-out "common.rkt" "compilers.rkt" "fpcore-visitor.rkt" "supported.rkt"))
+(provide (all-from-out "common.rkt" "compilers.rkt" "fpcore-visitor.rkt" "supported.rkt")
+         make-imperative-compiler default-infix-ops imperative-visitor)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;; language-specific abstractions ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -418,7 +424,7 @@
                                   #:fix-name-format [fix-name-format "_~a_"]
                                   #:indent [indent "\t"])
   (unless (andmap valid-flag? flags)
-    (error 'make-imperative-lang "Undefined imperative flags: ~a" flags))
+    (error 'make-imperative-compiler "Undefined imperative flags: ~a" flags))
   (define language
     (imperative name infix operator constant type
                 declare assign round implicit-round round-mode

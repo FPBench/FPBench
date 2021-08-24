@@ -1,8 +1,7 @@
 #lang racket
 
 (require generic-flonum)
-(require "common.rkt" "compilers.rkt" "imperative.rkt"
-         "range-analysis.rkt" "supported.rkt")
+(require "imperative.rkt" "range-analysis.rkt")
 
 (provide scala-header scala-footer core->scala scala-supported
          *scala-suppress* *scala-prec-file*)

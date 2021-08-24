@@ -1,7 +1,7 @@
 #lang racket
 
-(require "common.rkt" "compilers.rkt" "imperative.rkt" "supported.rkt"
-         "fpcore-reader.rkt" "fpcore-extra.rkt" "range-analysis.rkt")
+(require "fpcore-reader.rkt" "fpcore-extra.rkt" "imperative.rkt" "range-analysis.rkt")
+
 (provide core->fptaylor fptaylor-supported *fptaylor-inexact-scale*)
 
 (define *fptaylor-inexact-scale* (make-parameter 1))

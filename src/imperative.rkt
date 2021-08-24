@@ -1,11 +1,9 @@
 #lang racket
 
-(require "common.rkt" "compilers.rkt" "fpcore-visitor.rkt")
+(require "common.rkt" "compilers.rkt" "fpcore-visitor.rkt" "supported.rkt")
 
-(provide make-imperative-compiler
-         default-infix-ops
-         imperative-visitor
-         (all-from-out "fpcore-visitor.rkt"))
+(provide make-imperative-compiler default-infix-ops imperative-visitor
+         (all-from-out "common.rkt" "compilers.rkt" "fpcore-visitor.rkt" "supported.rkt"))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;; language-specific abstractions ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -320,18 +318,6 @@
   (printf "~a\t~a\n" indent (compile-assignment tmpvar cond** cond**-ctx))
   (printf "~a}~a\n" indent (after-enclosing-brace))
   (visit/ctx vtor body ctx*))
-  
-(define (visit-for_/imperative vtor for_ vars vals accums inits updates #:ctx ctx)
-  (error 'imperative-visitor "unsupported operator: ~a" for_))
-
-(define (visit-tensor/imperative vtor vars vals #:ctx ctx)
-  (error 'imperative-visitor "unsupported operator: tensor"))
-
-(define (visit-tensor*/imperative vtor vars vals accums inits updates #:ctx ctx)
-  (error 'imperative-visitor "unsupported operation: tensor*"))
-
-(define (visit-array/imperative vtor args #:ctx ctx)
-  (error 'imperative-visitor "unsupported operation: array"))
 
 (define (visit-cast/imperative vtor x #:ctx ctx)
   (define-values (body* body-ctx) (visit/ctx vtor x ctx))
@@ -397,14 +383,10 @@
   (define var-prec (ctx-lookup-prec ctx x))
   (values (ctx-lookup-name ctx x) (ctx-update-props ctx `(:precision ,var-prec))))
 
-(define-transform-visitor imperative-visitor
+(define-expr-visitor default-compiler-visitor imperative-visitor
   [visit-if visit-if/imperative]
   [visit-let_ visit-let_/imperative]
   [visit-while_ visit-while_/imperative]
-  [visit-for_ visit-for_/imperative]
-  [visit-tensor visit-tensor/imperative]
-  [visit-tensor* visit-tensor*/imperative]
-  [visit-array visit-array/imperative]
   [visit-cast visit-cast/imperative]
   [visit-! visit-!/imperative]
   [visit-call visit-call/imperative]

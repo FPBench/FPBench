@@ -1,9 +1,22 @@
 #lang racket
 
-(require "src/fpcore-reader.rkt" "src/compilers.rkt" "src/supported.rkt" "src/imperative.rkt")
-(require "src/core2c.rkt" "src/core2cml.rkt" "src/core2fptaylor.rkt" "src/core2gappa.rkt" 
-         "src/core2go.rkt" "src/core2js.rkt" "src/core2scala.rkt" "src/core2smtlib2.rkt"
-         "src/core2sollya.rkt" "src/core2tex.rkt" "src/core2wls.rkt")
+; utility
+(require "src/fpcore-reader.rkt"
+         "src/compilers.rkt"
+         "src/supported.rkt")
+
+; compilers
+(require "src/core2c.rkt"
+         "src/core2cml.rkt"
+         "src/core2fptaylor.rkt"
+         "src/core2gappa.rkt" 
+         "src/core2go.rkt"
+         "src/core2js.rkt"
+         "src/core2scala.rkt"
+         "src/core2smtlib2.rkt"
+         "src/core2sollya.rkt"
+         "src/core2tex.rkt"
+         "src/core2wls.rkt")
 
 (provide export-main)
 

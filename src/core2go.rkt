@@ -1,6 +1,7 @@
 #lang racket
 
-(require "common.rkt" "compilers.rkt" "imperative.rkt" "supported.rkt")
+(require "imperative.rkt")
+
 (provide go-header go-func-header core->go go-supported)
 
 (define go-func-header

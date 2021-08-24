@@ -1,12 +1,15 @@
 #lang racket
 
-(require "supported.rkt" "fpcore-checker.rkt")
+(require "supported.rkt" "fpcore-checker.rkt" "fpcore-visitor.rkt")
 
 (provide
-  define-compiler compiler-ctx ; contractless
-  (rename-out     ; inherits contract
+  ; contractless
+  define-compiler default-compiler-visitor
+  ; inherits contract
+  (rename-out
    [compiler-ctx-props ctx-props])
-  (contract-out   ; new contracts
+  ; new contracts
+  (contract-out
     [*gensym-used-names* (parameter/c set-mutable?)]
     [*gensym-divider* (parameter/c (or/c char? string?))]
     [*gensym-collisions* (parameter/c natural?)]
@@ -39,7 +42,7 @@
     [ctx-lookup-extra (-> compiler-ctx? any/c any/c)]
     [supported-by-lang? (-> fpcore? string? boolean?)]))
 
-;; Compiler struct
+;;;;;;;;;;;;;;;;;;;;;;;;;;; compiler struct ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (struct compiler (extensions header export footer supported))
 
@@ -48,7 +51,16 @@
 (define-syntax-rule (define-compiler arg ...)
   (compilers (cons (compiler arg ...) (compilers))))
 
-;;; Compiler contexts
+(define (supported-by-lang? fpcore lang)
+  (define compiler
+    (for/first ([compiler (compilers)]
+                #:when (set-member? (compiler-extensions compiler) lang))
+        compiler))
+  (if compiler
+      (valid-core fpcore (compiler-supported compiler))
+      #f))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;; name generation ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define *gensym-used-names* (make-parameter (mutable-set)))
 (define *gensym-divider* (make-parameter #\_))
@@ -68,6 +80,8 @@
 
 (define (->string s)
   (if (symbol? s) (symbol->string s) s))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;; compiler context ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (struct compiler-ctx (name-map prec-map props extra))
 
@@ -143,13 +157,25 @@
       (hash-ref (compiler-ctx-extra ctx) k fail)
       (hash-ref (compiler-ctx-extra ctx) k)))
 
-;;; Misc
+;;;;;;;;;;;;;;;;;;;;;;;;;;; base compiler ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define (supported-by-lang? fpcore lang)
-  (define compiler
-    (for/first ([compiler (compilers)]
-                #:when (set-member? (compiler-extensions compiler) lang))
-        compiler))
-  (if compiler
-      (valid-core fpcore (compiler-supported compiler))
-      #f))
+(define-transform-visitor default-compiler-visitor
+  [(visit-if vtor cond ift iff #:ctx ctx)
+    (error 'default-compiler-visitor "Unsupported operation: ~a" 'if)]
+  [(visit-let_ vtor let_ vars vals body #:ctx ctx)
+    (error 'default-compiler-visitor "Unsupported operation: ~a" let_)]
+  [(visit-while_ vtor while_ cond vars inits updates #:ctx ctx)
+    (error 'default-compiler-visitor "Unsupported operation: ~a" while_)]
+  [(visit-for_ vtor for_ vars vals accums inits updates #:ctx ctx)
+    (error 'default-compiler-visitor "Unsupported operation: ~a" for_)]
+  [(visit-tensor vtor vars vals body #:ctx ctx)
+    (error 'default-compiler-visitor "Unsupported operation: tensor")]
+  [(visit-tensor* vtor vars vals accums inits updates #:ctx ctx)
+    (error 'default-compiler-visitor "Unsupported operation: tensor*")]
+  [(visit-! vtor props body #:ctx ctx)
+    (error 'default-compiler-visitor "Unsupported operation: !")]
+  [(visit-op_ vtor op_ args body #:ctx ctx)
+    (error 'default-compiler-visitor "Unsupported operation: ~a" op_)]
+  [(visit-terminal_ vtor x #:ctx ctx)
+    (error 'default-compiler-visitor "Unsupported: ~a" x)])
+

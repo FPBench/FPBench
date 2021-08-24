@@ -234,19 +234,19 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;; utility ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(define *fix-name-format* (make-parameter #f))
+
 (define default-ctx
-  (ctx-set-extra
-    (ctx-update-props
-      (make-compiler-ctx)
-      '(:precision binary64 :round nearestEven))
-    'indent "\t"))
+  (ctx-update-props
+    (make-compiler-ctx)
+    '(:precision binary64 :round nearestEven)))
 
 (define (fix-name name)
   (string-join
    (for/list ([char (~a name)])
      (if (regexp-match #rx"[a-zA-Z0-9_]" (string char))
          (string char)
-         (format "_~a_" (char->integer char))))
+         (format (*fix-name-format*) (char->integer char))))
    ""))
 
 (define bool-ops '(< > <= >= == != and or not
@@ -451,21 +451,27 @@
   [visit-constant visit-constant/imperative]
   [visit-symbol visit-symbol/imperative])
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;; top-level compiler ;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;; compiler constructor ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define (make-imperative-compiler lang
                                   #:visitor [vtor imperative-visitor]
-                                  #:reserved [reserved '()])
+                                  #:reserved [reserved '()]
+                                  #:fix-name-format [fix-name-format "_~a_"]
+                                  #:indent [indent "\t"])
   (lambda (prog name)
     (parameterize ([*gensym-used-names* (mutable-set)] 
                    [*gensym-collisions* 1]
                    [*gensym-fix-name* fix-name]
-                   [*imperative-lang* lang])
+                   [*imperative-lang* lang]
+                   [*fix-name-format* fix-name-format])
       (define-values (args props body)
-      (match prog
-       [(list 'FPCore (list args ...) props ... body) (values args props body)]
-       [(list 'FPCore name (list args ...) props ... body) (values args props body)]))
-      (define ctx (ctx-reserve-names (ctx-update-props default-ctx props) reserved))
+        (match prog
+         [(list 'FPCore (list args ...) props ... body) (values args props body)]
+         [(list 'FPCore name (list args ...) props ... body) (values args props body)]))
+      (define ctx
+        (let ([ctx0 (ctx-update-props default-ctx props)])
+          (let ([ctx1 (ctx-reserve-names ctx0 reserved)])
+            (ctx-set-extra ctx1 'indent indent))))
 
       ; compiled function name
       (define fname

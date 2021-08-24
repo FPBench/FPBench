@@ -109,9 +109,9 @@
     ['FALSE "false"]
     ['INFINITY "infty"]
     ['NAN "nan"]
-    [(? hex?) (round->sollya (format "~a" expr) ctx)]
+    [(? hex?) (round->sollya (~a expr) ctx)]
     [(? symbol?) (~a expr)]
-    [(? number?) (round->sollya (format "~a" expr) ctx)]))
+    [(? number?) (round->sollya (~a expr) ctx)]))
 
 (define (program->sollya name args arg-ctxs body return ctx vars)
   (define arg-rounding
@@ -123,7 +123,7 @@
 
   (define var-string
     (if (> (length decl-list) 0)
-        (format "\n\tvar ~a;" (string-join (map (λ (x) (format "~a" x)) decl-list) ", "))
+        (format "\n\tvar ~a;" (string-join (map ~a decl-list) ", "))
         ""))
   (define rounding-string
     (if (> (length arg-rounding) 0)

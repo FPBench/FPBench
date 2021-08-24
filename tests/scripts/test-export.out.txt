@@ -171,7 +171,7 @@ import Real._
 object main {
 	def ex0(arg0: Real, arg1: Real): Real = {
 		require(((1.0 < arg0 && arg0 < 10.0) && (1.0 < arg1 && arg1 < 10.0)))
-		(arg0 + arg1)
+		arg0 + arg1
 	}
 
 	def ex1(arg0: Real): Real = {
@@ -183,7 +183,7 @@ object main {
 		require(((1.0 < arg0 && arg0 < 10.0) && (1.0 < arg1 && arg1 < 10.0)))
 		val arg0_1: Real = arg1
 		val arg1_2: Real = arg0
-		(arg0_1 - arg1_2)
+		arg0_1 - arg1_2
 	}
 
 }

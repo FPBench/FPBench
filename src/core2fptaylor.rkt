@@ -114,8 +114,7 @@
                 (lambda (var range) (cons (ctx-lookup-name ctx var) range)))))
   (define arg-strings
     (for/list ([arg args] [ctx arg-ctxs])
-      (define range
-        (dict-ref var-ranges arg (make-interval -inf.0 +inf.0)))
+      (define range (dict-ref var-ranges arg (make-interval -inf.0 +inf.0)))
       (unless (nonempty-bounded? range)
         (error 'fptaylor->function "Bad range for ~a in ~a (~a)" arg name range))
       (unless (= (length range) 1)
@@ -146,6 +145,7 @@
   (make-imperative-lang "fptaylor"
                         #:operator operator->fptaylor
                         #:constant constant->fptaylor
+                        #:round round->fptaylor
                         #:program program->fptaylor
                         #:flags '(round-after-operation
                                   never-declare)))

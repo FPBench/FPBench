@@ -47,11 +47,11 @@
 (define valid-flags
   '(no-parens-around-condition        ; removes parenthesis from 'if' and 'while' conditions (Go)
     for-instead-of-while              ; changes 'while' to 'for' (Go)
-    never-declare                     ; declarations are assignments (Sollya)
+    never-declare                     ; declarations are assignments (Sollya, FPTaylor)
     semicolon-after-enclosing-brace   ; end 'if' or 'while' blocks with "};" (Sollya)
     if-then                           ; "if (cond) then { ... }" (Sollya)
     while-do                          ; "while (cond) do { ... }" (Sollya)
-    round-after-operation))           ; ensure rounding after any operation (Sollya)
+    round-after-operation))           ; ensure rounding after any operation (Sollya, FPTaylor)
 
 (define (valid-flag? maybe-flag)
   (set-member? valid-flags maybe-flag))
@@ -490,8 +490,8 @@
       (parameterize ([current-output-port p])
         (define-values (o cx) (visit/ctx vtor body ctx))
         (compile-program fname arg-names arg-ctxs
-                         (get-output-string p) o
-                         cx (remove* non-varnames (set->list (*gensym-used-names*))))))))
+                         (get-output-string p) (trim-infix-parens o)
+                         ctx (remove* non-varnames (set->list (*gensym-used-names*))))))))
 
 (module+ test
   (require rackunit)

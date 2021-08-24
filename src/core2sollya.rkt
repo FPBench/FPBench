@@ -30,10 +30,7 @@
       "procedure pow(x, y) { var res; if (x == 1 && y != y) then res = 1 else res = (x ^ y); return res; };\n"
       "procedure sin_libm(x) { var res; if (abs(x) == infty) then res = nan else res = sin(x); return res; };\n"
       "procedure cos_libm(x) { var res; if (abs(x) == infty) then res = nan else res = cos(x); return res; };\n"
-      (format "procedure div_warn(x, y) { ~areturn (x / y); };\n\n"   ;; prints a warning if division by zero occurs, alters testing behavior
-        (if (*sollya-warnings*) 
-            "if (x != 0 && y == 0) then print(\"[WARNING] FPBench: Division by zero. Sollya always returns NaN.\"); "
-            "")))))
+      "procedure div_warn(x, y) { if (x != 0 && y == 0) then print(\"[WARNING] FPBench: Division by zero. Sollya always returns NaN.\"); return (x / y); };\n\n")))
 
 (define (precision-str prec)
   (match prec
@@ -138,27 +135,29 @@
           body
           (trim-infix-parens return)))
 
-(define sollya-language
-  (make-imperative-lang "sollya"
-                        #:infix-ops (remove '/ default-infix-ops)
-                        #:operator operator->sollya
-                        #:constant constant->sollya
-                        #:round round->sollya
-                        #:program program->sollya
-                        #:flags '(semicolon-after-enclosing-brace
-                                  if-then
-                                  while-do
-                                  never-declare
-                                  round-after-operation)))
-
 ; Override visitor behavior
 (define-expr-visitor imperative-visitor sollya-visitor
   [(visit-! vtor props body #:ctx ctx)
     (visit/ctx vtor body (ctx-update-props ctx props))])
 
+(define (sollya-infix-ops)
+  (if (*sollya-warnings*)
+      (remove '/ default-infix-ops)
+      default-infix-ops))
+
 (define core->sollya
-  (make-imperative-compiler sollya-language
-                            #:reserved sollya-reserved
-                            #:visitor sollya-visitor))
+  (make-imperative-compiler "sollya"
+    #:infix-ops (sollya-infix-ops)
+    #:operator operator->sollya
+    #:constant constant->sollya
+    #:round round->sollya
+    #:program program->sollya
+    #:flags '(semicolon-after-enclosing-brace
+              if-then
+              while-do
+              never-declare
+              round-after-operation)
+    #:reserved sollya-reserved
+    #:visitor sollya-visitor))
 
 (define-compiler '("sollya") sollya-header core->sollya (const "") sollya-supported)

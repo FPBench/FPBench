@@ -124,16 +124,17 @@
             type ret-var (trim-infix-parens ret) 
             (round-mode->c 'nearestEven ctx) ret-var)]))
 
-(define c-language
-  (make-imperative-lang "c"
-                        #:operator operator->c
-                        #:constant constant->c
-                        #:type type->c
-                        #:declare declaration->c
-                        #:round round->c
-                        #:implicit-round implicit-round->c
-                        #:round-mode round-mode->c
-                        #:program program->c))
 
-(define core->c (make-imperative-compiler c-language #:reserved c-reserved))
+(define core->c
+  (make-imperative-compiler "c"
+    #:operator operator->c
+    #:constant constant->c
+    #:type type->c
+    #:declare declaration->c
+    #:round round->c
+    #:implicit-round implicit-round->c
+    #:round-mode round-mode->c
+    #:program program->c
+    #:reserved c-reserved))
+
 (define-compiler '("c") c-header core->c (const "") c-supported)

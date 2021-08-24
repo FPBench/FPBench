@@ -73,12 +73,11 @@
     [(? number?) (~a (real->double-flonum expr))]
     [(? symbol?) (~a expr)]))
 
-(define js-language
-  (make-imperative-lang "js"
-                        #:operator operator->js
-                        #:constant constant->js))
 
-;;; Exports
+(define core->js
+  (make-imperative-compiler "js"
+    #:operator operator->js
+    #:constant constant->js
+    #:reserved js-reserved))
 
-(define core->js (make-imperative-compiler js-language #:reserved js-reserved))
 (define-compiler '("js") js-header core->js (const "") js-supported)

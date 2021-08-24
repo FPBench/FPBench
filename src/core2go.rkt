@@ -100,16 +100,17 @@
           name (params->go args arg-ctxs) type
           body return))
 
-(define go-language
-  (make-imperative-lang "go"
-                        #:operator operator->go
-                        #:constant constant->go
-                        #:type type->go
-                        #:declare declaration->go
-                        #:use-vars use-vars->go
-                        #:program program->go
-                        #:flags '(no-parens-around-condition
-                                  for-instead-of-while)))
 
-(define core->go (make-imperative-compiler go-language #:reserved go-reserved))
+(define core->go
+  (make-imperative-compiler "go"
+    #:operator operator->go
+    #:constant constant->go
+    #:type type->go
+    #:declare declaration->go
+    #:use-vars use-vars->go
+    #:program program->go
+    #:flags '(no-parens-around-condition
+              for-instead-of-while)
+    #:reserved go-reserved))
+
 (define-compiler '("go") go-header core->go (const "") go-supported)

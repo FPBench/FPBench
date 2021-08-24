@@ -2,25 +2,9 @@
 
 (require "common.rkt" "compilers.rkt" "fpcore-visitor.rkt")
 
-(provide make-imperative-lang
-         make-imperative-compiler
+(provide make-imperative-compiler
          default-infix-ops
          imperative-visitor
-         visit-if/imperative
-         visit-let_/imperative
-         visit-while_/imperative
-         visit-for_/imperative
-         visit-tensor/imperative
-         visit-tensor*/imperative
-         visit-array/imperative
-         visit-cast/imperative
-         visit-!/imperative
-         visit-call/imperative
-         visit-op_/imperative
-         visit-digits/imperative
-         visit-number/imperative
-         visit-constant/imperative
-         visit-symbol/imperative
          (all-from-out "fpcore-visitor.rkt"))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;; language-specific abstractions ;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -210,27 +194,6 @@
       (format "function ~a(~a) {\n\treturn ~a;\n}\n"
               name (string-join (map ~a args) ", ")
               ret)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;; language constructor ;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(define (make-imperative-lang name
-                              #:infix-ops [infix default-infix-ops]
-                              #:operator [operator default-compile-operator]
-                              #:constant [constant default-compile-constant]
-                              #:type [type default-compile-type]
-                              #:declare [declare default-compile-declaration]
-                              #:assign [assign default-compile-assignment]
-                              #:round [round default-compile-round]
-                              #:implicit-round [implicit-round default-compile-implicit-round]
-                              #:round-mode [round-mode default-compile-round-mode]
-                              #:use-vars [use-vars default-use-vars]
-                              #:program [program default-compile-program]
-                              #:flags [flags '()])
-  (unless (andmap valid-flag? flags)
-    (error 'make-imperative-lang "Undefined imperative flags: ~a" flags))
-  (imperative name infix operator constant type
-              declare assign round implicit-round round-mode
-              use-vars program flags))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;; utility ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -453,16 +416,36 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;; compiler constructor ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define (make-imperative-compiler lang
+(define (make-imperative-compiler name
+                                  ; language behavior
+                                  #:infix-ops [infix default-infix-ops]
+                                  #:operator [operator default-compile-operator]
+                                  #:constant [constant default-compile-constant]
+                                  #:type [type default-compile-type]
+                                  #:declare [declare default-compile-declaration]
+                                  #:assign [assign default-compile-assignment]
+                                  #:round [round default-compile-round]
+                                  #:implicit-round [implicit-round default-compile-implicit-round]
+                                  #:round-mode [round-mode default-compile-round-mode]
+                                  #:use-vars [use-vars default-use-vars]
+                                  #:program [program default-compile-program]
+                                  #:flags [flags '()]
+                                  ; visitor behvaior
                                   #:visitor [vtor imperative-visitor]
                                   #:reserved [reserved '()]
                                   #:fix-name-format [fix-name-format "_~a_"]
                                   #:indent [indent "\t"])
+  (unless (andmap valid-flag? flags)
+    (error 'make-imperative-lang "Undefined imperative flags: ~a" flags))
+  (define language
+    (imperative name infix operator constant type
+                declare assign round implicit-round round-mode
+                use-vars program flags))
   (lambda (prog name)
     (parameterize ([*gensym-used-names* (mutable-set)] 
                    [*gensym-collisions* 1]
                    [*gensym-fix-name* fix-name]
-                   [*imperative-lang* lang]
+                   [*imperative-lang* language]
                    [*fix-name-format* fix-name-format])
       (define-values (args props body)
         (match prog
@@ -501,11 +484,10 @@
 
 (module+ test
   (require rackunit)
-  (define lang (make-imperative-lang "default"))
+  (define compile0 (make-imperative-compiler "default"))
   (define (compile* . exprs)
-    (let ([compile0 (make-imperative-compiler lang)])
-      (apply values (for/list ([expr exprs] [i (in-naturals 1)])
-                      (compile0 expr (format "fn~a" i))))))
+    (apply values (for/list ([expr exprs] [i (in-naturals 1)])
+                    (compile0 expr (format "fn~a" i)))))
   
   (compile*
     '(FPCore (x) (if (< x 0) (+ x 1) (- x 1)))

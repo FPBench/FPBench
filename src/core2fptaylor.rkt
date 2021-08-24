@@ -136,21 +136,21 @@
         ""))
 
   ; TODO: constraints
-
   (format "{\n~a~aExpressions\n\t~a = ~a;\n}"
     var-string def-string expr-name return))
 
-; ignore 'declaration' and type' since they are never used
-(define fptaylor-language
-  (make-imperative-lang "fptaylor"
-                        #:operator operator->fptaylor
-                        #:constant constant->fptaylor
-                        #:round round->fptaylor
-                        #:program program->fptaylor
-                        #:flags '(round-after-operation
-                                  never-declare)))
 
-(define core->fptaylor (make-imperative-compiler fptaylor-language #:reserved fptaylor-reserved))
+; ignore 'declaration' and type' since they are never used
+(define core->fptaylor
+  (make-imperative-compiler "fptaylor"
+    #:operator operator->fptaylor
+    #:constant constant->fptaylor
+    #:round round->fptaylor
+    #:program program->fptaylor
+    #:flags '(round-after-operation
+              never-declare)
+    #:reserved fptaylor-reserved))
+
 (define-compiler '("fptaylor" "fpt") (const "")  core->fptaylor (const "") fptaylor-supported)
 
 ;;; Legacy command line

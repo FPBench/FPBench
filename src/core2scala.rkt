@@ -127,13 +127,6 @@
           body
           return))
 
-(define scala-language
-  (make-imperative-lang "scala"
-                        #:constant constant->scala
-                        #:declare declaration->scala
-                        #:assign assignment->scala
-                        #:program program->scala))
-
 ; Override visitor behavior
 (define-expr-visitor imperative-visitor scala-visitor
   [(visit-if vtor cond ift iff #:ctx ctx)
@@ -152,11 +145,15 @@
     (values tmpvar ift-ctx)])
 
 (define core->scala*
-  (make-imperative-compiler scala-language
-                            #:reserved scala-reserved
-                            #:visitor scala-visitor
-                            #:fix-name-format "_~a"
-                            #:indent "\t\t"))
+  (make-imperative-compiler "scala"
+    #:constant constant->scala
+    #:declare declaration->scala
+    #:assign assignment->scala
+    #:program program->scala
+    #:reserved scala-reserved
+    #:visitor scala-visitor
+    #:fix-name-format "_~a"
+    #:indent "\t\t"))
 
 (define (core->scala prog name)
   (fprintf (*scala-prec-file*) "~a = {\n" name)

@@ -1,7 +1,7 @@
 #lang racket
 
 (require generic-flonum)
-(require "common.rkt" "compilers.rkt" "imperative-visitor.rkt"
+(require "common.rkt" "compilers.rkt" "imperative.rkt"
          "range-analysis.rkt" "supported.rkt")
 
 (provide scala-header scala-footer core->scala scala-supported

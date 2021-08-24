@@ -1,6 +1,6 @@
 #lang racket
 
-(require "common.rkt" "compilers.rkt" "imperative-visitor.rkt" "supported.rkt")
+(require "common.rkt" "compilers.rkt" "imperative.rkt" "supported.rkt")
 (provide js-header core->js js-runtime js-supported)
 
 (define js-runtime (make-parameter "Math"))

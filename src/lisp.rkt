@@ -91,7 +91,7 @@
     (define-values (cond* _) (visit/ctx vtor cond ctx))
     (define-values (ift* ift-ctx) (visit/ctx vtor ift ctx))
     (define-values (iff* iff-ctx) (visit/ctx vtor iff ctx))
-    (values (format "(if ~a ~a ~a)" 'if cond* ift* iff*) ift-ctx)]
+    (values (format "(~a ~a ~a ~a)" (if-name) cond* ift* iff*) ift-ctx)]
 
   [(visit-let vtor vars vals body #:ctx ctx)
     (define-values (ctx* vars* vals*)
@@ -164,7 +164,7 @@
                             #:fix-name [fix-name identity])
   (unless (andmap valid-flag? flags)
     (error 'make-lisp-compiler "Undefined compiler flags: ~a" flags))
-  (define language (lisp name operator constant program flags))
+  (define language (lisp name operator constant round program flags))
   (lambda (prog name)
     (parameterize ([*gensym-used-names* (mutable-set)] 
                    [*gensym-collisions* 1]

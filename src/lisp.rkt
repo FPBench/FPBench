@@ -1,6 +1,7 @@
 ;
-;   Common compiler for Lisp-like languages (S-expressions)
-;     Members: SMT
+;   Common compiler for Lisp-like or Lisp-adjacent languages
+;     S-expression: SMT
+;     M-expression: Mathematica
 ;
 
 #lang racket
@@ -16,26 +17,23 @@
 (define *lisp-lang* (make-parameter #f))
 
 (struct lisp
-  (name             ; string representation of language
-   operator         ; procedure to format any non-infix operator
-   constant         ; procedure to format constants
-   round            ; procedure to format (explicit) casts
-   program          ; procedure to format the entire program
-   flags))          ; list of optional flags to change minor behavior
+  (name               ; string representation of language
+   operator           ; procedure to format any non-infix operator
+   constant           ; procedure to format constants
+   if-format          ; format string for if expressions
+   let-format         ; pair containing format string for let expressions and string seperator
+   let-bind-format    ; format string for a single binding
+   round              ; procedure to format (explicit) casts
+   program            ; procedure to format the entire program
+   flags))            ; list of optional flags to change minor behavior
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;; flags ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define valid-flags 
-  '(ife-instead-of-if         ; used 'ife' instead of 'if' (SMT)
-    round-after-operation))   ; ensure rounding after any operation (SMT)
+  '(round-after-operation))   ; ensure rounding after any operation (SMT)
 
 (define (valid-flag? maybe-flag)
   (set-member? valid-flags maybe-flag))
-
-(define (if-name)
-  (if (compile-flag-raised? 'ife-instead-of-if)
-      "ife"
-      "if"))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;; shorthands ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -58,6 +56,18 @@
 
 (define (compile-round expr ctx)
   ((lisp-round (*lisp-lang*)) expr ctx))
+
+(define (if-format)
+  (lisp-if-format (*lisp-lang*)))
+
+(define (let-format)
+  (lisp-let-format (*lisp-lang*)))
+
+(define (let-bind-format)
+  (car (lisp-let-bind-format (*lisp-lang*))))
+
+(define (let-bind-seperator)
+  (cdr (lisp-let-bind-format (*lisp-lang*))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;; defaults ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -91,21 +101,22 @@
     (define-values (cond* _) (visit/ctx vtor cond ctx))
     (define-values (ift* ift-ctx) (visit/ctx vtor ift ctx))
     (define-values (iff* iff-ctx) (visit/ctx vtor iff ctx))
-    (values (format "(~a ~a ~a ~a)" (if-name) cond* ift* iff*) ift-ctx)]
+    (values (format (if-format) cond* ift* iff*) ift-ctx)]
 
   [(visit-let vtor vars vals body #:ctx ctx)
     (define-values (ctx* vars* vals*)
       (for/fold ([ctx* ctx] [vars* '()] [vals* '()]
-                #:result (values ctx (reverse vars*) (reverse vals*)))
+                #:result (values ctx* (reverse vars*) (reverse vals*)))
                 ([var (in-list vars)] [val (in-list vals)])
         (define-values (val* val-ctx) (visit/ctx vtor val ctx))
         (define prec (ctx-lookup-prop val-ctx ':precision))
         (define-values (name-ctx name) (ctx-unique-name ctx* var prec))
         (values name-ctx (cons name vars*) (cons val* vals*))))
     (define-values (body* body-ctx) (visit/ctx vtor body ctx*))
-    (values (format "(let (~a) ~a)" (string-join
-                                      (map (curry format "(~a ~a)") vars* vals*)
-                                      " "))
+    (values (format (let-format)
+                    (string-join (map (curry format (let-bind-format)) vars* vals*)
+                                 (let-bind-seperator))
+                    body*)
             body-ctx)]
 
   [(visit-let* vtor vars vals body #:ctx ctx)
@@ -120,6 +131,10 @@
   [(visit-cast vtor body #:ctx ctx)
     (define-values (body* body-ctx) (visit/ctx vtor body ctx))
     (values (compile-round body* ctx) body-ctx)]
+
+  [(visit-! vtor props body #:ctx ctx)
+    (define ctx* (ctx-update-props ctx props))
+    (visit/ctx vtor body ctx*)]
 
   [(visit-op_ vtor op args #:ctx ctx)
     (define args*
@@ -145,7 +160,7 @@
 
   [(visit-symbol vtor x #:ctx ctx)
     (define var-prec (ctx-lookup-prop ctx x))
-    (values (ctx-lookup-name ctx x)
+    (values (ctx-lookup-name ctx x)   ; TODO: compile-constant on this?
             (ctx-update-props ctx `(:precision ,var-prec)))])
 
 
@@ -155,6 +170,9 @@
                             ; language behavior
                             #:operator [operator default-compile-operator]
                             #:constant [constant default-compile-constant]
+                            #:if-format [if-format "(~a ~a ~a)"]
+                            #:let-format [let-format "(let (~a) ~a)"]
+                            #:let-bind-format [let-bind-format (cons "(~a ~a)" " ")]
                             #:round [round default-compile-round]
                             #:program [program default-compile-program]
                             #:flags [flags '()]
@@ -164,7 +182,9 @@
                             #:fix-name [fix-name identity])
   (unless (andmap valid-flag? flags)
     (error 'make-lisp-compiler "Undefined compiler flags: ~a" flags))
-  (define language (lisp name operator constant round program flags))
+  (define language
+    (lisp name operator constant if-format let-format let-bind-format
+          round program flags))
   (lambda (prog name)
     (parameterize ([*gensym-used-names* (mutable-set)] 
                    [*gensym-collisions* 1]

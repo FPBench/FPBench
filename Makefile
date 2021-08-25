@@ -127,7 +127,7 @@ endif
 
 wls-test:
 ifneq (, $(shell which wolframscript))
-	cat benchmarks/*.fpcore tests/*.fpcore  | racket infra/test-core2wls.rkt -s --error 3
+	cat benchmarks/*.fpcore tests/*.fpcore  | racket infra/test-core2wls.rkt -s --error 150
 
 else
 	$(warning skipping wolframscript tests; unable to find wolframscript interpreter)

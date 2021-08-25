@@ -164,13 +164,13 @@
     (error 'default-compiler-visitor "Unsupported operation: ~a" 'if)]
   [(visit-let_ vtor let_ vars vals body #:ctx ctx)
     (error 'default-compiler-visitor "Unsupported operation: ~a" let_)]
-  [(visit-while_ vtor while_ cond vars inits updates #:ctx ctx)
+  [(visit-while_ vtor while_ cond vars inits updates body #:ctx ctx)
     (error 'default-compiler-visitor "Unsupported operation: ~a" while_)]
-  [(visit-for_ vtor for_ vars vals accums inits updates #:ctx ctx)
+  [(visit-for_ vtor for_ vars vals accums inits updates body #:ctx ctx)
     (error 'default-compiler-visitor "Unsupported operation: ~a" for_)]
   [(visit-tensor vtor vars vals body #:ctx ctx)
     (error 'default-compiler-visitor "Unsupported operation: tensor")]
-  [(visit-tensor* vtor vars vals accums inits updates #:ctx ctx)
+  [(visit-tensor* vtor vars vals accums inits updates body #:ctx ctx)
     (error 'default-compiler-visitor "Unsupported operation: tensor*")]
   [(visit-! vtor props body #:ctx ctx)
     (error 'default-compiler-visitor "Unsupported operation: !")]

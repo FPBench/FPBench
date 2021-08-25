@@ -1,7 +1,8 @@
 #lang racket
 
 (require math/bigfloat)
-(require "common.rkt" "compilers.rkt" "lisp.rkt" "supported.rkt")
+(require "lisp.rkt")
+
 (provide core->smtlib2 smt-supported rm->smt number->smt)
 
 (define smt-supported 
@@ -10,7 +11,8 @@
       (curry set-member?
         '(remainder fmax fmin trunc round nearbyint
           < > <= >= == and or not
-          isinf isnan isnormal signbit)))
+          isinf isnan isnormal signbit
+          let let*)))
     (invert-const-proc (curry set-member? '(LOG2E LOG10E M_1_PI M_2_PI M_2_SQRTPI)))
     (curry set-member? '(binary32 binary64))
     ieee754-rounding-modes))
@@ -201,9 +203,10 @@
   (make-lisp-compiler "lisp"
     #:operator operator->smt
     #:constant constant->smt
+    #:if-format "(ife ~a ~a ~a)"
     #:round round->smt
     #:program program->smt
-    #:flags '(ife-instead-of-if
-              round-after-operation)))
+    #:flags '(round-after-operation)
+    #:reserved smt-reserved))
 
 (define-compiler '("smt" "smt2" "smtlib" "smtlib2") (const "") core->smtlib2 (const "") smt-supported)

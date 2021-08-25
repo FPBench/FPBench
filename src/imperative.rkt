@@ -9,7 +9,10 @@
 (require "common.rkt" "compilers.rkt" "fpcore-visitor.rkt" "supported.rkt")
 
 (provide (all-from-out "common.rkt" "compilers.rkt" "fpcore-visitor.rkt" "supported.rkt")
-         make-imperative-compiler default-infix-ops imperative-visitor)
+         make-imperative-compiler
+         default-infix-ops
+         imperative-visitor
+         compile-infix-operator)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;; language-specific abstractions ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -91,7 +94,7 @@
    [(list 'not a)
     (format "!~a" a)]
    [(list (or '== '!= '< '> '<= '>=))
-    "TRUE"]
+    (compile-constant 'TRUE ctx)]
    [(list (or '+ '- '* '/) a b) ; binary arithmetic 
     (compile-after-op (format "(~a ~a ~a)" a op b) ctx)]
    [(list (or '== '< '> '<= '>=) arg args ...)

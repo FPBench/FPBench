@@ -1,41 +1,193 @@
-
-name: build
+name: CI
 
 on: [push]
 
 env:
   FPTAYLOR_VERSION: 'fabc895ddc595dc41fbe7ce511049c745e1f9136'
   CAKEML_VERSION: 'v1217'
-  CAKEML_BIN: '../cache/cake'
+  CAKEML_BIN: 'cakeml'
   SBT_VERSION: '1.5.5'
   DAISY_VERSION: '33bc509d927bdbda08c6dccd0f56285dc265b049'
-  DAISY_BASE: '../cache/daisy'
-
-# Daisy must run on Java 8, changing runner OS may break this
+  DAISY_BASE: 'daisy'
   
 jobs:
-  build:
+  unit:   # package setup, Racket unit testing
+    name: "Unit Tests"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      
-      # - name: "Restore cache"
-      #   uses: actions/cache@v2
-      #   id: cache
-      #   with:
-      #     path: ../cache
-      #     key: ${{ runner.os }}-deps   # Might need to change this every now and then (or wait a week) if cache is out-of-date
-        
+      - name: "Install Racket"
+        uses: Bogdanp/setup-racket@v1.5
+        with:
+          architecture: 'x64'
+          distribution: 'full'
+          variant: 'CS'
+          version: '8.2'
+
+      - name: "Install Packages"
+        run: sudo apt-get install -y libmpfr6 libmpfr-dev
+
+      - name: "Install as Racket package"
+        run: raco pkg install --auto
+
+      - name: "Unit Tests"
+        id: unit
+        run: make raco-test
+
+  tools:  # front-end tools
+    name: "Tools Tests"
+    runs-on: ubuntu-latest
+    needs: [ 'unit' ]
+    steps:
+      - uses: actions/checkout@v2
+      - name: "Install Racket"
+        uses: Bogdanp/setup-racket@v1.5
+        with:
+          architecture: 'x64'
+          distribution: 'full'
+          variant: 'CS'
+          version: '8.2'
+
+      - name: "Install Packages"
+        run: sudo apt-get install -y libmpfr6 libmpfr-dev
+
+      - name: "Install as Racket package"
+        run: raco pkg install --auto
+
+      - name: "Export tool"
+        run: make export-test
+
+      - name: "Transform tool"
+        run: make transform-test
+
+      - name: "Toolserver tool"
+        run: make toolserver-test
+
+      - name: "Evaluate tool"
+        run: make evaluate-test
+
+      - name: "Tensor examples"
+        run: make tensor-test
+
+  c:    # C langugae
+    name: "C Tests"
+    runs-on: ubuntu-latest
+    needs: [ 'unit' ]
+    steps:
+      - uses: actions/checkout@v2
+      - name: "Install Racket"
+        uses: Bogdanp/setup-racket@v1.5
+        with:
+          architecture: 'x64'
+          distribution: 'full'
+          variant: 'CS'
+          version: '8.2'
+
+      - name: "Install Packages"
+        run: sudo apt-get install -y libmpfr6 libmpfr-dev
+
+      - name: "Install as Racket package"
+        run: raco pkg install --auto
+
+      - name: "C sanity"
+        run: make c-sanity
+
+      - name: "C test"
+        run: make c-test
+  
+  go:    # Go langugae
+    name: "Go Tests"
+    runs-on: ubuntu-latest
+    needs: [ 'unit' ]
+    steps:
+      - uses: actions/checkout@v2
+      - name: "Install Racket"
+        uses: Bogdanp/setup-racket@v1.5
+        with:
+          architecture: 'x64'
+          distribution: 'full'
+          variant: 'CS'
+          version: '8.2'
+
+      - name: "Install Packages"
+        run: sudo apt-get install -y libmpfr6 libmpfr-dev
+
+      - name: "Install as Racket package"
+        run: raco pkg install --auto
+
+      - name: "Go sanity"
+        run: make go-sanity
+
+      - name: "Go test"
+        run: make go-test
+
+  js:    # JavaScript langugae
+    name: "JavaScript Tests"
+    runs-on: ubuntu-latest
+    needs: [ 'unit' ]
+    steps:
+      - uses: actions/checkout@v2
+      - name: "Install Racket"
+        uses: Bogdanp/setup-racket@v1.5
+        with:
+          architecture: 'x64'
+          distribution: 'full'
+          variant: 'CS'
+          version: '8.2'
+
       - name: "Install Node.js"
         uses: actions/setup-node@v2
         with:
           node-version: '16'
 
-      - name: "Install Java"
-        uses: actions/setup-java@v2
+      - name: "Install Packages"
+        run: sudo apt-get install -y libmpfr6 libmpfr-dev
+
+      - name: "Install as Racket package"
+        run: raco pkg install --auto
+
+      - name: "JS sanity"
+        run: make js-sanity
+
+      - name: "JS test"
+        run: make js-test
+
+  sollya:    # Sollya langugae
+    name: "Sollya Tests"
+    runs-on: ubuntu-latest
+    needs: [ 'unit' ]
+    steps:
+      - uses: actions/checkout@v2
+      - name: "Install Racket"
+        uses: Bogdanp/setup-racket@v1.5
         with:
-          distribution: 'adopt'
-          java-version: '8'
+          architecture: 'x64'
+          distribution: 'full'
+          variant: 'CS'
+          version: '8.2'
+
+      - name: "Install Packages"
+        run: sudo apt-get install -y libmpfr6 libmpfr-dev sollya
+
+      - name: "Install as Racket package"
+        run: raco pkg install --auto
+
+      - name: "Sollya sanity"
+        run: make sollya-sanity
+
+      - name: "Sollya test"
+        run: make sollya-test
+
+  fptaylor:   # FPTaylor langugae
+    name: "FPTaylor Tests"
+    runs-on: ubuntu-latest
+    needs: [ 'unit' ]
+    steps:
+      - uses: actions/checkout@v2
+      - name: "Install OCaml"
+        uses: ocaml/setup-ocaml@v2
+        with:
+          ocaml-compiler: '4.04.2'
 
       - name: "Install Racket"
         uses: Bogdanp/setup-racket@v1.5
@@ -43,144 +195,121 @@ jobs:
           architecture: 'x64'
           distribution: 'full'
           variant: 'CS'
-          version: '8.0'
+          version: '8.2'
+
+      - name: "Install Packages"
+        run: |
+          sudo apt-get install -y libmpfr6 libmpfr-dev
+          eval $(opam env)
+          git clone https://github.com/soarlab/FPTaylor.git fptaylor
+          (cd fptaylor && git checkout ${FPTAYLOR_VERSION} && make clean-all && make)
+          echo "${PWD}/fptaylor" >> $GITHUB_PATH
+
+      - name: "Install as Racket package"
+        run: raco pkg install --auto
+
+      - name: "FPTaylor sanity"
+        run: make fptaylor-sanity
+
+      - name: "FPTaylor test"
+        run: make fptaylor-test
+
+  daisy:    # Scala language (daisy tool)
+    name: "Scala (Daisy) Tests"
+    runs-on: ubuntu-latest
+    needs: [ 'unit' ]
+    steps:
+      - uses: actions/checkout@v2
+      - name: "Install Racket"
+        uses: Bogdanp/setup-racket@v1.5
+        with:
+          architecture: 'x64'
+          distribution: 'full'
+          variant: 'CS'
+          version: '8.2'
+
+      - name: "Install Java"
+        uses: actions/setup-java@v2
+        with:
+          distribution: 'adopt'
+          java-version: '8'
+
+      - name: "Install Packages"
+        run: |
+          sudo apt-get install -y libmpfr6 libmpfr-dev
+          (mkdir sbt && curl -L -O https://github.com/sbt/sbt/releases/download/v${SBT_VERSION}/sbt-${SBT_VERSION}.tgz && \
+            tar -xzf sbt-${SBT_VERSION}.tgz -C sbt --strip-components 1)
+          (git clone --recurse-submodules https://github.com/malyzajko/daisy daisy && cd daisy && \
+            git checkout ${DAISY_VERSION} && ../sbt/bin/sbt compile && ../sbt/bin/sbt script)
+          echo "${PWD}/daisy" >> $GITHUB_PATH
+
+      - name: "Install as Racket package"
+        run: raco pkg install --auto
+
+      - name: "Scala (Daisy) sanity"
+        run: make scala-sanity
+
+      - name: "Scala (Daisy) test"
+        run: make scala-test
+
+  z3:    # SMT (Z3) language
+    name: "SMT (Z3) Tests"
+    runs-on: ubuntu-latest
+    needs: [ 'unit' ]
+    steps:
+      - uses: actions/checkout@v2
+      - name: "Install Racket"
+        uses: Bogdanp/setup-racket@v1.5
+        with:
+          architecture: 'x64'
+          distribution: 'full'
+          variant: 'CS'
+          version: '8.2'
 
       - name: "Install Z3"
         uses: pavpanchekha/setup-z3@1.2.2
         with:
           version: '4.8.8'
 
-      - name: "Install OCaml"
-        uses: ocaml/setup-ocaml@v2
-        with:
-          ocaml-compiler: '4.04.2'
-          
-      - name: "Setup environment"
-        run: |     
-          sudo apt-get update
-          sudo apt-get install -y gnuplot libmpfr-dev libmpfi-dev libxml2-dev sollya
-          eval $(opam env)
-          (git clone https://github.com/soarlab/FPTaylor.git ../cache/fptaylor || echo "Asuming FPTaylor cached, skipping clone")
-          (cd ../cache/fptaylor && git checkout ${FPTAYLOR_VERSION} && make clean-all && make)
-          (mkdir ../cache/cake && curl -L https://github.com/CakeML/cakeml/releases/download/${CAKEML_VERSION}/cake-x64-64.tar.gz | \
-            tar -xz -C ../cache/cake --strip-components 1 && (cd ../cache/cake && make cake))
-          (mkdir ../cache/sbt && curl -L -O https://github.com/sbt/sbt/releases/download/v${SBT_VERSION}/sbt-${SBT_VERSION}.tgz && \
-            tar -xzf sbt-${SBT_VERSION}.tgz -C ../cache/sbt --strip-components 1)
-          (git clone --recurse-submodules https://github.com/malyzajko/daisy ../cache/daisy && cd ../cache/daisy && \
-            git checkout ${DAISY_VERSION} && ../sbt/bin/sbt compile && ../sbt/bin/sbt script)
-          echo "${PWD}/../cache/fptaylor" >> $GITHUB_PATH
-          echo "${PWD}/../cache/cake" >> $GITHUB_PATH
-          echo "${PWD}/../cache/daisy" >> $GITHUB_PATH
- 
+      - name: "Install Packages"
+        run: sudo apt-get install -y libmpfr6 libmpfr-dev
+
       - name: "Install as Racket package"
         run: raco pkg install --auto
 
-      - name: "Unit tests"
-        id: unit
-        run: make raco-test
+      - name: "SMT (Z3) sanity"
+        run: make smtlib2-sanity
 
-      # Allow tool tests to execute even if a previous one failed
-      # Bail if setup / install failed
+      - name: "SMT (Z3) test"
+        run: make smtlib2-test
 
-      - name: "Export tool"
-        if: ${{ steps.unit.outcome == 'success' }}
-        run: make export-test
+  cakeml:   # CakeML language
+    name: "CakeML Tests"
+    runs-on: ubuntu-latest
+    needs: [ 'unit' ]
+    steps:
+      - uses: actions/checkout@v2
+      - name: "Install Racket"
+        uses: Bogdanp/setup-racket@v1.5
+        with:
+          architecture: 'x64'
+          distribution: 'full'
+          variant: 'CS'
+          version: '8.2'
 
-      - name: "Transform tool"
-        if: ${{ (success() || failure()) && steps.unit.outcome == 'success' }}
-        run: make transform-test
+      - name: "Install Packages"
+        run: |
+          sudo apt-get install -y libmpfr6 libmpfr-dev
+          (mkdir cakeml && curl -L https://github.com/CakeML/cakeml/releases/download/${CAKEML_VERSION}/cake-x64-64.tar.gz | \
+            tar -xz -C cakeml --strip-components 1)
+          (cd cakeml && make cake)
+          echo "${PWD}/cakeml" >> $GITHUB_PATH
 
-      - name: "Toolserver tool"
-        if: ${{ (success() || failure()) && steps.unit.outcome == 'success' }}
-        run: make toolserver-test
-
-      - name: "Evaluate tool"
-        if: ${{ (success() || failure()) && steps.unit.outcome == 'success' }}
-        run: make evaluate-test
-
-      - name: "Tensor examples"
-        if: ${{ (success() || failure()) && steps.unit.outcome == 'success' }}
-        run: make tensor-test
-
-      # Allow compiler tests to execute even if a previous one failed
-
-      - name: "C sanity"
-        id: c_sanity
-        if: ${{ (success() || failure()) && steps.unit.outcome == 'success' }}
-        run: make c-sanity
-
-      - name: "JS sanity"
-        id: js_sanity
-        if: ${{ (success() || failure()) && steps.unit.outcome == 'success' }}
-        run: make js-sanity  
-      
-      - name: "Go sanity"
-        id: go_sanity
-        if: ${{ (success() || failure()) && steps.unit.outcome == 'success' }}
-        run: make go-sanity  
-      
-      - name: "Sollya sanity"
-        id: sollya_sanity
-        if: ${{ (success() || failure()) && steps.unit.outcome == 'success' }}
-        run: make sollya-sanity  
-      
-      - name: "Z3 sanity"
-        id: z3_sanity
-        if: ${{ (success() || failure()) && steps.unit.outcome == 'success' }}
-        run: make smtlib2-sanity 
+      - name: "Install as Racket package"
+        run: raco pkg install --auto
 
       - name: "CakeML sanity"
-        id: cml_sanity
-        if: ${{ (success() || failure()) && steps.unit.outcome == 'success' }}
-        run: make cml-sanity 
-
-      - name: "Wolfram/Mathematica sanity"
-        id: wls_sanity
-        if: ${{ (success() || failure()) && steps.unit.outcome == 'success' }}
-        run: make wls-sanity
-      
-      - name: "FPTaylor sanity"
-        id: fptaylor_sanity
-        if: ${{ (success() || failure()) && steps.unit.outcome == 'success' }}
-        run: make fptaylor-sanity
-
-      - name: "Daisy sanity"
-        id: daisy_sanity
-        if: ${{ (success() || failure()) && steps.unit.outcome == 'success' }}
-        run: make scala-sanity
-
-      - name: "C test"
-        if: ${{ (success() || failure()) && steps.c_sanity.outcome == 'success' }}
-        run: make c-test
-
-      - name: "JS test"
-        if: ${{ (success() || failure()) && steps.js_sanity.outcome == 'success' }}
-        run: make js-test  
-      
-      - name: "Go test"
-        if: ${{ (success() || failure()) && steps.go_sanity.outcome == 'success' }}
-        run: make go-test  
-      
-      - name: "Sollya test"
-        if: ${{ (success() || failure()) && steps.sollya_sanity.outcome == 'success' }}
-        run: make sollya-test  
-      
-      - name: "Z3 test"
-        if: ${{ (success() || failure()) && steps.z3_sanity.outcome == 'success' }}
-        run: make smtlib2-test 
+        run: make cakeml-sanity
 
       - name: "CakeML test"
-        if: ${{ (success() || failure()) && steps.cml_sanity.outcome == 'success' }}
-        run: make cml-test 
-
-      - name: "Wolfram/Mathematica test"
-        if: ${{ (success() || failure()) && steps.wls_sanity.outcome == 'success'}}
-        run: make wls-test 
-      
-      - name: "FPTaylor test"
-        if: ${{ (success() || failure()) && steps.fptaylor_sanity.outcome == 'success' }} 
-        run: eval `opam config env` && make fptaylor-test
-
-      - name: "Daisy test"
-        if: ${{ (success() || failure()) && steps.daisy_sanity.outcome == 'success' }}
-        run: make scala-test
+        run: make cakeml-test

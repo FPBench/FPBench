@@ -5,10 +5,10 @@ on: [push]
 env:
   FPTAYLOR_VERSION: 'fabc895ddc595dc41fbe7ce511049c745e1f9136'
   CAKEML_VERSION: 'v1217'
-  CAKEML_BIN: 'cakeml'
+  CAKEML_BIN: '../cache/cakeml'
   SBT_VERSION: '1.5.5'
   DAISY_VERSION: '33bc509d927bdbda08c6dccd0f56285dc265b049'
-  DAISY_BASE: 'daisy'
+  DAISY_BASE: '../cache/daisy'
   
 jobs:
   unit:   # package setup, Racket unit testing
@@ -25,7 +25,9 @@ jobs:
           version: '8.2'
 
       - name: "Install Packages"
-        run: sudo apt-get install -y libmpfr6 libmpfr-dev
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libmpfr6 libmpfr-dev
 
       - name: "Install as Racket package"
         run: raco pkg install --auto
@@ -49,7 +51,9 @@ jobs:
           version: '8.2'
 
       - name: "Install Packages"
-        run: sudo apt-get install -y libmpfr6 libmpfr-dev
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libmpfr6 libmpfr-dev
 
       - name: "Install as Racket package"
         run: raco pkg install --auto
@@ -84,7 +88,9 @@ jobs:
           version: '8.2'
 
       - name: "Install Packages"
-        run: sudo apt-get install -y libmpfr6 libmpfr-dev
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libmpfr6 libmpfr-dev
 
       - name: "Install as Racket package"
         run: raco pkg install --auto
@@ -110,7 +116,9 @@ jobs:
           version: '8.2'
 
       - name: "Install Packages"
-        run: sudo apt-get install -y libmpfr6 libmpfr-dev
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libmpfr6 libmpfr-dev
 
       - name: "Install as Racket package"
         run: raco pkg install --auto
@@ -141,7 +149,9 @@ jobs:
           node-version: '16'
 
       - name: "Install Packages"
-        run: sudo apt-get install -y libmpfr6 libmpfr-dev
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libmpfr6 libmpfr-dev
 
       - name: "Install as Racket package"
         run: raco pkg install --auto
@@ -167,7 +177,9 @@ jobs:
           version: '8.2'
 
       - name: "Install Packages"
-        run: sudo apt-get install -y libmpfr6 libmpfr-dev sollya
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libmpfr6 libmpfr-dev sollya
 
       - name: "Install as Racket package"
         run: raco pkg install --auto
@@ -199,11 +211,12 @@ jobs:
 
       - name: "Install Packages"
         run: |
+          sudo apt-get update
           sudo apt-get install -y libmpfr6 libmpfr-dev
           eval $(opam env)
-          git clone https://github.com/soarlab/FPTaylor.git fptaylor
-          (cd fptaylor && git checkout ${FPTAYLOR_VERSION} && make clean-all && make)
-          echo "${PWD}/fptaylor" >> $GITHUB_PATH
+          git clone https://github.com/soarlab/FPTaylor.git ../cache/fptaylor
+          (cd ../cache/fptaylor && git checkout ${FPTAYLOR_VERSION} && make clean-all && make)
+          echo "${PWD}/../cache/fptaylor" >> $GITHUB_PATH
 
       - name: "Install as Racket package"
         run: raco pkg install --auto
@@ -211,8 +224,8 @@ jobs:
       - name: "FPTaylor sanity"
         run: make fptaylor-sanity
 
-      - name: "FPTaylor test"
-        run: make fptaylor-test
+      - name: "FPTaylor test"     # make sure environment has correct variables
+        run: eval `opam config env` && make fptaylor-test
 
   daisy:    # Scala language (daisy tool)
     name: "Scala (Daisy) Tests"
@@ -236,12 +249,14 @@ jobs:
 
       - name: "Install Packages"
         run: |
+          sudo apt-get update
           sudo apt-get install -y libmpfr6 libmpfr-dev
-          (mkdir sbt && curl -L -O https://github.com/sbt/sbt/releases/download/v${SBT_VERSION}/sbt-${SBT_VERSION}.tgz && \
-            tar -xzf sbt-${SBT_VERSION}.tgz -C sbt --strip-components 1)
-          (git clone --recurse-submodules https://github.com/malyzajko/daisy daisy && cd daisy && \
-            git checkout ${DAISY_VERSION} && ../sbt/bin/sbt compile && ../sbt/bin/sbt script)
-          echo "${PWD}/daisy" >> $GITHUB_PATH
+          (mkdir -p ../cache/sbt && curl -L -O https://github.com/sbt/sbt/releases/download/v${SBT_VERSION}/sbt-${SBT_VERSION}.tgz && \
+            tar -xzf sbt-${SBT_VERSION}.tgz -C ../cache/sbt --strip-components 1)
+          echo "${PWD}/../cache/sbt/bin" >> $GITHUB_PATH
+          (git clone --recurse-submodules https://github.com/malyzajko/daisy ../cache/daisy && cd ../cache/daisy && \
+            git checkout ${DAISY_VERSION} && sbt compile && sbt script)
+          echo "${PWD}/../cache/daisy" >> $GITHUB_PATH
 
       - name: "Install as Racket package"
         run: raco pkg install --auto
@@ -272,7 +287,9 @@ jobs:
           version: '4.8.8'
 
       - name: "Install Packages"
-        run: sudo apt-get install -y libmpfr6 libmpfr-dev
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libmpfr6 libmpfr-dev
 
       - name: "Install as Racket package"
         run: raco pkg install --auto
@@ -299,11 +316,12 @@ jobs:
 
       - name: "Install Packages"
         run: |
+          sudo apt-get update
           sudo apt-get install -y libmpfr6 libmpfr-dev
-          (mkdir cakeml && curl -L https://github.com/CakeML/cakeml/releases/download/${CAKEML_VERSION}/cake-x64-64.tar.gz | \
-            tar -xz -C cakeml --strip-components 1)
-          (cd cakeml && make cake)
-          echo "${PWD}/cakeml" >> $GITHUB_PATH
+          (mkdir -p ../cache/cakeml && curl -L https://github.com/CakeML/cakeml/releases/download/${CAKEML_VERSION}/cake-x64-64.tar.gz | \
+            tar -xz -C ../cache/cakeml --strip-components 1)
+          (cd ../cache/cakeml && make cake)
+          echo "${PWD}/../cache/cakeml" >> $GITHUB_PATH
 
       - name: "Install as Racket package"
         run: raco pkg install --auto

@@ -123,89 +123,110 @@
 (define-expr-visitor default-compiler-visitor ml-visitor
   [(visit-if vtor cond ift iff #:ctx ctx)
     (define indent (ctx-lookup-extra ctx 'indent))
-    (define-values (cond* _) (visit/ctx vtor cond ctx))
-    (define-values (ift* ift-ctx) (visit/ctx vtor ift ctx))
-    (define-values (iff* iff-ctx) (visit/ctx vtor iff ctx))
-    (values (format "~aif ~a then\n~a~a~a\n~aelse\n~a~a~a\n"
-                    indent cond*
-                    indent single-indent ift* indent
-                    indent single-indent iff*)
-            ift-ctx)]
+    (define ctx* (ctx-set-extra ctx 'indent (format "~a~a" indent single-indent)))
+    (printf "if ")
+    (define-values (cond* _) (visit/ctx vtor cond ctx*))
+    (printf "~a then\n~a~a" cond* indent single-indent)
+    (define-values (ift* ift-ctx) (visit/ctx vtor ift ctx*))
+    (printf "~a\n~aelse\n~a~a" ift* indent indent single-indent)
+    (define-values (iff* iff-ctx) (visit/ctx vtor iff ctx*))
+    (printf "~a" iff*)
+    (values "" ift-ctx)]
 
   [(visit-let_ vtor let_ vars vals body #:ctx ctx)
     (define indent (ctx-lookup-extra ctx 'indent))
-    (define-values (ctx* vars* vals*)
-      (for/fold ([ctx* ctx] [vars* '()] [vals* '()]
-                #:result (values (ctx-set-extra ctx* 'indent (format "~a~a" indent double-indent))
-                                 (reverse vars*)
-                                 (reverse vals*)))
+    (define let-ctx (ctx-set-extra ctx 'indent (format "~a~a" indent single-indent)))
+    (printf "let\n")
+    (define ctx*
+      (for/fold ([ctx* let-ctx] #:result ctx*)
                 ([var (in-list vars)] [val (in-list vals)])
-        (define val-ctx
-          (ctx-set-extra (match let_ ['let ctx] ['let* ctx*])
-                         'indent (format "~a~a" indent single-indent)))
-        (define-values (val* val*-ctx) (visit/ctx vtor val val-ctx))
-        (define prec (ctx-lookup-prop val*-ctx ':precision))
-        (define-values (name-ctx name) (ctx-unique-name ctx* var prec))
-        (values name-ctx (cons name vars*) (cons val* vals*))))
+        (define val-ctx (match let_ ['let let-ctx] ['let* ctx*]))
+        (define-values (name-ctx name)    ; messy workaround to get val context
+          (parameterize ([current-output-port (open-output-nowhere)])
+            (let-values ([(_ var-ctx) (visit/ctx vtor val val-ctx)])
+              (let ([prec (ctx-lookup-prop val-ctx ':precision)])
+                (ctx-unique-name ctx* var prec)))))
+        (printf "~a~aval ~a = " indent single-indent name)
+        (define val-ctx*
+          (ctx-update-extra val-ctx 'indent
+                            (curry format "~a~a~a" double-indent single-indent)))
+        (printf "~a\n" (let-values ([(val* _) (visit/ctx vtor val val-ctx*)])
+                        (trim-infix-parens val*)))
+        name-ctx))
+    (printf "~ain\n~a~a" indent indent single-indent)
     (define-values (body* body-ctx) (visit/ctx vtor body ctx*))
-    (values (format "~alet\n~ain~a~a~a\nend"
-                    indent (apply string-append
-                            (for/list ([var vars*] [val vals*])
-                              (format "~a~aval ~a = ~a\n" indent
-                                      single-indent var (trim-infix-parens val))))
-                    indent single-indent (trim-infix-parens body*))
-            body-ctx)]
+    (printf "~a\n~aend" (trim-infix-parens body*) indent)
+    (values "" body-ctx)]
 
-  ; Convert to local function
+  ; let
+  ;   vars = vals
+  ;   ...
   ;   fun loop vars ... =
   ;     if cond then
-  ;       updates
-  ;       ...
+  ;       let
+  ;         vars = updates
+  ;         ...
+  ;       in
+  ;         loop vars ...
+  ;       end
   ;     else
   ;       body
+  ; in
+  ;   loop inits ...
+  ; end
   [(visit-while_ vtor while_ cond vars inits updates body #:ctx ctx)
     (define indent (ctx-lookup-extra ctx 'indent))
-    (define-values (fn-ctx fn-name) (ctx-unique-name ctx 'loop))
-    (define-values (ctx* vars* vals*)
-      (for/fold ([ctx* fn-ctx] [vars* '()] [vals* '()]
-                #:result (values (ctx-set-extra ctx* 'indent (format "~a~a" indent double-indent))
-                                 (reverse vars*)
-                                 (reverse vals*)))
+    (define-values (while-ctx fn-name)
+      (let ([ctx0 (ctx-set-extra ctx 'indent (format "~a~a" indent single-indent))])
+        (ctx-unique-name ctx0 'loop)))
+    (printf "let\n")
+    (define-values (ctx* vars*)                             ; loop variables
+      (for/fold ([ctx* while-ctx] [vars* '()]
+                #:result (values ctx* (reverse vars*)))
                 ([var (in-list vars)] [val (in-list inits)])
-        (define val-ctx (match while_ ['while fn-ctx] ['while* ctx*]))
-        (define-values (val* val*-ctx)
-          (visit/ctx vtor val
-            (ctx-set-extra val-ctx 'indent
-              (format "~a~a" indent single-indent))))
-        (define prec (ctx-lookup-prop val*-ctx ':precision))
-        (define-values (name-ctx name) (ctx-unique-name ctx* var prec))
-        (values name-ctx (cons name vars*) (cons val* vals*))))
-    (define-values (cond* cond*-ctx) (visit/ctx vtor cond ctx*))
-    (define updates*
-      (for/fold ([ctx** ctx*] [vals* '()] #:result (reverse vals*))
+        (define val-ctx (match while_ ['while while-ctx] ['while* ctx*]))
+        (define-values (name-ctx name)    ; messy workaround to get val context
+          (parameterize ([current-output-port (open-output-nowhere)])
+            (let-values ([(_ var-ctx) (visit/ctx vtor val val-ctx)])
+              (let ([prec (ctx-lookup-prop val-ctx ':precision)])
+                (ctx-unique-name ctx* var prec)))))
+        (printf "~a~aval ~a = ~a\n" indent single-indent name
+                (let-values ([(val* _) (visit/ctx vtor val val-ctx)])
+                  (trim-infix-parens val*)))
+        (values name-ctx (cons name vars*))))
+    (printf "~a~afun ~a ~a =\n" indent single-indent
+            fn-name (string-join vars* " "))
+    (printf "~a~aif " indent double-indent)
+    (define-values (cond* _) (visit/ctx vtor cond ctx*))    ; condition
+    (printf "~a then\n~a~a~alet\n" cond* indent double-indent single-indent)
+    (define-values (ctx** vars**)                           ; loop update
+      (for/fold ([ctx** ctx*] [vars* '()] #:result (values ctx** (reverse vars*)))
                 ([var (in-list vars)] [val (in-list updates)])
         (define val-ctx (match while_ ['while ctx*] ['while* ctx**]))
-        (define-values (val* val*-ctx)
-          (visit/ctx vtor val
-            (ctx-set-extra val-ctx 'indent
-              (format "~a~a~a" indent double-indent single-indent))))
-        (define prec (ctx-lookup-prop val*-ctx ':precision))
-        (define-values (name-ctx name) (ctx-unique-name ctx** var prec))
-        (values name-ctx (cons val* vals*))))
+        (define-values (name-ctx name)    ; messy workaround to get val context
+          (parameterize ([current-output-port (open-output-nowhere)])
+            (let-values ([(_ var-ctx) (visit/ctx vtor val val-ctx)])
+              (let ([prec (ctx-lookup-prop val-ctx ':precision)])
+                (ctx-unique-name ctx** var prec)))))
+        (printf "~a~a~aval ~a = " indent double-indent double-indent name)
+        (define val-ctx*
+          (ctx-update-extra val-ctx 'indent
+                            (curry format "~a~a~a" double-indent single-indent)))
+        (printf " ~a\n" (let-values ([(val* _) (visit/ctx vtor val val-ctx*)])
+                          (trim-infix-parens val*)))
+        (values name-ctx (cons name vars*))))
+    (printf "~a~a~ain\n~a~a~a"
+            indent double-indent single-indent
+            indent double-indent double-indent)
+    (printf "~a ~a\n" fn-name (string-join vars** " "))   ; call the loop
+    (printf "~a~a~aend\n~a~aelse\n~a~a~a"
+            indent double-indent single-indent
+            indent double-indent
+            indent double-indent single-indent)
     (define-values (body* body-ctx) (visit/ctx vtor body ctx*))
-    (values (format "~alet\n~a~afun ~a ~a =\n~a~aif ~a then\n~a~a~a~a\n~a~aelse\n~a~a~a~a\n~a"
-                    indent indent single-indent fn-name
-                    (string-join vars* " ")
-                    indent double-indent (trim-infix-parens cond*)
-                    indent double-indent single-indent
-                    (string-join (cons fn-name updates*) " ")
-                    indent double-indent
-                    indent double-indent single-indent body*
-                    (format "~ain\n~a~a~a\n~aend"
-                            indent indent single-indent
-                            (string-join (cons fn-name vals*) " ")
-                            indent))
-            body-ctx)]
+    (printf "~a\n~ain\n~a~a~a ~a\n~aend" (trim-infix-parens body*) indent
+            indent single-indent fn-name (string-join vars* " ") indent)
+    (values "" body-ctx)]
 
   [(visit-cast vtor body #:ctx ctx)
     (define-values (body* body-ctx) (visit/ctx vtor body ctx))
@@ -299,10 +320,10 @@
             (begin0 (values aname ctx) (set! ctx cx))])))
 
       (define p (open-output-string))
-      (parameterize ([current-output-port p])
-        (define-values (o _) (visit/ctx vtor body ctx))
-        (compile-program fname arg-names arg-ctxs
-                         (trim-infix-parens o) ctx)))))
+        (parameterize ([current-output-port p])
+          (define-values (o _) (visit/ctx vtor body ctx))
+          (define o* (string-append (get-output-string p) (trim-infix-parens o)))
+          (compile-program fname arg-names arg-ctxs o* ctx)))))
 
 (module+ test
   (require rackunit)

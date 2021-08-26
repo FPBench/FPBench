@@ -49,7 +49,7 @@ endif
 
 cml-sanity:
 ifneq (, $(shell which cake))
-	cat tests/sanity/*.fpcore | racket infra/test-core2cml.rkt --repeat 1
+	cat tests/sanity/*.fpcore | racket infra/test-core2cakeml.rkt --repeat 1
 else
 	$(warning skipping CakeML sanity tests; unable to find CakeML compiler)
 endif
@@ -120,7 +120,7 @@ endif
 
 cml-test:
 ifneq (, $(shell which cake))
-	cat benchmarks/*.fpcore tests/*.fpcore | racket infra/test-core2cml.rkt
+	cat benchmarks/*.fpcore tests/*.fpcore | racket infra/test-core2cakeml.rkt
 else
 	$(warning skipping CakeML tests; unable to find CakeML compiler)
 endif

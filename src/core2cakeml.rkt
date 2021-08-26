@@ -3,13 +3,14 @@
 (require "ml.rkt")
 (provide core->cml cml-supported)
 
-(define cml-supported (supported-list
-  (disjoin 
-    (conjoin ieee754-ops (negate (curry equal? 'fma)))
-    (curry set-member? '(! if let let* while while* not and or digits)))        
-  (curry set-member? '(TRUE FALSE INFINITY NAN))
-  (curry equal? 'binary64)
-  (curry equal? 'nearestEven))) ; bool
+; 'cast' is a no-op since only one precision is supported
+(define cml-supported
+  (supported-list
+    (disjoin (conjoin ieee754-ops (negate (curry equal? 'fma)))
+             (curry set-member? '(! cast if let let* while while* not and or digits))) 
+    (curry set-member? '(TRUE FALSE INFINITY NAN))
+    (curry equal? 'binary64)
+    (curry equal? 'nearestEven))) ; bool
 
 (define cml-reserved    ; Language-specific reserved names (avoid name collisions)
   '(datatype fun else end if in let local
@@ -79,7 +80,7 @@
 
 (define (program->cml name args arg-ctxs body ctx)
   (if (body-is-multi-lined? body)
-      (format "fun ~a ~a =\n~a;\n" name (params->cml args) body)
+      (format "fun ~a ~a =\n  ~a;\n" name (params->cml args) body)
       (format "fun ~a ~a = ~a;\n" name (params->cml args) body)))
 
 (define core->cml

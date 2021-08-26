@@ -18,6 +18,13 @@ else
 	$(warning skipping C sanity tests; unable to find C compiler $(CC))
 endif
 
+java-sanity:
+ifneq (, $(shell which java))
+	cat tests/sanity/*.fpcore | racket infra/test-core2java.rkt --repeat 1
+else
+	$(warning skipping Java sanity tests; unable to find Java compiler)
+endif
+
 fptaylor-sanity:
 ifneq (, $(shell which fptaylor))
 	cat tests/sanity/*.fpcore | racket infra/test-core2fptaylor.rkt --repeat 1
@@ -74,11 +81,11 @@ ifneq (, $(shell which daisy))
 	cat tests/sanity/*.fpcore | racket infra/test-core2scala.rkt --repeat 1
 	rm -r library
 else
-	$(warning skipping Scala tests; unable to find Scala compiler)
+	$(warning skipping Scala sanity tests; unable to find Scala compiler)
 endif
 
-sanity: c-sanity js-sanity go-sanity smtlib2-sanity sollya-sanity wls-sanity \
-		cakeml-sanity fptaylor-sanity scala-sanity
+sanity: c-sanity java-sanity js-sanity go-sanity smtlib2-sanity sollya-sanity \
+		wls-sanity cml-sanity fptaylor-sanity scala-sanity
 
 raco-test:
 	raco test .
@@ -88,6 +95,13 @@ ifneq (, $(shell which $(CC)))
 	cat benchmarks/*.fpcore tests/*.fpcore | racket infra/test-core2c.rkt --error 3
 else
 	$(warning skipping C tests; unable to find C compiler $(CC))
+endif
+
+java-test:
+ifneq (, $(shell which java))
+	cat benchmarks/*.fpcore tests/*.fpcore | racket infra/test-core2java.rkt --error 3
+else
+	$(warning skipping Java tests; unable to find Java compiler)
 endif
 
 fptaylor-test:
@@ -172,8 +186,8 @@ tensor-test:
 
 tools-test: export-test transform-test toolserver-test evaluate-test tensor-test
 
-test: c-test js-test go-test smtlib2-test sollya-test wls-test \
-	  cakeml-test fptaylor-test daisy-test export-test transform-test \
+test: c-test java-test js-test go-test smtlib2-test sollya-test wls-test \
+	  cml-test fptaylor-test daisy-test export-test transform-test \
 	  toolserver-test evaluate-test raco-test 
 
 clean:

@@ -12,6 +12,7 @@
          "src/core2gappa.rkt" 
          "src/core2go.rkt"
          "src/core2h.rkt"
+         "src/core2java.rkt"
          "src/core2js.rkt"
          "src/core2scala.rkt"
          "src/core2smtlib2.rkt"
@@ -97,7 +98,13 @@
       (*scala-prec-file* (open-output-file (string-append out-name ".prec.txt") #:mode 'text #:exists 'truncate))))                          
 
    (port-count-lines! input-port)
-   (unless (*bare*) (fprintf output-port (header (if (equal? extension "js") (js-runtime) (*namespace*)))))
+   (unless (*bare*)
+    (define namespace
+      (match extension
+       ["js" (js-runtime)]
+       ["java" (java-namespace)]
+       [_ (*namespace*)]))
+    (fprintf output-port (header namespace)))
 
    (for ([core (in-port (curry read-fpcore (if (equal? in-file "-") "stdin" in-file)) input-port)] [n (in-naturals)])
      (let ([unsupported (unsupported-features core supported)])

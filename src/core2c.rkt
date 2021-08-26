@@ -37,12 +37,10 @@
 (define (operator->c op args ctx)
   (define type (type->c (ctx-lookup-prop ctx ':precision)))
   (match op
-    ['isinf     (format "isinf(~a)" args)]
-    ['isnan     (format "isnan(~a)" args)]
-    ['isfinite  (format "isfinite(~a)" args)]
-    ['isnormal  (format "isnormal(~a)" args)]
-    ['signbit   (format "signbit(~a)" args)]
-    [_          (format "~a~a(~a)" op (c-type->suffix type) (string-join args ", "))]))
+   [(or 'isinf 'isnan 'isfinite 'isnormal 'signbit)
+    (format "~a~a" op args)]
+   [_
+    (format "~a~a(~a)" op (c-type->suffix type) (string-join args ", "))]))
   
 (define (binary80->string x)
   (parameterize ([gfl-exponent 15] [gfl-bits 80])
@@ -61,15 +59,6 @@
      ["long double" (format "~a~a" (binary80->string x) (c-type->suffix type))]
      [_ (format "~a~a" (real->double-flonum x) (c-type->suffix type))])]
    [(? symbol?) (format "((~a) M_~a)" type x)]))
-
-(define declaration->c
-  (case-lambda
-   [(var ctx)
-    (define type (type->c (ctx-lookup-prop ctx ':precision)))
-    (format "~a ~a;" type var)]
-   [(var val ctx)
-    (define type (type->c (ctx-lookup-prop ctx ':precision)))
-    (format "~a ~a = ~a;" type var val)]))
   
 (define (round->c x ctx)
   (define type (type->c (ctx-lookup-prop ctx ':precision)))
@@ -132,7 +121,6 @@
     #:operator operator->c
     #:constant constant->c
     #:type type->c
-    #:declare declaration->c
     #:round round->c
     #:implicit-round implicit-round->c
     #:round-mode round-mode->c

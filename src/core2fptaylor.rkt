@@ -139,6 +139,10 @@
   (format "{\n~a~aExpressions\n\t~a = ~a;\n}"
     var-string def-string expr-name return))
 
+; Override visitor behavior
+(define-expr-visitor imperative-visitor fptaylor-visitor
+  [(visit-! vtor props body #:ctx ctx)
+    (visit/ctx vtor body (ctx-update-props ctx props))])
 
 ; ignore 'declaration' and type' since they are never used
 (define core->fptaylor
@@ -149,7 +153,8 @@
     #:program program->fptaylor
     #:flags '(round-after-operation
               never-declare)
-    #:reserved fptaylor-reserved))
+    #:reserved fptaylor-reserved
+    #:visitor fptaylor-visitor))
 
 (define-compiler '("fptaylor" "fpt") (const "")  core->fptaylor (const "") fptaylor-supported)
 

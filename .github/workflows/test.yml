@@ -6,7 +6,7 @@ on: [push]
 env:
   FPTAYLOR_VERSION: 'fabc895ddc595dc41fbe7ce511049c745e1f9136'
   CAKEML_VERSION: 'v1217'
-  CAKEML_BASE: '../cache/cake'
+  CAKEML_BIN: '../cache/cake'
   SBT_VERSION: '1.5.5'
   DAISY_VERSION: '33bc509d927bdbda08c6dccd0f56285dc265b049'
   DAISY_BASE: '../cache/daisy'

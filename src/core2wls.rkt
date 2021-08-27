@@ -7,11 +7,12 @@
 ; Note: MachinePrecision is kind of broken since Mathematica will
 ; just arbitrarily ignore it at times
 
-(define wls-supported (supported-list
-  fpcore-ops
-  fpcore-consts
-  (curry set-member? '(binary64 real integer))
-  (curry set-member? '(nearestEven))))
+(define wls-supported
+  (supported-list
+    fpcore-ops
+    fpcore-consts
+    (curry set-member? '(binary64 real integer))
+    (curry set-member? '(nearestEven))))
 
 (define wls-reserved '(E Pi))  ; Language-specific reserved names (avoid name collisions)
 

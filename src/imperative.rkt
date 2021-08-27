@@ -36,14 +36,17 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;; flags ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define valid-flags
-  '(no-parens-around-condition        ; removes parenthesis from 'if' and 'while' conditions (Go)
+  '(no-parens-around-condition        ; removes parenthesis from 'if' and 'while' conditions (Go, Python)
     for-instead-of-while              ; changes 'while' to 'for' (Go)
     never-declare                     ; declarations are assignments (Sollya, FPTaylor)
     semicolon-after-enclosing-brace   ; end 'if' or 'while' blocks with "};" (Sollya)
     if-then                           ; "if (cond) then { ... }" (Sollya)
     while-do                          ; "while (cond) do { ... }" (Sollya)
     round-after-operation             ; ensure rounding after any operation (Sollya, FPTaylor)
-    no-body))                         ; do not compile the body
+    colon-instead-of-brace            ; use a colon rather than braces for code blocks (Python)
+    use-elif                          ; use 'elif' instead of 'else if' (Python)
+    boolean-ops-use-name              ; boolean operators use alphabetic name rather than symbol (Python)
+    no-body))                         ; do not compile the body (C header)
 
 (define (valid-flag? maybe-flag)
   (set-member? valid-flags maybe-flag))
@@ -58,6 +61,11 @@
       "for"
       "while"))
 
+(define (else-if-name)
+  (if (compile-flag-raised? 'use-elif)
+      "elif"
+      "else if"))
+
 (define (after-if)
   (if (compile-flag-raised? 'if-then)
       " then"
@@ -68,15 +76,36 @@
       " do"
       ""))
 
-(define (after-enclosing-brace)
-  (if (compile-flag-raised? 'semicolon-after-enclosing-brace)
-      ";"
-      ""))
-
 (define (if-declare decl indent)
   (if (compile-flag-raised? 'never-declare)
       ""
-      (format "~a\n~a" decl indent)))
+      (format "~a~a\n" indent decl)))
+
+(define (if-format)
+  (if (compile-flag-raised? 'colon-instead-of-brace)
+      "~aif ~a~a:\n"
+      "~aif ~a~a {\n"))
+
+(define (else-if-format)
+  (if (compile-flag-raised? 'colon-instead-of-brace)
+      "~a~a ~a~a:\n"
+      "~a} ~a ~a~a {\n"))
+
+(define (else-format)
+  (if (compile-flag-raised? 'colon-instead-of-brace)
+      "~aelse:\n"
+      "~a} else {\n"))
+
+(define (while-format)
+  (if (compile-flag-raised? 'colon-instead-of-brace)
+      "~a~a ~a~a:\n"
+      "~a~a ~a~a {\n"))
+
+(define (end-of-block indent)
+  (cond
+   [(compile-flag-raised? 'colon-instead-of-brace) ""]
+   [(compile-flag-raised? 'semicolon-after-enclosing-brace) (format "~a};\n" indent)]
+   [else (format "~a}\n" indent)]))
 
 (define (visit-body vtor body ctx)
   (if (compile-flag-raised? 'no-body)
@@ -98,19 +127,23 @@
    [(list '- a)
     (compile-after-op (format (if (string-prefix? a "-") "-(~a)" "-~a") a) ctx)]
    [(list 'not a)
-    (format "!~a" a)]
+    (if (compile-flag-raised? 'boolean-ops-use-name)
+        (format "not ~a" a)
+        (format "!~a" a))]
    [(list (or '== '!= '< '> '<= '>=))
     (compile-constant 'TRUE ctx)]
    [(list (or '+ '- '* '/) a b) ; binary arithmetic 
     (compile-after-op (format "(~a ~a ~a)" a op b) ctx)]
    [(list (or '== '< '> '<= '>=) arg args ...)
-     (format "(~a)"
-             (string-join
+    (format "(~a)"
+            (string-join
               (for/list ([a (cons arg args)] [b args])
                 (format "~a ~a ~a" a op b))
-              " && "))]
+              (if (compile-flag-raised? 'boolean-ops-use-name)
+                  " and "
+                  " && ")))]
    [(list '!= args ...)
-     (format "(~a)"
+    (format "(~a)"
              (string-join
               (let loop ([args args])
                 (if (null? args)
@@ -119,11 +152,15 @@
                      (for/list ([b (cdr args)])
                        (format "~a != ~a" (car args) b))
                      (loop (cdr args)))))
-              " && "))]
+              (if (compile-flag-raised? 'boolean-ops-use-name)
+                  " and "
+                  " && ")))]
    [(list 'and a ...)
-    (format "(~a)" (string-join (map ~a a) " && "))]
+    (define and-str (if (compile-flag-raised? 'boolean-ops-use-name) " and " " && "))
+    (format "(~a)" (string-join (map ~a a) and-str))]
    [(list 'or a ...)
-    (format "(~a)" (string-join (map ~a a) " || "))]))
+    (define or-str (if (compile-flag-raised? 'boolean-ops-use-name) " or " " || "))
+    (format "(~a)" (string-join (map ~a a) or-str))]))
 
 (define (compile-operator op args ctx)
   (if (set-member? (imperative-infix (*imperative-lang*)) op)
@@ -244,27 +281,26 @@
      [(#t (list cond ift))
       (define-values (ctx* tmpvar)   ; messy workaround to get ift context
         (parameterize ([current-output-port (open-output-nowhere)])
-          (define ctx* (ctx-set-extra ctx 'indent (format "~a\t" indent)))
-          (define-values (_ ift-ctx) (visit/ctx vtor ift ctx*))
+          (define-values (_ ift-ctx) (visit/ctx vtor ift ctx))
           (define prec (ctx-lookup-prop ift-ctx ':precision))
           (ctx-random-name (ctx-update-props ctx `(:precision ,prec)))))
-      (printf "~a~aif ~a~a {\n" indent
-              (if-declare (compile-declaration tmpvar ctx*) indent)
-              (format-condition (trim-infix-parens cond))
-              (after-if))
-      (define-values (ift* ift-ctx) (visit/ctx vtor ift ctx*))
+      (printf (if-declare (compile-declaration tmpvar ctx*) indent))
+      (printf (if-format) indent (format-condition (trim-infix-parens cond)) (after-if))
+      (define-values (ift* ift-ctx) 
+        (let ([ctx0 (ctx-set-extra ctx 'indent (format "~a\t" indent))])
+          (visit/ctx vtor ift ctx0)))
       (printf "~a\t~a\n" indent (compile-assignment tmpvar ift* ctx))
       (loop (cdr branches) #f ctx* tmpvar)]
      [(_ (list #t last))
-      (printf "~a} else {\n" indent)
+      (printf (else-format) indent)
       (define ctx* (ctx-set-extra ctx 'indent (format "~a\t" indent)))
       (define-values (last* else-ctx) (visit/ctx vtor last ctx*))
       (printf "~a\t~a\n" indent (compile-assignment ret last* ctx))
-      (printf "~a}~a\n" indent (after-enclosing-brace))
+      (printf (end-of-block indent))
       (values ret else-ctx)]
      [(_ (list cond elif))
-      (printf "~a} else if ~a~a {\n"
-              indent (format-condition (trim-infix-parens cond))
+      (printf (else-if-format) indent (else-if-name)
+              (format-condition (trim-infix-parens cond))
               (after-if))
       (define ctx* (ctx-set-extra ctx 'indent (format "~a\t" indent)))
       (define-values (elif* elif-ctx) (visit/ctx vtor elif ctx*))
@@ -302,8 +338,8 @@
   (printf "~a" (compile-use-vars vars ctx*))
   (define-values (cond* cond*-ctx) (visit/ctx vtor cond ctx*))
   (printf "~a~a\n" indent (compile-declaration tmpvar cond* cond*-ctx))
-  (printf "~a~a ~a~a {\n" indent (while-name) (format-condition tmpvar)
-                          (after-while))
+  (printf (while-format) indent (while-name)
+          (format-condition tmpvar) (after-while))
   (define ctx**
     (match while_
      ['while
@@ -331,7 +367,7 @@
       ctx**]))
   (define-values (cond** cond**-ctx) (visit/ctx vtor cond ctx**))
   (printf "~a\t~a\n" indent (compile-assignment tmpvar cond** cond**-ctx))
-  (printf "~a}~a\n" indent (after-enclosing-brace))
+  (printf (end-of-block indent))
   (visit/ctx vtor body ctx*))
 
 (define (visit-cast/imperative vtor x #:ctx ctx)

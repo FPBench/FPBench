@@ -12,7 +12,7 @@
           lgamma log2 nearbyint remainder tgamma)))
     (curry set-member? '(TRUE FALSE INFINITY NAN MAX_VALUE PI E))
     (curry equal? 'binary64)
-    (curry equal? 'nearestEven))) ; bool
+    (curry equal? 'nearestEven)))
 
 (define ocaml-reserved          ; Language-specific reserved names (avoid name collision)
   '(and as asssert asr begin class constraint do done down to else

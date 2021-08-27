@@ -91,8 +91,16 @@ else
 	$(warning skipping OCaml sanity tests; unable to find OCaml compiler)
 endif
 
+python-sanity:
+ifneq (, $(shell which python3))
+	cat tests/sanity/*.fpcore | racket infra/test-core2python.rkt --repeat 1
+else
+	$(warning skipping Python sanity tests; unable to find Python interpreter)
+endif
+
 sanity: c-sanity java-sanity js-sanity go-sanity smtlib2-sanity sollya-sanity \
-		wls-sanity cml-sanity fptaylor-sanity scala-sanity
+		wls-sanity cml-sanity fptaylor-sanity scala-sanity ocaml-sanity \
+		python-sanity
 
 raco-test:
 	raco test .
@@ -178,6 +186,13 @@ else
 	$(warning skipping OCaml tests; unable to find OCaml compiler)
 endif
 
+python-test:
+ifneq (, $(shell which python3))
+	cat benchmarks/*.fpcore tests/*.fpcore | racket infra/test-core2python.rkt --error 3
+else
+	$(warning skipping Python tests; unable to find Python interpreter)
+endif
+
 update-tool-tests:
 	tests/scripts/test-export.sh generate	
 	tests/scripts/test-transform.sh generate
@@ -201,8 +216,8 @@ tensor-test:
 tools-test: export-test transform-test toolserver-test evaluate-test tensor-test
 
 test: c-test java-test js-test go-test smtlib2-test sollya-test wls-test \
-	  cml-test fptaylor-test daisy-test export-test transform-test \
-	  toolserver-test evaluate-test raco-test 
+	  cml-test fptaylor-test daisy-test ocaml-test python-test export-test \
+	  transform-test toolserver-test evaluate-test raco-test 
 
 clean:
 	$(RM) -r library tmp log *.zo *.dep

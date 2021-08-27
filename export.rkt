@@ -14,6 +14,7 @@
          "src/core2h.rkt"
          "src/core2java.rkt"
          "src/core2js.rkt"
+         "src/core2ocaml.rkt"
          "src/core2scala.rkt"
          "src/core2smtlib2.rkt"
          "src/core2sollya.rkt"

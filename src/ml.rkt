@@ -8,7 +8,8 @@
 (require "common.rkt" "compilers.rkt" "fpcore-visitor.rkt" "supported.rkt")
 
 (provide (all-from-out "common.rkt" "compilers.rkt" "fpcore-visitor.rkt" "supported.rkt")
-         make-ml-compiler ml-visitor)
+         make-ml-compiler ml-visitor default-infix-ops
+         single-indent double-indent)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;; language-specific abstractions ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -35,29 +36,29 @@
 (define (compile-infix-operator op args ctx)
   (match (cons op args)
    [(list '- a)
-    (format (if (string-prefix? a "-") "-(~a)" "-~a") a)]
+    (format "(- ~a)" a)]
    [(list 'not a)
-    (format "!~a" a)]
+    (format "(not ~a)" a)]
    [(list (or '== '!= '< '> '<= '>=))
     (compile-constant 'TRUE ctx)]
    [(list (or '+ '- '* '/) a b) ; binary arithmetic 
     (format "(~a ~a ~a)" a op b)]
    [(list (or '== '< '> '<= '>=) arg args ...)
-     (format "(~a)"
-             (string-join
+    (format "(~a)"
+            (string-join
               (for/list ([a (cons arg args)] [b args])
                 (format "~a ~a ~a" a op b))
               " && "))]
    [(list '!= args ...)
-     (format "(~a)"
-             (string-join
+    (format "(~a)"
+            (string-join
               (let loop ([args args])
                 (if (null? args)
                     '()
                     (append
-                     (for/list ([b (cdr args)])
-                       (format "~a != ~a" (car args) b))
-                     (loop (cdr args)))))
+                      (for/list ([b (cdr args)])
+                        (format "~a != ~a" (car args) b))
+                      (loop (cdr args)))))
               " && "))]
    [(list 'and a ...)
     (format "(~a)" (string-join (map ~a a) " && "))]
@@ -190,9 +191,9 @@
             (let-values ([(_ var-ctx) (visit/ctx vtor val val-ctx)])
               (let ([prec (ctx-lookup-prop val-ctx ':precision)])
                 (ctx-unique-name ctx* var prec)))))
-        (printf "~a~aval ~a = ~a\n" indent single-indent name
-                (let-values ([(val* _) (visit/ctx vtor val val-ctx)])
-                  (trim-infix-parens val*)))
+        (printf "~a~aval ~a = " indent single-indent name)
+        (printf "~a\n" (let-values ([(val* _) (visit/ctx vtor val val-ctx)])
+                          (trim-infix-parens val*)))
         (values name-ctx (cons name vars*))))
     (printf "~a~afun ~a ~a =\n" indent single-indent
             fn-name (string-join vars* " "))

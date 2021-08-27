@@ -84,6 +84,13 @@ else
 	$(warning skipping Scala sanity tests; unable to find Scala compiler)
 endif
 
+ocaml-sanity:
+ifneq (, $(shell which ocamlopt))
+	cat tests/sanity/*.fpcore | racket infra/test-core2ocaml.rkt --repeat 1
+else
+	$(warning skipping OCaml sanity tests; unable to find OCaml compiler)
+endif
+
 sanity: c-sanity java-sanity js-sanity go-sanity smtlib2-sanity sollya-sanity \
 		wls-sanity cml-sanity fptaylor-sanity scala-sanity
 
@@ -162,6 +169,13 @@ ifneq (, $(shell which daisy))
 	rm -r library
 else
 	$(warning skipping Scala tests; unable to find Scala compiler)
+endif
+
+ocaml-test:
+ifneq (, $(shell which ocamlopt))
+	cat benchmarks/*.fpcore tests/*.fpcore | racket infra/test-core2ocaml.rkt --error 3
+else
+	$(warning skipping OCaml tests; unable to find OCaml compiler)
 endif
 
 update-tool-tests:

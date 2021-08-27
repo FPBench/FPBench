@@ -234,11 +234,6 @@ jobs:
     needs: [ 'unit' ]
     steps:
       - uses: actions/checkout@v2
-      - name: "Install OCaml"
-        uses: ocaml/setup-ocaml@v2
-        with:
-          ocaml-compiler: '4.04.2'
-
       - name: "Install Racket"
         uses: Bogdanp/setup-racket@v1.5
         with:
@@ -246,6 +241,11 @@ jobs:
           distribution: 'full'
           variant: 'CS'
           version: '8.2'
+      
+      - name: "Install OCaml"
+        uses: ocaml/setup-ocaml@v2
+        with:
+          ocaml-compiler: '4.04.2'
 
       - name: "Install Packages"
         run: |
@@ -369,3 +369,36 @@ jobs:
 
       - name: "CakeML test"
         run: make cakeml-test
+
+  ocaml:    # OCaml language
+    name: "OCaml Tests"
+    runs-on: ubuntu-latest
+    needs: [ 'unit' ]
+    steps:
+      - uses: actions/checkout@v2
+      - name: "Install Racket"
+        uses: Bogdanp/setup-racket@v1.5
+        with:
+          architecture: 'x64'
+          distribution: 'full'
+          variant: 'CS'
+          version: '8.2'
+
+      - name: "Install OCaml"
+        uses: ocaml/setup-ocaml@v2
+        with:
+          ocaml-compiler: '4.04.2'
+
+      - name: "Install Packages"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libmpfr6 libmpfr-dev
+
+      - name: "Install as Racket package"
+        run: raco pkg install --auto
+
+      - name: "OCaml sanity"
+        run: make ocaml-sanity
+
+      - name: "OCaml test"
+        run: make ocaml-test

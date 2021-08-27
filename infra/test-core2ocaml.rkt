@@ -11,7 +11,7 @@
          [(list 'FPCore (list args ...) rest ...) (length args)]
          [(list 'FPCore name (list args ...) rest ...) (length args)]))
       (fprintf p "~a\n\n" (core->ocaml prog "f"))
-      (fprintf p "Printf.printf \"%.17g\" (f ~a);;\n"
+      (fprintf p "let _ =\n  Printf.printf \"%.17g\" (f ~a)\n"
         (if (zero? N)
             "()"
             (string-join

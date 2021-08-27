@@ -31,7 +31,7 @@
   (define out
     (with-output-to-string
      (λ ()
-       (system (format "java -cp /tmp/fpbench Test ~a"
+       (system (format "java -cp /tmp Test ~a"
                        (string-join in " "))))))
   (define out*
     (match out
@@ -63,5 +63,5 @@
 
 ; Command line
 (module+ main (parameterize ([*tester* java-tester])
-  (let ([state (test-core (current-command-line-arguments) (current-input-port) "stdin" "/tmp/fpbench/Test.java")])
+  (let ([state (test-core (current-command-line-arguments) (current-input-port) "stdin" "/tmp/Test.java")])
     (exit state))))

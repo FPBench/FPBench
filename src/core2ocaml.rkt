@@ -8,10 +8,9 @@
   (supported-list
     (invert-op-proc
       (curry set-member?
-        '(acosh asinh atanh cbrt erf erfc exp2 fdim fma
-          fmod lgamma log2 nearbyint remainder round
-          signbit tgamma trunc)))
-    (curry set-member? '(TRUE FALSE INFINITY NAN MAX_VALUE))
+        '(acosh asinh atanh cbrt erf erfc exp2 fdim
+          lgamma log2 nearbyint remainder tgamma)))
+    (curry set-member? '(TRUE FALSE INFINITY NAN MAX_VALUE PI E))
     (curry equal? 'binary64)
     (curry equal? 'nearestEven))) ; bool
 
@@ -30,43 +29,50 @@
           (string (char-downcase char))
           (format "_~a_" (char->integer char))))))
 
+(define (equality->ocaml x xs)
+  (format "(~a)"
+          (string-join
+            (for/list ([a (cons x xs)] [b xs])
+              (format "(~a = ~a)" a b))
+            " && ")))
+
 (define (operator->ocaml op args ctx)
   (match (cons op args)
-   [(list '- a) (format "(-. ~a)" a)]
-   [(list (or '+ '- '* '/) a b) (format "(~a ~a. ~a)" a op b)]
-   [(list 'pow a b) (format "(~a ** ~a)" a b)]
-   [(list '== arg args ...)
-    (format "(~a)"
-            (string-join
-              (for/list ([a (cons arg args)] [b args])
-                (format "~a = ~a" a b))
-              " && "))]
+   [(list '- a) (format "(Float.neg ~a)" a)]
+   [(list '+ a b) (format "(Float.add ~a ~a)" a b)]
+   [(list '- a b) (format "(Float.sub ~a ~a)" a b)]
+   [(list '* a b) (format "(Float.mul ~a ~a)" a b)]
+   [(list '/ a b) (format "(Float.div ~a ~a)" a b)]
+   [(list '== arg args ...) (equality->ocaml arg args)]
    [_
     (define args* (string-join args " "))
     (match op
-     ['isfinite (format "(((classify_float ~a) != FP_infinite) && ((classify_float ~a) != FP_nan))" args* args*)]
-     ['isinf (format "((classify_float ~a) == FP_infinite)" args*)]
-     ['isnan (format "((classify_float ~a) == FP_nan)" args*)]
-     ['isnormal (format "((classify_float ~a) == FP_normal)" args*)]
-     ['signbit (format "(sign_bit ~a)" args*)]
-     ['fabs (format "(abs_float ~a)" args*)]
-     ['fmax (format "(max ~a)" args*)]
-     ['fmin (format "(min ~a)" args*)]
-     [_ (format "(~a ~a)" op args*)])]))
+     ['isfinite (format "(Float.is_finite ~a)" args*)]
+     ['isinf (format "(Float.is_infinite ~a)" args*)]
+     ['isnan (format "(Float.is_nan ~a)" args*)]
+     ['isnormal (format "((Float.classify_float ~a) == Float.FP_normal)" args*)]
+     ['signbit (format "(Float.sign_bit ~a)" args*)]
+     ['fabs (format "(Float.abs ~a)" args*)]
+     ['fmax (format "(Float.max ~a)" args*)]
+     ['fmin (format "(Float.min ~a)" args*)]
+     ['fmod (format "(Float.rem ~a)" args*)]
+     ['copysign (format "(Float.copy_sign ~a)" args*)]
+     [_ (format "(Float.~a ~a)" op args*)])]))
 
 (define (number->ocaml x)
-  (define x* (real->double-flonum x))
   (if (negative? x)
-      (format "(-. ~a)" (abs x*))
-      (~a x*)))
+      (format "(Float.neg ~a)" (abs (real->double-flonum x)))
+      (~a (real->double-flonum x))))
 
 (define (constant->ocaml x ctx)
   (match x
    ['TRUE "true"]
    ['FALSE "false"]
-   ['INFINITY "infinity"]
-   ['NAN "nan"]
-   ['MAXFLOAT "max_float"]
+   ['INFINITY "Float.infinity"]
+   ['NAN "Float.nan"]
+   ['E "(Float.exp 1.0)"]
+   ['PI "Float.pi"]
+   ['MAXFLOAT "Float.max_float"]
    [(? hex?) (number->ocaml (hex->racket x))]
    [(? number?) (number->ocaml x)]
    [_ (~a x)]))
@@ -82,8 +88,8 @@
 
 (define (program->ocaml name args arg-ctxs body ctx)
   (if (body-is-multi-lined? body)
-      (format "let ~a ~a =\n  ~a;;\n" name (params->ocaml args) body)
-      (format "let ~a ~a = ~a;;\n" name (params->ocaml args) body)))
+      (format "let ~a ~a =\n  ~a\n" name (params->ocaml args) body)
+      (format "let ~a ~a = ~a\n" name (params->ocaml args) body)))
 
 (define-expr-visitor ml-visitor ocaml-visitor
   [(visit-let_ vtor let_ vars vals body #:ctx ctx)

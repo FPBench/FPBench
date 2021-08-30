@@ -98,6 +98,28 @@
 (define (assignment->fortran var val ctx)
   (format "~a = ~a" var val))
 
+(define (round->fortran x ctx)
+  (define prec (ctx-lookup-prop ctx ':precision))
+  (format "real(~a, ~a)" x (match prec ['binary64 8] ['binary32 4])))
+
+(define (cmp-prec prec1 prec2)
+  (define/match (prec->num prec)
+    [('binary80) 4]
+    [('binary64) 3]
+    [('binary32) 2]
+    [('integer)  1]
+    [('boolean)  0])
+  (- (prec->num prec1) (prec->num prec2)))
+
+(define (implicit-round->fortran op arg arg-ctx ctx)
+  (define prec (ctx-lookup-prop ctx ':precision))
+  (define arg-prec (ctx-lookup-prop arg-ctx ':precision))
+  (if (set-member? '(+ - * /) op)
+      (if (> (cmp-prec prec arg-prec) 0)
+          (round->fortran arg ctx)
+          arg)  ; TODO: warn unfaithful
+      arg))
+
 (define (program->fortran name args arg-ctxs body ret ctx used-vars)
   (define type (type->fortran (ctx-lookup-prop ctx ':precision)))
   (define declared-in (sort (remove* args used-vars) string<?))
@@ -120,6 +142,8 @@
     #:constant constant->fortran
     #:operator operator->fortran
     #:assign assignment->fortran
+    #:round round->fortran
+    #:implicit-round implicit-round->fortran
     #:program program->fortran
     #:flags '(spaces-for-tabs
               end-block-with-name

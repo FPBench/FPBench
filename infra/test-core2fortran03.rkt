@@ -3,30 +3,34 @@
 (require generic-flonum)
 (require "test-common.rkt" "../src/core2fortran03.rkt" "../src/evaluator.rkt")
 
+(define (arg-info prog type)
+  (define args
+    (match prog
+     [(list 'FPCore (list args ...) rest ...) args]
+     [(list 'FPCore name (list args ...) rest ...) args]))
+  (values (length args)
+          (for/list ([arg args])
+            (match arg
+             [(list '! props ... name) (dict-ref (apply dict-set* '() props) ':precision type)]
+             [_ type]))))
+
 (define (compile->fortran prog ctx type test-file)
   (call-with-output-file test-file #:exists 'replace
     (λ (p)
-      (define N
-        (match prog
-         [(list 'FPCore (list args ...) rest ...) (length args)]
-         [(list 'FPCore name (list args ...) rest ...) (length args)]))
-      (define args* (string-join (for/list ([i (in-range 1 (+ N 1))])
-                                   (format "a~a" i))
-                                 ", "))
-      (define vals* (string-join (for/list ([i (in-range 1 (+ N 1))])
-                                   (format "r~a" i))
-                                 ", "))
+      (define-values (N arg-types) (arg-info prog type))
+      (define args* (for/list ([i (in-range 1 (+ N 1))]) (format "a~a" i)))
+      (define vals* (for/list ([i (in-range 1 (+ N 1))]) (format "r~a" i)))
       (fprintf p "~a\n\n" (core->fortran prog "f"))
       (fprintf p "program main\n    integer :: i\n")
-      (when (> N 0)
-        (fprintf p "    character (len=65) :: ~a\n" args*)
-        (fprintf p "    ~a :: ~a\n" (type->fortran type) vals*))
+      (when (> N 0) (fprintf p "    character (len=65) :: ~a\n" (string-join args* ", ")))
+      (for ([val vals*] [type arg-types])
+        (fprintf p "    ~a :: ~a\n" (type->fortran type) val))
       (fprintf p "    ~a :: ~a\n\n" (type->fortran type) "f")
       (for ([i (in-range 1 (+ N 1))])
         (fprintf p "    call get_command_argument(~a, a~a)\n" i i))
       (for ([i (in-range 1 (+ N 1))])
         (fprintf p "    read (unit=a~a, fmt=*) r~a\n" i i))
-      (fprintf p "    print *, f(~a)\n" vals*)
+      (fprintf p "    print *, f(~a)\n" (string-join vals* ", "))
       (fprintf p "end program main")))
   (define exe-file (string-replace test-file ".f03" ".bin"))
   (system (format "cc -std=f2003 -ffree-line-length-512 -o ~a ~a -lgfortran -lm" exe-file test-file))

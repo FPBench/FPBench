@@ -358,7 +358,7 @@
       (values name-ctx (cons name vars*))))
   (define tmpvar
     (let-values ([(cx name) (ctx-random-name ctx* 'boolean)])
-      (begin0 name (set! ctx* cx))))
+      name))
   (printf "~a" (compile-use-vars vars ctx*))
   (define-values (cond* cond*-ctx) (visit/ctx vtor cond ctx*))
   (printf "~a~a\n" indent (compile-declaration tmpvar cond* cond*-ctx))

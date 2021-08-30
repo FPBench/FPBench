@@ -38,11 +38,14 @@
   (define out*
     (cond
      [(non-empty-string? err-out)
-      (if (or (string-contains? err-out "OverflowError")
-              (string-contains? err-out "ValueError")
-              (string-contains? err-out "ZeroDivisionError"))
-          "nan"
-          (error 'run<-python "Run failed with: ~a" err-out))]
+      (cond
+       [(string-contains? err-out "OverflowError") "nan"]
+       [(string-contains? err-out "ValueError") "nan"]
+       [(string-contains? err-out "ZeroDivisionError")
+        (*ignore-by-run* (list-set (*ignore-by-run*) number #t))
+        "nan"]
+       [else
+        (error 'run<-python "Run failed with: ~a" err-out)])]
      [else 
       (match out
        ["nan" "+nan.0"]
@@ -53,10 +56,10 @@
   (cons (->value out* type) out*))
 
 ;; Python likes to throw a lot of errors
-;; For these tests NaN is the error state.
 ;; Allow test to pass in these cases
 (define (python-equality a b ulps type ignore?)
   (cond
+   [ignore? #t]
    [(equal? a 'timeout) true]
    [(and (gflinfinite? a) (gflnan? b)) true]
    [(and (gflzero? a) (gflnan? b)) true]

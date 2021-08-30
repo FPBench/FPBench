@@ -34,7 +34,7 @@
                           (values compiler-ctx? string?))]
     [ctx-reserve-names (-> compiler-ctx? (listof (or/c symbol? string?)) compiler-ctx?)]
     [ctx-lookup-name (-> compiler-ctx? symbol? string?)]
-    [ctx-lookup-prec (-> compiler-ctx? symbol? any/c)]
+    [ctx-lookup-prec (-> compiler-ctx? (or/c symbol? string?) any/c)]
     [ctx-update-props (-> compiler-ctx? (listof any/c) compiler-ctx?)]
     [ctx-lookup-prop (->* (compiler-ctx? symbol?) ((or/c boolean? symbol?)) any/c)]
     [ctx-set-extra (-> compiler-ctx? any/c any/c compiler-ctx?)]
@@ -100,7 +100,7 @@
   (define prec* (if prec prec (dict-ref (compiler-ctx-props ctx) ':precision 'binary64)))
   (values (struct-copy compiler-ctx ctx
                       [name-map (dict-set (compiler-ctx-name-map ctx) name* unique)]
-                      [prec-map (dict-set (compiler-ctx-prec-map ctx) name* prec*)])
+                      [prec-map (dict-set (compiler-ctx-prec-map ctx) unique prec*)])
           unique))
 
 ; Produces a unique, printable name and returns the updated ctx struct and the name.

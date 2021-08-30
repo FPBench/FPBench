@@ -8,6 +8,7 @@
 ; compilers
 (require "src/core2c.rkt"
          "src/core2cakeml.rkt"
+         "src/core2fortran03.rkt"
          "src/core2fptaylor.rkt"
          "src/core2gappa.rkt" 
          "src/core2go.rkt"

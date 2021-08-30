@@ -24,7 +24,8 @@
     [make-compiler-ctx (->* ()
                             ((and/c hash? immutable?)
                              (and/c hash? immutable?)
-                             (and/c hash? immutable?))
+                             (and/c hash? immutable?)
+                             (and/c hash?))
                             compiler-ctx?)]
     [ctx-unique-name (->* (compiler-ctx? (or/c symbol? string?))
                           ((or/c boolean? symbol?))
@@ -83,33 +84,34 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;; compiler context ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(struct compiler-ctx (name-map prec-map props extra))
+(struct compiler-ctx (name-map props extra prec-map))
 
 ; Produces a new compiler context
 (define (make-compiler-ctx [name-map (make-immutable-hash)]
-                           [prec-map (make-immutable-hash)]
                            [props (make-immutable-hash)]
-                           [extra (make-immutable-hash)])
-  (compiler-ctx name-map prec-map props extra))
+                           [extra (make-immutable-hash)]
+                           [prec-map (make-hash)])
+  (compiler-ctx name-map props extra prec-map))
 
 ; Takes a given symbol or string and maps it to a unique, printable name,
 ; returning both the updated ctx struct and the name
 (define (ctx-unique-name ctx name [prec #f])
   (define name* (->string name))
   (define unique (gensym name*))
-  (define prec* (if prec prec (dict-ref (compiler-ctx-props ctx) ':precision 'binary64)))
+  (define prec* (if prec prec (hash-ref (compiler-ctx-props ctx) ':precision 'binary64)))
+  (hash-set! (compiler-ctx-prec-map ctx) unique prec*)
   (values (struct-copy compiler-ctx ctx
-                      [name-map (dict-set (compiler-ctx-name-map ctx) name* unique)]
-                      [prec-map (dict-set (compiler-ctx-prec-map ctx) unique prec*)])
+                       [name-map (hash-set (compiler-ctx-name-map ctx) name* unique)])
           unique))
 
 ; Produces a unique, printable name and returns the updated ctx struct and the name.
 ; The new name is not added to the name map
 (define (ctx-random-name ctx [prec #f])
   (define name (gensym "tmp"))
-  (define prec* (if prec prec (dict-ref (compiler-ctx-props ctx) ':precision 'binary64)))
+  (define prec* (if prec prec (hash-ref (compiler-ctx-props ctx) ':precision 'binary64)))
+  (hash-set! (compiler-ctx-prec-map ctx) name prec*)
   (values (struct-copy compiler-ctx ctx
-                       [prec-map (dict-set (compiler-ctx-prec-map ctx) name prec*)])
+                       [name-map (hash-set (compiler-ctx-name-map ctx) "tmp" name)])
           name))
 
 ; Reserves the list of names and returns the updated struct
@@ -122,12 +124,11 @@
 ; Returns the stringified version of the symbol otherwise.
 (define (ctx-lookup-name ctx name)
   (define name* (->string name))
-  (dict-ref (compiler-ctx-name-map ctx) name* name*))
+  (hash-ref (compiler-ctx-name-map ctx) name* name*))
 
-; Returns the precision of the given variable. Returns false if the symbol is unmapped.
+; Returns the precision of the given variable name.
 (define (ctx-lookup-prec ctx name)
-  (define name* (->string name))
-  (dict-ref (compiler-ctx-prec-map ctx) name* #f))
+  (hash-ref (compiler-ctx-prec-map ctx) (->string name)))
 
 ; Functionally extends a context struct's hash table of properties from the given properties.
 (define (ctx-update-props ctx props)
@@ -137,7 +138,7 @@
 ; Returns the property value stored in the context struct. Returns the value at 
 ; failure otherwise.
 (define (ctx-lookup-prop ctx prop [failure #f])
-  (dict-ref (compiler-ctx-props ctx) prop failure))
+  (hash-ref (compiler-ctx-props ctx) prop failure))
 
 ; Add or set an extra entry
 (define (ctx-set-extra ctx k v)

@@ -117,7 +117,7 @@
       (for/list ([var args] [ctx arg-ctxs]
                 #:unless (equal? (precision-str (ctx-lookup-prop ctx ':precision)) "real"))
         (format "\t~a = ~a;" var (round->sollya var ctx)))))
-  (define decl-list (set-subtract (map car used-vars) (set-add args name)))
+  (define decl-list (set-subtract used-vars (set-add args name)))
 
   (define var-string
     (if (> (length decl-list) 0)

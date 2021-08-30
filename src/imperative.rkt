@@ -273,8 +273,6 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;; utility ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define *fix-name-format* (make-parameter #f))
-
 (define default-ctx
   (ctx-update-props
     (make-compiler-ctx)
@@ -285,7 +283,7 @@
    (for/list ([char (~a name)])
      (if (regexp-match #rx"[a-zA-Z0-9_]" (string char))
          (string char)
-         (format (*fix-name-format*) (char->integer char))))
+         (format "_~a_" (char->integer char))))
    ""))
 
 (define bool-ops '(< > <= >= == != and or not
@@ -493,7 +491,7 @@
                                   ; visitor behavior
                                   #:visitor [vtor imperative-visitor]
                                   #:reserved [reserved '()]
-                                  #:fix-name-format [fix-name-format "_~a_"]
+                                  #:fix-name [fix-name-proc fix-name]
                                   #:indent [indent "\t"])
   (unless (andmap valid-flag? flags)
     (error 'make-imperative-compiler "undefined imperative flags: ~a" flags))
@@ -506,9 +504,8 @@
   (lambda (prog name)
     (parameterize ([*gensym-used-names* (mutable-set)] 
                    [*gensym-collisions* 1]
-                   [*gensym-fix-name* fix-name]
-                   [*imperative-lang* language]
-                   [*fix-name-format* fix-name-format])
+                   [*gensym-fix-name* fix-name-proc]
+                   [*imperative-lang* language])
       (define-values (args props body)
         (match prog
          [(list 'FPCore (list args ...) props ... body) (values args props body)]
@@ -538,13 +535,13 @@
 
       (define non-varnames (cons fname (map (curry ctx-lookup-name ctx) reserved)))
       (define p (open-output-string))
-      (parameterize ([current-output-port p])
-        (define-values (o cx) (visit-body vtor body ctx))
-        (define used-vars (remove* non-varnames (set->list (*gensym-used-names*))))
-        (define var-precs (map (curry ctx-lookup-prec cx) used-vars))
-        (compile-program fname arg-names arg-ctxs
-                         (get-output-string p) (trim-infix-parens o)
-                         ctx (map cons used-vars var-precs))))))
+      (define-values (body* ret used-vars)
+        (parameterize ([current-output-port p])
+          (define-values (o cx) (visit-body vtor body ctx))
+          (values (get-output-string p)
+                  (trim-infix-parens o)
+                  (remove* non-varnames (set->list (*gensym-used-names*))))))
+      (compile-program fname arg-names arg-ctxs body* ret ctx used-vars))))
 
 (module+ test
   (require rackunit)

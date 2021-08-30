@@ -98,9 +98,16 @@ else
 	$(warning skipping Python sanity tests; unable to find Python interpreter)
 endif
 
+fortran-sanity:
+ifneq (, $(shell which $(CC)))
+	cat tests/sanity/*.fpcore | racket infra/test-core2fortran03.rkt --repeat 1
+else
+	$(warning skipping Fortran sanity tests; unable to find Fortran compiler)
+endif
+
 sanity: c-sanity java-sanity js-sanity go-sanity smtlib2-sanity sollya-sanity \
 		wls-sanity cml-sanity fptaylor-sanity scala-sanity ocaml-sanity \
-		python-sanity
+		python-sanity fortran-sanity
 
 raco-test:
 	raco test .
@@ -191,6 +198,13 @@ ifneq (, $(shell which python3))
 	cat benchmarks/*.fpcore tests/*.fpcore | racket infra/test-core2python.rkt --error 3
 else
 	$(warning skipping Python tests; unable to find Python interpreter)
+endif
+
+fortran-test:
+ifneq (, $(shell which $(CC)))
+	cat benchmarks/*.fpcore tests/*.fpcore | racket infra/test-core2fortran03.rkt --error 3
+else
+	$(warning skipping Fortran tests; unable to find Fortran compiler)
 endif
 
 update-tool-tests:

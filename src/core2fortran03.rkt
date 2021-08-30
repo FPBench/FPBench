@@ -3,12 +3,16 @@
 (require generic-flonum)
 (require "imperative.rkt")
 
-(provide core->fortran fortran-supported)
+(provide core->fortran type->fortran fortran-supported)
 
 (define fortran-supported 
   (supported-list
-    fpcore-ops
-    fpcore-consts
+    (invert-op-proc
+      (curry set-member?
+        '(acosh asinh atanh cbrt ceil copysign erf erfc exp2 expm1 floor fma
+          hypot isfinite isinf isnormal lgamma log1p log2 nearbyint remainder
+          signbit tgamma trunc)))
+    (curry set-member? '(TRUE FALSE))
     (curry set-member? '(binary32 binary64 integer))
     (curry equal? 'nearestEven)))
 
@@ -23,17 +27,80 @@
     result return rewing rewrite save select sequence stop subroutine target then use
     value volatile wait while where write))
 
+(define (fortran-fix-name name)
+  (string-join
+   (for/list ([char (~a name)])
+     (if (regexp-match #rx"[a-zA-Z0-9_]" (string char))
+         (string (char-downcase char))
+         (format "_~a" (char->integer char))))
+   ""))
+
 (define/match (type->fortran type)
   [('binary64) "real(8)"]
   [('binary32) "real(4)"]
-  [('boolean) "integer"]
+  [('boolean) "logical"]
   [('integer) "integer(8)"])
+
+(define (number->fortran x type)
+  (define (append-exponent x)
+    (if (string-contains? x "e")
+        (match type
+         ['binary64 (string-replace x "e" "d")]
+         [_ x])
+        (match type
+         ['binary64  (string-append x "d0")]
+         [_ (string-append x "e0")])))
+  (if (negative? x)
+      (format "(-~a)" (append-exponent (~a (abs (real->double-flonum x)))))
+      (append-exponent (~a (real->double-flonum x)))))
+
+(define (constant->fortran x ctx)
+  (match x
+   ['TRUE ".true."]
+   ['FALSE ".false."]
+   [(? hex?) (number->fortran (hex->racket x) (ctx-lookup-prop ctx ':precision))]
+   [(? number?) (number->fortran x (ctx-lookup-prop ctx ':precision))]
+   [(? symbol?) (~a x)]))
+
+(define (operator->fortran op args ctx)
+  (define type (type->fortran (ctx-lookup-prop ctx ':precision)))
+  (match (cons op args)
+   [(list 'not a) (format "(.not. ~a)" a)]
+   [(list (or '== '!= '< '> '<= '>=)) ".true."]
+   [(list (or '== '< '> '<= '>=) arg args ...)
+    (format "(~a)"
+            (string-join
+              (for/list ([a (cons arg args)] [b args])
+                (format "~a ~a ~a" a op b))
+              " .and. "))]
+   [(list '!= args ...)
+    (format "(~a)"
+            (string-join
+              (let loop ([args args])
+                (if (null? args)
+                    '()
+                    (append (for/list ([b (cdr args)])
+                              (format "~a /= ~a" (car args) b))
+                            (loop (cdr args)))))
+              " .and. "))]
+   [(list 'and a ...) (string-join args " .and. ")]
+   [(list 'or a ...) (string-join args " .or. ")]
+   [(list 'isnan a) (format "(~a /= ~a)" a a)]
+   [(list 'fabs a) (format "abs(~a)" a)]
+   [(list 'fdim a b) (format "dim(~a, ~a)" a b)]
+   [(list 'fmax a b) (format "max(~a, ~a)" a b)]
+   [(list 'fmin a b) (format "min(~a, ~a)" a b)]
+   [(list 'fmod a b) (format "mod(~a, ~a)" a b)]
+   [(list 'pow a b) (format "(~a ** ~a)" a b)]
+   [(list 'round a) (format "anint(~a)" a)]
+   [_ (format "~a(~a)" op (string-join args ", "))]))
 
 (define (assignment->fortran var val ctx)
   (format "~a = ~a" var val))
 
 (define (program->fortran name args arg-ctxs body ret ctx used-vars)
   (define type (type->fortran (ctx-lookup-prop ctx ':precision)))
+  (define declared-in (sort (remove* args used-vars) string<?))
   (format "~a function ~a(~a)\n~a~a~a    ~a = ~a\nend function\n" type name
           (string-join args ", ")
           (apply string-append
@@ -41,13 +108,17 @@
               (let ([type (type->fortran (ctx-lookup-prop ctx ':precision))])
                 (format "    ~a, intent (in) :: ~a\n" type arg))))
           (apply string-append
-            (for/list ([(name prec) (in-dict used-vars)])
-              (format "    ~a :: ~a\n" type name)))
+            (for/list ([name (in-list declared-in)])
+              (let ([type (type->fortran (ctx-lookup-prec ctx name))])
+                (format "    ~a :: ~a\n" type name))))
           body name ret))
 
 (define core->fortran
   (make-imperative-compiler "fortran03"
+    #:infix-ops (remove* '(== != < > <= >= not and or) default-infix-ops)
     #:type type->fortran
+    #:constant constant->fortran
+    #:operator operator->fortran
     #:assign assignment->fortran
     #:program program->fortran
     #:flags '(spaces-for-tabs
@@ -55,8 +126,8 @@
               never-declare
               if-then
               do-while)
-  ;  #:visitor fortran-visitor
     #:reserved fortran-reserved
+    #:fix-name fortran-fix-name
     #:indent "    "))
 
 (define-compiler '("f03") (const "") core->fortran (const "") fortran-supported)

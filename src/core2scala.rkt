@@ -29,6 +29,14 @@
     protected return sealed super this throw trait
     try true type val var while with yield))
 
+(define (scala-fix-name name)
+  (string-join
+   (for/list ([char (~a name)])
+     (if (regexp-match #rx"[a-zA-Z0-9_]" (string char))
+         (string char)
+         (format "_~a" (char->integer char))))
+   ""))
+
 (define/match (type->scala type)
   [('binary256) "QuadDouble"]
   [('binary128) "Quad"]
@@ -151,7 +159,7 @@
     #:program program->scala
     #:reserved scala-reserved
     #:visitor scala-visitor
-    #:fix-name-format "_~a"
+    #:fix-name scala-fix-name
     #:indent "\t\t"))
 
 (define (core->scala prog name)

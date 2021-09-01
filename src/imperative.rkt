@@ -1,7 +1,7 @@
 ;
 ;   Common compiler for all imperative languages
-;     "C"-like: C, JS, Go, Sollya, Scala
-;     Other: FPTaylor
+;     C, JS, Go, Sollya, Scala, Fortran
+;     FPTaylor, MATLAB
 ;
 
 #lang racket
@@ -45,20 +45,28 @@
     round-after-operation             ; ensure rounding after any operation (Sollya, FPTaylor)
     colon-instead-of-brace            ; use a colon rather than braces for code blocks (Python)
     use-elif                          ; use 'elif' instead of 'else if' (Python)
+    use-elseif                        ; use 'elseif' instead of 'else if' (MATLAB)
     boolean-ops-use-name              ; boolean operators use alphabetic name rather than symbol (Python)
     spaces-for-tabs                   ; replace tabs with 4 spaces (Fortran)
     do-while                          ; changes 'while' to 'do while' (Fortran)
     end-block-with-name               ; blocks enclosed by "<x> ... end <x>, implicitly no braces" (Fortran)
+    end-block-with-end               ; blocks ended by "end", implictly no braces" (MATLAB)
     no-body))                         ; do not compile the body (C header)
 
 (define (valid-flag? maybe-flag)
   (set-member? valid-flags maybe-flag))
 
+(define (more-than-one-of? specific flags)
+  (> (count (curry set-member? specific) flags) 1))
+
 (define (flag-conflict? flags)
-  (or (and (set-member? flags 'colon-instead-of-brace)    ; brace vs. colon. vs. nothing
-           (set-member? flags 'end-block-with-name))
-      (and (set-member? flags 'for-instead-of-while)      ; while vs. for vs. do while
-           (set-member? flags 'do-while))))
+  (or (more-than-one-of? '(colon-instead-of-brace     ; brace vs. colon vs. end <name> vs. end
+                           end-block-with-name
+                           end-block-with-end)
+                         flags)
+      (more-than-one-of? '(for-instead-of-while       ; while vs. for vs. do while
+                           do-while)
+                         flags)))
 
 (define (format-condition cond)
   (if (compile-flag-raised? 'no-parens-around-condition)
@@ -72,9 +80,10 @@
    [else "while"]))
 
 (define (else-if-name)
-  (if (compile-flag-raised? 'use-elif)
-      "elif"
-      "else if"))
+  (cond
+   [(compile-flag-raised? 'use-elif) "elif"]
+   [(compile-flag-raised? 'use-elseif) "elseif"]
+   [else "else if"]))
 
 (define (after-if)
   (if (compile-flag-raised? 'if-then)
@@ -95,29 +104,35 @@
   (cond
    [(compile-flag-raised? 'colon-instead-of-brace) "~aif ~a~a:\n"]
    [(compile-flag-raised? 'end-block-with-name) "~aif ~a~a\n"]
+   [(compile-flag-raised? 'end-block-with-end) "~aif ~a~a\n"]
    [else "~aif ~a~a {\n"]))
 
 (define (else-if-format)
   (cond
    [(compile-flag-raised? 'colon-instead-of-brace) "~a~a ~a~a:\n"]
    [(compile-flag-raised? 'end-block-with-name) "~a~a ~a~a\n"]
+   [(compile-flag-raised? 'end-block-with-end) "~a~a ~a~a\n"]
    [else "~a} ~a ~a~a {\n"]))
 
 (define (else-format)
   (cond
    [(compile-flag-raised? 'colon-instead-of-brace) "~aelse:\n"]
    [(compile-flag-raised? 'end-block-with-name) "~aelse\n"]
+   [(compile-flag-raised? 'end-block-with-end) "~aelse\n"]
    [else "~a} else {\n"]))
 
 (define (while-format)
   (cond
    [(compile-flag-raised? 'colon-instead-of-brace) "~a~a ~a~a:\n"]
    [(compile-flag-raised? 'end-block-with-name) "~a~a ~a~a\n"]
+   [(compile-flag-raised? 'end-block-with-end) "~a~a ~a~a\n"]
    [else "~a~a ~a~a {\n"]))
 
 (define (end-of-block indent type)
   (cond
    [(compile-flag-raised? 'colon-instead-of-brace) ""]
+   [(compile-flag-raised? 'end-block-with-end)
+    (format "~aend\n" indent)]
    [(compile-flag-raised? 'end-block-with-name)
     (define name
       (cond

@@ -159,9 +159,9 @@
                 ctx))]
 
   [(visit-symbol vtor x #:ctx ctx)
-    (define var-prec (ctx-lookup-prop ctx x))
-    (values (ctx-lookup-name ctx x)   ; TODO: compile-constant on this?
-            (ctx-update-props ctx `(:precision ,var-prec)))])
+    (define name (ctx-lookup-name ctx x))
+    (define var-prec (ctx-lookup-prec ctx name))
+    (values name (ctx-update-props ctx `(:precision ,var-prec)))])
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;; compiler constructor ;;;;;;;;;;;;;;;;;;;;;;;;;;;

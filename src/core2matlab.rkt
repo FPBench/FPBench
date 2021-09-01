@@ -7,7 +7,9 @@
 (define matlab-supported 
   (supported-list
     (invert-op-proc
-      (curry set-member? '(fma expm1 log1p)))
+      (curry set-member?
+        '(cbrt exp2 expm1 fdim fma fmod isnormal log1p
+          nearbyint remainder signbit)))
     fpcore-consts
     (curry set-member? '(binary32 binary64))
     (curry equal? 'nearestEven)))
@@ -36,7 +38,8 @@
 
 (define (operator->matlab op args ctx)
   (match (cons op args)
-   [(list '!= args)
+   [(list 'not a) (format "~~(~a)" a)]
+   [(list '!= args ...)
     (format "(~a)"
             (string-join
               (let loop ([args args])
@@ -44,37 +47,52 @@
                     '()
                     (append
                       (for/list ([b (cdr args)])
-                        (format "~a != ~a" (car args) b))
+                        (format "~a ~~= ~a" (car args) b))
                       (loop (cdr args)))))
               "&&"))]
-   [(list '- a) (format "(uminus ~a)" a)]
-   [(list '- a b) (format "(~a - ~a)" a b)]
-   [(list 'fmod a b) (format "mod(~a, ~a)" a b)]
+   [(list 'copysign a b) (format "(sign(~a) * abs(~a))" b a)]
+   [(list 'fabs a) (format "abs(~a)" a)]
+   [(list 'fmax a b) (format "max(~a, ~a)" a b)]
+   [(list 'fmin a b) (format "min(~a, ~a)" a b)]
+   [(list 'fmod a b) (format "rem(~a, ~a)" a b)]
+   [(list 'lgamma a) (format "gammaln(~a)" a)]
+   [(list 'pow a b) (format "(~a ^ ~a)" a b)]
    [(list 'remainder a b) (format "rem(~a, ~a)" a b)]
+   [(list 'tgamma a) (format "gamma(~a)" a)]
+   [(list 'trunc a) (format "fix(~a)" a)]
    [_ (format "~a(~a)" op (string-join args ", "))]))
 
-(define (constant->matlab x ctx)
+(define (number->matlab x ctx)
   (match x
-   ['TRUE "true"]
-   ['FALSE "false"]
    ['E "2.71828182845904523536"]
    ['LOG2E "1.44269504088896340736"]
    ['LOG10E "0.434294481903251827651"]
    ['LN2	"0.693147180559945309417"]
    ['LN10	"2.30258509299404568402"]
-   ['PI	"3.14159265358979323846"]
+   ['PI	"pi"]
    ['PI_2	"1.57079632679489661923"]
    ['PI_4	"0.785398163397448309616"]
    ['M_1_PI	"0.318309886183790671538"]
    ['M_2_PI "0.636619772367581343076"]
    ['M_2_SQRTPI "1.12837916709551257390"]
-   ['M_SQRT2 "1.41421356237309504880"]  
-   ['M_SQRT1_2 "0.707106781186547524401"]
+   ['SQRT2 "1.41421356237309504880"]  
+   ['SQRT1_2 "0.707106781186547524401"]
    ['INFINITY "Inf"]
    ['NAN "NaN"]
    [(? hex?) (~a (real->double-flonum (hex->racket x)))]
    [(? number?) (~a (real->double-flonum x))]
    [(? symbol?) (~a x)]))
+
+(define (constant->matlab x ctx)
+  (define prec (ctx-lookup-prop ctx ':precision))
+  (define ->num
+    (match prec
+     ['binary32 (curry format "single(~a)")]
+     [_ identity]))
+  (match x
+   ['TRUE "true"]
+   ['FALSE "false"]
+   [_ (->num (number->matlab x ctx))]))
 
 (define declaration->matlab
   (case-lambda
@@ -84,21 +102,81 @@
    [(var val ctx)
     (format "~a = ~a;" var val)]))
 
+(define (round->matlab x ctx)
+  (define prec (ctx-lookup-prop ctx ':precision))
+  (define cast
+    (match prec
+     ['binary64 (curry format "double(~a)")]
+     ['binary32 (curry format "single(~a)")]
+     [_ identity]))
+  (cast x))
+
+(define (cmp-prec prec1 prec2)
+  (define/match (prec->num prec)
+    [('binary64) 2]
+    [('binary32) 1]
+    [('boolean)  0])
+  (- (prec->num prec1) (prec->num prec2)))
+
+; handles matlab's weird casting behavior for binary operators
+(define (operator->matlab* op args arg-prec ctx)
+  (define prec (ctx-lookup-prop ctx ':precision))
+  (define ->single (curry format "single(~a)"))
+  (define ->double (curry format "double(~a)"))
+  (define-values (fa fb fo) ; formatters
+    (match (list (first arg-prec) (second arg-prec) prec)
+     [(list 'binary32 'binary32 'binary32) ; f32 f32 -> f32
+      (values identity identity identity)]
+     [(list 'binary32 'binary32 'binary64) ; f32 f32 -> f64
+      (values ->double ->double identity)]
+     [(list 'binary64 'binary32 'binary32) ; f64 f32 -> f32
+      (values identity ->double ->single)]
+     [(list 'binary64 'binary32 'binary64) ; f64 f32 -> f64
+      (values identity ->double identity)]
+     [(list 'binary32 'binary64 'binary32) ; f32 f64 -> f32
+      (values ->double identity ->single)]
+     [(list 'binary32 'binary64 'binary64) ; f32 f64 -> f64
+      (values ->double identity identity)]
+     [(list 'binary64 'binary64 'binary32) ; f64 f64 -> f32
+      (values identity identity ->single)]
+     [(list 'binary64 'binary64 'binary64) ; f64 f64 -> f64
+      (values identity identity identity)]))
+  (fo (compile-operator op (list (fa (first args)) (fb (second args))) ctx)))
+
 (define (program->matlab name args arg-ctxs body ret ctx used-vars)
   (define-values (_ ret-var) (ctx-random-name ctx))
   (format "function ~a = ~a(~a)\n~a\t~a = ~a;\nend\n"
           ret-var name (string-join args ", ")
           body ret-var ret))
 
+; override operators since Matlab will cast down to lowest precision
+(define-expr-visitor imperative-visitor matlab-visitor
+  [(visit-op vtor op args #:ctx ctx)
+    (define prec (ctx-lookup-prop ctx ':precision))
+    (define-values (args* arg-precs)
+      (for/lists (l1 l2) ([arg args])
+        (define-values (arg* arg-ctx) (visit/ctx vtor arg ctx))
+        (define arg-prec (ctx-lookup-prop arg-ctx ':precision))
+        (values arg* arg-prec)))
+    (define bool? (set-member? bool-ops op))
+    (values (if (and (= (length args) 2) (not bool?))
+                (operator->matlab* op args* arg-precs ctx)
+                (compile-operator op args* ctx))
+            (if bool?
+                (ctx-update-props ctx (list ':precision 'boolean))
+                ctx))])
+
 (define core->matlab
   (make-imperative-compiler "matlab"
-    #:infix-ops (remove* '(!= -) default-infix-ops)
+    #:infix-ops (remove* '(not !=) default-infix-ops)
     #:operator operator->matlab
     #:constant constant->matlab
     #:declare declaration->matlab
+    #:round round->matlab
+    #:program program->matlab
     #:flags '(end-block-with-end
               use-elseif)
-    #:program program->matlab
+    #:visitor matlab-visitor
     #:reserved matlab-reserved))
 
 (define-compiler '("m" "mat") (const "") core->matlab (const "") matlab-supported)

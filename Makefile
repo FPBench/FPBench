@@ -105,9 +105,16 @@ else
 	$(warning skipping Fortran sanity tests; unable to find Fortran compiler)
 endif
 
+matlab-sanity:
+ifneq (, $(shell which matlab))
+	cat tests/sanity/*.fpcore | racket infra/test-core2matlab.rkt --repeat 1
+else
+	$(warning skipping MATLAB sanity tests; unable to find MATLAB tool)
+endif
+
 sanity: c-sanity java-sanity js-sanity go-sanity smtlib2-sanity sollya-sanity \
 		wls-sanity cml-sanity fptaylor-sanity scala-sanity ocaml-sanity \
-		python-sanity fortran-sanity
+		python-sanity fortran-sanity matlab-sanity
 
 raco-test:
 	raco test .
@@ -207,6 +214,13 @@ else
 	$(warning skipping Fortran tests; unable to find Fortran compiler)
 endif
 
+matlab-test:
+ifneq (, $(shell which matlab))
+	cat benchmarks/*.fpcore tests/*.fpcore | racket infra/test-core2matlab.rkt --error 3
+else
+	$(warning skipping MATLAB sanity tests; unable to find MATLAB tool)
+endif
+
 update-tool-tests:
 	tests/scripts/test-export.sh generate	
 	tests/scripts/test-transform.sh generate
@@ -230,8 +244,8 @@ tensor-test:
 tools-test: export-test transform-test toolserver-test evaluate-test tensor-test
 
 test: c-test java-test js-test go-test smtlib2-test sollya-test wls-test \
-	  cml-test fptaylor-test daisy-test ocaml-test python-test export-test \
-	  transform-test toolserver-test evaluate-test raco-test 
+	  cml-test fptaylor-test daisy-test ocaml-test python-test matlab-test \
+	  export-test transform-test toolserver-test evaluate-test raco-test
 
 clean:
 	$(RM) -r library tmp log *.zo *.dep

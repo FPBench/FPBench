@@ -11,8 +11,9 @@
 (provide (all-from-out "common.rkt" "compilers.rkt" "fpcore-visitor.rkt" "supported.rkt")
          make-imperative-compiler
          default-infix-ops
+         bool-ops
          imperative-visitor
-         compile-infix-operator)
+         compile-operator)  ; exported for MATLAB
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;; language-specific abstractions ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

@@ -9,7 +9,7 @@
 
 (provide (all-from-out "common.rkt" "compilers.rkt" "fpcore-visitor.rkt" "supported.rkt")
          make-ml-compiler ml-visitor default-infix-ops
-         single-indent double-indent)
+         half-indent single-indent double-indent)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;; language-specific abstractions ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -32,6 +32,9 @@
   (set-member? valid-flags maybe-flag))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;; shorthands ;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define (compile-flag-raised? flag)
+  (set-member? (ml-flags (*ml-lang*)) flag))
 
 (define (compile-infix-operator op args ctx)
   (match (cons op args)
@@ -105,8 +108,9 @@
     (make-compiler-ctx)
     '(:precision binary64 :round nearestEven)))
 
-(define single-indent "  ")
-(define double-indent (format "~a~a" single-indent single-indent))
+(define half-indent " ")
+(define single-indent (string-append half-indent half-indent))
+(define double-indent (string-append single-indent single-indent))
 
 (define (fix-name name)
   (string-join
@@ -177,6 +181,7 @@
   ; end
   [(visit-while_ vtor while_ cond vars inits updates body #:ctx ctx)
     (define indent (ctx-lookup-extra ctx 'indent))
+    (define inner-cond-indent (string-append double-indent single-indent half-indent))
     (define-values (while-ctx fn-name)
       (let ([ctx0 (ctx-set-extra ctx 'indent (format "~a~a" indent single-indent))])
         (ctx-unique-name ctx0 'loop)))
@@ -198,7 +203,9 @@
     (printf "~a~afun ~a ~a =\n" indent single-indent
             fn-name (string-join vars* " "))
     (printf "~a~aif " indent double-indent)
-    (define-values (cond* _) (visit/ctx vtor cond ctx*))    ; condition
+    (define-values (cond* _)
+      (let ([ctx0 (ctx-set-extra ctx* 'indent (format "~a~a" indent inner-cond-indent))])
+        (visit/ctx vtor cond ctx0)))    ; condition
     (printf "~a then\n~a~a~alet\n" cond* indent double-indent single-indent)
     (define-values (ctx** vars**)                           ; loop update
       (for/fold ([ctx** ctx*] [vars* '()] #:result (values ctx** (reverse vars*)))
@@ -209,7 +216,7 @@
             (let-values ([(_ var-ctx) (visit/ctx vtor val val-ctx)])
               (let ([prec (ctx-lookup-prop val-ctx ':precision)])
                 (ctx-unique-name ctx** var prec)))))
-        (printf "~a~a~aval ~a = " indent double-indent double-indent name)
+        (printf "~a~aval ~a = " indent (string-append double-indent double-indent) name)
         (define val-ctx*
           (ctx-update-extra val-ctx 'indent
                             (curry format "~a~a~a" double-indent single-indent)))

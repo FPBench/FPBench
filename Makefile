@@ -112,9 +112,16 @@ else
 	$(warning skipping MATLAB sanity tests; unable to find MATLAB tool)
 endif
 
+haskell-sanity:
+ifneq (, $(shell which ghc))
+	cat tests/sanity/*.fpcore | racket infra/test-core2haskell.rkt --repeat 1
+else
+	$(warning skipping Haskell sanity tests; unable to find Haskell compiler)
+endif
+
 sanity: c-sanity java-sanity js-sanity go-sanity smtlib2-sanity sollya-sanity \
 		wls-sanity cml-sanity fptaylor-sanity scala-sanity ocaml-sanity \
-		python-sanity fortran-sanity matlab-sanity
+		python-sanity fortran-sanity matlab-sanity haskell-sanity
 
 raco-test:
 	raco test .
@@ -221,6 +228,13 @@ else
 	$(warning skipping MATLAB sanity tests; unable to find MATLAB tool)
 endif
 
+haskell-test:
+ifneq (, $(shell which ghc))
+	cat benchmarks/*.fpcore tests/*.fpcore | racket infra/test-core2haskell.rkt --error 3
+else
+	$(warning skipping Haskell tests; unable to find Haskell compiler)
+endif
+
 update-tool-tests:
 	tests/scripts/test-export.sh generate	
 	tests/scripts/test-transform.sh generate
@@ -245,7 +259,8 @@ tools-test: export-test transform-test toolserver-test evaluate-test tensor-test
 
 test: c-test java-test js-test go-test smtlib2-test sollya-test wls-test \
 	  cml-test fptaylor-test daisy-test ocaml-test python-test matlab-test \
-	  export-test transform-test toolserver-test evaluate-test raco-test
+	  haskell-test export-test transform-test toolserver-test evaluate-test \
+	  raco-test
 
 clean:
 	$(RM) -r library tmp log *.zo *.dep

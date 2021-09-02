@@ -13,6 +13,7 @@
          "src/core2gappa.rkt" 
          "src/core2go.rkt"
          "src/core2h.rkt"
+         "src/core2haskell.rkt"
          "src/core2java.rkt"
          "src/core2js.rkt"
          "src/core2matlab.rkt"

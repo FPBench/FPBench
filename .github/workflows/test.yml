@@ -504,11 +504,6 @@ jobs:
           variant: 'CS'
           version: '8.2'
 
-      - name: "Install Haskell"
-        uses: actions/setup-haskell@v1.1
-        with:
-          ghc-version: '8.6'
-
       - name: "Install Packages"
         run: |
           sudo apt-get update
@@ -522,3 +517,31 @@ jobs:
 
       - name: "Haskell test"
         run: make haskell-test
+
+  julia:    # Julia language
+    name: "Julia Tests"
+    runs-on: ubuntu-latest
+    needs: [ 'unit' ]
+    steps:
+      - uses: actions/checkout@v2
+      - name: "Install Racket"
+        uses: Bogdanp/setup-racket@v1.5
+        with:
+          architecture: 'x64'
+          distribution: 'full'
+          variant: 'CS'
+          version: '8.2'
+
+      - name: "Install Packages"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libmpfr6 libmpfr-dev
+
+      - name: "Install as Racket package"
+        run: raco pkg install --auto
+
+      - name: "Julia sanity"
+        run: make julia-sanity
+
+      - name: "Julia test"
+        run: make julia-test

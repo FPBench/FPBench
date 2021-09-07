@@ -119,9 +119,16 @@ else
 	$(warning skipping Haskell sanity tests; unable to find Haskell compiler)
 endif
 
+julia-sanity:
+ifneq (, $(shell which julia))
+	cat tests/sanity/*.fpcore | racket infra/test-core2julia.rkt --repeat 1
+else
+	$(warning skipping Julia sanity tests; unable to find Julia interpreter)
+endif
+
 sanity: c-sanity java-sanity js-sanity go-sanity smtlib2-sanity sollya-sanity \
 		wls-sanity cml-sanity fptaylor-sanity scala-sanity ocaml-sanity \
-		python-sanity fortran-sanity matlab-sanity haskell-sanity
+		python-sanity fortran-sanity matlab-sanity haskell-sanity julia-sanity
 
 raco-test:
 	raco test .
@@ -233,6 +240,13 @@ ifneq (, $(shell which ghc))
 	cat benchmarks/*.fpcore tests/*.fpcore | racket infra/test-core2haskell.rkt --error 3
 else
 	$(warning skipping Haskell tests; unable to find Haskell compiler)
+endif
+
+julia-test:
+ifneq (, $(shell which julia))
+	cat benchmarks/*.fpcore tests/*.fpcore | racket infra/test-core2julia.rkt --error 3
+else
+	$(warning skipping Julia tests; unable to find Julia interpreter)
 endif
 
 update-tool-tests:

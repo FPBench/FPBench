@@ -110,7 +110,7 @@
   (~a expr))
 
 (define (default-implicit-round arg-ctxs ctx)
-  (values identity identity))
+  (values (make-list (length arg-ctxs) identity) identity))
 
 (define (default-compile-program name args arg-ctxs body ctx)
   (format "fun ~a ~a = ~a\n" name (string-join args " ") body))

@@ -3,7 +3,8 @@
 (require generic-flonum)
 (require "imperative.rkt")
 
-(provide c-header core->c c-supported)
+(provide c-header core->c c-supported
+         c-reserved type->c params->c) ; required by core2h.rkt
 
 (define c-header (const "#include <fenv.h>\n#include <math.h>\n#include <stdint.h>\n#define TRUE 1\n#define FALSE 0\n\n"))
 (define c-supported 

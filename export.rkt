@@ -11,6 +11,7 @@
          "src/core2fptaylor.rkt"
          "src/core2gappa.rkt" 
          "src/core2go.rkt"
+         "src/core2h.rkt"
          "src/core2js.rkt"
          "src/core2scala.rkt"
          "src/core2smtlib2.rkt"

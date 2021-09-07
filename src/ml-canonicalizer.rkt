@@ -97,9 +97,9 @@
 ;              (let ([<symbol> <clause>] ...+) <clause>) |
 ;              (let* ([<symbol> <clause>] ...+) <clause>) |
 ;              (while <clause> ([<symbol> <clause> <clause>] ...+) <clause>) |
-;              (while* <clause ([<symbol> <clause> <clause>] ...+) <clause>) |
+;              (while* <clause> ([<symbol> <clause> <clause>] ...+) <clause>) |
 ;              <expr>
-;  <expr> := (f <expr> ...+) | <terminal>
+;  <expr> := (<func> <expr> ...+) | <terminal>
 ;
 (define (canonicalize-ml expr names)
   (define/transform-expr (->canon/top expr ctx)

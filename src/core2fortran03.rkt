@@ -88,8 +88,10 @@
    [(list 'isnan a) (format "(~a /= ~a)" a a)]
    [(list 'fabs a) (format "abs(~a)" a)]
    [(list 'fdim a b) (format "dim(~a, ~a)" a b)]
-   [(list 'fmax a b) (format "max(~a, ~a)" a b)]
-   [(list 'fmin a b) (format "min(~a, ~a)" a b)]
+   [(list 'fmax a b) (format "merge(~a, merge(~a, max(~a, ~a), ~a /= ~a), ~a /= ~a)"
+                             b a a b b b a a)]
+   [(list 'fmin a b) (format "merge(~a, merge(~a, min(~a, ~a), ~a /= ~a), ~a /= ~a)"
+                              b a a b b b a a)]
    [(list 'fmod a b) (format "mod(~a, ~a)" a b)]
    [(list 'pow a b) (format "(~a ** ~a)" a b)]
    [(list 'round a) (format "anint(~a)" a)]

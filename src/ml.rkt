@@ -5,7 +5,8 @@
 
 #lang racket
 
-(require "common.rkt" "compilers.rkt" "fpcore-visitor.rkt" "supported.rkt")
+(require "common.rkt" "compilers.rkt" "fpcore-visitor.rkt"
+         "ml-canonicalizer.rkt" "supported.rkt")
 
 (provide (all-from-out "common.rkt" "compilers.rkt" "fpcore-visitor.rkt" "supported.rkt")
          make-ml-compiler ml-visitor default-infix-ops
@@ -21,12 +22,14 @@
    operator           ; procedure to format any non-infix operator
    constant           ; procedure to format constants
    round              ; procedure to format (explicit) casts
+   implicit-round     ; procedure to handle (implicit) casts
    program            ; procedure to format the entire program
    flags))            ; list of optional flags to change minor behavior
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;; flags ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define valid-flags '())
+(define valid-flags
+  '(round-output))        ; calls 'implicit-round' on return expression
 
 (define (valid-flag? maybe-flag)
   (set-member? valid-flags maybe-flag))
@@ -79,11 +82,19 @@
 (define (compile-constant x ctx)
   ((ml-constant (*ml-lang*)) x ctx))
 
-(define (compile-round expr ctx)
-  ((ml-round (*ml-lang*)) expr ctx))
+(define (compile-round expr ictx octx)
+  ((ml-round (*ml-lang*)) expr ictx octx))
+
+(define (compile-implicit-round arg-ctxs ctx)
+  ((ml-implicit-round (*ml-lang*)) arg-ctxs ctx))
 
 (define (compile-program name args arg-ctxs body ctx)
   ((ml-program (*ml-lang*)) name args arg-ctxs body ctx))
+
+(define (compile-body expr ictx octx)
+  (if (compile-flag-raised? 'round-output)
+      (compile-round expr ictx octx)
+      expr))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;; defaults ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -95,8 +106,11 @@
 (define (default-compile-constant x ctx)
   (~a x))
 
-(define (default-compile-round expr ctx)
+(define (default-compile-round expr ictx octx)
   (~a expr))
+
+(define (default-implicit-round arg-ctxs ctx)
+  (values identity identity))
 
 (define (default-compile-program name args arg-ctxs body ctx)
   (format "fun ~a ~a = ~a\n" name (string-join args " ") body))
@@ -149,7 +163,7 @@
         (define-values (name-ctx name)    ; messy workaround to get val context
           (parameterize ([current-output-port (open-output-nowhere)])
             (let-values ([(_ var-ctx) (visit/ctx vtor val val-ctx)])
-              (let ([prec (ctx-lookup-prop val-ctx ':precision)])
+              (let ([prec (ctx-lookup-prop var-ctx ':precision)])
                 (ctx-unique-name ctx* var prec)))))
         (printf "~a~aval ~a = " indent single-indent name)
         (define val-ctx*
@@ -238,18 +252,18 @@
 
   [(visit-cast vtor body #:ctx ctx)
     (define-values (body* body-ctx) (visit/ctx vtor body ctx))
-    (values (compile-round body* ctx) body-ctx)]
+    (values (compile-round body* body-ctx ctx) ctx)]
 
   [(visit-! vtor props body #:ctx ctx)
     (define ctx* (ctx-update-props ctx props))
     (visit/ctx vtor body ctx*)]
 
   [(visit-op vtor op args #:ctx ctx)
-    (define args*
-      (for/list ([arg args])
-        (let-values ([(arg* arg-ctx) (visit/ctx vtor arg ctx)])
-          arg*)))
-    (values (compile-operator op args* ctx)
+    (define-values (args* arg-ctxs)
+      (for/lists (l1 l2) ([arg args])
+        (visit/ctx vtor arg ctx)))
+    (define-values (arg-casts out-cast) (compile-implicit-round arg-ctxs ctx))
+    (values (out-cast (compile-operator op (map (λ (f x) (f x)) arg-casts args*) ctx))
             (if (set-member? bool-ops op)
                 (ctx-update-props ctx (list ':precision 'boolean))
                 ctx))]
@@ -287,6 +301,7 @@
                           #:operator [operator default-compile-operator]
                           #:constant [constant default-compile-constant]
                           #:round [round default-compile-round]
+                          #:implicit-round [implicit-round default-implicit-round]
                           #:program [program default-compile-program]
                           #:flags [flags '()]
                           ; visitor behvaior
@@ -295,7 +310,7 @@
                           #:fix-name [fix-name identity])
   (unless (andmap valid-flag? flags)
     (error 'make-ml-compiler "Undefined ml flags: ~a" flags))
-  (define language (ml name infix operator constant round program flags))
+  (define language (ml name infix operator constant round implicit-round program flags))
   (lambda (prog name)
     (parameterize ([*gensym-used-names* (mutable-set)] 
                    [*gensym-collisions* 1]
@@ -328,10 +343,13 @@
             (define-values (cx aname) (ctx-unique-name ctx name))
             (begin0 (values aname ctx) (set! ctx cx))])))
 
+      (define body* (canonicalize-ml body (apply set (set->list (*gensym-used-names*)))))
       (define p (open-output-string))
         (parameterize ([current-output-port p])
-          (define-values (o _) (visit/ctx vtor body ctx))
-          (define o* (string-append (get-output-string p) (trim-infix-parens o)))
+          (define-values (o c) (visit/ctx vtor body* ctx))
+          (define o* 
+            (let ([o (string-append (get-output-string p) o)])
+              (trim-infix-parens (compile-round o c ctx))))
           (compile-program fname arg-names arg-ctxs o* ctx)))))
 
 (module+ test

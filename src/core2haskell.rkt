@@ -5,14 +5,21 @@
 
 (provide haskell-header core->haskell type->haskell haskell-supported)
 
-(define haskell-header (const "import Numeric\n\n"))
+(define haskell-header
+  (const 
+    (string-append
+      "import Numeric\nimport GHC.Float\n\n"
+      "fmax x y = if (isNaN x) then y else if (isNaN y) then x else (max x y)\n"
+      "fmin x y = if (isNaN x) then y else if (isNaN y) then x else (min x y)\n\n")))
 
+; acosh, asinh, atanh supported but inaccurate
 (define haskell-supported
   (supported-list
     (invert-op-proc
       (curry set-member?
-        '(cbrt ceil erf erfc exp2 fdim floor fma fmod hypot isnormal lgamma
-          log2 log10 nearbyint remainder round signbit tgamma trunc)))
+        '(acosh asinh atanh cbrt ceil erf erfc exp2 fdim floor fma fmod
+          hypot isnormal lgamma log2 log10 nearbyint remainder round
+          signbit tgamma trunc)))
     (curry set-member? '(TRUE FALSE INFINITY NAN PI E))
     (curry set-member? '(binary64 binary32))
     (curry equal? 'nearestEven)))
@@ -54,8 +61,6 @@
    [(list 'isnan a) (format "(isNaN ~a)" a)]
    [(list 'copysign a b) (format "((signum ~a) * (abs ~a))" b a)]
    [(list 'fabs a) (format "(abs ~a)" a)]
-   [(list 'fmax a b) (format "(max ~a ~a)" a b)]
-   [(list 'fmin a b) (format "(min ~a ~a)" a b)]
    [(list 'pow a b) (format "(~a ** ~a)" a b)]
    [_ (format "(~a ~a)" op (string-join args " "))]))
 
@@ -71,6 +76,43 @@
    [(? hex?) (format "(~a :: ~a)" (real->double-flonum (hex->racket x)) type)]
    [(? number?) (format "(~a :: ~a)" (real->double-flonum x) type)]
    [(? symbol?) (~a x)]))
+
+(define (round->haskell x in-ctx out-ctx)
+  (define in-prec (ctx-lookup-prop in-ctx ':precision))
+  (define out-prec (ctx-lookup-prop out-ctx ':precision))
+  (match (cons in-prec out-prec)
+   [(cons 'binary64 'binary32)
+    (if (body-is-multi-lined? x)
+        (format "(double2Float\n (~a))" x)
+        (format "(double2Float ~a)" x))]
+   [(cons 'binary32 'binary64)
+    (if (body-is-multi-lined? x)
+        (format "(float2Double\n (~a))" x)
+        (format "(float2Double ~a)" x))]
+   [_ x]))
+
+(define (implicit-round->haskell arg-ctxs ctx)
+  (define arg-precs (map (curryr ctx-lookup-prop ':precision) arg-ctxs))
+  (define prec (ctx-lookup-prop ctx ':precision))
+  (define argc (length arg-precs))
+  (cond
+   [(ormap (curry equal? 'boolean) (cons prec arg-precs))
+    (values (make-list argc identity) identity)]
+   [(equal? prec 'binary32)
+    (if (andmap (curry equal? 'binary32) arg-precs)
+        (values (make-list argc identity) identity)
+        (values (for/list ([prec arg-precs]) (if (equal? prec 'binary32)
+                                                  (curry format "(float2Double ~a)")
+                                                  identity))
+                (curry format "(double2Float ~a)")))]
+   [else
+    (if (andmap (curry equal? 'binary64) arg-precs)
+        (values (make-list argc identity) identity)
+        (values (for/list ([prec arg-precs]) (if (equal? prec 'binary32)
+                                                  (curry format "(float2Double ~a)")
+                                                  identity))
+                identity))]))
+
 
 (define (params->haskell args)
   (if (null? args) "" (string-join args " ")))
@@ -124,7 +166,7 @@
         (define-values (name-ctx name)    ; messy workaround to get val context
           (parameterize ([current-output-port (open-output-nowhere)])
             (let-values ([(_ var-ctx) (visit/ctx vtor val val-ctx)])
-              (let ([prec (ctx-lookup-prop val-ctx ':precision)])
+              (let ([prec (ctx-lookup-prop var-ctx ':precision)])
                 (ctx-unique-name ctx* var prec)))))
         (printf (if (zero? i) "~a = " (format "~a~a~~a = " indent double-indent)) name)
         (define nindent (apply string-append (make-list (string-length name) half-indent)))
@@ -174,7 +216,7 @@
         (define-values (name-ctx name)    ; messy workaround to get val context
           (parameterize ([current-output-port (open-output-nowhere)])
             (let-values ([(_ var-ctx) (visit/ctx vtor val val-ctx)])
-              (let ([prec (ctx-lookup-prop val-ctx ':precision)])
+              (let ([prec (ctx-lookup-prop var-ctx ':precision)])
                 (ctx-unique-name ctx* var prec)))))
         (printf (if (zero? i) "~a = " (format "~a~a~~a = " indent double-indent)) name)
         (define nindent (apply string-append (make-list (string-length name) half-indent)))
@@ -198,7 +240,7 @@
         (define-values (name-ctx name)    ; messy workaround to get val context
           (parameterize ([current-output-port (open-output-nowhere)])
             (let-values ([(_ var-ctx) (visit/ctx vtor val val-ctx)])
-              (let ([prec (ctx-lookup-prop val-ctx ':precision)])
+              (let ([prec (ctx-lookup-prop var-ctx ':precision)])
                 (ctx-unique-name ctx** var prec)))))
         (printf (if (zero? i) "~a = " (format "~a~a~~a = " indent inner-let-indent)) name)
         (define nindent (apply string-append (make-list (string-length name) half-indent)))
@@ -224,6 +266,8 @@
     #:infix-ops (remove* '(!= not -) default-infix-ops)
     #:operator operator->haskell
     #:constant constant->haskell
+    #:round round->haskell
+    #:implicit-round implicit-round->haskell
     #:program program->haskell
     #:visitor haskell-visitor
     #:fix-name fix-name

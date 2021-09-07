@@ -225,3 +225,11 @@
 (FPCore (x y)
   :name "Test arguments (2/2)"
   x)
+
+(FPCore (x)
+  :name "Nested syntax (1/2)"
+  (+ 1 (if (< x 0) -1 1)))
+
+(FPCore (x)
+  :name "Nested syntax (2/2)"
+  (+ 1 (let ([y 1]) (+ y x))))

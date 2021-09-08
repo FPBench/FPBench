@@ -518,6 +518,8 @@ jobs:
       - name: "Haskell test"
         run: make haskell-test
 
+  # Note: Julia 1.6.2 will crash when trying to print infinity
+  # Ubuntu 20.04 ships with Julia 1.4.1
   julia:    # Julia language
     name: "Julia Tests"
     runs-on: ubuntu-latest
@@ -535,7 +537,7 @@ jobs:
       - name: "Install Packages"
         run: |
           sudo apt-get update
-          sudo apt-get install -y libmpfr6 libmpfr-dev
+          sudo apt-get install -y libmpfr6 libmpfr-dev julia
 
       - name: "Install as Racket package"
         run: raco pkg install --auto

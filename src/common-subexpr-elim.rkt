@@ -82,8 +82,15 @@
   (for ([k keys] [v vals])
     (hash-set! h k v)))
 
-; ensures each new bindings has a unique name
-(define (unique-vars expr vartable)
+; This function is slightly more complicated than it sounds.
+; It assigns unique names to variables for the time that they
+; store a particular value.
+; The caveat ensures, for example, that an expression in the value of
+; a while binding is not merged with same expression in the body of the
+; same while binding. While the two may refer to the same location,
+; there is no guarantee that it contains the same value, so we cannot
+; compute it before entering the loop.
+(define (unique-vars/cse expr vartable)
   (define/transform-expr (uniquify expr ctx)
     [(visit-let vtor vars vals body #:ctx [ctx '()])
       (define vars* (map gensym vars))
@@ -281,7 +288,7 @@
 
   ; fill `exprhash` and `exprs` and store top index
   (define root
-    (let ([expr* (unique-vars expr vartable)])
+    (let ([expr* (unique-vars/cse expr vartable)])
       (clear-names!)
       (for ([var vars]) (add-name! var))
       (munge expr*)))
@@ -491,5 +498,5 @@
                   '(let* ([a 1] [b 2] [c 3]) (+ (* a b) c)))
 
   (check-fuse-let-exprs '(let* ([a 1] [b 2]) (let* ([c 3] [d 4]) (+ (* a b) (* c d))))
-                  '(let* ([a 1] [b 2] [c 3] [d 4]) (+ (* a b) (* c d))))
+                  '(let* ([a 1] [b 2] [c 3] [d 4]) (+ (* a b) (* c d))))             
 )

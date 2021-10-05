@@ -32,30 +32,32 @@
 (define (clear-names!)
   (set-clear! (*names*)))
 
-;; fuse let expressions
-
-(define/transform-expr (fuse-let expr)
-  [(visit-let_ vtor let_ vars vals body #:ctx [ctx '()])
-    (match (list let_ vars body)
-     [(list 'let (list var) `(let ([,var2 ,val2]) ,body2))          ; (let ([a ...]) (let ([b ...]) ...))
-      (visit/ctx vtor
-                `(let* (,(list var (car vals)) ,(list var2 val2)) ,body2)
-                 ctx)]
-     [(list 'let (list var) `(let* ([,vars2 ,vals2] ...) ,body2))   ; (let ([a ...]) (let* ([b ...] ...) ...))
-      (visit/ctx vtor
-                `(let* (,@(map list (cons var vars2) (cons (car vals) vals2))) ,body2)
-                 ctx)]
-     [(list 'let* _ `(let ([,var2 ,val2]) ,body2))   ; (let* ([a ...] ...) (let ([b ...]) ...))
-      (visit/ctx vtor
-                `(let* (,@(map list vars vals) ,(list var2 val2)) ,body2)
-                 ctx)]
-     [(list 'let* _ `(let* ([,vars2 ,vals2] ...) ,body2))   ; (let* ([a ...] ...) (let* ([b ...] ...) ...))
-      (visit/ctx vtor
-                `(let* (,@(map list (append vars vars2) (append vals vals2))) ,body2)
-                 ctx)]
-     [_
-      `(,let_ (,@(for/list ([var vars] [val vals]) (list var (visit/ctx vtor val ctx))))
+;; fuse let bindings together in 2 passes
+;;  (1) expand single-binding let exprs to let* exprs
+;;  (2) fuse let* exprs together
+(define (fuse-let-exprs expr)
+  (define/transform-expr (expand-single-let-exprs expr)
+    [(visit-let vtor vars vals body #:ctx [ctx '()])
+      (match vars
+       [(list) (visit/ctx vtor body ctx)]
+       [(list a) `(let* ((,a ,(visit/ctx vtor (car vals) ctx)))
+                    ,(visit/ctx vtor body ctx))]
+       [_ `(let (,@(for/list ([var vars] [val vals]) (list var (visit/ctx vtor val ctx))))
             ,(visit/ctx vtor body ctx))])])
+  (define/transform-expr (fuse-let*-exprs expr)
+    [(visit-let* vtor vars vals body #:ctx [ctx '()])
+      (match body
+       [`(let* ([,vars2 ,vals2] ...) ,body2)
+        (define vars* (append vars vars2))
+        (define vals* (append vals vals2))
+        (visit/ctx vtor
+                  `(let* (,@(for/list ([var vars*] [val vals*]) (list var (visit/ctx vtor val ctx))))
+                    ,(visit/ctx vtor body2 ctx))
+                   ctx)]
+       [_ `(let* (,@(for/list ([var vars] [val vals]) (list var (visit/ctx vtor val ctx))))
+            ,(visit/ctx vtor body ctx))])])
+  (fuse-let*-exprs (expand-single-let-exprs expr)))
+
 
 ; kahn's algorithm
 (define (topo-sort deps)
@@ -80,31 +82,9 @@
   (for ([k keys] [v vals])
     (hash-set! h k v)))
 
-;; main cse procedure
-(define (common-subexpr-elim vars props expr)
-  (define exprhash  ; expr -> idx
-    (make-hash
-      (for/list ([var vars] [i (in-naturals)])
-        (cons var i))))
-  (define exprs ; idx -> munged expr
-    (make-hash
-      (for/list ([var vars] [i (in-naturals)])
-        (cons i (list var)))))
-  (define common (mutable-set))
-  (define vartable (make-hash))
-  (define exprc (length vars))
-  (define varc exprc)
-
-  ; reset parameters
-  (clear-names!)
-  (for ([var vars]) (add-name! var))
-
-  (define (get-name name)
-    (hash-ref vartable name name))
-
-  ; preprocessor: ensures each bindings variable is unique
-  ; so 'munge' doesn't over-eliminate
-  (define/transform-expr (preprocess expr ctx)
+; ensures each new bindings has a unique name
+(define (unique-vars expr vartable)
+  (define/transform-expr (uniquify expr ctx)
     [(visit-let vtor vars vals body #:ctx [ctx '()])
       (define vars* (map gensym vars))
       (define ctx* (dict-set** ctx vars vars*))
@@ -148,8 +128,8 @@
       (define ctx** (dict-set** ctx* vars vars**))
       (hash-set**! vartable vars** vars)
       `(while* ,(visit/ctx vtor cond ctx)
-               ,(map list vars* inits* updates*)
-               ,(visit/ctx vtor body ctx**))]
+                ,(map list vars* inits* updates*)
+                ,(visit/ctx vtor body ctx**))]
     [(visit-for vtor vars vals accums inits updates body #:ctx [ctx '()])
       (define vars* (map gensym vars))      ; first for updates
       (define accums* (map gensym accums))
@@ -175,7 +155,7 @@
                   (cons (visit/ctx vtor val ctx) vals*))))
       (define-values (ctx** accums* inits* updates*)
         (for/fold ([ctx ctx*] [accums* '()] [inits* '()] [updates* '()]
-                   #:result (values ctx (reverse accums*) (reverse inits*) (reverse updates*)))
+                    #:result (values ctx (reverse accums*) (reverse inits*) (reverse updates*)))
                   ([accum accums] [init inits] [update updates])
           (define name (gensym accum))
           (define ctx* (dict-set* ctx accum name))
@@ -189,8 +169,8 @@
       (define ctx*** (dict-set** ctx** (append vars accums) (append vars** accums**)))
       (hash-set**! vartable (append vars** accums**) (append vars accums))
       `(for* ,(map list vars* vals*)
-             ,(map list accums* inits* updates*)
-             ,(visit/ctx vtor body ctx***))]
+              ,(map list accums* inits* updates*)
+              ,(visit/ctx vtor body ctx***))]
     [(visit-tensor vtor vars vals body #:ctx [ctx '()])
       (define vars* (map gensym vars))
       (define ctx* (dict-set** ctx vars vars*))
@@ -209,7 +189,7 @@
                   (cons (visit/ctx vtor val ctx) vals*))))
       (define-values (ctx** accums* inits* updates*)
         (for/fold ([ctx ctx*] [accums* '()] [inits* '()] [updates* '()]
-                   #:result (values ctx (reverse accums*) (reverse inits*) (reverse updates*)))
+                    #:result (values ctx (reverse accums*) (reverse inits*) (reverse updates*)))
                   ([accum accums] [init inits] [update updates])
           (define name (gensym accum))
           (define ctx* (dict-set* ctx accum name))
@@ -227,6 +207,29 @@
                 ,(visit/ctx vtor body ctx***))]
     [(visit-symbol vtor x #:ctx [ctx '()])
       (dict-ref ctx x x)])
+  (uniquify expr '()))
+
+;; main cse procedure
+(define (common-subexpr-elim vars props expr)
+  (define exprhash  ; expr -> idx
+    (make-hash
+      (for/list ([var vars] [i (in-naturals)])
+        (cons var i))))
+  (define exprs ; idx -> munged expr
+    (make-hash
+      (for/list ([var vars] [i (in-naturals)])
+        (cons i (list var)))))
+  (define common (mutable-set))
+  (define vartable (make-hash))
+  (define exprc (length vars))
+
+  ; reset parameters
+  (clear-names!)
+  (for ([var vars]) (add-name! var))
+
+  ; more convienient shorthand
+  (define (get-name name)
+    (hash-ref vartable name name))
         
   ; visitor for munge (`rec` is munge)
   (define/visit-expr (munge/visit expr rec)
@@ -250,7 +253,7 @@
       (list 'tensor* (map get-name vars) (map rec vals) (map get-name accums)
                      (map rec inits) (map rec updates) (rec body))]
     [(visit-! vtor props* body #:ctx [rec '()])
-      (list '! props* (rec body (apply dict-set* '() (append props props*))))]
+      (list '! props* (rec body (apply dict-set* props props*)))]
     [(visit-op_ vtor op args #:ctx [rec '()])
       (cons op (map rec args))]
     [(visit-call vtor func args #:ctx [rec '()])
@@ -278,7 +281,7 @@
 
   ; fill `exprhash` and `exprs` and store top index
   (define root
-    (let ([expr* (preprocess expr '())])
+    (let ([expr* (unique-vars expr vartable)])
       (clear-names!)
       (for ([var vars]) (add-name! var))
       (munge expr*)))
@@ -364,7 +367,7 @@
        [((box term) _) term])))
 
   ; reconstruct expression top-down
-  (fuse-let (reconstruct root)))
+  (fuse-let-exprs (reconstruct root)))
 
 ;;;;;;; top-level
 (define (core-common-subexpr-elim core)
@@ -380,7 +383,7 @@
     `(FPCore ,name ,args ,@props ,cse-body)
     `(FPCore ,args ,@props ,cse-body)))
 
-
+;;;; command line
 (module+ main
   (require racket/cmdline)
   (command-line
@@ -393,8 +396,8 @@
 (module+ test
   (define-syntax-rule (check-cse in out)
     (check-equal? (core-common-subexpr-elim in) out))
-  (define-syntax-rule (check-fuse-let in out)
-    (check-equal? (fuse-let in) out))
+  (define-syntax-rule (check-fuse-let-exprs in out)
+    (check-equal? (fuse-let-exprs in) out))
 
   ; cse
 
@@ -409,7 +412,7 @@
              '(FPCore (a x) (let* ((t_0 (- (+ a x) a))) (+ t_0 t_0))))
   
   (check-cse '(FPCore (a) (let ((j0 (+ a a))) j0))
-             '(FPCore (a) (let ((j0 (+ a a))) j0)))
+             '(FPCore (a) (let* ((j0 (+ a a))) j0)))
 
   (check-cse '(FPCore (a) (let ((j0 (+ a a))) (+ (+ a a) j0)))
              '(FPCore (a) (let* ((t_0 (+ a a)) (j0 t_0)) (+ t_0 j0))))
@@ -447,7 +450,7 @@
   ; cse (no combine)
 
   (check-cse '(FPCore (a) (* (+ a a) (let ((a (* a 2))) (+ a a))))
-             '(FPCore (a) (* (+ a a) (let ((a (* a 2))) (+ a a)))))
+             '(FPCore (a) (* (+ a a) (let* ((a (* a 2))) (+ a a)))))
   
   (check-cse '(FPCore (a) (* (+ a a) (let* ((a (* a 2))) (+ a a))))
              '(FPCore (a) (* (+ a a) (let* ((a (* a 2))) (+ a a)))))
@@ -476,17 +479,17 @@
   (check-cse '(FPCore (a) (+ (* a a) (! :round nearestEven (* a a))))
              '(FPCore (a) (+ (* a a) (! :round nearestEven (* a a)))))
 
-  ; fuse-let
+  ; fuse-let-exprs
 
-  (check-fuse-let '(let ([a 1]) (let* ([a 2] [b 3]) (+ a b)))
+  (check-fuse-let-exprs '(let ([a 1]) (let* ([a 2] [b 3]) (+ a b)))
                   '(let* ([a 1] [a 2] [b 3]) (+ a b)))
 
-  (check-fuse-let '(let ([a 1]) (let ([b 2]) (let ([c 3]) (+ (* a b) c))))
+  (check-fuse-let-exprs '(let ([a 1]) (let ([b 2]) (let ([c 3]) (+ (* a b) c))))
                   '(let* ([a 1] [b 2] [c 3]) (+ (* a b) c)))
 
-  (check-fuse-let '(let* ([a 1] [b 2]) (let ([c 3]) (+ (* a b) c)))
+  (check-fuse-let-exprs '(let* ([a 1] [b 2]) (let ([c 3]) (+ (* a b) c)))
                   '(let* ([a 1] [b 2] [c 3]) (+ (* a b) c)))
 
-  (check-fuse-let '(let* ([a 1] [b 2]) (let* ([c 3] [d 4]) (+ (* a b) (* c d))))
+  (check-fuse-let-exprs '(let* ([a 1] [b 2]) (let* ([c 3] [d 4]) (+ (* a b) (* c d))))
                   '(let* ([a 1] [b 2] [c 3] [d 4]) (+ (* a b) (* c d))))
 )

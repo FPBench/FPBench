@@ -46,6 +46,8 @@
                       (register-pass fpcore-expand-while* 'one-to-one)]
    ["--expand-for" "Expand for and for* loops (if possible)"
                     (register-pass fpcore-expand-for 'one-to-one)]
+   ["--fuse-let" "Fuses nested let/let* bindings into a single let* binding"
+                    (register-pass fpcore-fuse-let 'one-to-one)]
    ["--rational-constants" "Convert every number to a rational"
                            (register-pass 'rational-constants 'one-to-one)]
    ["--cse" "Lift each common subexpression to an intermediate variable bound by a let* expression"

@@ -4,9 +4,13 @@
 ;; Right now we don't look inside any let or while statements for eliminating, but once
 ;; the unroller is implemented, we can just expand everything for MAXIMUM elimination.
 (require racket/hash)
-(require "common.rkt" "fpcore-reader.rkt" "fpcore-visitor.rkt")
+(require "common.rkt" "fpcore-checker.rkt" "fpcore-reader.rkt" "fpcore-visitor.rkt")
 
-(provide core-common-subexpr-elim *expr-cse-able?*)
+(provide
+  (contract-out
+   [core-common-subexpr-elim (-> fpcore? fpcore?)]
+   [fpcore-fuse-let (-> fpcore? fpcore?)]
+   [*expr-cse-able?* (parameter/c (-> expr? boolean?))]))
 
 (module+ test (require rackunit))
 
@@ -395,9 +399,11 @@
        [((box term) _) term])))
 
   ; reconstruct expression top-down
-  (fuse-let-exprs (reconstruct root)))
+  (fuse-let (reconstruct root)))
 
 ;;;;;;; top-level
+
+; common subexpression eliminator
 (define (core-common-subexpr-elim core)
   (*names* (mutable-set))
   (define-values (name args props body)
@@ -410,6 +416,14 @@
   (if name
     `(FPCore ,name ,args ,@props ,cse-body)
     `(FPCore ,args ,@props ,cse-body)))
+
+; Fuse let expressions together
+(define (fpcore-fuse-let prog)
+  (match prog
+   [(list 'FPCore (list args ...) props ... body)
+    `(FPCore ,args ,@props ,(fuse-let body))]   
+   [(list 'FPCore name (list args ...) props ... body)
+    `(FPCore ,name ,args ,@props ,(fuse-let body))]))
 
 ;;;; command line
 (module+ main
@@ -424,8 +438,8 @@
 (module+ test
   (define-syntax-rule (check-cse in out)
     (check-equal? (core-common-subexpr-elim in) out))
-  (define-syntax-rule (check-fuse-let-exprs in out)
-    (check-equal? (fuse-let-exprs in) out))
+  (define-syntax-rule (check-fuse-let in out)
+    (check-equal? (fuse-let in) out))
 
   ; cse
 
@@ -507,7 +521,7 @@
   (check-cse '(FPCore (a) (+ (* a a) (! :round nearestEven (* a a))))
              '(FPCore (a) (+ (* a a) (! :round nearestEven (* a a)))))
 
-  ; fuse-let-exprs
+  ; fuse-let
 
   (check-fuse-let-exprs '(let ([x t]) x)
                         't)
@@ -515,12 +529,12 @@
   (check-fuse-let-exprs '(let ([a 1]) (let* ([a 2] [b 3]) (+ a b)))
                   '(let* ([a 1] [a 2] [b 3]) (+ a b)))
 
-  (check-fuse-let-exprs '(let ([a 1]) (let ([b 2]) (let ([c 3]) (+ (* a b) c))))
+  (check-fuse-let '(let ([a 1]) (let ([b 2]) (let ([c 3]) (+ (* a b) c))))
                   '(let* ([a 1] [b 2] [c 3]) (+ (* a b) c)))
 
-  (check-fuse-let-exprs '(let* ([a 1] [b 2]) (let ([c 3]) (+ (* a b) c)))
+  (check-fuse-let '(let* ([a 1] [b 2]) (let ([c 3]) (+ (* a b) c)))
                   '(let* ([a 1] [b 2] [c 3]) (+ (* a b) c)))
 
-  (check-fuse-let-exprs '(let* ([a 1] [b 2]) (let* ([c 3] [d 4]) (+ (* a b) (* c d))))
-                  '(let* ([a 1] [b 2] [c 3] [d 4]) (+ (* a b) (* c d))))             
+  (check-fuse-let '(let* ([a 1] [b 2]) (let* ([c 3] [d 4]) (+ (* a b) (* c d))))
+                  '(let* ([a 1] [b 2] [c 3] [d 4]) (+ (* a b) (* c d))))
 )

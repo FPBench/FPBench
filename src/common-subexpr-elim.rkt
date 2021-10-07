@@ -32,10 +32,12 @@
 (define (clear-names!)
   (set-clear! (*names*)))
 
-;; fuse let bindings together in 2 passes
+;; fuse let bindings together in 3 passes
 ;;  (1) expand single-binding let exprs to let* exprs
 ;;  (2) fuse let* exprs together
+;;  (3) eliminate useless let bindings [<var> <var2>]
 (define (fuse-let-exprs expr)
+  ; pass 1
   (define/transform-expr (expand-single-let-exprs expr)
     [(visit-let vtor vars vals body #:ctx [ctx '()])
       (match vars
@@ -44,6 +46,7 @@
                     ,(visit/ctx vtor body ctx))]
        [_ `(let (,@(for/list ([var vars] [val vals]) (list var (visit/ctx vtor val ctx))))
             ,(visit/ctx vtor body ctx))])])
+  ; pass 2
   (define/transform-expr (fuse-let*-exprs expr)
     [(visit-let* vtor vars vals body #:ctx [ctx '()])
       (match body
@@ -56,7 +59,25 @@
                    ctx)]
        [_ `(let* (,@(for/list ([var vars] [val vals]) (list var (visit/ctx vtor val ctx))))
             ,(visit/ctx vtor body ctx))])])
-  (fuse-let*-exprs (expand-single-let-exprs expr)))
+  ; pass 3
+  (define/transform-expr (elim-useless-binding expr ctx)
+    [(visit-let_ vtor let_ vars vals body #:ctx [ctx '()])
+      (define-values (vars* vals* ctx*)
+        (for/fold ([vars* '()] [vals* '()] [ctx* ctx]
+                  #:result (values (reverse vars*) (reverse vals*) ctx*))
+                  ([var vars] [val vals])
+          (if (variable? val)   ; useless
+              (values vars* vals* (dict-set ctx* var val))
+              (values (cons var vars*) (cons val vals*) ctx*))))
+      (if (null? vars*)
+          (visit/ctx vtor body ctx*)
+         `(,let_ (,@(for/list ([var vars*] [val vals*])
+                      (list var (visit/ctx vtor val ctx*))))
+                ,(visit/ctx vtor body ctx*)))]
+    [(visit-symbol vtor x #:ctx [ctx '()])
+      (dict-ref ctx x x)])
+  ; apply passes
+  (elim-useless-binding (fuse-let*-exprs (expand-single-let-exprs expr)) '()))
 
 
 ; kahn's algorithm
@@ -422,7 +443,7 @@
              '(FPCore (a) (let* ((j0 (+ a a))) j0)))
 
   (check-cse '(FPCore (a) (let ((j0 (+ a a))) (+ (+ a a) j0)))
-             '(FPCore (a) (let* ((t_0 (+ a a)) (j0 t_0)) (+ t_0 j0))))
+             '(FPCore (a) (let* ((t_0 (+ a a))) (+ t_0 t_0))))
 
   (check-cse '(FPCore (a) (let ((i0 (- a a))) (- (+ (+ a a) (+ a a)) i0)))
              '(FPCore (a) (let* ((i0 (- a a)) (t_0 (+ a a))) (- (+ t_0 t_0) i0))))
@@ -487,6 +508,9 @@
              '(FPCore (a) (+ (* a a) (! :round nearestEven (* a a)))))
 
   ; fuse-let-exprs
+
+  (check-fuse-let-exprs '(let ([x t]) x)
+                        't)
 
   (check-fuse-let-exprs '(let ([a 1]) (let* ([a 2] [b 3]) (+ a b)))
                   '(let* ([a 1] [a 2] [b 3]) (+ a b)))

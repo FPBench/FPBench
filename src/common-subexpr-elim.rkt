@@ -40,7 +40,7 @@
 ;;  (1) expand single-binding let exprs to let* exprs
 ;;  (2) fuse let* exprs together
 ;;  (3) eliminate useless let bindings [<var> <var2>]
-(define (fuse-let-exprs expr)
+(define (fuse-let expr)
   ; pass 1
   (define/transform-expr (expand-single-let-exprs expr)
     [(visit-let vtor vars vals body #:ctx [ctx '()])
@@ -523,10 +523,10 @@
 
   ; fuse-let
 
-  (check-fuse-let-exprs '(let ([x t]) x)
-                        't)
+  (check-fuse-let '(let ([x t]) x)
+                  't)
 
-  (check-fuse-let-exprs '(let ([a 1]) (let* ([a 2] [b 3]) (+ a b)))
+  (check-fuse-let '(let ([a 1]) (let* ([a 2] [b 3]) (+ a b)))
                   '(let* ([a 1] [a 2] [b 3]) (+ a b)))
 
   (check-fuse-let '(let ([a 1]) (let ([b 2]) (let ([c 3]) (+ (* a b) c))))

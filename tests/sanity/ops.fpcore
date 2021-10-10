@@ -192,7 +192,7 @@
 
 (FPCore () :name "Test trunc (2/4)" :spec 0.0 (trunc 0.25))
 
-(FPCore () :name "Test trunc (3/4)" :spec -0.0 (trunc -0.75))
+(FPCore () :name "Test trunc (3/4)" :spec 0.0 (trunc -0.75))
 
 (FPCore () :name "Test trunc (4/4)" :spec 1.0 (trunc 1.0))
 

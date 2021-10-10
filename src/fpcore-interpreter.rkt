@@ -2,12 +2,20 @@
 
 (require "common.rkt" "tensor.rkt" "fpcore-checker.rkt" "evaluator.rkt")
 (require math/bigfloat math/special-functions math/base generic-flonum)
-(provide eval-expr eval-expr* racket-run-fpcore)
+
+(provide
+  (contract-out
+   [eval-expr (-> evaluator? (-> expr? context/c any/c))]
+   [eval-expr* (-> evaluator?
+                   (-> expr? context/c any/c)
+                   (-> expr? context/c any/c))]
+   [racket-run-fpcore (-> fpcore?
+                          (listof string?)
+                          (or/c real? tensor? boolean?))]))
 
 (define/contract context/c contract? (dictof symbol? any/c))
 
-(define/contract ((eval-expr* evaltor rec) expr ctx)
-  (-> evaluator? (-> expr? context/c any/c) (-> expr? context/c any/c))
+(define ((eval-expr* evaltor rec) expr ctx)
   (match expr
     [(? number?) ((evaluator-real evaltor) expr)]
     [(? gfl?) expr]
@@ -116,8 +124,7 @@
     [(list (? operator? op) args ...)
       (apply ((evaluator-function evaltor) op) (map (curryr rec ctx) args))]))
 
-(define/contract ((eval-expr evaltor) expr ctx)
-  (-> evaluator? (-> expr? context/c any/c))
+(define ((eval-expr evaltor) expr ctx)
   (let eval ([expr expr] [ctx ctx])
     ((eval-expr* evaltor eval) expr ctx)))
 
@@ -183,7 +190,6 @@
    [(_ _) x]))
 
 (define (racket-run-fpcore* name vars props* body args)
-  (-> fpcore? (listof string?) (or/c real? tensor? boolean?))
   (define-values (_ props) (parse-properties props*))
   (define base-precision (expand-prec (dict-ref props ':precision 'binary64)))
   (define base-rounding (dict-ref props ':round 'nearestEven))
@@ -216,9 +222,9 @@
   (set-evaluator-params! evaltor)
   (result->inexact (repr->real ((eval-expr evaltor) body ctx)) base-precision))
   
-
-(define/contract (racket-run-fpcore prog args)
-  (-> fpcore? (listof string?) (or/c real? tensor? boolean?))
+(define (racket-run-fpcore prog args)
   (match prog
-   [`(FPCore ,name (,vars ...) ,properties ... ,body)  (racket-run-fpcore* name vars properties body args)]
-   [`(FPCore (,vars ...) ,properties ... ,body) (racket-run-fpcore* #f vars properties body args)]))
+   [`(FPCore ,name (,vars ...) ,properties ... ,body)
+    (racket-run-fpcore* name vars properties body args)]
+   [`(FPCore (,vars ...) ,properties ... ,body)
+    (racket-run-fpcore* #f vars properties body args)]))

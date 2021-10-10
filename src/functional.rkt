@@ -149,7 +149,8 @@
 
 
 (define (core->functional prog name)
-  (parameterize ([*used-names* (mutable-set)] [*gensym-collisions* 1])
+  (parameterize ([*gensym-used-names* (mutable-set)]
+                 [*gensym-collisions* 1])
     (define-values (args props body)
      (match prog
       [(list 'FPCore (list args ...) props ... body) (values args props body)]
@@ -185,4 +186,4 @@
        [_ "\t"]))
        
     (convert-function func-name args* (convert-expr body #:ctx ctx #:indent indent-level)
-                      ctx (set->list (*used-names*)))))
+                      ctx (set->list (*gensym-used-names*)))))

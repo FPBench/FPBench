@@ -1,19 +1,40 @@
 #lang racket
 
 (require "supported.rkt" "fpcore-checker.rkt")
-(provide *used-names* *gensym-divider* *gensym-collisions* *gensym-fix-name*
-          ctx-unique-name ctx-random-name ctx-lookup-name ctx-reserve-names ctx-names
-          ctx-update-props ctx-lookup-prop ctx-props ctx-lookup-prec
-          make-compiler-ctx define-compiler supported-by-lang?)
+
 (provide
-  (contract-out
+  define-compiler ; contractless (syntax)
+  (rename-out     ; inherits contract
+   [compiler-ctx-props ctx-props])
+  (contract-out   ; new contracts
+    [*gensym-used-names* (parameter/c set-mutable?)]
+    [*gensym-divider* (parameter/c (or/c char? string?))]
+    [*gensym-collisions* (parameter/c natural?)]
+    [*gensym-fix-name* (parameter/c (-> string? string?))]
     [struct compiler
      ([extensions (listof string?)]
       [header (-> string? string?)]
       [export (-> fpcore? string? string?)]
       [footer (-> string?)]
       [supported supported-list?])]
-    [compilers (parameter/c (listof compiler?))]))
+    [compilers (parameter/c (listof compiler?))]
+    [make-compiler-ctx (->* ()
+                            ((and/c hash? immutable?)
+                             (and/c hash? immutable?)
+                             (and/c hash? immutable?))
+                            compiler-ctx?)]
+    [ctx-unique-name (->* (compiler-ctx? (or/c symbol? string?))
+                          ((or/c boolean? symbol?))
+                          (values compiler-ctx? string?))]
+    [ctx-random-name (->* (compiler-ctx?)
+                          ((or/c boolean? symbol?))
+                          (values compiler-ctx? string?))]
+    [ctx-reserve-names (-> compiler-ctx? (listof (or/c symbol? string?)) compiler-ctx?)]
+    [ctx-update-props (-> compiler-ctx? (listof any/c) compiler-ctx?)]
+    [ctx-lookup-name (-> compiler-ctx? symbol? string?)]
+    [ctx-lookup-prec (-> compiler-ctx? symbol? any/c)]
+    [ctx-lookup-prop (->* (compiler-ctx? symbol?) ((or/c boolean? symbol?)) any/c)]
+    [supported-by-lang? (-> fpcore? string? boolean?)]))
 
 ;; Compiler struct
 
@@ -26,49 +47,53 @@
 
 ;;; Compiler contexts
 
-(define *used-names* (make-parameter (mutable-set)))
+(define *gensym-used-names* (make-parameter (mutable-set)))
 (define *gensym-divider* (make-parameter #\_))
 (define *gensym-collisions* (make-parameter 1))
 (define *gensym-fix-name* (make-parameter identity))
 
 ; Returns a unique, printable name based on the symbol and a fix-name procedure.
-(define (gensym sym) 
+(define (gensym str)
   (define name
-    (for/fold ([gen ((*gensym-fix-name*) (if (symbol? sym) (symbol->string sym) sym))])
+    (for/fold ([gen ((*gensym-fix-name*) str)])
               ([i (in-naturals (*gensym-collisions*))]                      
-              #:break (not (set-member? (*used-names*) gen)))            
+              #:break (not (set-member? (*gensym-used-names*) gen)))            
         (*gensym-collisions* (add1 i))                                  
-        ((*gensym-fix-name*) (format "~a~a~a" sym (*gensym-divider*) i))))
-  (set-add! (*used-names*) name)
+        ((*gensym-fix-name*) (format "~a~a~a" str (*gensym-divider*) i))))
+  (set-add! (*gensym-used-names*) name)
   name)
+
+(define (->string s)
+  (if (symbol? s) (symbol->string s) s))
 
 (struct compiler-ctx (name-map prec-map props))
 
-; Returns a new context struct with an empty name map and empty properties.
-(define (make-compiler-ctx) 
-  (compiler-ctx (make-immutable-hash) (make-immutable-hash) (make-immutable-hash)))
+; Produces a new compiler context
+(define (make-compiler-ctx [name-map (make-immutable-hash)]
+                           [prec-map (make-immutable-hash)]
+                           [props (make-immutable-hash)])
+  (compiler-ctx name-map prec-map props))
 
-; Takes a given symbol maps it to a unique, printable name and returns both
-; the updated ctx struct and the name
+; Takes a given symbol or string and maps it to a unique, printable name,
+; returning both the updated ctx struct and the name
 (define (ctx-unique-name ctx name [prec #f])
-  (let ([unique (gensym name)]
-        [prec (if prec prec (dict-ref (compiler-ctx-props ctx) ':precision 'binary64))])
-    (values 
-      (compiler-ctx (dict-set (compiler-ctx-name-map ctx) name unique) 
-                    (dict-set (compiler-ctx-prec-map ctx) name prec)
-                    (compiler-ctx-props ctx))
-      unique)))
+  (define name* (->string name))
+  (define unique (gensym name*))
+  (define prec* (if prec prec (dict-ref (compiler-ctx-props ctx) ':precision 'binary64)))
+  (values (compiler-ctx (dict-set (compiler-ctx-name-map ctx) name* unique) 
+                        (dict-set (compiler-ctx-prec-map ctx) name* prec*)
+                        (compiler-ctx-props ctx))
+          unique))
 
-; Takes a fix-name procedure and returns the updated context struct and a "random", unique, printable name
-; that will be unmapped, but it's precision is mapped.
+; Produces a unique, printable name and returns the updated ctx struct and the name.
+; The new name is not added to the name map
 (define (ctx-random-name ctx [prec #f])
-  (let ([name (gensym 'tmp)]
-        [prec (if prec prec (dict-ref (compiler-ctx-props ctx) ':precision 'binary64))])
-    (values
-      (compiler-ctx (compiler-ctx-name-map ctx) 
-                    (dict-set (compiler-ctx-prec-map ctx) name prec)
-                    (compiler-ctx-props ctx))
-      name)))
+  (define name (gensym "tmp"))
+  (define prec* (if prec prec (dict-ref (compiler-ctx-props ctx) ':precision 'binary64)))
+  (values (compiler-ctx (compiler-ctx-name-map ctx)
+                        (dict-set (compiler-ctx-prec-map ctx) name prec*)
+                        (compiler-ctx-props ctx))
+          name))
 
 ; Reserves the list of names and returns the updated struct
 (define (ctx-reserve-names ctx names)
@@ -78,34 +103,29 @@
 
 ; Returns the unique, printable name currently mapped to by the given symbol.
 ; Returns the stringified version of the symbol otherwise.
-(define (ctx-lookup-name ctx sym)
-  (dict-ref (compiler-ctx-name-map ctx) sym (symbol->string sym)))
+(define (ctx-lookup-name ctx name)
+  (define name* (->string name))
+  (dict-ref (compiler-ctx-name-map ctx) name* name*))
 
 ; Returns the precision of the given variable. Returns false if the symbol is unmapped.
 (define (ctx-lookup-prec ctx name)
-  (dict-ref (compiler-ctx-prec-map ctx) name #f))
+  (define name* (->string name))
+  (dict-ref (compiler-ctx-prec-map ctx) name* #f))
 
 ; Functionally extends a context struct's hash table of properties from the given properties.
 (define (ctx-update-props ctx props)
-  (compiler-ctx (compiler-ctx-name-map ctx) (compiler-ctx-prec-map ctx) (apply hash-set* (compiler-ctx-props ctx) props)))
+  (compiler-ctx (compiler-ctx-name-map ctx)
+                (compiler-ctx-prec-map ctx)
+                (apply hash-set* (compiler-ctx-props ctx) props)))
 
 ; Returns the property value stored in the context struct. Returns the value at 
 ; failure otherwise.
 (define (ctx-lookup-prop ctx prop [failure #f])
   (dict-ref (compiler-ctx-props ctx) prop failure))
 
-; Returns the context struct's properties.
-(define (ctx-props ctx)
-  (compiler-ctx-props ctx))
-
-; Returns the context struct's hash names
-(define (ctx-names ctx)
-  (compiler-ctx-name-map ctx))
-
 ;;; Misc
 
 (define (supported-by-lang? fpcore lang)
-  (-> fpcore? string? boolean?)
   (define compiler
     (for/first ([compiler (compilers)]
                 #:when (set-member? (compiler-extensions compiler) lang))

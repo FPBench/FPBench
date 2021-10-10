@@ -30,11 +30,11 @@
 
 (FPCore () :name "Test rational (5/5)" :spec 1.25 5/4)
 
-(FPCore () :name "Test digits (1/4)" :spec 0 (digits 0 0 2))
+(FPCore () :name "Test digits (1/4)" :spec 0.0 (digits 0 0 2))
 
-(FPCore () :name "Test digits (2/4)" :spec 1 (digits 1 0 2))
+(FPCore () :name "Test digits (2/4)" :spec 1.0 (digits 1 0 2))
 
-(FPCore () :name "Test digits (3/4)" :spec -2 (digits -1 1 2))
+(FPCore () :name "Test digits (3/4)" :spec -2.0 (digits -1 1 2))
 
-(FPCore () :name "Test digits (4/4)" :spec 3/2 (digits 3 -1 2))
+(FPCore () :name "Test digits (4/4)" :spec 1.5 (digits 3 -1 2))
 

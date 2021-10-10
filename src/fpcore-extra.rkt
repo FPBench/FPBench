@@ -1,16 +1,62 @@
 #lang racket
 
-(require "common.rkt" "fpcore-checker.rkt" "range-analysis.rkt")
-(provide fix-file-name round-decimal format-number
-         free-variables remove-let canonicalize
-         split-expr to-dnf all-subexprs unroll-loops skip-loops
-         expand-let* expand-while* precondition-ranges
-         fpcore-split-or fpcore-all-subexprs fpcore-split-intervals
-         fpcore-unroll-loops fpcore-skip-loops
-         fpcore-expand-let* fpcore-expand-while* fpcore-precondition-ranges
-         fpcore-override-props fpcore-override-arg-precision
-         fpcore-transform
-         fpcore-name)
+(require "common.rkt" "fpcore-checker.rkt" "fpcore-visitor.rkt" "range-analysis.rkt")
+(provide
+  (contract-out
+   [fix-file-name (-> string? string?)]
+   [round-decimal (-> rational? exact-positive-integer? (or/c 'up 'down) rational?)]
+   [format-number (->* (rational?)
+                       (#:digits exact-positive-integer?
+                        #:direction (or/c #f 'up 'down))
+                       string?)]
+
+   [free-variables (-> expr? (listof symbol?))]
+   [unused-variables (-> expr? (listof symbol?))]
+   [precondition-ranges (->* (expr?) (#:single-range boolean?) expr?)]
+   [all-subexprs (->* (expr?)
+                      (#:no-vars boolean? #:no-consts boolean?)
+                      (listof expr?))]
+
+   [split-expr (-> symbol? expr? (listof expr?))]
+   [to-dnf (-> expr? expr?)]
+
+   [remove-let (->* (expr?) ((dictof symbol? expr?)) expr?)]
+   [canonicalize (->* (expr?) (#:neg boolean?) expr?)]
+   [unroll-loops (-> exact-nonnegative-integer? expr? expr?)]
+   [skip-loops (-> expr? expr?)]
+   [expand-let* (-> expr? expr?)]
+   [expand-while* (-> expr? expr?)]
+   [expand-for (-> expr? expr?)]
+
+   [fpcore-unroll-loops (-> exact-nonnegative-integer? fpcore? fpcore?)]
+   [fpcore-skip-loops (-> fpcore? fpcore?)]
+   [fpcore-expand-let* (-> fpcore? fpcore?)]
+   [fpcore-expand-while* (-> fpcore? fpcore?)]
+   [fpcore-expand-for (-> fpcore? fpcore?)]
+   [fpcore-override-arg-precision (-> symbol? fpcore? fpcore?)]
+   [fpcore-override-props (-> (listof symbol?) fpcore? fpcore?)]
+   [fpcore-name (->* (fpcore?) ((or/c #f string?)) (or/c #f string?))]
+   
+   [fpcore-all-subexprs (->* (fpcore?)
+                             (#:no-vars boolean? #:no-consts boolean?)
+                             (listof fpcore?))]
+   [fpcore-precondition-ranges (->* (fpcore?) (#:single-range boolean?) fpcore?)]
+   [fpcore-split-intervals (->* (exact-nonnegative-integer? fpcore?)
+                                (#:max exact-nonnegative-integer?)
+                                (listof fpcore?))]
+   [fpcore-split-or (-> fpcore? (listof fpcore?))]
+   [fpcore-transform (->* (fpcore?)
+                          (#:var-precision (or/c #f symbol?)
+                           #:override-props (or/c #f (listof symbol?))
+                           #:unroll (or/c #f exact-nonnegative-integer?)
+                           #:split (or/c #f exact-nonnegative-integer?)
+                           #:split-or boolean?
+                           #:subexprs boolean?)
+                           (listof fpcore?))]
+
+   [pretty-expr (-> expr? string?)]
+   [pretty-fpcore (-> fpcore? string?)]))
+
 
 (define (fix-file-name name)
   (string-join
@@ -29,8 +75,7 @@
             (loop q (+ e 1))
             (values n e)))))
 
-(define/contract (round-decimal n digits direction)
-  (-> rational? exact-positive-integer? (or/c 'up 'down) rational?)
+(define (round-decimal n digits direction)
   (case (sgn n)
     [(0) 0]
     [(-1) (- (round-decimal (- n) digits (if (eq? direction 'up) 'down 'up)))]
@@ -44,11 +89,7 @@
            (/ (if (eq? direction 'up) (add1 r) r) p)))]))
 
 ; TODO: use (order-of-magnitude n) from racket/math to get normalized results
-(define/contract (format-number n #:digits [digits 16] #:direction [direction #f])
-  (->* (rational?)
-       (#:digits exact-positive-integer?
-        #:direction (or/c #f 'up 'down))
-       string?)
+(define (format-number n #:digits [digits 16] #:direction [direction #f])
   (define t (inexact->exact n))
   (let*-values ([(d e10) (factor (denominator t) 10)]
                 [(d e5) (factor d 5)]
@@ -67,35 +108,126 @@
             (format "~a~a" n (make-string e #\0))]
            [else (format "~ae~a" n e)]))])))
 
-;; from imp2core.rkt
-(define/contract (free-variables expr)
-  (-> expr? (listof symbol?))
-  (match expr
-    [(? number?) '()]
-    [(? constant?) '()]
-    [(? symbol?) (list expr)]
-    [`(if ,test ,ift ,iff)
-     (set-union (free-variables test) (free-variables ift) (free-variables iff))]
-    [`(let ([,vars ,exprs] ...) ,body)
-     (set-union (append-map free-variables exprs) (set-subtract (free-variables body) vars))]
-    [`(while ,test ([,vars ,inits ,updates] ...) ,body)
-     (set-union (free-variables test)
-                (append-map free-variables inits)
-                (set-subtract (append-map free-variables updates) vars)
-                (set-subtract (free-variables body) vars))]
-    [(list _ exprs ...)
-     (append-map free-variables exprs)]))
+;; more powerful version
+(define (variable-info expr)
+  ; name -> unused? free?
+  (define varhash (make-hash))
 
-(define/contract (remove-let expr [bindings '()])
-  (->* (expr?) ((dictof symbol? expr?)) expr?)
-  (match expr
-    [(? constant?) expr]
-    [(? number?) expr]
-    [(? symbol?) (dict-ref bindings expr expr)]
-    [`(let ([,vars ,vals] ...) ,body)
-     (define vals* (map (curryr remove-let bindings) vals))
-     (remove-let body (apply dict-set* bindings (append-map list vars vals*)))]
-    [`(,op ,args ...) (cons op (map (curryr remove-let bindings) args))]))
+  ; push on a new variable entry
+  (define (add-var var)
+    (let ([cell (box (cons #t #f))])
+      (hash-update! varhash var (curry cons cell) (list))
+      cell))
+
+  ; set variable as used, missing key means variable is also free
+  (define (unmark-var! dict var)
+    (dict-update dict var
+                 (λ (x) (let ([v (unbox x)]) (set-box! x (cons #f (cdr v)))))
+                 (lambda () (let ([b (add-var var)]) (begin0 b (set-box! b (cons #t #t)))))))
+
+  (define/visit-expr (search! visit ctx)
+    [(visit-if vtor cond ift iff #:ctx [ctx '()])
+      (visit/ctx vtor cond ctx)
+      (visit/ctx vtor ift ctx)
+      (visit/ctx vtor iff ctx)]
+    [(visit-let vtor vars vals body #:ctx [ctx '()])
+      (for ([val vals]) (visit/ctx vtor val ctx))
+      (define ctx*
+        (for/fold ([ctx ctx]) ([var vars])
+          (dict-set ctx var (add-var var))))
+      (visit/ctx vtor body ctx*)]
+    [(visit-let* vtor vars vals body #:ctx [ctx '()])
+      (define ctx*
+        (for/fold ([ctx ctx]) ([var vars] [val vals])
+          (visit/ctx vtor val ctx)
+          (dict-set ctx var (add-var var))))
+      (visit/ctx vtor body ctx*)]
+    [(visit-while vtor cond vars inits updates body #:ctx [ctx '()])
+      (for ([init inits]) (visit/ctx vtor init ctx))
+      (define ctx*
+        (for/fold ([ctx ctx]) ([var vars])
+          (dict-set ctx var (add-var var))))
+      (for ([update updates]) (visit/ctx vtor update ctx*))
+      (visit/ctx vtor cond ctx*)
+      (visit/ctx vtor body ctx*)]
+    [(visit-while* vtor cond vars inits updates body #:ctx [ctx '()])
+      (define ctx*
+        (for/fold ([ctx ctx]) ([var vars] [init inits])
+          (visit/ctx vtor init ctx)
+          (dict-set ctx var (add-var var))))
+      (for ([update updates]) (visit/ctx vtor update ctx*))
+      (visit/ctx vtor cond ctx*)
+      (visit/ctx vtor body ctx*)]
+    [(visit-for_ vtor for_ vars vals accums inits updates body #:ctx [ctx '()]) ; convert to while loop
+      (define while_ (if (equal? for_ 'for) 'while 'while*))
+      (visit/ctx vtor
+                `(,while_ (and ,@(map (curry list '<) vars vals))
+                          (,@(map (λ (v) (list v 0 `(+ ,v 1))) vars)
+                           ,@(map list accums inits updates))
+                          ,body)
+                 ctx)]
+    [(visit-tensor vtor vars vals body #:ctx [ctx '()])
+      (define ctx*    ; iteration variables are automatically bound
+        (for/fold ([ctx ctx]) ([var vars])
+          (dict-set ctx var (add-var var))))
+      (for ([var vars]) (unmark-var! ctx* var))
+      (visit/ctx vtor body ctx*)]
+    [(visit-tensor* vtor vars vals accums inits updates body #:ctx [ctx '()])
+      (define ctx*    ; iteration variables are automatically bound
+        (for/fold ([ctx ctx]) ([var vars])
+          (dict-set ctx var (add-var var))))
+      (for ([var vars]) (unmark-var! ctx* var))
+      (define ctx**
+        (for/fold ([ctx ctx*]) ([accum accums] [init inits])
+          (visit/ctx vtor init ctx)
+          (dict-set ctx accum (add-var accum))))
+     (for ([update updates]) (visit/ctx vtor update ctx**))
+     (visit/ctx vtor body ctx**)]
+    [(visit-op_ vtor op args #:ctx [ctx '()])
+      (for ([arg args]) (visit/ctx vtor arg ctx))]
+    [(visit-symbol vtor x #:ctx [ctx '()])
+      (unmark-var! ctx x)])
+  
+  (search! expr '())
+  varhash)
+
+; only return names
+(define (free-variables expr)
+  (for/fold ([free '()] #:result (remove-duplicates free))
+            ([(var cells) (in-hash (variable-info expr))])
+    (append free
+      (for/list ([b (in-list (reverse cells))] [i (in-naturals 1)]
+                #:when (cdr (unbox b)))
+        var))))
+
+; only return names
+(define (unused-variables expr)
+  (define info (variable-info expr))
+  (for/fold ([free '()] #:result (remove-duplicates free))
+            ([(var cells) (in-hash (variable-info expr))])
+    (append free
+      (for/list ([b (in-list (reverse cells))] [i (in-naturals 1)]
+                #:when (car (unbox b)))
+        var))))
+
+(define (remove-let expr [bindings '()])
+  (define/transform-expr (rec expr ctx)
+    [(visit-let vtor vars vals body #:ctx [ctx '()])
+      (define vals* (for/list ([val vals]) (visit/ctx vtor val ctx)))
+      (define ctx*
+        (for/fold ([ctx ctx]) ([var vars] [val vals*])
+          (dict-set ctx var val)))
+      (visit/ctx vtor body ctx*)]
+    [(visit-let* vtor vars vals body #:ctx [ctx '()])
+      (define ctx*
+        (for/fold ([ctx ctx]) ([var vars] [val vals])
+          (dict-set ctx var (visit/ctx vtor val ctx))))
+      (visit/ctx vtor body ctx*)]
+    [(visit-op_ vtor op args #:ctx [ctx '()])
+     `(,op ,@(for/list ([arg args]) (visit/ctx vtor arg ctx)))]
+    [(visit-symbol vtor x #:ctx [ctx '()])
+      (dict-ref ctx x x)])
+  (rec expr bindings))
 
 (define/match (negate-cmp cmp)
   [('==) '!=]
@@ -106,48 +238,57 @@
   [('>=) '<]
   [(_) (error 'negate-cmp "Unsupported operation ~a" cmp)])
 
-(define/contract (canonicalize expr #:neg [neg #f])
-  ;; Transforms multiple argument operations (comparisons, and, or) into binary operations.
-  ;; Removes logical negations.
-  ; TODO: negation of 'if and 'while
-  (-> expr? expr?)
-  (match expr
-    ['TRUE (if neg 'FALSE 'TRUE)]
-    ['FALSE (if neg 'TRUE 'FALSE)]
-    [(? constant?) expr]
-    [(? number?) expr]
-    [(? symbol?) (if neg `(not ,expr) expr)]
-    [`(let ([,vars ,vals] ...) ,body)
-     `(let (,@(for/list ([var vars] [val vals]) (list var (canonicalize val))))
-        ,(canonicalize body #:neg neg))]
-    [(list (and (or '== '< '> '<= '>=) op) args ...)
-     (define args* (map canonicalize args))
-     (define op* (if neg (negate-cmp op) op))
-     (define conj (if neg 'or 'and))
-     (for/fold ([expr* (if neg 'FALSE 'TRUE)]) ([a args*] [b (cdr args*)])
-       (if (constant? expr*) `(,op* ,a ,b) `(,conj ,expr* (,op* ,a ,b))))]
-    [(list '!= args ...)
-     (define args* (map canonicalize args))
-     (define op (if neg '== '!=))
-     (define conj (if neg 'or 'and))
-     (let loop ([args args*] [expr (if neg 'FALSE 'TRUE)])
-       (if (<= (length args) 1)
-           expr
-           (loop (cdr args)
-                 (for/fold ([expr expr]) ([b (cdr args)])
-                   (if (constant? expr)
-                       `(,op ,(car args) ,b)
-                       `(,conj ,expr (,op ,(car args) ,b)))))))]
-    [(list 'not arg) (canonicalize arg #:neg (not neg))]
-    [(list (or 'and 'or) arg) (canonicalize arg #:neg neg)]
-    [(list 'and args ... arg)
-     `(,(if neg 'or 'and) ,(canonicalize (cons 'and args) #:neg neg) ,(canonicalize arg #:neg neg))]
-    [(list 'or args ... arg)
-     `(,(if neg 'and 'or) ,(canonicalize (cons 'or args) #:neg neg) ,(canonicalize arg #:neg neg))]
-    [`(,op ,args ...) `(,op ,@(map (curry canonicalize #:neg neg) args))]))
+;; Transforms multiple argument operations (comparisons, and, or) into binary operations.
+;; Removes logical negations.
+; TODO: negation of 'if and 'while
+(define (canonicalize expr #:neg [neg #f])
+  (define/transform-expr (->canon expr neg)
+    [(visit-let_ vtor let_ vars vals body #:ctx [neg #f])
+     `(,let_ ,(for/list ([var vars] [val vals]) (list var (visit/ctx vtor val #f)))
+             ,(visit/ctx vtor body neg))]
+    [(visit-op vtor op args #:ctx [neg #f])
+      (match* (op args)
+       [((or '== '< '> '<= '>=) _)
+        (define args* (for/list ([arg args]) (visit/ctx vtor arg #f)))
+        (define op* (if neg (negate-cmp op) op))
+        (define conj (if neg 'or 'and))
+        (for/fold ([expr* (if neg 'FALSE 'TRUE)]) ([a args*] [b (cdr args*)])
+          (if (constant? expr*) `(,op* ,a ,b) `(,conj ,expr* (,op* ,a ,b))))]
+       [('!= _)
+        (define args* (for/list ([arg args]) (visit/ctx vtor arg #f)))
+        (define op (if neg '== '!=))
+        (define conj (if neg 'or 'and))
+        (let loop ([args args*] [expr (if neg 'FALSE 'TRUE)])
+          (if (<= (length args) 1)
+              expr
+              (loop (cdr args)
+                    (for/fold ([expr expr]) ([b (cdr args)])
+                      (if (constant? expr)
+                         `(,op ,(car args) ,b)
+                         `(,conj ,expr (,op ,(car args) ,b)))))))]
+       [('not (list arg))
+        (visit/ctx vtor arg (not neg))]
+       [((or 'and 'or) (list arg))
+        (visit/ctx vtor arg neg)]
+       [('and (list args ... arg))
+       `(,(if neg 'or 'and) ,(visit/ctx vtor (cons 'and args) neg)
+                            ,(visit/ctx vtor arg neg))]
+       [('or (list args ... arg))
+       `(,(if neg 'and 'or) ,(visit/ctx vtor (cons 'or args) neg)
+                            ,(visit/ctx vtor arg neg))]
+       [(_ _)
+       `(,op ,@(for/list ([arg args]) (visit/ctx vtor arg neg)))])]
+    [(visit-symbol vtor x #:ctx [neg #f])
+      (if neg `(not ,x) x)]
+    [(visit-constant vtor x #:ctx [neg #f])
+      (match x
+       ['TRUE (if neg 'FALSE 'TRUE)]
+       ['FALSE (if neg 'TRUE 'FALSE)]
+       [_ x])])
 
-(define/contract (split-expr op expr)
-  (-> symbol? expr? (listof expr?))
+  (->canon expr neg))
+
+(define (split-expr op expr)
   (match expr
     [(list (? (symbols op)) args ...)
      (append-map (curry split-expr op) args)]
@@ -161,9 +302,8 @@
        (for*/list ([h (car lists)] [t lists*])
          (list* h t))]))
 
-(define/contract (to-dnf expr)
-  ; Converts the given logical expression into an equivalent DNF
-  (-> expr? expr?)
+; Converts the given logical expression into an equivalent DNF
+(define (to-dnf expr)
   (match expr
     [(list (or 'let 'while) args ...)
      (error 'to-dnf "Unsupported operation ~a" expr)]
@@ -192,37 +332,44 @@
          (list* 'or ts))]
     [_ expr]))
 
-(define/contract (all-subexprs expr #:no-vars [no-vars #f] #:no-consts [no-consts #f])
-  ; Returns a list of subexpressions for the given expression
-  (->* (expr?) (#:no-vars boolean? #:no-consts boolean?) (listof expr?))
-  (remove-duplicates #:key remove-let
-   (let loop ([expr expr])
-     (match expr
-       [(list (or '< '> '<= '>= '== '!= 'and 'or 'not 'while 'while* '!) args ...)
-        (error 'all-subexprs "Unsupported operation: ~a" expr)]
-       [(? symbol?) (if no-vars '() (list expr))]
-       [(or (? number?) (? constant?)) (if no-consts '() (list expr))]
-       [`(,(and (or 'let 'let*) let_) ([,vars ,vals] ...) ,body)
-        (define val-subexprs (append-map loop vals))
-        (define body-subexprs
-          (map (λ (e)
-                 (define free-vars (free-variables e))
-                 (define bindings
-                   (for/list ([var vars] [val vals] #:when (member var free-vars))
-                     (list var val)))
-                 (cond
-                   [(null? bindings) e]
-                   [else `(,let_ (,@bindings) ,e)]))
-               (loop body)))
-        (append body-subexprs val-subexprs)]
-       [`(if ,cond ,t ,f)
-        `(,expr ,@(loop t) ,@(loop f))]
-       [(list op args ...)
-        (cons expr (append-map loop args))]))))
+; Returns a list of subexpressions for the given expression
+(define (all-subexprs expr #:no-vars [no-vars #f] #:no-consts [no-consts #f])
+  (define/visit-expr (rec expr)
+    [(visit-if vtor cond ift iff #:ctx [ctx '()])
+     `(,(list cond ift iff) ,(visit vtor ift) ,(visit vtor iff))]
+    [(visit-let_ vtor let_ vars vals body #:ctx [ctx '()])
+      (define val-subexprs (append-map (curry visit vtor) vals))
+      (define body-subexprs
+        (for/list ([e (visit vtor body)])
+          (define free-vars (free-variables e))
+          (define bindings
+            (for/list ([var vars] [val vals] #:when (member var free-vars))
+              (list var val)))
+          (if (null? bindings) e `(,let_ ,bindings ,e))))
+      (append body-subexprs val-subexprs)]
+    [(visit-while_ vtor while_ cond vars inits updates body #:ctx [ctx '()])
+      (error 'all-subexprs "Unsupported operation: ~a" while_)]
+    [(visit-for_ vtor for_ vars vals accums inits updates body #:ctx [ctx '()])
+      (error 'all-subexprs "Unsupported operation: ~a" for_)]
+    [(visit-tensor vtor vars vals body #:ctx [ctx '()])
+      (error 'all-subexprs "Unsupported operation: tensor" )]
+    [(visit-tensor* vtor vars vals accums inits updates body #:ctx [ctx '()])
+      (error 'all-subexprs "Unsupported operation: tensor*")]
+    [(visit-op_ vtor op args #:ctx [ctx '()])
+      (when (set-member? '(< > <= >= == != and or not !) op)
+        (error 'all-subexprs "Unsupported operation: ~a" op))
+      (cons (cons op args) (append-map (curry visit vtor) args))]
+    [(visit-call vtor func args #:ctx [ctx '()])
+      (cons (cons func args) (append-map (curry visit vtor) args))]
+    [(visit-symbol vtor x #:ctx [ctx '()])
+      (if no-vars '() (list x))]
+    [(visit-terminal_ vtor x #:ctx [ctx '()])
+      (if no-consts '() (list x))])
 
-(define/contract (fpcore-all-subexprs prog #:no-vars [no-vars #f] #:no-consts [no-consts #f])
-  ; Returns FPCore programs for all subexpressions
-  (->* (fpcore?) (#:no-vars boolean? #:no-consts boolean?) (listof fpcore?))
+  (remove-duplicates (rec expr) #:key remove-let))
+
+; Returns FPCore programs for all subexpressions
+(define (fpcore-all-subexprs prog #:no-vars [no-vars #f] #:no-consts [no-consts #f])
   (define-values (args props body)
    (match prog
     [(list 'FPCore (list args ...) props ... body) (values args props body)]
@@ -235,38 +382,27 @@
     (define props* (dict-set properties ':name name*))
     `(FPCore ,args ,@(unparse-properties props*) ,expr)))
 
-(define/contract (unroll-loops n expr)
-  (-> exact-nonnegative-integer? expr? expr?)
-  (match expr
-    [`(,(and (or 'let 'let*) let_) ([,vars ,vals] ...) ,body)
-     `(,let_ (,@(for/list ([var vars] [val vals]) (list var (unroll-loops n val))))
-             ,(unroll-loops n body))]
-    [`(if ,cond ,ift ,iff)
-     `(if ,(unroll-loops n cond) ,(unroll-loops n ift) ,(unroll-loops n iff))]
-    [`(,(and (or 'while 'while*) while_) ,cond ([,vars ,inits ,updates] ...) ,retexpr)
-     (let ([let_ (match while_ ['while 'let] ['while* 'let*])]
-           [new-cond (unroll-loops n cond)]
-           [new-inits (map (curry unroll-loops n) inits)]
-           [new-updates (map (curry unroll-loops n) updates)]
-           [new-retexpr (unroll-loops n retexpr)])
-       (let loop ([n n] [loop-inits new-inits] [loop-updates new-updates])
-         (if (<= n 0)
-             `(,while_ ,new-cond (,@(map list vars loop-inits loop-updates)) ,new-retexpr)
-             `(,let_ (,@(map list vars loop-inits))
-                (if ,new-cond
-                    ,(loop (- n 1) loop-updates loop-updates)
-                    ,new-retexpr)))))]
-    [`(! ,props ... ,body)
-     `(! ,@props ,(unroll-loops n body))]
-    [`(,(? operator? op) ,args ...)
-     (cons op (map (curry unroll-loops n) args))]
-    [(? constant?) expr]
-    [(? number?) expr]
-    [(? symbol?) expr]))
+; unrolls loops n times
+; TODO: for loops?
+(define (unroll-loops n expr)
+  (define/transform-expr (unroll expr)
+    [(visit-while_ vtor while_ cond vars inits updates body #:ctx [ctx '()])
+      (define let_ (match while_ ['while 'let] ['while* 'let*]))
+      (define cond* (visit vtor cond))
+      (define inits* (map (curry visit vtor) inits))
+      (define updates* (map (curry visit vtor) updates))
+      (define body* (visit vtor body))
+      (let loop ([n n] [inits inits*] [updates updates*])
+        (if (<= n 0)
+           `(,while_ ,cond* ,(map list vars inits updates) ,body*)
+           `(,let_ ,(map list vars inits)
+              (if ,cond*
+                  ,(loop (- n 1) updates updates)
+                  ,body))))])
+  (unroll expr))
 
-(define/contract (fpcore-unroll-loops n prog)
   ; Unrolls loops in the given FPCore program
-  (-> exact-nonnegative-integer? fpcore? fpcore?)
+(define (fpcore-unroll-loops n prog)
   (define-values (name args props body)
    (match prog
     [(list 'FPCore (list args ...) props ... body) (values #f args props body)]
@@ -275,121 +411,90 @@
     `(FPCore ,name ,args ,@props ,(unroll-loops n body))
     `(FPCore ,args ,@props ,(unroll-loops n body))))
 
-(define/contract (skip-loops expr)
-  (-> expr? expr?)
-  (match expr
-    [`(,(and (or 'let 'let*) let_) ([,vars ,vals] ...) ,body)
-     `(,let_ (,@(for/list ([var vars] [val vals]) (list var (skip-loops val))))
-        ,(skip-loops body))]
-    [`(if ,cond ,ift ,iff)
-     `(if ,(skip-loops cond) ,(skip-loops ift) ,(skip-loops iff))]
-    [`(,(and (or 'while 'while*) while_) ,cond ([,vars ,inits ,updates] ...) ,retexpr)
-     (let ([let_ (match while_ ['while 'let] ['while* 'let*])])
-       `(,let_ (,@(for/list ([var vars] [init inits]) (list var (skip-loops init))))
-               ,retexpr))]
-    [`(! ,props ... ,body)
-     `(! ,@props ,(skip-loops body))]
-    [`(,(? operator? op) ,args ...)
-     (cons op (map skip-loops args))]
-    [(? constant?) expr]
-    [(? number?) expr]
-    [(? symbol?) expr]))
+(define/transform-expr (skip-loops expr)
+  [(visit-while_ vtor while_ cond vars inits updates body #:ctx [ctx '()])
+    (define let_ (match while_ ['while 'let] ['while* 'let*]))
+   `(,let_ ,(for/list ([var vars] [init inits]) (list var (visit vtor init)))
+           ,(visit vtor body))])
 
-(define/contract (fpcore-skip-loops prog)
-  ; Skips loops in the given FPCore program
-  (-> fpcore? fpcore?)
-  (define-values (name args props body)
-   (match prog
-    [(list 'FPCore (list args ...) props ... body) (values #f args props body)]
-    [(list 'FPCore name (list args ...) props ... body) (values name args props body)]))
-  (if name
-    `(FPCore ,name ,args ,@props ,(skip-loops body))
-    `(FPCore ,args ,@props ,(skip-loops body))))
+; Skips loops in the given FPCore program
+(define (fpcore-skip-loops prog)
+  (match prog
+   [(list 'FPCore (list args ...) props ... body)
+    `(FPCore ,args ,@props ,(skip-loops body))]   
+   [(list 'FPCore name (list args ...) props ... body)
+    `(FPCore ,name ,args ,@props ,(skip-loops body))]))
 
-(define/contract (expand-let* expr)
-  (-> expr? expr?)
-  (match expr
-    [`(let ([,vars ,vals] ...) ,body)
-     `(let (,@(for/list ([var vars] [val vals]) (list var (expand-let* val))))
-        ,(expand-let* body))]
-    [`(let* ([,vars ,vals] ...) ,body)
-     (let loop ([vars vars] [vals vals])
-       (match (list vars vals)
-         [(list '() '()) (expand-let* body)]
-         [(list (cons var rest-vars) (cons val rest-vals))
-          `(let ((,var ,(expand-let* val)))
-             ,(loop rest-vars rest-vals))]))]
-    [`(if ,cond ,ift ,iff)
-     `(if ,(expand-let* cond) ,(expand-let* ift) ,(expand-let* iff))]
-    [`(,(and (or 'while 'while*) while_) ,cond ([,vars ,inits ,updates] ...) ,retexpr)
-     `(,while_ ,(expand-let* cond)
-               (,@(for/list ([var vars] [init inits] [update updates])
-                    (list var (expand-let* init) (expand-let* update))))
-               ,(expand-let* retexpr))]
-    [`(! ,props ... ,body)
-     `(! ,@props ,(expand-let* body))]
-    [`(,(? operator? op) ,args ...)
-     (cons op (map expand-let* args))]
-    [(? constant?) expr]
-    [(? number?) expr]
-    [(? symbol?) expr]))
+(define/transform-expr (expand-let* expr)
+  [(visit-let* vtor vars vals body #:ctx [ctx '()])
+    (let loop ([vars vars] [vals vals])
+      (cond
+       [(null? vars) (visit vtor body)]
+       [else `(let ((,(car vars) ,(visit vtor (car vals))))
+                ,(loop (cdr vars) (cdr vals)))]))])
 
-(define/contract (fpcore-expand-let* prog)
-  ; Expand let* in the body of the given FPCore program
-  (-> fpcore? fpcore?)
-  (define-values (name args props body)
-   (match prog
-    [(list 'FPCore (list args ...) props ... body) (values #f args props body)]
-    [(list 'FPCore name (list args ...) props ... body) (values name args props body)]))
-  (if name
-    `(FPCore ,name ,args ,@props ,(expand-let* body))
-    `(FPCore ,args ,@props ,(expand-let* body))))
+; Expand let* in the body of the given FPCore program
+(define (fpcore-expand-let* prog)
+  (match prog
+   [(list 'FPCore (list args ...) props ... body)
+    `(FPCore ,args ,@props ,(expand-let* body))]   
+   [(list 'FPCore name (list args ...) props ... body)
+    `(FPCore ,name ,args ,@props ,(expand-let* body))]))
 
-(define/contract (expand-while* expr)
-  (-> expr? expr?)
-  (match expr
-    [`(,(and (or 'let 'let*) let_) ([,vars ,vals] ...) ,body)
-     `(,let_ (,@(for/list ([var vars] [val vals]) (list var (expand-while* val))))
-        ,(expand-while* body))]
-    [`(if ,cond ,ift ,iff)
-     `(if ,(expand-while* cond) ,(expand-while* ift) ,(expand-while* iff))]
-    [`(while ,cond ([,vars ,inits ,updates] ...) ,retexpr)
-     `(while ,(expand-while* cond)
-             (,@(for/list ([var vars] [init inits] [update updates])
-                  (list var (expand-while* init) (expand-while* update))))
-             ,(expand-while* retexpr))]
-    [`(while* ,cond ([,vars ,inits ,updates] ...) ,retexpr)
-     `(while ,(expand-while* cond)
-             (,@(for/list ([var vars])
-                  (list var
-                        `(let* (,@(for/list ([var* vars] [init* inits])
-                                    (list var* (expand-while* init*))))
-                               ,var)
-                        `(let* (,@(for/list ([var* vars] [update* updates])
-                                    (list var* (expand-while* update*))))
-                               ,var))))
-             ,(expand-while* retexpr))]
-    [`(! ,props ... ,body)
-     `(! ,@props ,(expand-while* body))]
-    [`(,(? operator? op) ,args ...)
-     (cons op (map expand-while* args))]
-    [(? constant?) expr]
-    [(? number?) expr]
-    [(? symbol?) expr]))
+(define/transform-expr (expand-while* expr)
+  [(visit-while* vtor cond vars inits updates body #:ctx [ctx '()])
+   `(while ,(visit vtor cond)
+           ,(for/list ([var vars])
+              (list var
+                   `(let* ,(for/list ([var* vars] [init inits])
+                            (list var* (visit vtor init)))
+                          ,var)
+                   `(let* ,(for/list ([var* vars] [update updates])
+                            (list var* (visit vtor update)))
+                          ,var)))
+           ,(visit vtor body))])
 
-(define/contract (fpcore-expand-while* prog)
-  ; Expand let* in the body of the given FPCore program
-  (-> fpcore? fpcore?)
-  (define-values (name args props body)
-   (match prog
-    [(list 'FPCore (list args ...) props ... body) (values #f args props body)]
-    [(list 'FPCore name (list args ...) props ... body) (values name args props body)]))
-  (if name
-    `(FPCore ,name ,args ,@props ,(expand-while* body))
-    `(FPCore ,args ,@props ,(expand-while* body))))
+; Expand while* in the body of the given FPCore program
+(define (fpcore-expand-while* prog)
+  (match prog
+   [(list 'FPCore (list args ...) props ... body)
+    `(FPCore ,args ,@props ,(expand-while* body))]   
+   [(list 'FPCore name (list args ...) props ... body)
+    `(FPCore ,name ,args ,@props ,(expand-while* body))]))
 
-(define/contract (precondition-ranges pre #:single-range [single-range #f])
-  (->* (expr?) (#:single-range boolean?) expr?)
+(define/transform-expr (expand-for expr)
+  [(visit-for_ vtor for_ vars vals accums inits updates body #:ctx [ctx '()])
+    (cond
+     [(null? vars)
+      (define let_ (match for_ ['for 'let] ['for* 'let*]))
+      `(,let_ ,(for/list ([accum accums] [init inits])
+                (list accum (visit/ctx vtor init ctx)))
+              ,(visit/ctx vtor body ctx))]
+     [(= (length vars) 1)
+      (define while_ (match for_ ['for 'while] ['for* 'while*]))
+      `(,while_ (< ,(car vars) ,(car vals))
+                ,(for/list ([accum accums] [init inits] [update updates])
+                  (list accum
+                        (visit/ctx vtor init ctx)
+                        (visit/ctx vtor update ctx)))
+                ,(visit/ctx vtor body ctx))]
+     [else  ; multi-indexed for loops can't be desugared
+      `(,for_ ,(for/list ([var vars] [val vals]) (list var (visit/ctx vtor val ctx)))
+              ,(for/list ([accum accums] [init inits] [update updates])
+                (list accum
+                      (visit/ctx vtor init ctx)
+                      (visit/ctx vtor update ctx)))
+              ,(visit/ctx vtor body ctx))])])
+
+; Expand for/for* in the body of the given FPCore program
+(define (fpcore-expand-for prog)
+  (match prog
+   [(list 'FPCore (list args ...) props ... body)
+    `(FPCore ,args ,@props ,(expand-for body))]   
+   [(list 'FPCore name (list args ...) props ... body)
+    `(FPCore ,name ,args ,@props ,(expand-for body))]))
+
+(define (precondition-ranges pre #:single-range [single-range #f])
   (let* ([ranges ((compose condition->range-table canonicalize remove-let) pre)]
          [bounded-vars (for/list ([var-interval (in-dict-pairs ranges)]
                                   #:when (nonempty-bounded? (cdr var-interval)))
@@ -404,9 +509,8 @@
                 `(or ,@(for/list ([int intervals])
                          (interval->condition int var)))))))))
 
-(define/contract (fpcore-precondition-ranges prog #:single-range [single-range #f])
-  ; Converts preconditions to ranges in the given FPCore program
-  (->* (fpcore?) (#:single-range boolean?) fpcore?)
+; Converts preconditions to ranges in the given FPCore program
+(define (fpcore-precondition-ranges prog #:single-range [single-range #f])
   (define-values (name args props body)
    (match prog
     [(list 'FPCore (list args ...) props ... body) (values #f args props body)]
@@ -420,32 +524,9 @@
            `(FPCore ,name ,args ,@(unparse-properties new-properties) ,body)
            `(FPCore ,args ,@(unparse-properties new-properties) ,body)))))
 
-(define/contract (fpcore-split-or prog)
-  ; Transforms preconditions into DNF and returns FPCore programs for all conjunctions
-  (-> fpcore? (listof fpcore?))
-  (define-values (name args props body)
-   (match prog
-    [(list 'FPCore (list args ...) props ... body) (values #f args props body)]
-    [(list 'FPCore name (list args ...) props ... body) (values name args props body)]))
-  (define-values (_ properties) (parse-properties props))
-  (if (not (dict-has-key? properties ':pre))
-      (list prog)
-      (let ([name (dict-ref properties ':name "ex")]
-            [pre-list ((compose (curry split-expr 'or) to-dnf remove-let)
-                       (dict-ref properties ':pre))])
-        (define multiple-pre (> (length pre-list) 1))
-        (for/list ([pre pre-list] [k (in-naturals)])
-          (define name* (if multiple-pre (format "~a_case~a" name k) name))
-          (define props* (dict-set* properties ':name name* ':pre pre))
-          `(FPCore ,args ,@(unparse-properties props*) ,body)))))
-
-
-(define/contract (fpcore-split-intervals n prog #:max [max 10000])
-  ; Uniformly splits input intervals of all bounded variables into n parts.
-  ; The total number of results is limited by the #:max parameter.
-  (->* (exact-nonnegative-integer? fpcore?)
-       (#:max exact-nonnegative-integer?)
-       (listof fpcore?))
+; Uniformly splits input intervals of all bounded variables into n parts.
+; The total number of results is limited by the #:max parameter.
+(define (fpcore-split-intervals n prog #:max [max 10000])
   (define-values (args props body)
    (match prog
     [(list 'FPCore (list args ...) props ... body) (values args props body)]
@@ -479,9 +560,26 @@
                    (append progs
                            (loop (cons new-pre pre-list) new-name (cdr vars))))]))))))
 
-(define/contract (fpcore-override-arg-precision prec prog)
-  ; Adds (! :precision prec) to all arguments
-  (-> symbol? fpcore? fpcore?)
+; Transforms preconditions into DNF and returns FPCore programs for all conjunctions
+(define (fpcore-split-or prog)
+  (define-values (name args props body)
+   (match prog
+    [(list 'FPCore (list args ...) props ... body) (values #f args props body)]
+    [(list 'FPCore name (list args ...) props ... body) (values name args props body)]))
+  (define-values (_ properties) (parse-properties props))
+  (if (not (dict-has-key? properties ':pre))
+      (list prog)
+      (let ([name (dict-ref properties ':name "ex")]
+            [pre-list ((compose (curry split-expr 'or) to-dnf remove-let)
+                       (dict-ref properties ':pre))])
+        (define multiple-pre (> (length pre-list) 1))
+        (for/list ([pre pre-list] [k (in-naturals)])
+          (define name* (if multiple-pre (format "~a_case~a" name k) name))
+          (define props* (dict-set* properties ':name name* ':pre pre))
+          `(FPCore ,args ,@(unparse-properties props*) ,body)))))
+
+; Adds (! :precision prec) to all arguments
+(define (fpcore-override-arg-precision prec prog)
   (define/match (transform-arg arg)
     [((list '! props ... name)) `(! ,@(append props `(:precision ,prec)) ,name)]
     [(name) `(! :precision ,prec ,name)])
@@ -491,30 +589,21 @@
     [(list 'FPCore name (list args ...) props ... body)
       `(FPCore ,name ,(map transform-arg args) ,@props ,body)]))
 
-(define/contract (fpcore-override-props new-props prog)
-  ; Adds given properties to the core
-  (-> (listof symbol?) fpcore? fpcore?)
+; Adds given properties to the core
+(define (fpcore-override-props new-props prog)
   (match prog
-    [(list 'FPCore (? list? args) props ... body)
-      `(FPCore ,args ,@props ,@new-props ,body)]
-    [(list 'FPCore name (? list? args) props ... body)
-      `(FPCore ,name ,args ,@props ,@new-props ,body)]))
+   [(list 'FPCore (? list? args) props ... body)
+    `(FPCore ,args ,@props ,@new-props ,body)]
+   [(list 'FPCore name (? list? args) props ... body)
+    `(FPCore ,name ,args ,@props ,@new-props ,body)]))
 
-(define/contract (fpcore-transform prog
-                                   #:var-precision [var-precision #f]
-                                   #:override-props [override-props #f]
-                                   #:unroll [unroll #f]
-                                   #:split [split #f]
-                                   #:split-or [split-or #f]
-                                   #:subexprs [subexprs #f])
-  (->* (fpcore?)
-       (#:var-precision (or/c #f symbol?)
-        #:override-props (or/c #f (listof symbol?))
-        #:unroll (or/c #f exact-nonnegative-integer?)
-        #:split (or/c #f exact-nonnegative-integer?)
-        #:split-or boolean?
-        #:subexprs boolean?)
-       (listof fpcore?))
+(define (fpcore-transform prog
+                          #:var-precision [var-precision #f]
+                          #:override-props [override-props #f]
+                          #:unroll [unroll #f]
+                          #:split [split #f]
+                          #:split-or [split-or #f]
+                          #:subexprs [subexprs #f])
   (define ((make-t cond f) progs)
     (if cond (append-map f progs) progs))
   (define transform
@@ -527,10 +616,7 @@
      (make-t unroll (compose list (curry fpcore-unroll-loops unroll)))))
   (transform (list prog)))
 
-(define/contract (fpcore-name prog [default-name #f])
-  (->* (fpcore?)
-       ((or/c #f string?))
-       (or/c #f string?))
+(define (fpcore-name prog [default-name #f])
   (define-values (name args props body)
    (match prog
     [(list 'FPCore (list args ...) props ... body) (values #f args props body)]
@@ -541,6 +627,32 @@
     [default-name]
     [else #f]))
 
+;; Pretty formatter
+
+(define (pretty-props props)
+  (for/list ([(prop name) (in-dict (apply dict-set* '() props))])
+    (format "~a ~a" prop name)))
+
+(define/transform-expr (pretty-expr-helper expr) ; don't call pretty-format twice
+  [(visit-! vtor props body #:ctx [ctx '()])
+   `(! ,@(pretty-props props) ,(visit/ctx vtor body ctx))])
+
+(define (pretty-expr expr)
+  (pretty-format (pretty-expr-helper expr) #:mode 'display))
+
+(define (pretty-fpcore core)
+  (define-values (name args props* body)
+    (match core
+     [(list 'FPCore name (list args ...) props ... body)
+      (values name args props body)]
+     [(list 'FPCore (list args ...) props ... body)
+      (values #f args props body)]))
+  (pretty-format `(,(if name (format "FPCore ~a ~a" name args) (format "FPCore ~a" args))
+                  ,@(pretty-props props*)
+                   ,(pretty-expr-helper body))
+                 #:mode 'display))
+
+
 (module+ test
   (require rackunit)
 
@@ -549,6 +661,52 @@
       (check-equal?
        (string->number (string-trim (format-number n) #px"[()]"))
        (inexact->exact n))))
+
+  (check-equal?
+   (free-variables '(let ([x 1] [y 2]) (+ (* x y) a)))
+    '(a))
+
+  (check-equal? 
+    (unused-variables '(let ([x 1] [y 2]) (+ 1 2)))
+    '(y x))
+
+  (check-equal? 
+    (unused-variables '(let ([x 1] [y 2]) (+ x 2)))
+    '(y))
+
+  (check-equal? 
+    (unused-variables '(let ([x 1] [y 2])
+                      (let ([x y] [y x])
+                       (+ x 1))))
+    '(y))
+
+  (check-equal? 
+    (unused-variables '(let* ([x 1] [y x]) 1))
+    '(y))
+
+  (check-equal? 
+    (unused-variables '(while TRUE ([i 0 (+ i 1)] [j 1 (+ i 1)]) 0))
+    '(j))
+
+  (check-equal? 
+    (unused-variables '(while* TRUE ([i 0 (+ i 1)] [j i (+ i 1)]) 0))
+    '(j))
+
+  (check-equal? 
+    (unused-variables '(for ([i 10]) ([m 0 0]) 1))
+    '(m))
+
+  (check-equal? 
+    (unused-variables '(for* ([i 10]) ([m 0 (+ i 1)]) 1))
+    '(m))
+
+  (check-equal? 
+    (unused-variables '(tensor ([i 3] [j 3]) (if (== i 1) 1 0)))
+    '())
+
+  (check-equal? 
+    (unused-variables '(tensor* ([i 10]) ([m 0 (+ i 1)]) 1))
+    '(m))
 
   (check-equal?
    (remove-let '(let ([x (+ a b)]) (+ x a)))
@@ -568,6 +726,10 @@
    '(if (== (- (+ a b) 0) (+ a b))
         (- (+ a b) a)
         y))
+
+  (check-equal?
+   (remove-let '(let* ([x (+ a b)] [y (+ a x)]) (* x y)))
+   '(* (+ a b) (+ a (+ a b))))
 
   (check-equal?
    (canonicalize '(let ([x (+ a b)])
@@ -594,6 +756,18 @@
                          (or p (!= a (+ b 1))))))
    '(let ([p (> a b)])
       (and (not p) (== a (+ b 1)))))
+
+  (check-equal?
+    (expand-for '(for () ([x 0 (+ x 1)]) x))
+    '(let ([x 0]) x))
+
+  (check-equal?
+    (expand-for '(for ([i n]) ([x 0 (+ x 1)]) x))
+    '(while (< i n) ([x 0 (+ x 1)]) x))
+
+  (check-equal? ; no expansion
+    (expand-for '(for ([i n] [j n]) ([x 0 (+ x 1)]) x))
+    '(for ([i n] [j n]) ([x 0 (+ x 1)]) x))
 
   (check-equal?
    (split-expr 'or '(or (and a b) (or (and c d) x)))

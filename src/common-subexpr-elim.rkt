@@ -9,6 +9,7 @@
 (provide
   (contract-out
    [core-common-subexpr-elim (-> fpcore? fpcore?)]
+   [fuse-let (-> expr? expr?)]  ; ml-canonicalizer.rkt
    [fpcore-fuse-let (-> fpcore? fpcore?)]
    [*expr-cse-able?* (parameter/c (-> expr? boolean?))]))
 

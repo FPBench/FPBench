@@ -101,6 +101,17 @@
 ;              <expr>
 ;  <expr> := (<func> <expr> ...+) | <terminal>
 ;
+; Reason: ML languages are very particular about the formatting
+; of let and if blocks. In particular, Haskell requires
+; that expressions be aligned for let and if blocks.
+; For complex FPCore's with nested let and if expressions,
+; tracking identation becomes nearly impossible.
+; This procedure converts a more general FPCore into the format specified
+; below by pulling up all nested let and if expressions.
+;
+; Ideally, the ML compilers can be overhauled to support more
+; general FPCores, but until then, this fix seems to work fairly well.
+;
 (define (canonicalize-ml expr names)
   (define/transform-expr (->canon/top expr ctx)
     [(visit-if vtor cond ift iff #:ctx [ctx '()])

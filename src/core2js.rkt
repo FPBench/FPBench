@@ -1,6 +1,7 @@
 #lang racket
 
-(require "common.rkt" "compilers.rkt" "imperative.rkt" "supported.rkt")
+(require "imperative.rkt")
+
 (provide js-header core->js js-runtime js-supported)
 
 (define js-runtime (make-parameter "Math"))
@@ -26,22 +27,30 @@
     (curry equal? 'binary64)
     (curry equal? 'nearestEven)))
 
-(define js-reserved '())  ; Language-specific reserved names (avoid name collisions)
+(define js-reserved   ; Language-specific reserved names (avoid name collisions)
+  '(abstract arguments await boolean break byte case catch char
+    class const continue debugger default delete do double
+    else enum eval export extends false final finally float
+    for function goto if implements import in instanceof int
+    interface let long native new null package private protected
+    public return short static super switch synchronized this
+    throw throws transient true try typeof var void volatile
+    while with yield))
 
-(define (operator->js props op args)
-  (define arg-list (string-join args ", "))
+(define (operator->js op args ctx)
+  (define args* (string-join args ", "))
   (match op
     ['/     (format "(~a / ~a)" (first args) (second args))]
-    ['fabs  (format "~a.abs(~a)" (js-runtime) arg-list)]
-    ['fmax  (format "fmax(~a)" arg-list)]
-    ['fmin  (format "fmin(~a)" arg-list)]
-    ['fdim  (format "fdim(~a)" arg-list)]
-    ['pow   (format "pow(~a)" arg-list)]
-    ['isinf (format "(~a.abs(~a) === Infinity)" (js-runtime) arg-list)]
-    ['isnan (format "isNaN(~a)" arg-list)]
-    [_      (format "~a.~a(~a)" (js-runtime) op arg-list)]))
+    ['fabs  (format "~a.abs(~a)" (js-runtime) args*)]
+    ['fmax  (format "fmax(~a)" args*)]
+    ['fmin  (format "fmin(~a)" args*)]
+    ['fdim  (format "fdim(~a)" args*)]
+    ['pow   (format "pow(~a)" args*)]
+    ['isinf (format "(~a.abs(~a) === Infinity)" (js-runtime) args*)]
+    ['isnan (format "isNaN(~a)" args*)]
+    [_      (format "~a.~a(~a)" (js-runtime) op args*)]))
 
-(define (constant->js props expr)
+(define (constant->js expr ctx)
   (match expr
     ['E "Math.E"]
     ['LOG2E "Math.LOG2E"]
@@ -62,29 +71,14 @@
     ['INFINITY "Infinity"]
     ['NAN "NaN"]
     [(? hex?) ((compose ~a real->double-flonum hex->racket) expr)]
-    [(? number?) (format "~a" (real->double-flonum expr))]
-    [(? symbol?) expr]))
+    [(? number?) (~a (real->double-flonum expr))]
+    [(? symbol?) (~a expr)]))
 
-(define (decleration->js props var [val #f])
-  (if val
-    (format "var ~a = ~a;" var val)
-    (format "var ~a;" var)))
 
-(define (assignment->js var val)
-  (format "~a = ~a;" var val))
+(define core->js
+  (make-imperative-compiler "js"
+    #:operator operator->js
+    #:constant constant->js
+    #:reserved js-reserved))
 
-(define (round->js val props) (~a val)) ; round(val) = val
-
-(define (function->js name args arg-props body return ctx vars)
-  (format "function ~a(~a) {\n~a\treturn ~a;\n}\n"
-          name 
-          (string-join args ", ") 
-          body 
-          (trim-infix-parens return)))
-
-(define js-language (language "js" operator->js constant->js decleration->js assignment->js round->js (const "") function->js))
-
-;;; Exports
-
-(define (core->js prog name) (parameterize ([*lang* js-language] [*reserved-names* js-reserved]) (convert-core prog name)))
 (define-compiler '("js") js-header core->js (const "") js-supported)

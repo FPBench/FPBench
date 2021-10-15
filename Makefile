@@ -47,9 +47,9 @@ else
 	$(warning skipping sollya sanity tests; unable to sollya interpreter)
 endif
 
-cml-sanity:
+cakeml-sanity:
 ifneq (, $(shell which cake))
-	cat tests/sanity/*.fpcore | racket infra/test-core2cml.rkt --repeat 1
+	cat tests/sanity/*.fpcore | racket infra/test-core2cakeml.rkt --repeat 1
 else
 	$(warning skipping CakeML sanity tests; unable to find CakeML compiler)
 endif
@@ -77,7 +77,8 @@ else
 	$(warning skipping Scala tests; unable to find Scala compiler)
 endif
 
-sanity: c-sanity js-sanity go-sanity smtlib2-sanity sollya-sanity wls-sanity cml-sanity fptaylor-sanity scala-sanity
+sanity: c-sanity js-sanity go-sanity smtlib2-sanity sollya-sanity wls-sanity \
+		cakeml-sanity fptaylor-sanity scala-sanity
 
 raco-test:
 	raco test .
@@ -118,16 +119,16 @@ else
 	$(warning skipping sollya tests; unable to find sollya interpreter)
 endif
 
-cml-test:
+cakeml-test:
 ifneq (, $(shell which cake))
-	cat benchmarks/*.fpcore tests/*.fpcore | racket infra/test-core2cml.rkt
+	cat benchmarks/*.fpcore tests/*.fpcore | racket infra/test-core2cakeml.rkt
 else
 	$(warning skipping CakeML tests; unable to find CakeML compiler)
 endif
 
 wls-test:
 ifneq (, $(shell which wolframscript))
-	cat benchmarks/*.fpcore tests/*.fpcore  | racket infra/test-core2wls.rkt -s --error 3
+	cat benchmarks/*.fpcore tests/*.fpcore  | racket infra/test-core2wls.rkt -s --error 150
 
 else
 	$(warning skipping wolframscript tests; unable to find wolframscript interpreter)
@@ -171,8 +172,9 @@ tensor-test:
 
 tools-test: export-test transform-test toolserver-test evaluate-test tensor-test
 
-test: c-test js-test go-test smtlib2-test sollya-test wls-test cml-test fptaylor-test \
-	  daisy-test export-test transform-test toolserver-test evaluate-test raco-test 
+test: c-test js-test go-test smtlib2-test sollya-test wls-test \
+	  cakeml-test fptaylor-test daisy-test export-test transform-test \
+	  toolserver-test evaluate-test raco-test 
 
 clean:
 	$(RM) -r library tmp log *.zo *.dep

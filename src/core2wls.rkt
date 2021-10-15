@@ -1,14 +1,18 @@
 #lang racket
 
 (require math/bigfloat)
-(require "common.rkt" "compilers.rkt" "functional.rkt" "supported.rkt")
+(require "lisp.rkt")
 (provide core->wls wls-supported number->wls prec->wls)
 
-(define wls-supported (supported-list
-  fpcore-ops
-  fpcore-consts
-  (curry set-member? '(binary64 real integer))
-  (curry set-member? '(nearestEven))))
+; Note: MachinePrecision is kind of broken since Mathematica will
+; just arbitrarily ignore it at times
+
+(define wls-supported
+  (supported-list
+    fpcore-ops
+    fpcore-consts
+    (curry set-member? '(binary64 real integer))
+    (curry set-member? '(nearestEven))))
 
 (define wls-reserved '(E Pi))  ; Language-specific reserved names (avoid name collisions)
 
@@ -22,7 +26,7 @@
 
 (define (prec->wls prec)
   (match prec 
-    ['binary64 "MachinePrecision"]
+    ['binary64 "$MachinePrecision"]
     ['real     "Infinity"]
     ['integer  "Infinity"]))
 
@@ -40,36 +44,29 @@
             (format "(~a/~a)" n d)))]))
 
 (define (constant->wls expr ctx)
-  (define wls-prec (prec->wls (ctx-lookup-prop ctx ':precision 'binary64)))
   (match expr
-    ['E       (format "N[E, ~a]" wls-prec)]
-    ['LOG2E   (format "N[Log[2, E], ~a]" wls-prec)]
-    ['LOG10E  (format "N[Log[10, E], ~a]" wls-prec)]
-    ['LN2     (format "N[Log[2], ~a]" wls-prec)]
-    ['LN10    (format "N[Log[10], ~a]" wls-prec)]
-    ['PI      (format "N[Pi, ~a]" wls-prec)]
-    ['PI_2    (format "N[(Pi / 2), ~a]" wls-prec)]
-    ['PI_4    (format "N[(Pi / 4), ~a]" wls-prec)]
-    ['M_1_PI  (format "N[(1 / Pi), ~a]" wls-prec)]
-    ['M_2_PI  (format "N[(2 / Pi), ~a]" wls-prec)]
-    ['M_2_SQRTPI  (format "N[(2 / Sqrt[Pi]), ~a]" wls-prec)]
-    ['SQRT2   (format "N[Sqrt[2], ~a]" wls-prec)]
-    ['SQRT1_2 (format "N[Sqrt[1 / 2], ~a]" wls-prec)]
-    ['TRUE "True"]
-    ['FALSE "False"]
-    ['INFINITY "Infinity"]
-    ['NAN "Indeterminate"]
-    [(list 'digits (? number? m) (? number? e) (? number? b))
-     (format "N[~a * ~a ^ ~a, ~a]"
-             (number->wls m)
-             (number->wls b)
-             (number->wls e)
-             wls-prec)]
-    [(? hex?) (hex->racket expr)]
-    [(? number?) (format "N[~a, ~a]" (number->wls expr) wls-prec)]
-    [(? symbol?) expr]))
+    ['E           "E"]
+    ['LOG2E       "Log[2, E]"]
+    ['LOG10E      "Log[10, E]"]
+    ['LN2         "Log[2]"]
+    ['LN10        "Log[10]"]
+    ['PI          "Pi"]
+    ['PI_2        "(Pi / 2)"]
+    ['PI_4        "(Pi / 4)"]
+    ['M_1_PI      "(1 / Pi)"]
+    ['M_2_PI      "(2 / Pi)"]
+    ['M_2_SQRTPI  "(2 / Sqrt[Pi])"]
+    ['SQRT2       "Sqrt[2]"]
+    ['SQRT1_2     "Sqrt[1 / 2]"]
+    ['TRUE        "True"]
+    ['FALSE       "False"]
+    ['INFINITY    "Infinity"]
+    ['NAN         "Indeterminate"]
+    [(? hex?)     (~a (hex->racket expr))]
+    [(? number?)  (~a expr)]
+    [(? symbol?)  (~a expr)]))
 
-(define/match (operator->wls op)
+(define/match (operator-format op)
   [('+) "(~a + ~a)"]
   [('-) "(~a - ~a)"]
   [('*) "(~a * ~a)"]
@@ -154,85 +151,81 @@
   ;; This will not distinguish negative zero, which mostly makes sense for actual reals
   [('signbit) "(Sign[Simplify[~a]] == -1)"])
 
-(define (application->wls operator args ctx)
-  (match (cons operator args)
+(define (operator->wls op args ctx)
+  (match (cons op args)
     [(list (or '< '> '<= '>= '== '!= 'and 'or) args ...)
-     (format (operator->wls operator)
-        (string-join
-          (for/list ([a args])
-            (format "~a" a))
-          ", "))]
+     (format (operator-format op) (string-join (map ~a args) ", "))]
     [(list '- a)
      (format "(-~a)" a)]
     [(list (? operator? op) args ...)
-     (apply format (operator->wls op) args)]))
+     (define wls-prec (prec->wls (ctx-lookup-prop ctx ':precision)))
+     (if (equal? wls-prec "Infinity")
+         (apply format (operator-format op) args)
+         (format "N[~a, ~a]" (apply format (operator-format op) args) wls-prec))]))
 
-(define (declaration->wls var val)
-  (format "~a = ~a" var val))
+(define (program->wls name args arg-ctxs body ctx)
+  (define args* (map (curry format "~a_") args))
+  (format "~a[~a] := ~a\n" name (string-join args* ", ") body))
 
-(define (normal-let->wls name vars vals body)
-  (format "~a[{~a}, ~a]" 
-    name
-    (string-join
-      (for/list ([var vars] [val vals])
-          (declaration->wls var val))
-      ", ")
-    body))
-    
-(define (nested-let->wls name vars vals body)
-  (cond
-    [(> (length vars) 0) 
-      (format "~a[{~a}, ~a]" name (declaration->wls (first vars) (first vals)) 
-                             (nested-let->wls name (drop vars 1) (drop vals 1) body))]
-    [else body]))
+; Override visitor behavior
+(define-expr-visitor lisp-visitor wls-visitor
+  [(visit-while_ vtor while_ cond vars inits updates body #:ctx ctx)
+    (define-values (ctx* vars* vals*)                             ; initialization
+      (for/fold ([ctx* ctx] [vars* '()] [vals* '()]
+                #:result (values ctx* (reverse vars*) (reverse vals*)))
+                ([var (in-list vars)] [val (in-list inits)])
+        (define val-ctx (match while_ ['while ctx] ['while* ctx*]))
+        (define-values (val* val*-ctx) (visit/ctx vtor val val-ctx))
+        (define prec (ctx-lookup-prop val*-ctx ':precision))
+        (define-values (name-ctx name) (ctx-unique-name ctx* var prec))
+        (values name-ctx (cons name vars*) (cons val* vals*))))
+    (define-values (cond* cond*-ctx) (visit/ctx vtor cond ctx*))  ; condition
+    (define-values (vars** updates*)                              ; updates
+      (for/fold ([ctx** ctx*] [vars* '()]  [vals* '()]
+                #:result (values (reverse vars*) (reverse vals*)))
+                ([var (in-list vars)] [val (in-list updates)])
+        (define val-ctx (match while_ ['while ctx*] ['while* ctx**]))
+        (define-values (val* val*-ctx) (visit/ctx vtor val val-ctx))
+        (define prec (ctx-lookup-prop val*-ctx ':precision))
+        (define-values (name-ctx name) (ctx-unique-name ctx** var prec))
+        (values name-ctx (cons name vars*) (cons val* vals*))))
+    (define-values (body* body-ctx) (visit/ctx vtor body ctx*))
+    (values
+      (match while_
+       ['while
+        (format "Block[{~a}, While[~a, Block[{~a}, ~a]]; ~a]"
+                (string-join (map (curry format "~a = ~a") vars* vals*) ", ")
+                cond* (string-join (map (curry format "~a = ~a") vars** updates*) ", ")
+                (string-join (map (curry format "~a = ~a") vars* vars**) "; ") body*)]
+       [while*
+        (let loop ([vars vars*] [vals* vals*])
+          (if (= (length vars) 1)
+              (format "Block[{~a = ~a}, While[~a, ~a]; ~a]"
+                      (car vars) (car vals*) cond*
+                      (let loop2 ([vars vars**] [updates* updates*])
+                        (if (null? vars)
+                            (string-join (map (curry format "~a = ~a") vars* vars**) "; ")
+                            (format "Block[{~a = ~a}, ~a]" (car vars) (car updates*)
+                                    (loop2 (cdr vars) (cdr updates*)))))
+                      body*)
+              (format "Block[{~a = ~a}, ~a]" (car vars) (car vals*)
+                      (loop (cdr vars) (cdr vals*)))))])
+      body-ctx)])
 
-(define (let->wls vars vals body indent nested)
-  (if nested
-    (format (nested-let->wls "With" vars vals body))
-    (format (normal-let->wls "With" vars vals body))))                         
+(define core->wls*
+  (make-lisp-compiler "lisp"
+    #:operator operator->wls
+    #:constant constant->wls
+    #:if-format "If[~a, ~a, ~a]"
+    #:let-format "Block[{~a}, ~a]"
+    #:let-bind-format (cons "~a = ~a" ", ")
+    #:program program->wls
+    #:reserved wls-reserved
+    #:visitor wls-visitor
+    #:fix-name fix-name))
 
-(define (if->wls cond ift iff tmp indent)
-  (format "If[~a, ~a, ~a]" cond ift iff))
-
-(define (while->wls vars inits cond updates updatevars body loop indent nested)
-  (if nested
-    (nested-let->wls "Block" vars inits   ; Block[{~a}, While[~a, ~a]; ~a]
-      (format "While[~a, ~a]; ~a"
-        cond
-        (string-join
-          (for/list ([var vars] [val updates])
-            (declaration->wls var val))
-          "; ")
-        body))
-    (normal-let->wls "Block" vars inits   ; Block[{~a}, While[~a, With[{~a}, ~a]]; ~a]
-      (format "While[~a, ~a]; ~a"
-        cond
-        (normal-let->wls "With" updatevars updates
-          (string-join
-            (for/list ([var vars] [val updatevars])
-              (declaration->wls var val))
-            "; "))
-        body))))
-
-(define (function->wls name args body ctx names)
-  (define wls-prec (prec->wls (ctx-lookup-prop ctx ':precision 'binary64)))
-  (define arg-strings
-    (for/list ([var args])
-      (format "~a_" (if (list? var) (car var) var))))
-  (format "~a[~a] := Block[{$MinPrecision=~a, $MaxPrecision=~a, $MaxExtraPrecision=0}, ~a]\n"
-          name
-          (string-join arg-strings ", ")
-          wls-prec
-          wls-prec
-          body))
-
-(define wls-language (functional "wls" application->wls constant->wls declaration->wls let->wls if->wls while->wls function->wls))
-
-;;; Exports
-
-(define (core->wls prog name) 
-  (parameterize ([*func-lang*  wls-language] [*gensym-divider* #\$] 
-                 [*gensym-fix-name* fix-name] [*reserved-names* wls-reserved])
-    (core->functional prog name)))
+(define (core->wls prog name)
+  (parameterize ([*gensym-divider* #\$])
+    (core->wls* prog name)))
 
 (define-compiler '("wl" "wls") (const "") core->wls (const "") wls-supported)

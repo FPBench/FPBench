@@ -1,8 +1,10 @@
 #lang racket
 
 (require generic-flonum)
-(require "common.rkt" "compilers.rkt" "imperative.rkt" "supported.rkt")
-(provide c-header core->c c-supported)
+(require "imperative.rkt")
+
+(provide c-header core->c c-supported
+         c-reserved type->c params->c) ; required by core2h.rkt
 
 (define c-header (const "#include <fenv.h>\n#include <math.h>\n#include <stdint.h>\n#define TRUE 1\n#define FALSE 0\n\n"))
 (define c-supported 
@@ -12,9 +14,14 @@
     (curry set-member? '(binary32 binary64 binary80 integer))
     (invert-rnd-mode-proc (curry equal? 'nearestAway))))
 
-(define c-reserved '())  ; Language-specific reserved names (avoid name collisions)
+(define c-reserved  ; Language-specific reserved names (avoid name collisions)
+  '(auto break case char const continue default
+    do double else enum extern float for goto if
+    inline int long register restrict return
+    short signed sizeof static struct switch
+    typedef union unsigned void volatile while))
 
-(define/match (type->c-suffix type)
+(define/match (c-type->suffix type)
   [("int64_t") ""]
   [("double") ""]
   [("float") "f"]
@@ -27,96 +34,109 @@
   [('boolean) "int"]
   [('integer) "int64_t"])
 
-(define (operator->c props op args)
-  (define type (type->c (dict-ref props ':precision 'binary64)))
+(define (operator->c op args ctx)
+  (define type (type->c (ctx-lookup-prop ctx ':precision)))
   (match op
-    ['/         (format "(~a / ~a)" (first args) (second args))]
     ['isinf     (format "isinf(~a)" args)]
     ['isnan     (format "isnan(~a)" args)]
     ['isfinite  (format "isfinite(~a)" args)]
     ['isnormal  (format "isnormal(~a)" args)]
     ['signbit   (format "signbit(~a)" args)]
-    [_          (format "~a~a(~a)" op (type->c-suffix type) (string-join args ", "))]))
-
+    [_          (format "~a~a(~a)" op (c-type->suffix type) (string-join args ", "))]))
+  
 (define (binary80->string x)
   (parameterize ([gfl-exponent 15] [gfl-bits 80])
-    (define s (gfl->string (gfl x)))
-    (if (string-contains? s ".")
-        s
-        (string-append s ".0"))))
+    (let ([s (gfl->string (gfl x))])
+      (if (string-contains? s ".") s (string-append s ".0")))))
 
-(define (constant->c props expr)
-  (define prec (dict-ref props ':precision 'binary64))
-  (define type (type->c prec))
-  (match expr
-    [(or 'TRUE 'FALSE) (~a expr)]
-    [(or 'M_1_PI 'M_2_PI 'M_2_SQRTPI 'INFINITY 'NAN)
-      (format "((~a) ~a)" type expr)]
-    [(? hex?) (~a expr)]
-    [(? number?)
-      (match prec
-       ['integer (~a (inexact->exact expr))]
-       ['binary80 
-        (parameterize ([gfl-exponent 15] [gfl-bits 80])
-          (format "~a~a" (binary80->string expr) (type->c-suffix type)))]
-       [_ (format "~a~a" (real->double-flonum expr) (type->c-suffix type))])]
-    [(? symbol?) (format "((~a) M_~a)" type expr)]))
+(define (constant->c x ctx)
+  (define type (type->c (ctx-lookup-prop ctx ':precision)))
+  (match x
+   [(or 'TRUE 'FALSE (? hex?)) (~a x)]
+   [(or 'M_1_PI 'M_2_PI 'M_2_SQRTPI 'INFINITY 'NAN)
+    (format "((~a) ~a)" type x)]
+   [(? number?)
+    (match type
+     ["int64_t" (~a (inexact->exact x))]
+     ["long double" (format "~a~a" (binary80->string x) (c-type->suffix type))]
+     [_ (format "~a~a" (real->double-flonum x) (c-type->suffix type))])]
+   [(? symbol?) (format "((~a) M_~a)" type x)]))
 
-(define (declaration->c props var [val #f])
-  (define type (type->c (dict-ref props ':precision 'binary64)))
-  (if val
-      (format "~a ~a = ~a;" type var val)
-      (format "~a ~a;" type var)))
+(define declaration->c
+  (case-lambda
+   [(var ctx)
+    (define type (type->c (ctx-lookup-prop ctx ':precision)))
+    (format "~a ~a;" type var)]
+   [(var val ctx)
+    (define type (type->c (ctx-lookup-prop ctx ':precision)))
+    (format "~a ~a = ~a;" type var val)]))
+  
+(define (round->c x ctx)
+  (define type (type->c (ctx-lookup-prop ctx ':precision)))
+  (format "((~a) ~a)" type x))
 
-(define (assignment->c var val)
-  (format "~a = ~a;" var val))
+(define (cmp-prec prec1 prec2)
+  (define/match (prec->num prec)
+    [('binary80) 4]
+    [('binary64) 3]
+    [('binary32) 2]
+    [('integer)  1]
+    [('boolean)  0])
+  (- (prec->num prec1) (prec->num prec2)))
 
-(define (round->c val props)
-  (define type (type->c (dict-ref props ':precision 'binary64)))
-  (format "((~a) ~a)" type val))
+(define (implicit-round->c op arg arg-ctx ctx)
+  (define prec (ctx-lookup-prop ctx ':precision))
+  (define arg-prec (ctx-lookup-prop arg-ctx ':precision))
+  (if (set-member? '(+ - * /) op)
+      (if (> (cmp-prec prec arg-prec) 0)
+          (round->c arg ctx)
+          arg)  ; TODO: warn unfaithful
+      arg))
 
-(define (round-mode->c mode indent)
-  (format "fesetround(~a);\n"
+(define (round-mode->c mode ctx)
+  (define indent (ctx-lookup-extra ctx 'indent))
+  (format "~afesetround(~a);\n" indent
     (match mode
-      ['nearestEven   "FE_TONEAREST"]
-      ['toPositive    "FE_UPWARD"]
-      ['toNegative    "FE_DOWNWARD"]
-      ['toZero        "FE_TOWARDZERO"]
-      [_              (error 'round-mode->c (format "Unsupported rounding mode ~a" mode))])))
+     ['nearestEven  "FE_TONEAREST"]
+     ['toPositive   "FE_UPWARD"]
+     ['toNegative   "FE_DOWNWARD"]
+     ['toZero       "FE_TOWARDZERO"]
+     [_             (error 'round-mode->c (format "Unsupported rounding mode ~a" mode))])))
 
-(define (params->c args arg-props)
+(define (params->c args arg-ctxs)
   (string-join
-    (for/list ([arg args] [prop arg-props])
-      (let ([type (hash-ref prop ':precision)])
-        (format "~a ~a" (type->c type) arg)))
+    (for/list ([arg (in-list args)] [ctx (in-list arg-ctxs)])
+      (let ([type (type->c (ctx-lookup-prop ctx ':precision))])
+        (format "~a ~a" type arg)))
     ", "))
 
-(define (function->c name args arg-props body return ctx vars)
-  (define type (type->c (ctx-lookup-prop ctx ':precision 'binary64)))
-  (define rnd-mode (ctx-lookup-prop ctx ':round 'nearestEven))
-  (define-values (_ ret-var) (ctx-random-name ctx))
-  (if (equal? rnd-mode 'nearestEven) ; if not 'nearestEven, set round mode, then restore the original mode
-      (format "~a ~a(~a) {\n~a\treturn ~a;\n}\n" type name (params->c args arg-props)
-              body (trim-infix-parens return))
-      (format "~a ~a(~a) {\n~a~a\t~a ~a = ~a;\n~a\treturn ~a;\n}\n"    
-              type name (params->c args arg-props) (round-mode->c rnd-mode "\t") body
-              type ret-var (trim-infix-parens return) (round-mode->c 'nearestEven "\t")
-              ret-var)))
+(define (program->c name args arg-ctxs body ret ctx used-vars)
+  (define type (type->c (ctx-lookup-prop ctx ':precision)))
+  (define rnd-mode (ctx-lookup-prop ctx ':round))
+  (match rnd-mode
+   ['nearestEven
+    (format "~a ~a(~a) {\n~a\treturn ~a;\n}\n"
+            type name (params->c args arg-ctxs)
+            body (trim-infix-parens ret))]
+   [_
+    (define-values (_ ret-var) (ctx-random-name ctx))
+    (format "~a ~a(~a) {\n~a~a~a ~a = ~a;\n~a\treturn ~a;\n}\n"
+            type name (params->c args arg-ctxs)
+            (round-mode->c rnd-mode ctx) body
+            type ret-var (trim-infix-parens ret) 
+            (round-mode->c 'nearestEven ctx) ret-var)]))
 
-(define c-language (language "c" operator->c constant->c declaration->c assignment->c
-                             round->c round-mode->c function->c))
 
-(define (function->header name args arg-props body return ctx vars)
-  (define type (type->c (ctx-lookup-prop ctx ':precision 'binary64)))
-  (format "~a ~a(~a);\n" type name (params->c args arg-props)))
+(define core->c
+  (make-imperative-compiler "c"
+    #:operator operator->c
+    #:constant constant->c
+    #:type type->c
+    #:declare declaration->c
+    #:round round->c
+    #:implicit-round implicit-round->c
+    #:round-mode round-mode->c
+    #:program program->c
+    #:reserved c-reserved))
 
-(define c-h-language (language "h" (const "") (const "") (const "") (const "")
-                               (const "") (const "") function->header))
-
-;;; Exports
-
-(define (core->c  prog name) (parameterize ([*lang* c-language] [*reserved-names* c-reserved]) (convert-core prog name)))
 (define-compiler '("c") c-header core->c (const "") c-supported)
-
-(define (core->h prog name) (parameterize ([*lang* c-h-language] [*reserved-names* c-reserved]) (convert-core prog name)))
-(define-compiler '("h") (const "") core->h (const "") c-supported)

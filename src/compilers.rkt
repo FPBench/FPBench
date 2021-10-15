@@ -1,12 +1,15 @@
 #lang racket
 
-(require "supported.rkt" "fpcore-checker.rkt")
+(require "supported.rkt" "fpcore-checker.rkt" "fpcore-visitor.rkt")
 
 (provide
-  define-compiler ; contractless (syntax)
-  (rename-out     ; inherits contract
+  ; contractless
+  define-compiler default-compiler-visitor
+  ; inherits contract
+  (rename-out
    [compiler-ctx-props ctx-props])
-  (contract-out   ; new contracts
+  ; new contracts
+  (contract-out
     [*gensym-used-names* (parameter/c set-mutable?)]
     [*gensym-divider* (parameter/c (or/c char? string?))]
     [*gensym-collisions* (parameter/c natural?)]
@@ -30,13 +33,16 @@
                           ((or/c boolean? symbol?))
                           (values compiler-ctx? string?))]
     [ctx-reserve-names (-> compiler-ctx? (listof (or/c symbol? string?)) compiler-ctx?)]
-    [ctx-update-props (-> compiler-ctx? (listof any/c) compiler-ctx?)]
     [ctx-lookup-name (-> compiler-ctx? symbol? string?)]
     [ctx-lookup-prec (-> compiler-ctx? symbol? any/c)]
+    [ctx-update-props (-> compiler-ctx? (listof any/c) compiler-ctx?)]
     [ctx-lookup-prop (->* (compiler-ctx? symbol?) ((or/c boolean? symbol?)) any/c)]
+    [ctx-set-extra (-> compiler-ctx? any/c any/c compiler-ctx?)]
+    [ctx-update-extra (->* (compiler-ctx? any/c any/c) (any/c) compiler-ctx?)]
+    [ctx-lookup-extra (-> compiler-ctx? any/c any/c)]
     [supported-by-lang? (-> fpcore? string? boolean?)]))
 
-;; Compiler struct
+;;;;;;;;;;;;;;;;;;;;;;;;;;; compiler struct ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (struct compiler (extensions header export footer supported))
 
@@ -45,7 +51,16 @@
 (define-syntax-rule (define-compiler arg ...)
   (compilers (cons (compiler arg ...) (compilers))))
 
-;;; Compiler contexts
+(define (supported-by-lang? fpcore lang)
+  (define compiler
+    (for/first ([compiler (compilers)]
+                #:when (set-member? (compiler-extensions compiler) lang))
+        compiler))
+  (if compiler
+      (valid-core fpcore (compiler-supported compiler))
+      #f))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;; name generation ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define *gensym-used-names* (make-parameter (mutable-set)))
 (define *gensym-divider* (make-parameter #\_))
@@ -66,13 +81,16 @@
 (define (->string s)
   (if (symbol? s) (symbol->string s) s))
 
-(struct compiler-ctx (name-map prec-map props))
+;;;;;;;;;;;;;;;;;;;;;;;;;;; compiler context ;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(struct compiler-ctx (name-map prec-map props extra))
 
 ; Produces a new compiler context
 (define (make-compiler-ctx [name-map (make-immutable-hash)]
                            [prec-map (make-immutable-hash)]
-                           [props (make-immutable-hash)])
-  (compiler-ctx name-map prec-map props))
+                           [props (make-immutable-hash)]
+                           [extra (make-immutable-hash)])
+  (compiler-ctx name-map prec-map props extra))
 
 ; Takes a given symbol or string and maps it to a unique, printable name,
 ; returning both the updated ctx struct and the name
@@ -80,9 +98,9 @@
   (define name* (->string name))
   (define unique (gensym name*))
   (define prec* (if prec prec (dict-ref (compiler-ctx-props ctx) ':precision 'binary64)))
-  (values (compiler-ctx (dict-set (compiler-ctx-name-map ctx) name* unique) 
-                        (dict-set (compiler-ctx-prec-map ctx) name* prec*)
-                        (compiler-ctx-props ctx))
+  (values (struct-copy compiler-ctx ctx
+                      [name-map (dict-set (compiler-ctx-name-map ctx) name* unique)]
+                      [prec-map (dict-set (compiler-ctx-prec-map ctx) name* prec*)])
           unique))
 
 ; Produces a unique, printable name and returns the updated ctx struct and the name.
@@ -90,9 +108,8 @@
 (define (ctx-random-name ctx [prec #f])
   (define name (gensym "tmp"))
   (define prec* (if prec prec (dict-ref (compiler-ctx-props ctx) ':precision 'binary64)))
-  (values (compiler-ctx (compiler-ctx-name-map ctx)
-                        (dict-set (compiler-ctx-prec-map ctx) name prec*)
-                        (compiler-ctx-props ctx))
+  (values (struct-copy compiler-ctx ctx
+                       [prec-map (dict-set (compiler-ctx-prec-map ctx) name prec*)])
           name))
 
 ; Reserves the list of names and returns the updated struct
@@ -114,22 +131,51 @@
 
 ; Functionally extends a context struct's hash table of properties from the given properties.
 (define (ctx-update-props ctx props)
-  (compiler-ctx (compiler-ctx-name-map ctx)
-                (compiler-ctx-prec-map ctx)
-                (apply hash-set* (compiler-ctx-props ctx) props)))
+  (struct-copy compiler-ctx ctx
+               [props (apply hash-set* (compiler-ctx-props ctx) props)]))
 
 ; Returns the property value stored in the context struct. Returns the value at 
 ; failure otherwise.
 (define (ctx-lookup-prop ctx prop [failure #f])
   (dict-ref (compiler-ctx-props ctx) prop failure))
 
-;;; Misc
+; Add or set an extra entry
+(define (ctx-set-extra ctx k v)
+  (struct-copy compiler-ctx ctx
+               [extra (hash-set (compiler-ctx-extra ctx) k v)]))
 
-(define (supported-by-lang? fpcore lang)
-  (define compiler
-    (for/first ([compiler (compilers)]
-                #:when (set-member? (compiler-extensions compiler) lang))
-        compiler))
-  (if compiler
-      (valid-core fpcore (compiler-supported compiler))
-      #f))
+; Update an extra entry
+(define (ctx-update-extra ctx k proc [fail #f])
+  (struct-copy compiler-ctx ctx
+               [extra (if fail
+                          (hash-update (compiler-ctx-extra ctx) k proc fail)
+                          (hash-update (compiler-ctx-extra ctx) k proc))]))
+
+; Returns an extra entry
+(define (ctx-lookup-extra ctx k [fail #f])
+  (if fail
+      (hash-ref (compiler-ctx-extra ctx) k fail)
+      (hash-ref (compiler-ctx-extra ctx) k)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;; base compiler ;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define-transform-visitor default-compiler-visitor
+  [(visit-if vtor cond ift iff #:ctx ctx)
+    (error 'default-compiler-visitor "Unsupported operation: ~a" 'if)]
+  [(visit-let_ vtor let_ vars vals body #:ctx ctx)
+    (error 'default-compiler-visitor "Unsupported operation: ~a" let_)]
+  [(visit-while_ vtor while_ cond vars inits updates body #:ctx ctx)
+    (error 'default-compiler-visitor "Unsupported operation: ~a" while_)]
+  [(visit-for_ vtor for_ vars vals accums inits updates body #:ctx ctx)
+    (error 'default-compiler-visitor "Unsupported operation: ~a" for_)]
+  [(visit-tensor vtor vars vals body #:ctx ctx)
+    (error 'default-compiler-visitor "Unsupported operation: tensor")]
+  [(visit-tensor* vtor vars vals accums inits updates body #:ctx ctx)
+    (error 'default-compiler-visitor "Unsupported operation: tensor*")]
+  [(visit-! vtor props body #:ctx ctx)
+    (error 'default-compiler-visitor "Unsupported operation: !")]
+  [(visit-op_ vtor op_ args body #:ctx ctx)
+    (error 'default-compiler-visitor "Unsupported operation: ~a" op_)]
+  [(visit-terminal_ vtor x #:ctx ctx)
+    (error 'default-compiler-visitor "Unsupported: ~a" x)])
+

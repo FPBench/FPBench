@@ -1,7 +1,7 @@
 #lang racket
 
 (require generic-flonum)
-(require "test-common.rkt" "../src/core2cml.rkt")
+(require "test-common.rkt" "../src/core2cakeml.rkt")
 
 (define (compile->cml prog ctx type test-file)
   (define s-file (string-replace test-file ".cml" ".S"))
@@ -18,7 +18,7 @@
           (string-join (map (curry format "arg~a") (range N)) " ")))
       (fprintf p "print_int (Word64.toInt res)\nend;\n\nmain ();")))
   (system (format "cake <~a >~a --reg_alg=0" test-file s-file))
-  (system (format "cc $CAKEML_BASE/basis_ffi.o ~a -o ~a" s-file cake-file))
+  (system (format "cc $CAKEML_BIN/basis_ffi.o ~a -o ~a" s-file cake-file))
   cake-file)
 
 (define (run<-cml exec-name ctx types number?)

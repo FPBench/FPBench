@@ -1,8 +1,8 @@
 #lang racket
 
-(require math/bigfloat)
-(require "common.rkt" "compilers.rkt" "imperative.rkt" "range-analysis.rkt"
-         "supported.rkt")
+(require generic-flonum)
+(require "imperative.rkt" "range-analysis.rkt")
+
 (provide scala-header scala-footer core->scala scala-supported
          *scala-suppress* *scala-prec-file*)
 
@@ -22,7 +22,12 @@
     (curry set-member? '(binary32 binary64 binary128 binary256))        
     (curry equal? 'nearestEven)))
 
-(define scala-reserved '())
+(define scala-reserved  ; Language-specific reserved names (avoid name collisions)
+  '(and abstract case catch class def do else extends false
+    final finally for forSome if implicit import lazy
+    match new null object override package private
+    protected return sealed super this throw trait
+    try true type val var while with yield))
 
 (define/match (type->scala type)
   [('binary256) "QuadDouble"]
@@ -30,34 +35,36 @@
   [('binary64) "Float64"]
   [('binary32) "Float32"])
 
-(define (operator->scala props op args)
-  (match op
-    ['/   (format "(~a / ~a)" (first args) (second args))]
-    [_    (format "~a(~a)" op (string-join args ", "))]))
+(define/match (prec->bits type)
+  [('binary256) (values 19 256)]
+  [('binary128) (values 15 128)]
+  [('binary64) (values 11 64)]
+  [('binary32) (values 8 32)])
 
-(define (constant->scala props expr)
-  (define prec (dict-ref props ':precision 'binary64))
+(define (constant->scala expr ctx)
+  (define prec (ctx-lookup-prop ctx ':precision))
   (match expr
-    [(or 'TRUE 'FALSE) (string-downcase (~a expr))]
-    [(? hex?) (hex->racket expr)]
-    [(? number?)
-      (match prec
-        ['binary128  (parameterize ([bf-precision 237]) 
-                        (format "~a" (bigfloat->string (bf expr))))]
-        ['binary128  (parameterize ([bf-precision 113]) 
-                        (format "~a" (bigfloat->string (bf expr))))]
-        [_          (format "~a" (real->double-flonum expr))])]
-    [_  expr]))
+   [(or 'TRUE 'FALSE) (string-downcase (~a expr))]
+   [(? hex?) (~a (hex->racket expr))]
+   [(? number?)
+    (define-values (e n) (prec->bits prec))
+    (parameterize ([gfl-exponent e] [gfl-bits n])
+      (let ([str (gfl->string (gfl expr))])
+        (if (string-contains? str ".")
+            str
+            (string-append str ".0"))))]
+    [_ (~a expr)]))
 
-(define (declaration->scala props var [val 0])
-  (define type (type->scala (dict-ref props ':precision 'binary64)))
-  (fprintf (*scala-prec-file*) "\t~a: ~a\n" var type)
-  (format "val ~a: Real = ~a" var val))
+(define declaration->scala
+  (case-lambda
+   [(var ctx) (declaration->scala var 0 ctx)]
+   [(var val ctx)
+    (define type (type->scala (ctx-lookup-prop ctx ':precision)))
+    (fprintf (*scala-prec-file*) "\t~a: ~a\n" var type)
+    (format "val ~a: Real = ~a" var val)]))
 
-(define (assignment->scala var val)
-  (error 'assignment->scala "Daisy compiler using 'val'. Therefore, it does not support assignment"))
-
-(define (round->scala val props) (~a val)) ; round(val) = val
+(define (assignment->scala var val ctx)
+  (error 'assignment->scala "Daisy compiler using 'val': assignment not supported"))
 
 ;; Precondition checking
 
@@ -96,21 +103,21 @@
     (printf "Removed invalid precondition: ~a\n" pre))
   (if valid?
       (format "\t\trequire(~a)\n"
-        (let-values ([(pre* prec) (convert-expr pre* #:ctx ctx #:indent "\t\t")])
+        (let-values ([(pre* prec) (visit/ctx scala-visitor pre* ctx)])
           pre*))
       (format "\t\t// Invalid precondition: ~a\n" pre)))
 
-(define (function->scala name args arg-props body return ctx vars)
-  (define type (type->scala (ctx-lookup-prop ctx ':precision 'binary64)))
+(define (program->scala name args arg-ctxs body return ctx vars)
+  (define type (type->scala (ctx-lookup-prop ctx ':precision)))
   (define arg-list
-    (for/list ([arg args] [prop arg-props])
-      (fprintf (*scala-prec-file*) "\t~a: ~a\n" arg (type->scala (dict-ref prop ':precision)))
+    (for/list ([arg args] [ctx arg-ctxs])
+      (fprintf (*scala-prec-file*) "\t~a: ~a\n"
+                arg (type->scala (ctx-lookup-prop ctx ':precision)))
       (format "~a: Real" arg)))
   (define precond
-    (let ([pre 
-            (if (hash-has-key? (ctx-props ctx) ':daisy-pre)
-                (ctx-lookup-prop ctx ':daisy-pre #f)
-                (ctx-lookup-prop ctx ':pre #f))])
+    (let ([pre (if (hash-has-key? (ctx-props ctx) ':daisy-pre)
+                   (ctx-lookup-prop ctx ':daisy-pre #f)
+                   (ctx-lookup-prop ctx ':pre #f))])
       (if pre (precond->scala pre args ctx) "")))
   (format "\tdef ~a(~a): Real = {\n~a~a\t\t~a\n\t}\n"
           name
@@ -119,17 +126,37 @@
           body
           return))
 
-(define scala-language (language "scala" operator->scala constant->scala declaration->scala assignment->scala round->scala (const "") function->scala))
+; Override visitor behavior
+(define-expr-visitor imperative-visitor scala-visitor
+  [(visit-if vtor cond ift iff #:ctx ctx)
+    (define indent (ctx-lookup-extra ctx 'indent))
+    (define-values (cond* _) (visit/ctx vtor cond ctx))
+    (define-values (ift* ift-ctx) (visit/ctx vtor ift ctx))
+    (define-values (iff* iff-ctx) (visit/ctx vtor iff ctx))
+    (define-values (ctx* tmpvar)
+      (let ([ift-prec (ctx-lookup-prop ift-ctx ':precision)])
+        (ctx-random-name (ctx-update-props ctx `(:precision ,ift-prec)))))
+    (printf "~a~a\n" indent
+            (declaration->scala tmpvar
+                                (format "\n~a\tif (~a) {\n~a\t\t~a\n~a\t} else {\n~a\t\t~a\n~a\t}"
+                                        indent cond* indent ift* indent indent iff* indent)
+                                ctx*))
+    (values tmpvar ift-ctx)])
 
-;;; Exports
+(define core->scala*
+  (make-imperative-compiler "scala"
+    #:constant constant->scala
+    #:declare declaration->scala
+    #:assign assignment->scala
+    #:program program->scala
+    #:reserved scala-reserved
+    #:visitor scala-visitor
+    #:fix-name-format "_~a"
+    #:indent "\t\t"))
 
 (define (core->scala prog name)
-  (parameterize ([*lang* scala-language]  
-                 [*reserved-names* scala-reserved]
-                 [*fix-name-format* "_~a"])
-    (fprintf (*scala-prec-file*) "~a = {\n" name)
-    (let ([core* (convert-core prog name)])
-      (fprintf (*scala-prec-file*) "}\n")
-      core*)))
-
+  (fprintf (*scala-prec-file*) "~a = {\n" name)
+  (begin0 (core->scala* prog name)
+    (fprintf (*scala-prec-file*) "}\n")))
+  
 (define-compiler '("scala") scala-header core->scala scala-footer scala-supported)

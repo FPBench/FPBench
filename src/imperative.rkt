@@ -42,7 +42,8 @@
     semicolon-after-enclosing-brace   ; end 'if' or 'while' blocks with "};" (Sollya)
     if-then                           ; "if (cond) then { ... }" (Sollya)
     while-do                          ; "while (cond) do { ... }" (Sollya)
-    round-after-operation))           ; ensure rounding after any operation (Sollya, FPTaylor)
+    round-after-operation             ; ensure rounding after any operation (Sollya, FPTaylor)
+    no-body))                         ; do not compile the body
 
 (define (valid-flag? maybe-flag)
   (set-member? valid-flags maybe-flag))
@@ -76,6 +77,11 @@
   (if (compile-flag-raised? 'never-declare)
       ""
       (format "~a\n~a" decl indent)))
+
+(define (visit-body vtor body ctx)
+  (if (compile-flag-raised? 'no-body)
+      (values "" ctx)
+      (visit/ctx vtor body ctx)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;; shorthands ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -421,7 +427,7 @@
                                   #:use-vars [use-vars default-use-vars]
                                   #:program [program default-compile-program]
                                   #:flags [flags '()]
-                                  ; visitor behvaior
+                                  ; visitor behavior
                                   #:visitor [vtor imperative-visitor]
                                   #:reserved [reserved '()]
                                   #:fix-name-format [fix-name-format "_~a_"]
@@ -468,7 +474,7 @@
       (define non-varnames (map (curry ctx-lookup-name ctx) reserved))
       (define p (open-output-string))
       (parameterize ([current-output-port p])
-        (define-values (o cx) (visit/ctx vtor body ctx))
+        (define-values (o cx) (visit-body vtor body ctx))
         (compile-program fname arg-names arg-ctxs
                          (get-output-string p) (trim-infix-parens o)
                          ctx (remove* non-varnames (set->list (*gensym-used-names*))))))))

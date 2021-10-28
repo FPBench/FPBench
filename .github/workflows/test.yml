@@ -459,6 +459,9 @@ jobs:
       - name: "Fortran test"
         run: make fortran-test
 
+  # This test does not work
+  # Hard to figure out why
+  #
   # matlab:    # MATLAB language (2003)
   #   name: "MATLAB Tests"
   #   runs-on: ubuntu-latest

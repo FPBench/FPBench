@@ -30,8 +30,10 @@
   (match (cons op args)
    [(list 'atan2 a b) (format "atan(~a, ~a)" a b)]
    [(list 'fabs a) (format "abs(~a)" a)]
-   [(list 'fmax a b) (format "max(~a, ~a)" a b)]
-   [(list 'fmin a b) (format "min(~a, ~a)" a b)]
+   [(list 'fmax a b) (format "((~a != ~a) ? ~a : ((~a != ~a) ? ~a : max(~a, ~a)))"
+                             a a b b b a a b)]
+   [(list 'fmin a b) (format "((~a != ~a) ? ~a : ((~a != ~a) ? ~a : min(~a, ~a)))"
+                             a a b b b a a b)]
    [(list 'fmod a b) (format "rem(~a, ~a)" a b)]
    [(list 'pow a b) (format "(~a ^ ~a)" a b)]
    [_ (format "~a(~a)" op (string-join args ", "))]))

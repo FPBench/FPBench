@@ -244,7 +244,7 @@ endif
 
 julia-test:
 ifneq (, $(shell which julia))
-	cat benchmarks/*.fpcore tests/*.fpcore | racket infra/test-core2julia.rkt --error 3
+	cat benchmarks/*.fpcore tests/*.fpcore | racket infra/test-core2julia.rkt --error 20
 else
 	$(warning skipping Julia tests; unable to find Julia interpreter)
 endif

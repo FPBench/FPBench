@@ -142,12 +142,12 @@
     (check-equal? (canonicalize-ml e1 '()) e2))
 
   (equal-canon? '(+ x 1) '(+ x 1))
-  (equal-canon? '(+ 1 (let ([x 1]) x)) '(let ([t (let ([x 1]) x)]) (+ 1 t)))
-  (equal-canon? '(+ (let ([x 1]) x) (let ([y 2]) y)) '(let* ([t (let ([x 1]) x)] [t1 (let ([y 2]) y)]) (+ t t1)))
+  (equal-canon? '(+ 1 (let ([x 1]) x)) '(let* ([t (let* ([x 1]) x)]) (+ 1 t)))
+  (equal-canon? '(+ (let ([x 1]) x) (let ([y 2]) y)) '(let* ([t (let* ([x 1]) x)] [t1 (let* ([y 2]) y)]) (+ t t1)))
 
-  (equal-canon? '(if (and (let ([t TRUE]) (not t)) FALSE) 1 0)
-                '(if (let ([t (let ([t TRUE]) (not t))]) (and t FALSE)) 1 0))
+  (equal-canon? '(if (and (let* ([t TRUE]) (not t)) FALSE) 1 0)
+                '(if (let* ([t (let* ([t TRUE]) (not t))]) (and t FALSE)) 1 0))
   (equal-canon? '(! :precision binary32 (let ([x 1]) x))
-                '(let ([t (let ([x 1]) x)]) (! :precision binary32 t)))
+                '(let* ([t (let* ([x 1]) x)]) (! :precision binary32 t)))
 )
     

@@ -9,8 +9,8 @@
   (const 
     (string-append
       "import Numeric\nimport GHC.Float\n\n"
-      "fmax x y = if (isNaN x) then y else if (isNaN y) then x else (max x y)\n"
-      "fmin x y = if (isNaN x) then y else if (isNaN y) then x else (min x y)\n\n")))
+      "fmax x y\n  | isNaN x = y\n  | isNaN y = x\n  | otherwise = max x y\n\n"
+      "fmin x y\n  | isNaN x = y\n  | isNaN y = x\n  | otherwise = min x y\n\n\n")))
 
 ; acosh, asinh, atanh supported but inaccurate
 (define haskell-supported
@@ -101,16 +101,18 @@
    [(equal? prec 'binary32)
     (if (andmap (curry equal? 'binary32) arg-precs)
         (values (make-list argc identity) identity)
-        (values (for/list ([prec arg-precs]) (if (equal? prec 'binary32)
-                                                  (curry format "(float2Double ~a)")
-                                                  identity))
-                (curry format "(double2Float ~a)")))]
+        (values (for/list ([prec arg-precs]) 
+                  (if (equal? prec 'binary32)
+                      (λ (x) (format "(float2Double (~a))" (trim-infix-parens x)))
+                      identity))
+                (λ (x) (format "(double2Float (~a))" (trim-infix-parens x)))))]
    [else
     (if (andmap (curry equal? 'binary64) arg-precs)
         (values (make-list argc identity) identity)
-        (values (for/list ([prec arg-precs]) (if (equal? prec 'binary32)
-                                                  (curry format "(float2Double ~a)")
-                                                  identity))
+        (values (for/list ([prec arg-precs])
+                  (if (equal? prec 'binary32)
+                      (λ (x) (format "(float2Double (~a))" (trim-infix-parens x)))
+                      identity))
                 identity))]))
 
 

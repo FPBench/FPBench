@@ -38,8 +38,8 @@
       (define expr* `(,while_ ,cond ,(map list vars inits updates) ,body))
       (values name (hash name expr*))]
     [(visit-! vtor props body #:ctx [ctx '()])
-      (define-values (body* bind) (visit/ctx vtor body ctx))
-      (values `(! ,@props ,body*) bind)]
+      (define name (gensym ctx))
+      (values name (hash name `(! ,@props ,body)))]
     [(visit-op_ vtor op args #:ctx [ctx '()])
       (define-values (binds args*)
         (for/fold ([binds (hash)] [args* '()] #:result (values binds (reverse args*)))
@@ -82,32 +82,31 @@
           (values (set-add ctx** var) (cons (visit/ctx vtor val val-ctx) updates*))))
       `(,while_ ,cond ,(map list vars inits* updates*) ,(visit/ctx vtor body ctx*))]
     [(visit-! vtor props body #:ctx [ctx '()])
-      (canonicalize/expr `(! ,@props ,body) ctx)]
+      `(! ,@props ,(visit/ctx vtor body ctx))]
     [(visit-op_ vtor op args #:ctx [ctx '()])
       (canonicalize/expr (cons op args) ctx)]
     [(visit-terminal_ vtor x #:ctx [ctx '()])
       (canonicalize/expr x ctx)])
   (->canon/clause expr ctx))
 
-; For the ML compilers, the allowed FPCore format is
-; more restricted:
-;  
+; For the ML compilers, the allowed FPCore format is more restricted.
+; ML languages are very particular about the formatting
+; of let and if blocks. In particular, Haskell requires
+; that expressions be aligned for let and if blocks.
+; For complex FPCore's with nested let and if expressions,
+; tracking identation becomes difficult.
+; This procedure converts a more general FPCore into the format specified
+; below by pulling up all nested let and if expressions.
+;
 ;  <prog> := <clause> | <expr>
 ;  <clause> := (if <clause> <clause> <clause>) |
 ;              (let ([<symbol> <clause>] ...+) <clause>) |
 ;              (let* ([<symbol> <clause>] ...+) <clause>) |
 ;              (while <clause> ([<symbol> <clause> <clause>] ...+) <clause>) |
 ;              (while* <clause> ([<symbol> <clause> <clause>] ...+) <clause>) |
+;              (! <props> ... <clause>) |
 ;              <expr>
 ;  <expr> := (<func> <expr> ...+) | <terminal>
-;
-; Reason: ML languages are very particular about the formatting
-; of let and if blocks. In particular, Haskell requires
-; that expressions be aligned for let and if blocks.
-; For complex FPCore's with nested let and if expressions,
-; tracking identation becomes nearly impossible.
-; This procedure converts a more general FPCore into the format specified
-; below by pulling up all nested let and if expressions.
 ;
 ; Ideally, the ML compilers can be overhauled to support more
 ; general FPCores, but until then, this fix seems to work fairly well.
@@ -127,7 +126,7 @@
     [(visit-tensor* vtor vars vals accums inits updates body #:ctx [ctx '()])
       (error 'canonicalize-ml "unimplemented: tensor*")]
     [(visit-! vtor props body #:ctx [ctx '()])
-      (canonicalize/expr expr ctx)]
+      (canonicalize/clause expr ctx)]
     [(visit-op_ vtor op args #:ctx [ctx '()])
       (canonicalize/expr expr ctx)]
     [(visit-terminal_ vtor x #:ctx [ctx '()])
@@ -147,7 +146,9 @@
 
   (equal-canon? '(if (and (let* ([t TRUE]) (not t)) FALSE) 1 0)
                 '(if (let* ([t (let* ([t TRUE]) (not t))]) (and t FALSE)) 1 0))
-  (equal-canon? '(! :precision binary32 (let ([x 1]) x))
-                '(let* ([t (let* ([x 1]) x)]) (! :precision binary32 t)))
+  ;;; (equal-canon? '(! :precision binary32 (let ([x 1]) x))
+  ;;;               '(let* ([t (let* ([x 1]) x)]) (! :precision binary32 t)))
+  (equal-canon? '(! :precision binary32 (if (< x 0) x y))
+                '(! :precision binary32 (if (< x 0) x y)))
 )
     

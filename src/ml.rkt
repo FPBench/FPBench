@@ -263,10 +263,10 @@
       (for/lists (l1 l2) ([arg args])
         (visit/ctx vtor arg ctx)))
     (define-values (arg-casts out-cast) (compile-implicit-round arg-ctxs ctx))
-    (values (out-cast (compile-operator op (map (λ (f x) (f x)) arg-casts args*) ctx))
-            (if (set-member? bool-ops op)
-                (ctx-update-props ctx (list ':precision 'boolean))
-                ctx))]
+    (define expr* (compile-operator op (map (λ (f x) (f x)) arg-casts args*) ctx))
+    (if (set-member? bool-ops op)
+        (values expr* (ctx-update-props ctx (list ':precision 'boolean)))
+        (values (out-cast expr*) ctx))]
   
   [(visit-call vtor fn args #:ctx ctx)
     (define args*

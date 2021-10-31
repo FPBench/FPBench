@@ -1,0 +1,18 @@
+;; -*- mode: scheme -*-
+
+(FPCore (a b c d)
+  :name "An eigenvalue calculation from TNG"
+  :fpbench-domain graphics
+  :alt
+  ;; This version is much more numerically stable
+  (let* ([sos (+ (+ (+ (* a a) (* b b)) (* c c)) (* d d))]
+         [det (- (* a d) (* b c))])
+    (- (sqrt (+ sos (* 2 det))) (sqrt (- sos (* 2 det)))))
+  ;; This version is best if sos >> det
+  :alt
+  (let* ([sos (+ (+ (+ (* a a) (* b b)) (* c c)) (* d d))]
+         [det (- (* a d) (* b c))])
+    (/ (* 2 det) (sqrt sos)))
+
+  (- (sqrt (+ (pow (+ a d) 2) (pow (- b c) 2)))
+     (sqrt (+ (pow (- a d) 2) (pow (+ b c) 2)))))

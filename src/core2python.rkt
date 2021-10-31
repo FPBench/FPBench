@@ -5,7 +5,14 @@
 
 (provide python-header core->python python-supported)
 
-(define python-header (const "import math;\n\n"))
+(define python-header
+  (const
+    (string-append
+      "import math;\n\n"
+      "def fmax(x, y):\n\tif math.isnan(x):\n\t\treturn y\n\t"
+      "elif math.isnan(y):\n\t\treturn x\n\telse:\n\t\treturn max(x, y)\n\n"
+      "def fmin(x, y):\n\tif math.isnan(x):\n\t\treturn y\n\t"
+      "elif math.isnan(y):\n\t\treturn x\n\telse:\n\t\treturn min(x, y)\n\n")))
 
 (define python-supported
   (supported-list
@@ -22,8 +29,8 @@
 
 (define (operator->python op args ctx)
   (match (cons op args)
-   [(list 'fmax a b) (format "max(~a, ~a)" a b)]
-   [(list 'fmin a b) (format "min(~a, ~a)" a b)]
+   [(list 'fmax a b) (format "fmax(~a, ~a)" a b)]
+   [(list 'fmin a b) (format "fmin(~a, ~a)" a b)]
    [(list 'tgamma a) (format "math.gamma(~a)" a)]
    [_ (format "math.~a(~a)" op (string-join args ", "))]))
 

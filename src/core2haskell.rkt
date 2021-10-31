@@ -9,6 +9,7 @@
   (const 
     (string-append
       "import Numeric\nimport GHC.Float\n\n"
+      "copysign x y\n  | isNaN y = abs x\n  | otherwise = copysign x y\n\n"
       "fmax x y\n  | isNaN x = y\n  | isNaN y = x\n  | otherwise = max x y\n\n"
       "fmin x y\n  | isNaN x = y\n  | isNaN y = x\n  | otherwise = min x y\n\n\n")))
 

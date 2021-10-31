@@ -393,6 +393,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libmpfr6 libmpfr-dev
+          eval $(opam env)
 
       - name: "Install as Racket package"
         run: raco pkg install --auto

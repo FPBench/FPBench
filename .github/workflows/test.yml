@@ -575,7 +575,7 @@ jobs:
         run: make julia-benchmarks
 
   julia-tests:
-    name: Julia Benchmarks
+    name: Julia Tests (binary64, mixed)
     runs-on: ubuntu-latest
     needs: [ 'julia-sanity' ]
     steps:
@@ -600,7 +600,7 @@ jobs:
         run: make julia-binary64
 
   julia-binary32-tests:
-    name: Julia Benchmarks
+    name: Julia Tests (binary32)
     runs-on: ubuntu-latest
     needs: [ 'julia-sanity' ]
     steps:

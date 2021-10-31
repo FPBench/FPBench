@@ -260,7 +260,7 @@ endif
 # For CI, Julia takes to long in a single run
 julia-binary64:
 ifneq (, $(shell which julia))
-	cat tests/*binary32.fpcore tests/letstar.fpcore tests/metadata.fpcore |
+	cat tests/*default.fpcore tests/letstar.fpcore tests/metadata.fpcore |	\
 		racket infra/test-core2julia.rkt --error 20
 else
 	$(warning skipping Julia tests; unable to find Julia interpreter)
@@ -269,8 +269,7 @@ endif
 # For CI, Julia takes to long in a single run
 julia-binary32:
 ifneq (, $(shell which julia))
-	cat tests/*binary32.fpcore tests/letstar.fpcore tests/metadata.fpcore |
-		racket infra/test-core2julia.rkt --error 20
+	cat tests/*binary32.fpcore | racket infra/test-core2julia.rkt --error 20
 else
 	$(warning skipping Julia tests; unable to find Julia interpreter)
 endif

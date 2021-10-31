@@ -249,6 +249,33 @@ else
 	$(warning skipping Julia tests; unable to find Julia interpreter)
 endif
 
+# For CI, Julia takes to long in a single run
+julia-benchmarks:
+ifneq (, $(shell which julia))
+	cat benchmarks/*.fpcore | racket infra/test-core2julia.rkt --error 20
+else
+	$(warning skipping Julia tests; unable to find Julia interpreter)
+endif
+
+# For CI, Julia takes to long in a single run
+julia-binary64:
+ifneq (, $(shell which julia))
+	cat tests/*binary32.fpcore tests/letstar.fpcore tests/metadata.fpcore |
+		racket infra/test-core2julia.rkt --error 20
+else
+	$(warning skipping Julia tests; unable to find Julia interpreter)
+endif
+
+# For CI, Julia takes to long in a single run
+julia-binary32:
+ifneq (, $(shell which julia))
+	cat tests/*binary32.fpcore tests/letstar.fpcore tests/metadata.fpcore |
+		racket infra/test-core2julia.rkt --error 20
+else
+	$(warning skipping Julia tests; unable to find Julia interpreter)
+endif
+
+
 update-tool-tests:
 	tests/scripts/test-export.sh generate	
 	tests/scripts/test-transform.sh generate
@@ -282,7 +309,9 @@ clean:
 www/benchmarks.jsonp: $(wildcard benchmarks/*.fpcore)
 	racket infra/core2json.rkt --padding load_benchmarks $^ > "$@"
 
-.PHONY: c-sanity c-test fptaylor-sanity fptaylor-test js-sanity js-test smtlib2-sanity \
-		smtlib2-test sollya-sanity sollya-test wls-sanity wls-test cml-sanity cml-test go-sanity go-test \
-		scala-sanity scala-test raco-test export-test transform-test toolserver-test evaluate-test \
+.PHONY: c-sanity c-test fptaylor-sanity fptaylor-test js-sanity js-test \
+		julia-sanity julia-test julia-benchmarks julia-binary64 julia-binary32 \
+		smtlib2-sanity smtlib2-test sollya-sanity sollya-test wls-sanity wls-test \
+		cml-sanity cml-test go-sanity go-test scala-sanity scala-test \
+		raco-test export-test transform-test toolserver-test evaluate-test \
 		tools-test sanity test testsetup setup update-tool-tests clean

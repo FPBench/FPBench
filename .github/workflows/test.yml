@@ -393,16 +393,19 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libmpfr6 libmpfr-dev
-          eval $(opam env)
 
       - name: "Install as Racket package"
         run: raco pkg install --auto
 
       - name: "OCaml sanity"
-        run: make ocaml-sanity
+        run: |
+          eval `opam config env`
+          make ocaml-sanity
 
       - name: "OCaml test"
-        run: make ocaml-test
+        run: |
+          eval `opam config env`
+          make ocaml-test
 
   python:   # Python language
     name: "Python Tests"

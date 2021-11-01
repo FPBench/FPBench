@@ -9,7 +9,7 @@
   (const 
     (string-append
       "import Numeric\nimport GHC.Float\n\n"
-      "copysign x y\n  | isNaN y = abs x\n  | otherwise = copysign x y\n\n"
+      "copysign x y\n  | isNaN y = abs x\n  | otherwise = (signum y) * (abs x)\n\n"
       "fmax x y\n  | isNaN x = y\n  | isNaN y = x\n  | otherwise = max x y\n\n"
       "fmin x y\n  | isNaN x = y\n  | isNaN y = x\n  | otherwise = min x y\n\n\n")))
 
@@ -60,7 +60,6 @@
    [(list 'isfinite a) (format "((not (isNaN ~a)) && (not (isInfinite ~a)))" a a)]
    [(list 'isinf a) (format "(isInfinite ~a)" a)]
    [(list 'isnan a) (format "(isNaN ~a)" a)]
-   [(list 'copysign a b) (format "((signum ~a) * (abs ~a))" b a)]
    [(list 'fabs a) (format "(abs ~a)" a)]
    [(list 'pow a b) (format "(~a ** ~a)" a b)]
    [_ (format "(~a ~a)" op (string-join args " "))]))

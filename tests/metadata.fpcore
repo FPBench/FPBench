@@ -163,3 +163,21 @@
  :precision binary64
  (let ([y x])  ; y should be binary32 despite global precision
   (+ y x)))
+
+(FPCore (x)
+ :name "if mixed-precision"
+ :precision binary64
+ (! :precision binary32
+  (if (< x 0) (+ E x) (- E x))))
+
+(FPCore (x)
+ :name "let mixed-precision"
+ :precision binary64
+ (! :precision binary32
+  (let ([y (+ x 1)]
+        [z (- x 1)])
+    (! :precision binary64
+     (let ([y (+ x y)]
+           [z (+ x z)])
+      (+ y z))))))
+

@@ -1,14 +1,16 @@
 ;
 ;   Common compiler for ML languages
-;     CakeML
+;     CakeML, OCaml
 ;
 
 #lang racket
 
-(require "common.rkt" "compilers.rkt" "fpcore-visitor.rkt" "supported.rkt")
+(require "common.rkt" "compilers.rkt" "fpcore-visitor.rkt"
+         "ml-canonicalizer.rkt" "supported.rkt")
 
 (provide (all-from-out "common.rkt" "compilers.rkt" "fpcore-visitor.rkt" "supported.rkt")
-         make-ml-compiler ml-visitor)
+         make-ml-compiler ml-visitor default-infix-ops
+         half-indent single-indent double-indent)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;; language-specific abstractions ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -20,44 +22,49 @@
    operator           ; procedure to format any non-infix operator
    constant           ; procedure to format constants
    round              ; procedure to format (explicit) casts
+   implicit-round     ; procedure to handle (implicit) casts
    program            ; procedure to format the entire program
    flags))            ; list of optional flags to change minor behavior
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;; flags ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define valid-flags '())
+(define valid-flags
+  '(round-output))        ; calls 'implicit-round' on return expression
 
 (define (valid-flag? maybe-flag)
   (set-member? valid-flags maybe-flag))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;; shorthands ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(define (compile-flag-raised? flag)
+  (set-member? (ml-flags (*ml-lang*)) flag))
+
 (define (compile-infix-operator op args ctx)
   (match (cons op args)
    [(list '- a)
-    (format (if (string-prefix? a "-") "-(~a)" "-~a") a)]
+    (format "(- ~a)" a)]
    [(list 'not a)
-    (format "!~a" a)]
+    (format "(not ~a)" a)]
    [(list (or '== '!= '< '> '<= '>=))
     (compile-constant 'TRUE ctx)]
    [(list (or '+ '- '* '/) a b) ; binary arithmetic 
     (format "(~a ~a ~a)" a op b)]
    [(list (or '== '< '> '<= '>=) arg args ...)
-     (format "(~a)"
-             (string-join
+    (format "(~a)"
+            (string-join
               (for/list ([a (cons arg args)] [b args])
                 (format "~a ~a ~a" a op b))
               " && "))]
    [(list '!= args ...)
-     (format "(~a)"
-             (string-join
+    (format "(~a)"
+            (string-join
               (let loop ([args args])
                 (if (null? args)
                     '()
                     (append
-                     (for/list ([b (cdr args)])
-                       (format "~a != ~a" (car args) b))
-                     (loop (cdr args)))))
+                      (for/list ([b (cdr args)])
+                        (format "~a != ~a" (car args) b))
+                      (loop (cdr args)))))
               " && "))]
    [(list 'and a ...)
     (format "(~a)" (string-join (map ~a a) " && "))]
@@ -75,11 +82,19 @@
 (define (compile-constant x ctx)
   ((ml-constant (*ml-lang*)) x ctx))
 
-(define (compile-round expr ctx)
-  ((ml-round (*ml-lang*)) expr ctx))
+(define (compile-round expr ictx octx)
+  ((ml-round (*ml-lang*)) expr ictx octx))
+
+(define (compile-implicit-round arg-ctxs ctx)
+  ((ml-implicit-round (*ml-lang*)) arg-ctxs ctx))
 
 (define (compile-program name args arg-ctxs body ctx)
   ((ml-program (*ml-lang*)) name args arg-ctxs body ctx))
+
+(define (compile-body expr ictx octx)
+  (if (compile-flag-raised? 'round-output)
+      (compile-round expr ictx octx)
+      expr))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;; defaults ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -91,8 +106,11 @@
 (define (default-compile-constant x ctx)
   (~a x))
 
-(define (default-compile-round expr ctx)
+(define (default-compile-round expr ictx octx)
   (~a expr))
+
+(define (default-implicit-round arg-ctxs ctx)
+  (values (make-list (length arg-ctxs) identity) identity))
 
 (define (default-compile-program name args arg-ctxs body ctx)
   (format "fun ~a ~a = ~a\n" name (string-join args " ") body))
@@ -104,8 +122,9 @@
     (make-compiler-ctx)
     '(:precision binary64 :round nearestEven)))
 
-(define single-indent "  ")
-(define double-indent (format "~a~a" single-indent single-indent))
+(define half-indent " ")
+(define single-indent (string-append half-indent half-indent))
+(define double-indent (string-append single-indent single-indent))
 
 (define (fix-name name)
   (string-join
@@ -144,7 +163,7 @@
         (define-values (name-ctx name)    ; messy workaround to get val context
           (parameterize ([current-output-port (open-output-nowhere)])
             (let-values ([(_ var-ctx) (visit/ctx vtor val val-ctx)])
-              (let ([prec (ctx-lookup-prop val-ctx ':precision)])
+              (let ([prec (ctx-lookup-prop var-ctx ':precision)])
                 (ctx-unique-name ctx* var prec)))))
         (printf "~a~aval ~a = " indent single-indent name)
         (define val-ctx*
@@ -176,6 +195,7 @@
   ; end
   [(visit-while_ vtor while_ cond vars inits updates body #:ctx ctx)
     (define indent (ctx-lookup-extra ctx 'indent))
+    (define inner-cond-indent (string-append double-indent single-indent half-indent))
     (define-values (while-ctx fn-name)
       (let ([ctx0 (ctx-set-extra ctx 'indent (format "~a~a" indent single-indent))])
         (ctx-unique-name ctx0 'loop)))
@@ -190,14 +210,16 @@
             (let-values ([(_ var-ctx) (visit/ctx vtor val val-ctx)])
               (let ([prec (ctx-lookup-prop val-ctx ':precision)])
                 (ctx-unique-name ctx* var prec)))))
-        (printf "~a~aval ~a = ~a\n" indent single-indent name
-                (let-values ([(val* _) (visit/ctx vtor val val-ctx)])
-                  (trim-infix-parens val*)))
+        (printf "~a~aval ~a = " indent single-indent name)
+        (printf "~a\n" (let-values ([(val* _) (visit/ctx vtor val val-ctx)])
+                          (trim-infix-parens val*)))
         (values name-ctx (cons name vars*))))
     (printf "~a~afun ~a ~a =\n" indent single-indent
             fn-name (string-join vars* " "))
     (printf "~a~aif " indent double-indent)
-    (define-values (cond* _) (visit/ctx vtor cond ctx*))    ; condition
+    (define-values (cond* _)
+      (let ([ctx0 (ctx-set-extra ctx* 'indent (format "~a~a" indent inner-cond-indent))])
+        (visit/ctx vtor cond ctx0)))    ; condition
     (printf "~a then\n~a~a~alet\n" cond* indent double-indent single-indent)
     (define-values (ctx** vars**)                           ; loop update
       (for/fold ([ctx** ctx*] [vars* '()] #:result (values ctx** (reverse vars*)))
@@ -208,7 +230,7 @@
             (let-values ([(_ var-ctx) (visit/ctx vtor val val-ctx)])
               (let ([prec (ctx-lookup-prop val-ctx ':precision)])
                 (ctx-unique-name ctx** var prec)))))
-        (printf "~a~a~aval ~a = " indent double-indent double-indent name)
+        (printf "~a~aval ~a = " indent (string-append double-indent double-indent) name)
         (define val-ctx*
           (ctx-update-extra val-ctx 'indent
                             (curry format "~a~a~a" double-indent single-indent)))
@@ -230,21 +252,21 @@
 
   [(visit-cast vtor body #:ctx ctx)
     (define-values (body* body-ctx) (visit/ctx vtor body ctx))
-    (values (compile-round body* ctx) body-ctx)]
+    (values (compile-round body* body-ctx ctx) ctx)]
 
   [(visit-! vtor props body #:ctx ctx)
     (define ctx* (ctx-update-props ctx props))
     (visit/ctx vtor body ctx*)]
 
   [(visit-op vtor op args #:ctx ctx)
-    (define args*
-      (for/list ([arg args])
-        (let-values ([(arg* arg-ctx) (visit/ctx vtor arg ctx)])
-          arg*)))
-    (values (compile-operator op args* ctx)
-            (if (set-member? bool-ops op)
-                (ctx-update-props ctx (list ':precision 'boolean))
-                ctx))]
+    (define-values (args* arg-ctxs)
+      (for/lists (l1 l2) ([arg args])
+        (visit/ctx vtor arg ctx)))
+    (define-values (arg-casts out-cast) (compile-implicit-round arg-ctxs ctx))
+    (define expr* (compile-operator op (map (λ (f x) (f x)) arg-casts args*) ctx))
+    (if (set-member? bool-ops op)
+        (values expr* (ctx-update-props ctx (list ':precision 'boolean)))
+        (values (out-cast expr*) ctx))]
   
   [(visit-call vtor fn args #:ctx ctx)
     (define args*
@@ -266,8 +288,9 @@
                 ctx))]
   
   [(visit-symbol vtor x #:ctx ctx)
-    (define var-prec (ctx-lookup-prec ctx x))
-    (values (ctx-lookup-name ctx x) (ctx-update-props ctx `(:precision ,var-prec)))])
+    (define name (ctx-lookup-name ctx x))
+    (define var-prec (ctx-lookup-prec ctx name))
+    (values name (ctx-update-props ctx `(:precision ,var-prec)))])
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;; compiler constructor ;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -278,6 +301,7 @@
                           #:operator [operator default-compile-operator]
                           #:constant [constant default-compile-constant]
                           #:round [round default-compile-round]
+                          #:implicit-round [implicit-round default-implicit-round]
                           #:program [program default-compile-program]
                           #:flags [flags '()]
                           ; visitor behvaior
@@ -286,7 +310,7 @@
                           #:fix-name [fix-name identity])
   (unless (andmap valid-flag? flags)
     (error 'make-ml-compiler "Undefined ml flags: ~a" flags))
-  (define language (ml name infix operator constant round program flags))
+  (define language (ml name infix operator constant round implicit-round program flags))
   (lambda (prog name)
     (parameterize ([*gensym-used-names* (mutable-set)] 
                    [*gensym-collisions* 1]
@@ -319,10 +343,13 @@
             (define-values (cx aname) (ctx-unique-name ctx name))
             (begin0 (values aname ctx) (set! ctx cx))])))
 
+      (define body* (canonicalize-ml body (apply set (set->list (*gensym-used-names*)))))
       (define p (open-output-string))
         (parameterize ([current-output-port p])
-          (define-values (o _) (visit/ctx vtor body ctx))
-          (define o* (string-append (get-output-string p) (trim-infix-parens o)))
+          (define-values (o c) (visit/ctx vtor body* ctx))
+          (define o* 
+            (let ([o (string-append (get-output-string p) o)])
+              (trim-infix-parens (compile-round o c ctx))))
           (compile-program fname arg-names arg-ctxs o* ctx)))))
 
 (module+ test

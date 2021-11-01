@@ -111,13 +111,13 @@
     [(? symbol?) (~a expr)]
     [(? number?) (round->sollya (~a expr) ctx)]))
 
-(define (program->sollya name args arg-ctxs body return ctx vars)
+(define (program->sollya name args arg-ctxs body ret ctx used-vars)
   (define arg-rounding
     (filter-not void?
       (for/list ([var args] [ctx arg-ctxs]
                 #:unless (equal? (precision-str (ctx-lookup-prop ctx ':precision)) "real"))
         (format "\t~a = ~a;" var (round->sollya var ctx)))))
-  (define decl-list (set-subtract vars (set-add args name)))
+  (define decl-list (set-subtract used-vars (set-add args name)))
 
   (define var-string
     (if (> (length decl-list) 0)
@@ -134,7 +134,7 @@
           var-string
           rounding-string
           body
-          (trim-infix-parens return)))
+          (trim-infix-parens ret)))
 
 ; Override visitor behavior
 (define-expr-visitor imperative-visitor sollya-visitor

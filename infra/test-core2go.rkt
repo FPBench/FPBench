@@ -21,18 +21,17 @@
   bin-file)
 
 (define (run<-go exec-name ctx type number)
+  (define in
+    (for/list ([val (dict-values ctx)])
+      (match (value->string val)
+       ["+nan.0" "NaN"]
+       ["+inf.0" "+Inf"]
+       ["-inf.0" "-Inf"]
+       [x x])))
   (define out
     (with-output-to-string
      (λ ()
-      (system 
-        (string-join 
-          (cons exec-name 
-            (map (λ (x)
-                  (match x
-                   [+nan.0 "NaN"] [+inf.0 "+Inf"] [-inf.0 "-Inf"]
-                   [x (value->string x)]))
-                 (dict-values ctx))) 
-          " ")))))
+      (system (string-join (cons exec-name in) " ")))))
   (define out*
     (match out
       ["NaN" "+nan.0"]

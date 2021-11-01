@@ -100,6 +100,40 @@ jobs:
 
       - name: "C test"
         run: make c-test
+
+  java:   # Java langugae
+    name: "Java Tests"
+    runs-on: ubuntu-latest
+    needs: [ 'unit' ]
+    steps:
+      - uses: actions/checkout@v2
+      - name: "Install Racket"
+        uses: Bogdanp/setup-racket@v1.5
+        with:
+          architecture: 'x64'
+          distribution: 'full'
+          variant: 'CS'
+          version: '8.2'
+
+      - name: "Install Java"
+        uses: actions/setup-java@v2
+        with:
+          distribution: 'adopt'
+          java-version: '11'
+
+      - name: "Install Packages"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libmpfr6 libmpfr-dev
+
+      - name: "Install as Racket package"
+        run: raco pkg install --auto
+
+      - name: "Java sanity"
+        run: make java-sanity
+
+      - name: "Java test"
+        run: make java-test
   
   go:    # Go langugae
     name: "Go Tests"
@@ -159,6 +193,10 @@ jobs:
       - name: "JS sanity"
         run: make js-sanity
 
+      - name: "Java test"
+        if: ${{ (success() || failure()) && steps.java_sanity.outcome == 'success' }}
+        run: make java-test
+
       - name: "JS test"
         run: make js-test
 
@@ -196,11 +234,6 @@ jobs:
     needs: [ 'unit' ]
     steps:
       - uses: actions/checkout@v2
-      - name: "Install OCaml"
-        uses: ocaml/setup-ocaml@v2
-        with:
-          ocaml-compiler: '4.04.2'
-
       - name: "Install Racket"
         uses: Bogdanp/setup-racket@v1.5
         with:
@@ -208,6 +241,11 @@ jobs:
           distribution: 'full'
           variant: 'CS'
           version: '8.2'
+      
+      - name: "Install OCaml"
+        uses: ocaml/setup-ocaml@v2
+        with:
+          ocaml-compiler: '4.04.2'
 
       - name: "Install Packages"
         run: |
@@ -331,3 +369,261 @@ jobs:
 
       - name: "CakeML test"
         run: make cakeml-test
+
+  ocaml:    # OCaml language
+    name: "OCaml Tests"
+    runs-on: ubuntu-latest
+    needs: [ 'unit' ]
+    steps:
+      - uses: actions/checkout@v2
+      - name: "Install Racket"
+        uses: Bogdanp/setup-racket@v1.5
+        with:
+          architecture: 'x64'
+          distribution: 'full'
+          variant: 'CS'
+          version: '8.2'
+
+      - name: "Install OCaml"
+        uses: ocaml/setup-ocaml@v2
+        with:
+          ocaml-compiler: '4.08.1'
+
+      - name: "Install Packages"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libmpfr6 libmpfr-dev
+
+      - name: "Install as Racket package"
+        run: raco pkg install --auto
+
+      - name: "OCaml sanity"
+        run: |
+          eval `opam config env`
+          make ocaml-sanity
+
+      - name: "OCaml test"
+        run: |
+          eval `opam config env`
+          make ocaml-test
+
+  python:   # Python language
+    name: "Python Tests"
+    runs-on: ubuntu-latest
+    needs: [ 'unit' ]
+    steps:
+      - uses: actions/checkout@v2
+      - name: "Install Racket"
+        uses: Bogdanp/setup-racket@v1.5
+        with:
+          architecture: 'x64'
+          distribution: 'full'
+          variant: 'CS'
+          version: '8.2'
+
+      - name: "Install Packages"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libmpfr6 libmpfr-dev
+
+      - name: "Install as Racket package"
+        run: raco pkg install --auto
+
+      - name: "Python sanity"
+        run: make python-sanity
+
+      - name: "Python test"
+        run: make python-test
+
+  fortran:    # Fortran language (2003)
+    name: "Fortran Tests"
+    runs-on: ubuntu-latest
+    needs: [ 'unit' ]
+    steps:
+      - uses: actions/checkout@v2
+      - name: "Install Racket"
+        uses: Bogdanp/setup-racket@v1.5
+        with:
+          architecture: 'x64'
+          distribution: 'full'
+          variant: 'CS'
+          version: '8.2'
+
+      - name: "Install Packages"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libmpfr6 libmpfr-dev gfortran
+
+      - name: "Install as Racket package"
+        run: raco pkg install --auto
+
+      - name: "Fortran sanity"
+        run: make fortran-sanity
+
+      - name: "Fortran test"
+        run: make fortran-test
+
+  # This test does not work
+  # Hard to figure out why
+  #
+  # matlab:    # MATLAB language (2003)
+  #   name: "MATLAB Tests"
+  #   runs-on: ubuntu-latest
+  #   needs: [ 'unit' ]
+  #   steps:
+  #     - uses: actions/checkout@v2
+  #     - name: "Install Racket"
+  #       uses: Bogdanp/setup-racket@v1.5
+  #       with:
+  #         architecture: 'x64'
+  #         distribution: 'full'
+  #         variant: 'CS'
+  #         version: '8.2'
+
+  #     - name: "Install MATLAB"
+  #       uses: matlab-actions/setup-matlab@v0
+
+  #     - name: "Install Packages"
+  #       run: |
+  #         sudo apt-get update
+  #         sudo apt-get install -y libmpfr6 libmpfr-dev
+
+  #     - name: "Install as Racket package"
+  #       run: raco pkg install --auto
+
+  #     - name: "MATLAB sanity"
+  #       run: make matlab-sanity
+
+  #     - name: "MATLAB test"
+  #       run: make matlab-test
+
+  haskell:    # Haskell language
+    name: "Haskell Tests"
+    runs-on: ubuntu-latest
+    needs: [ 'unit' ]
+    steps:
+      - uses: actions/checkout@v2
+      - name: "Install Racket"
+        uses: Bogdanp/setup-racket@v1.5
+        with:
+          architecture: 'x64'
+          distribution: 'full'
+          variant: 'CS'
+          version: '8.2'
+
+      - name: "Install Packages"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libmpfr6 libmpfr-dev
+
+      - name: "Install as Racket package"
+        run: raco pkg install --auto
+
+      - name: "Haskell sanity"
+        run: make haskell-sanity
+
+      - name: "Haskell test"
+        run: make haskell-test
+
+  # Note: Julia 1.6.2 will crash when trying to print infinity
+  # Ubuntu 20.04 ships with Julia 1.4.1
+  # Julia tests take forever, so split the jobs
+  julia-sanity:    # Julia language
+    name: "Julia Sanity Tests"
+    runs-on: ubuntu-latest
+    needs: [ 'unit' ]
+    steps:
+      - uses: actions/checkout@v2
+      - name: "Install Racket"
+        uses: Bogdanp/setup-racket@v1.5
+        with:
+          architecture: 'x64'
+          distribution: 'full'
+          variant: 'CS'
+          version: '8.2'
+
+      - name: "Install Packages"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libmpfr6 libmpfr-dev julia
+
+      - name: "Install as Racket package"
+        run: raco pkg install --auto
+
+      - name: "Julia sanity"
+        run: make julia-sanity
+
+  julia-benchmarks:
+    name: Julia Benchmarks
+    runs-on: ubuntu-latest
+    needs: [ 'julia-sanity' ]
+    steps:
+      - uses: actions/checkout@v2
+      - name: "Install Racket"
+        uses: Bogdanp/setup-racket@v1.5
+        with:
+          architecture: 'x64'
+          distribution: 'full'
+          variant: 'CS'
+          version: '8.2'
+
+      - name: "Install Packages"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libmpfr6 libmpfr-dev julia
+
+      - name: "Install as Racket package"
+        run: raco pkg install --auto
+
+      - name: "Julia benchmarks"
+        run: make julia-benchmarks
+
+  julia-tests:
+    name: Julia Tests (binary64, mixed)
+    runs-on: ubuntu-latest
+    needs: [ 'julia-sanity' ]
+    steps:
+      - uses: actions/checkout@v2
+      - name: "Install Racket"
+        uses: Bogdanp/setup-racket@v1.5
+        with:
+          architecture: 'x64'
+          distribution: 'full'
+          variant: 'CS'
+          version: '8.2'
+
+      - name: "Install Packages"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libmpfr6 libmpfr-dev julia
+
+      - name: "Install as Racket package"
+        run: raco pkg install --auto
+
+      - name: "Julia tests"
+        run: make julia-binary64
+
+  julia-binary32-tests:
+    name: Julia Tests (binary32)
+    runs-on: ubuntu-latest
+    needs: [ 'julia-sanity' ]
+    steps:
+      - uses: actions/checkout@v2
+      - name: "Install Racket"
+        uses: Bogdanp/setup-racket@v1.5
+        with:
+          architecture: 'x64'
+          distribution: 'full'
+          variant: 'CS'
+          version: '8.2'
+
+      - name: "Install Packages"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libmpfr6 libmpfr-dev julia
+
+      - name: "Install as Racket package"
+        run: raco pkg install --auto
+
+      - name: "Julia tests"
+        run: make julia-binary32

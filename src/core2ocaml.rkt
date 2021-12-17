@@ -1,7 +1,7 @@
 #lang racket
 
 (require "ml.rkt")
-(provide core->ocaml ocaml-supported)
+(provide core->ocaml ocaml-header ocaml-supported)
 
 ; 'cast' is a no-op since only one precision is supported
 (define ocaml-supported
@@ -21,6 +21,12 @@
     match method mod module mutable new nonrec object of open
     or private rec sig struct then to true try type val virtual
     when while with))
+
+(define ocaml-header
+  (const
+    (string-append
+      "let fmax x y = if (Float.is_nan x) then y else if (Float.is_nan y) then x else (Float.max x y)\n\n"
+      "let fmin x y = if (Float.is_nan x) then y else if (Float.is_nan y) then x else (Float.min x y)\n\n")))
 
 (define (fix-name name)
   (apply string-append
@@ -53,8 +59,8 @@
      ['isnormal (format "((Float.classify_float ~a) == Float.FP_normal)" args*)]
      ['signbit (format "(Float.sign_bit ~a)" args*)]
      ['fabs (format "(Float.abs ~a)" args*)]
-     ['fmax (format "(Float.max ~a)" args*)]
-     ['fmin (format "(Float.min ~a)" args*)]
+     ['fmax (format "(fmax ~a)" args*)]
+     ['fmin (format "(fmin ~a)" args*)]
      ['fmod (format "(Float.rem ~a)" args*)]
      ['copysign (format "(Float.copy_sign ~a)" args*)]
      [_ (format "(Float.~a ~a)" op args*)])]))
@@ -181,4 +187,4 @@
     #:visitor ocaml-visitor
     #:fix-name fix-name))
 
-(define-compiler '("ocaml" "ml") (const "") core->ocaml (const "") ocaml-supported)
+(define-compiler '("ocaml" "ml") ocaml-header core->ocaml (const "") ocaml-supported)

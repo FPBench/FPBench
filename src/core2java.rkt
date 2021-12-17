@@ -9,7 +9,14 @@
 (define java-math-lib (make-parameter "Math"))
 
 (define (java-header namespace)
-  (format "import java.lang.*;\n\npublic class ~a {\n\n" namespace))
+  (string-append
+    (format "import java.lang.*;\n\npublic class ~a {\n\n" namespace)
+    "public static double fmin(double x, double y) {\n"
+    (format "\treturn (Double.isNaN(x) ? y : (Double.isNaN(y) ? x : (~a.min(x, y))));\n}\n\n"
+            (java-math-lib))
+    "public static double fmax(double x, double y) {\n"
+    (format "\treturn (Double.isNaN(x) ? y : (Double.isNaN(y) ? x : (~a.max(x, y))));\n}\n\n"
+            (java-math-lib))))
 
 (define java-footer
   (const "}\n"))
@@ -55,8 +62,8 @@
    ['isfinite (format "(!~a.isNaN(~a) && !~a.isInfinite(~a))" class args* class args*)]
    ['copysign (format "~a.copySign(~a)" (java-math-lib) args*)]
    ['fabs (format "~a.abs(~a)" (java-math-lib) args*)]
-   ['fmax (format "~a.max(~a)" (java-math-lib) args*)]
-   ['fmin (format "~a.min(~a)" (java-math-lib) args*)]
+   ['fmax (format "fmax(~a)" args*)]
+   ['fmin (format "fmin(~a)" args*)]
    ['remainder (format "~a.IEEEremainder(~a)" (java-math-lib) args*)]
    [_ (format "~a.~a(~a)" (java-math-lib) op args*)]))
 

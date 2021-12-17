@@ -10,7 +10,7 @@
         (match prog
          [(list 'FPCore (list args ...) rest ...) (length args)]
          [(list 'FPCore name (list args ...) rest ...) (length args)]))
-      (fprintf p "~a\n\n" (core->ocaml prog "f"))
+      (fprintf p "~a~a\n" (ocaml-header) (core->ocaml prog "f"))
       (fprintf p "let _ =\n  Printf.printf \"%.17g\" (f ~a)\n"
         (if (zero? N)
             "()"

@@ -1,6 +1,6 @@
 ;
 ;   Common compiler for ML languages
-;     CakeML, OCaml
+;     CakeML, OCaml, Haskell
 ;
 
 #lang racket

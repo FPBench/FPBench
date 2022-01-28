@@ -25,8 +25,9 @@
 (define ocaml-header
   (const
     (string-append
-      "let fmax x y = if (Float.is_nan x) then y else if (Float.is_nan y) then x else (Float.max x y)\n\n"
-      "let fmin x y = if (Float.is_nan x) then y else if (Float.is_nan y) then x else (Float.min x y)\n\n")))
+      "let ieee754_eq x y = if ((Float.is_nan x) && (Float.is_nan y)) then false else (x = y)\n\n"
+      "let c_fmax x y = if (Float.is_nan x) then y else if (Float.is_nan y) then x else (Float.max x y)\n\n"
+      "let c_fmin x y = if (Float.is_nan x) then y else if (Float.is_nan y) then x else (Float.min x y)\n\n")))
 
 (define (fix-name name)
   (apply string-append
@@ -39,8 +40,15 @@
   (format "(~a)"
           (string-join
             (for/list ([a (cons x xs)] [b xs])
-              (format "(~a = ~a)" a b))
+              (format "(ieee754_eq ~a ~a)" a b))
             " && ")))
+
+(define (inequality->ocaml x xs)
+  (format "(not (~a))"
+          (string-join
+            (for/list ([a (cons x xs)] [b xs])
+              (format "(ieee754_eq ~a ~a)" a b))
+            " || ")))
 
 (define (operator->ocaml op args ctx)
   (match (cons op args)
@@ -50,6 +58,7 @@
    [(list '* a b) (format "(Float.mul ~a ~a)" a b)]
    [(list '/ a b) (format "(Float.div ~a ~a)" a b)]
    [(list '== arg args ...) (equality->ocaml arg args)]
+   [(list '!= arg args ...) (inequality->ocaml arg args)]
    [_
     (define args* (string-join args " "))
     (match op
@@ -59,8 +68,8 @@
      ['isnormal (format "((Float.classify_float ~a) == Float.FP_normal)" args*)]
      ['signbit (format "(Float.sign_bit ~a)" args*)]
      ['fabs (format "(Float.abs ~a)" args*)]
-     ['fmax (format "(fmax ~a)" args*)]
-     ['fmin (format "(fmin ~a)" args*)]
+     ['fmax (format "(c_fmax ~a)" args*)]
+     ['fmin (format "(c_fmin ~a)" args*)]
      ['fmod (format "(Float.rem ~a)" args*)]
      ['copysign (format "(Float.copy_sign ~a)" args*)]
      [_ (format "(Float.~a ~a)" op args*)])]))
@@ -180,7 +189,7 @@
 
 (define core->ocaml
   (make-ml-compiler "ocaml"
-    #:infix-ops (remove* '(+ - * / ==) default-infix-ops)
+    #:infix-ops (remove* '(+ - * / == !=) default-infix-ops)
     #:operator operator->ocaml
     #:constant constant->ocaml
     #:program program->ocaml

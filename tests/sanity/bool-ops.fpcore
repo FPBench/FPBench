@@ -1,66 +1,74 @@
-(FPCore () :name "Test < (1/8)" :spec 0.0 (if (< 1.0 0.0) 1 0))
+(FPCore () :name "Test < (1/9)" :spec 0.0 (if (< 1.0 0.0) 1 0))
 
-(FPCore () :name "Test < (2/8)" :spec 1.0 (if (< 0.0 1.0) 1 0))
+(FPCore () :name "Test < (2/9)" :spec 1.0 (if (< 0.0 1.0) 1 0))
 
-(FPCore () :name "Test < (3/8)" :spec 1.0 (if (< -1.0 0.0) 1 0))
+(FPCore () :name "Test < (3/9)" :spec 1.0 (if (< -1.0 0.0) 1 0))
 
-(FPCore () :name "Test < (4/8)" :spec 0.0 (if (< 0.0 -1.0) 1 0))
+(FPCore () :name "Test < (4/9)" :spec 0.0 (if (< 0.0 -1.0) 1 0))
 
-(FPCore () :name "Test < (5/8)" :spec 0.0 (if (< 1.0 -1.0) 1 0))
+(FPCore () :name "Test < (5/9)" :spec 0.0 (if (< 1.0 -1.0) 1 0))
 
-(FPCore () :name "Test < (6/8)" :spec 1.0 (if (< -1.0 1.0) 1 0))
+(FPCore () :name "Test < (6/9)" :spec 1.0 (if (< -1.0 1.0) 1 0))
 
-(FPCore () :name "Test < (7/8)" :spec 0.0 (if (< 0.0 0.0) 1 0))
+(FPCore () :name "Test < (7/9)" :spec 0.0 (if (< 0.0 0.0) 1 0))
 
-(FPCore () :name "Test < (8/8)" :spec 0.0 (if (< 0.0 0.0 0.0) 1 0))
+(FPCore () :name "Test < (8/9)" :spec 0.0 (if (< NAN NAN) 1 0))
 
-(FPCore () :name "Test > (1/8)" :spec 1.0 (if (> 1.0 0.0) 1 0))
+(FPCore () :name "Test < (9/9)" :spec 0.0 (if (< 0.0 0.0 0.0) 1 0))
 
-(FPCore () :name "Test > (2/8)" :spec 0.0 (if (> 0.0 1.0) 1 0))
+(FPCore () :name "Test > (1/9)" :spec 1.0 (if (> 1.0 0.0) 1 0))
 
-(FPCore () :name "Test > (3/8)" :spec 0.0 (if (> -1.0 0.0) 1 0))
+(FPCore () :name "Test > (2/9)" :spec 0.0 (if (> 0.0 1.0) 1 0))
 
-(FPCore () :name "Test > (4/8)" :spec 1.0 (if (> 0.0 -1.0) 1 0))
+(FPCore () :name "Test > (3/9)" :spec 0.0 (if (> -1.0 0.0) 1 0))
 
-(FPCore () :name "Test > (5/8)" :spec 1.0 (if (> 1.0 -1.0) 1 0))
+(FPCore () :name "Test > (4/9)" :spec 1.0 (if (> 0.0 -1.0) 1 0))
 
-(FPCore () :name "Test > (6/8)" :spec 0.0 (if (> -1.0 1.0) 1 0))
+(FPCore () :name "Test > (5/9)" :spec 1.0 (if (> 1.0 -1.0) 1 0))
 
-(FPCore () :name "Test > (7/8)" :spec 0.0 (if (> 0.0 0.0) 1 0))
+(FPCore () :name "Test > (6/9)" :spec 0.0 (if (> -1.0 1.0) 1 0))
 
-(FPCore () :name "Test > (8/8)" :spec 0.0 (if (> 0.0 0.0 0.0) 1 0))
+(FPCore () :name "Test > (7/9)" :spec 0.0 (if (> 0.0 0.0) 1 0))
 
-(FPCore () :name "Test <= (1/8)" :spec 0.0 (if (<= 1.0 0.0) 1 0))
+(FPCore () :name "Test > (8/9)" :spec 0.0 (if (> NAN NAN) 1 0))
 
-(FPCore () :name "Test <= (2/8)" :spec 1.0 (if (<= 0.0 1.0) 1 0))
+(FPCore () :name "Test > (9/9)" :spec 0.0 (if (> 0.0 0.0 0.0) 1 0))
 
-(FPCore () :name "Test <= (3/8)" :spec 1.0 (if (<= -1.0 0.0) 1 0))
+(FPCore () :name "Test <= (1/9)" :spec 0.0 (if (<= 1.0 0.0) 1 0))
 
-(FPCore () :name "Test <= (4/8)" :spec 0.0 (if (<= 0.0 -1.0) 1 0))
+(FPCore () :name "Test <= (2/9)" :spec 1.0 (if (<= 0.0 1.0) 1 0))
 
-(FPCore () :name "Test <= (5/8)" :spec 0.0 (if (<= 1.0 -1.0) 1 0))
+(FPCore () :name "Test <= (3/9)" :spec 1.0 (if (<= -1.0 0.0) 1 0))
 
-(FPCore () :name "Test <= (6/8)" :spec 1.0 (if (<= -1.0 1.0) 1 0))
+(FPCore () :name "Test <= (4/9)" :spec 0.0 (if (<= 0.0 -1.0) 1 0))
 
-(FPCore () :name "Test <= (7/8)" :spec 1.0 (if (<= 0.0 0.0) 1 0))
+(FPCore () :name "Test <= (5/9)" :spec 0.0 (if (<= 1.0 -1.0) 1 0))
 
-(FPCore () :name "Test <= (8/8)" :spec 1.0 (if (<= 0.0 0.0 0.0) 1 0))
+(FPCore () :name "Test <= (6/9)" :spec 1.0 (if (<= -1.0 1.0) 1 0))
 
-(FPCore () :name "Test >= (1/8)" :spec 1.0 (if (>= 1.0 0.0) 1 0))
+(FPCore () :name "Test <= (7/9)" :spec 1.0 (if (<= 0.0 0.0) 1 0))
 
-(FPCore () :name "Test >= (2/8)" :spec 0.0 (if (>= 0.0 1.0) 1 0))
+(FPCore () :name "Test <= (8/9)" :spec 0.0 (if (<= NAN NAN) 1 0))
 
-(FPCore () :name "Test >= (3/8)" :spec 0.0 (if (>= -1.0 0.0) 1 0))
+(FPCore () :name "Test <= (9/9)" :spec 1.0 (if (<= 0.0 0.0 0.0) 1 0))
 
-(FPCore () :name "Test >= (4/8)" :spec 1.0 (if (>= 0.0 -1.0) 1 0))
+(FPCore () :name "Test >= (1/9)" :spec 1.0 (if (>= 1.0 0.0) 1 0))
 
-(FPCore () :name "Test >= (5/8)" :spec 1.0 (if (>= 1.0 -1.0) 1 0))
+(FPCore () :name "Test >= (2/9)" :spec 0.0 (if (>= 0.0 1.0) 1 0))
 
-(FPCore () :name "Test >= (6/8)" :spec 0.0 (if (>= -1.0 1.0) 1 0))
+(FPCore () :name "Test >= (3/9)" :spec 0.0 (if (>= -1.0 0.0) 1 0))
 
-(FPCore () :name "Test >= (7/8)" :spec 1.0 (if (>= 0.0 0.0) 1 0))
+(FPCore () :name "Test >= (4/9)" :spec 1.0 (if (>= 0.0 -1.0) 1 0))
 
-(FPCore () :name "Test >= (8/8)" :spec 1.0 (if (>= 0.0 0.0 0.0) 1 0))
+(FPCore () :name "Test >= (5/9)" :spec 1.0 (if (>= 1.0 -1.0) 1 0))
+
+(FPCore () :name "Test >= (6/9)" :spec 0.0 (if (>= -1.0 1.0) 1 0))
+
+(FPCore () :name "Test >= (7/9)" :spec 1.0 (if (>= 0.0 0.0) 1 0))
+
+(FPCore () :name "Test >= (8/9)" :spec 0.0 (if (>= NAN NAN) 1 0))
+
+(FPCore () :name "Test >= (9/9)" :spec 1.0 (if (>= 0.0 0.0 0.0) 1 0))
 
 (FPCore () :name "Test == (1/9)" :spec 0.0 (if (== 1.0 0.0) 1 0))
 

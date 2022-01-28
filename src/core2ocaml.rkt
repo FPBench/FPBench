@@ -25,7 +25,6 @@
 (define ocaml-header
   (const
     (string-append
-      "let ieee754_eq x y = if ((Float.is_nan x) && (Float.is_nan y)) then false else (x = y)\n\n"
       "let c_fmax x y = if (Float.is_nan x) then y else if (Float.is_nan y) then x else (Float.max x y)\n\n"
       "let c_fmin x y = if (Float.is_nan x) then y else if (Float.is_nan y) then x else (Float.min x y)\n\n")))
 
@@ -40,14 +39,14 @@
   (format "(~a)"
           (string-join
             (for/list ([a (cons x xs)] [b xs])
-              (format "(ieee754_eq ~a ~a)" a b))
+              (format "(~a = ~a)" a b))
             " && ")))
 
 (define (inequality->ocaml x xs)
   (format "(not (~a))"
           (string-join
             (for/list ([a (cons x xs)] [b xs])
-              (format "(ieee754_eq ~a ~a)" a b))
+              (format "(~a = ~a)" a b))
             " || ")))
 
 (define (operator->ocaml op args ctx)

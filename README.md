@@ -7,9 +7,8 @@ FPBench provides benchmarks, compilers, and standards for the floating-point res
 Setup
 ----------
 
-To use FPBench tools, install [Racket 7.x](https://download.racket-lang.org). Racket 8.0 or later
-(on Chez Scheme) is not currently supported. Then, run `make setup` to install dependencies
-and compile the tools.
+To use FPBench tools, install [Racket](https://download.racket-lang.org) (Racket 8.0 or later is recommended).
+Then, run `make setup` to install dependencies and compile the tools.
 
 Benchmarks
 ----------

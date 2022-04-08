@@ -40,6 +40,8 @@
                             (register-pass (curry fpcore-precondition-ranges #:single-range #f) 'one-to-one)]
    ["--precondition-range" "Weaken preconditions to a conjunction of single ranges for each variable"
                            (register-pass (curry fpcore-precondition-ranges #:single-range #t) 'one-to-one)]
+   ["--remove-let" "Remove let bindings by substituting into the body expressions"
+                    (register-pass fpcore-remove-let 'one-to-one)]
    ["--expand-let*" "Expand each let* to a series of nested let expressions"
                     (register-pass fpcore-expand-let* 'one-to-one)]
    ["--expand-while*" "Expand each while* to a while loop with nested let* expressions"

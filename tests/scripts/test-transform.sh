@@ -42,6 +42,12 @@ cat $output >> $test
 racket transform.rkt --expand-let* $target $output 2>> $test
 cat $output >> $test
 
+racket transform.rkt --remove-let $target $output 2>> $test
+cat $output >> $test
+
+racket transform.rkt --remove-let $target2 $output 2>> $test
+cat $output >> $test
+
 racket transform.rkt --cse $target2 $output 2>> $test
 cat $output >> $test
 

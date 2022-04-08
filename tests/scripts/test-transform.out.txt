@@ -52,6 +52,19 @@
   (let ((x (* b arg1))) (let ((y (- arg1 x))) (* x y)))))
 
 (FPCore (arg1)
+ :name "Test while"
+ :pre (< 1 arg1 10)
+ (while*
+  (<= a 3)
+  ((a 0 (+ a 1)) (b 0 (+ arg1 a)))
+  (* (* b arg1) (- arg1 (* b arg1)))))
+
+(FPCore (arg1)
+ :name "Test"
+ :pre (< 1 arg1 10)
+ (+ (* arg1 (+ arg1 1)) (- arg1 1)))
+
+(FPCore (arg1)
  :name "Test"
  :pre (< 1 arg1 10)
  (let ((x (+ arg1 1)) (y (- arg1 1))) (+ (* arg1 x) y)))

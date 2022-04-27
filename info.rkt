@@ -1,6 +1,6 @@
 #lang info
 (define name "fpbench")
-(define version "2.0.2")
+(define version "2.0.3")
 (define deps '("base"
                "math-lib"
                "generic-flonum"))

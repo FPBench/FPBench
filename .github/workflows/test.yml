@@ -295,7 +295,8 @@ jobs:
           git clone --recurse-submodules https://github.com/malyzajko/daisy ../cache/daisy
           cd ../cache/daisy
           git checkout ${DAISY_VERSION}
-          sed -i 's/git:/https:/g' build.sbt
+          sed -i 's/) dependsOn (smtlib//g' build.sbt
+          sed -i 's/libraryDependencies ++= Seq(/libraryDependencies ++= Seq("com.regblanc" %% "scala-smtlib" % "0.2.1-42-gc68dbaa",/g' build.sbt
           sbt compile
           sbt script
           echo "${PWD}/../cache/daisy" >> $GITHUB_PATH

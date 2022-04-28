@@ -299,7 +299,7 @@ jobs:
           sed -i 's/libraryDependencies ++= Seq(/libraryDependencies ++= Seq("com.regblanc" %% "scala-smtlib" % "0.2.1-42-gc68dbaa",/g' build.sbt
           sbt compile
           sbt script
-          echo "${PWD}/../cache/daisy" >> $GITHUB_PATH
+          echo "${PWD}" >> $GITHUB_PATH
 
       - name: "Install as Racket package"
         run: raco pkg install --auto

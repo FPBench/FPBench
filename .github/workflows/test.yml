@@ -6,8 +6,7 @@ env:
   FPTAYLOR_VERSION: 'fabc895ddc595dc41fbe7ce511049c745e1f9136'
   CAKEML_VERSION: 'v1217'
   CAKEML_BIN: '../cache/cakeml'
-  SBT_VERSION: '1.5.5'
-  DAISY_VERSION: '33bc509d927bdbda08c6dccd0f56285dc265b049'
+  DAISY_VERSION: 'b483303f3914106173902669855d371ff73bf568'
   DAISY_BASE: '../cache/daisy'
   
 jobs:
@@ -118,7 +117,7 @@ jobs:
       - name: "Install Java"
         uses: actions/setup-java@v2
         with:
-          distribution: 'adopt'
+          distribution: 'temurin'
           java-version: '11'
 
       - name: "Install Packages"
@@ -271,6 +270,7 @@ jobs:
     needs: [ 'unit' ]
     steps:
       - uses: actions/checkout@v2
+      - uses: olafurpg/setup-scala@v11
       - name: "Install Racket"
         uses: Bogdanp/setup-racket@v1.5
         with:
@@ -282,19 +282,24 @@ jobs:
       - name: "Install Java"
         uses: actions/setup-java@v2
         with:
-          distribution: 'adopt'
+          distribution: 'temurin'
           java-version: '8'
 
       - name: "Install Packages"
         run: |
           sudo apt-get update
           sudo apt-get install -y libmpfr6 libmpfr-dev
-          (mkdir -p ../cache/sbt && curl -L -O https://github.com/sbt/sbt/releases/download/v${SBT_VERSION}/sbt-${SBT_VERSION}.tgz && \
-            tar -xzf sbt-${SBT_VERSION}.tgz -C ../cache/sbt --strip-components 1)
-          echo "${PWD}/../cache/sbt/bin" >> $GITHUB_PATH
-          (git clone --recurse-submodules https://github.com/malyzajko/daisy ../cache/daisy && cd ../cache/daisy && \
-            git checkout ${DAISY_VERSION} && sbt compile && sbt script)
-          echo "${PWD}/../cache/daisy" >> $GITHUB_PATH
+
+      - name: "Install Daisy"
+        run: |
+          git clone --recurse-submodules https://github.com/malyzajko/daisy ../cache/daisy
+          cd ../cache/daisy
+          git checkout ${DAISY_VERSION}
+          sed -i 's/) dependsOn (smtlib//g' build.sbt
+          sed -i 's/libraryDependencies ++= Seq(/libraryDependencies ++= Seq("com.regblanc" %% "scala-smtlib" % "0.2.1-42-gc68dbaa",/g' build.sbt
+          sbt compile
+          sbt script
+          echo "${PWD}" >> $GITHUB_PATH
 
       - name: "Install as Racket package"
         run: raco pkg install --auto

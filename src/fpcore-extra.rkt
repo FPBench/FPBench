@@ -28,6 +28,7 @@
    [expand-while* (-> expr? expr?)]
    [expand-for (-> expr? expr?)]
 
+   [fpcore-remove-let (-> fpcore? fpcore?)]
    [fpcore-unroll-loops (-> exact-nonnegative-integer? fpcore? fpcore?)]
    [fpcore-skip-loops (-> fpcore? fpcore?)]
    [fpcore-expand-let* (-> fpcore? fpcore?)]
@@ -228,6 +229,13 @@
     [(visit-symbol vtor x #:ctx [ctx '()])
       (dict-ref ctx x x)])
   (rec expr bindings))
+
+(define (fpcore-remove-let prog)
+  (match prog
+   [(list 'FPCore (list args ...) props ... body)
+    `(FPCore ,args ,@props ,(remove-let body))]
+   [(list 'FPCore name (list args ...) props ... body)
+    `(FPCore ,name ,args ,@props ,(remove-let body))]))
 
 (define/match (negate-cmp cmp)
   [('==) '!=]

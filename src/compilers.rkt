@@ -37,7 +37,7 @@
     [ctx-lookup-name (-> compiler-ctx? symbol? string?)]
     [ctx-lookup-prec (-> compiler-ctx? (or/c symbol? string?) any/c)]
     [ctx-update-props (-> compiler-ctx? (listof any/c) compiler-ctx?)]
-    [ctx-lookup-prop (->* (compiler-ctx? symbol?) ((or/c boolean? symbol?)) any/c)]
+    [ctx-lookup-prop (->* (compiler-ctx? symbol?) (any/c) any/c)]
     [ctx-set-extra (-> compiler-ctx? any/c any/c compiler-ctx?)]
     [ctx-update-extra (->* (compiler-ctx? any/c any/c) (any/c) compiler-ctx?)]
     [ctx-lookup-extra (-> compiler-ctx? any/c any/c)]

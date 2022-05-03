@@ -1,0 +1,352 @@
+\documentclass[main.tex]{subfiles}
+\begin{document}
+
+\section{Benchmark Suite and Examples}
+\label{sec:case-studies}
+
+The \name suite currently includes \nbenches benchmarks
+  sourced from recent papers on automatic floating-point
+  verification and accuracy improvement.
+This section first summarizes these benchmarks
+  and then details how representative examples
+  were translated to \name from the input formats
+  of various tools in the literature.
+
+%% Moreover, it can be used to represent the input
+%%   to a variety of floating point tools
+%%   which measure error in a variety of ways.
+
+%% \subsection{Benchmark Suite}
+%%
+%% The \name suite includes \nbenches benchmarks
+%%   sourced from recent papers in floating point verification,
+%%   optimization, and accuracy improvement.
+%% Of the benchmarks,
+
+The current \name suite contains
+  examples from a variety of domains, including
+  28 from the Herbie test suite~\cite{pavel15},
+  9 from the Salsa test suite~\cite{fmics15},
+  7 from the Rosa test suite~\cite{DarulovaK14},
+  and one example from the FPTaylor test suite~\cite{fptaylor-fm15}.
+These examples range from simple test programs for
+  early tool development up to
+  large examples for evaluating more mature tools.
+The larger examples are more challenging,
+  including loops that with up to 13 variables mutated in the loop body.
+As shown in Table~\ref{tbl:domains} and Table~\ref{tbl:features},
+  these programs exercise the full range of functionality
+  available in \name,
+  and span a variety application areas,
+  from control software to mathematical libraries.
+We intend to continue adding benchmarks to the \name suite.
+
+\begin{table}[hbtp]
+  \begin{minipage}[t]{.49\textwidth}
+    \begin{tabular*}{\columnwidth}{l@{\extracolsep{\stretch{1}}}r}
+      Feature & Benchmarks \\\hline
+      Basic Arithmetic & 44 \\
+      Exponentials & 13 \\
+      Trigonometric & 10 \\
+      Comparison & 12 \\
+      Loops & 12 \\
+      Conditionals & 3
+    \end{tabular*}
+    \vspace{0.1in}
+    \caption{Functions and language features used in the \name
+      benchmarks. Benchmarks contain a variety of features, and many
+      benchmarks incorporate several. Exponential functions include
+      logarithms, the exponential function, and the power function.}
+    \label{tbl:domains}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[t]{.49\textwidth}
+    \begin{tabular*}{\columnwidth}{l@{\extracolsep{\stretch{1}}}r}
+      Domain & Benchmarks \\\hline
+      General expressions & 31 \\
+      Math algorithms & 6 \\
+      Embedded systems & 4 \\
+      Scientific computing & 3
+    \end{tabular*}
+    \vspace{0.25in}
+    \caption{Domains which the \name benchmarks are drawn from. Most
+      are general mathematical operations, useful in a variety of
+      domains. The general expressions are the smallest, and are drawn
+      from \textit{Numerical Methods for Scientists and
+        Engineers}~\cite{hamming-1987} and Rosa~\cite{DarulovaK14}.}
+    \label{tbl:features}
+  \end{minipage}
+\end{table}
+
+%% The \name suite attempts balance on multiple dimensions.
+%% Beyond drawing from a range of domains with varying features,
+%%   \name also balances the need for simple benchmarks
+%%   to prove algorithms on
+%%   with larger, practical examples.
+%% To achieve this balance,
+%%   a large number of basic expressions,
+%%   coupled with a smaller number of large test cases.
+%% Among the larger test cases a degree of diversity is also available,
+%%   with programs ranging
+%%   from 2 to 13 variables mutated in the loop body.
+
+\subsection{FPTaylor}
+
+
+FPTaylor~\cite{fptaylor-fm15} uses series expansions and interval
+arithmetic to compute sound error bounds. The authors gave the following
+simple program as an example input for their tool:
+
+\begin{code}
+1: Variables
+2:   float64 x in [1.001, 2.0],
+3:   float64 y in [1.001, 2.0];
+4: Definitions
+5:   t rnd64= x * y;
+6: Expressions
+7:   r rnd64= (t-1)/(t*t-1);
+\end{code}
+
+This program is representative of the code necessary to correct sensor data
+in control software, where the output of the sensor is known to be between
+1.001 and 2.0. We manually translated this program to \core, yielding:
+
+\begin{code}
+(FPCore (x y)
+  :name "FPTaylor example"
+  :cite (solovyev-et-al-2015)
+  :type binary64
+  :pre (and (and (< 1.001 x) (< x 2.0)) (and (< 1.001 y) (< y 2.0)))
+  (let ([t (* x y)])
+    (/ (- t 1.0)  (- (* t t) 1.0))))
+\end{code}
+
+The benchmark takes inputs \C{x} and \C{y}
+  and uses a \C{let} statement to represent the intermediate variables
+  from the FPTaylor example.
+\core faithfully preserves important program constructs,
+  such as variable binding and operation ordering,
+  making the translation a simple matter.
+The benchmark additionally specifies a name
+  and cites its source using a key to a standard \BibTeX{} file.
+Since the original program uses 64-bit floating-point numbers,
+  the type \C{binary64} is specified in the benchmark.
+The constraints on input variables are translated to
+  a single predicate under the \C{:pre} property.
+
+%% In this case, the preconditions come from
+%%   the domain the benchmark is drawn from.
+
+\subsection{Rosa}
+
+Rosa~\cite{DarulovaK14} soundly verifies error bounds of floating-point
+programs, including looping control flow through recursive function calls.
+Several benchmarks in its repository demonstrate this capability, including
+one that uses Newton's method on a series representation of the sine
+function.  In Rosa's input language the original benchmark is represented
+as:
+
+\begin{code}
+def newton(x: Real, k: LoopCounter): Real = {
+  require(-1.0 < x && x < 1.0)
+  if (k < 10) {
+    newton(x - (x - (x**3)/6.0 + (x**5)/120.0 + (x**7)/5040.0) / 
+      (1.0 - (x*x)/2.0 + (x**4)/24.0 + (x**6)/720.0), k++)
+  } else {
+    x
+  }
+} ensuring(res => -1.0 < res && res < 1.0)
+\end{code}
+
+The \C{require} clause denotes input preconditions, and the
+\C{ensures} clause provides the error bound to be verified. We manually
+translated this program to \core, yielding:
+
+\begin{code}
+(FPCore (x0)
+  :name "Rosa Example"
+  :cite (darulova-kuncak-2014)
+  :pre (and (< -1.0 x0) (< x0 1.0))
+  :rosa-post (and (< -1.0 RES) (< RES 1.0))
+  (while (< i 10)
+    ([i 0 (+ i 1)]
+     [x x0
+      (let ([f (+ (+ (- x (/ (pow x 3) 6))
+                     (/ (pow x 5) 120)) (/ (pow x 7) 5040))]
+            [df (+ (+ (- 1.0 (/ (* x x) 2)) 
+                      (/ (pow x 4) 24)) (/ (pow x 6) 720))])
+        (- x (/ f df)))])
+    x))
+\end{code}
+
+Like the FPTaylor benchmark, this benchmark includes a name,
+  citation for its source, and precondition on inputs.
+For completeness, we've also included the \C{ensuring} annotation,
+  denoted \C{:rosa-post},
+  demonstrating the ability to add tool specific annotations
+  by prefixing with the tool name.
+Note how the \C{while} construct from \core
+  can be used to represent the tail-recursive loop
+  from the Rosa original benchmark.
+
+\subsection{Herbie}
+
+Herbie~\cite{pavel15} heuristically improves the accuracy of straight-line
+floating-point expressions.  The authors demonstrate the improvements
+Herbie can produce using the quadratic formula for computing the roots of a
+second degree polynomial.  It has uses from calculating trajectories to
+solving matrix equations.  In mathematical notation, the quadratic formula
+is given by:%
+\footnote{We use the negative variant here, as in the Herbie paper;
+  the positive variant is analogous.}
+
+\begin{equation*}
+  \frac{(- b) - \sqrt{b^2 - 4ac}}{2a}
+\end{equation*}
+
+\noindent Herbie produces the following more-accurate variant:
+
+\newcommand{\K}[1]{\mathbf{#1}\:}
+
+\begin{equation*}
+\begin{cases}
+  \frac{4ac}{-b + \sqrt{b^2 - 4ac}}/2a & \K{if} b < 0 \\[9pt]
+  \left(-b - \sqrt{b^2 - 4ac}\right)\frac1{2a} & \K{if} 0 \le b \le 10^{127} \\[5pt]
+  -\frac{b}{a} + \frac{c}{b} & \K{if} 10^{127} < b
+\end{cases}
+\end{equation*}
+
+\noindent In \core format, the original formula is represented as:
+
+\begin{code}
+(FPCore (a b c)
+  :name "NMSE p42, positive"
+  :cite (hamming-1987)
+  :pre (and (>= (sqr b) (* 4 (* a c))) (!= a 0))
+  (/ (+ (- b) (sqrt (- (sqr b) (* 4 (* a c))))) (* 2 a)))
+\end{code}
+
+\noindent and the improved version is represented as:
+
+\begin{code}
+(FPCore (a b c)
+  :name "NMSE p42, positive"
+  :cite (hamming-1987)
+  :pre (and (>= (sqr b) (* 4 (* a c))) (!= a 0))
+  (if (< b 0)
+      (/ (/ (* 4 (* a c)) (+ (- b) (sqrt (- (sqr b) (* 4 (* a c)))))) 
+         (* 2 a))
+      (if (< b 10e127)
+          (* (- (- b) (- (sqr b) (* 4 (* a c)))) (/ 1 (* 2 a)))
+          (+ (- (/ b a)) (/ c b)))))
+\end{code}
+
+Like the Rosa and FPTaylor examples,
+  this benchmark gives a name, citation, and precondition.
+This benchmark uses \core's ability
+  to write arbitrary boolean expressions as preconditions,
+  restricting the value under the square root to be non-negative
+  and requiring the denominator be non-zero.
+Unlike the FPTaylor and Rosa examples,
+  this precondition arises from mathematical considerations,
+  not domain knowledge.
+The \core version of Herbie's output
+  furthermore uses \C{if} constructs to evaluate
+  different expressions for different inputs,
+  which improves accuracy.
+Herbie could add additional metadata to the output,
+  such as its internal estimate of accuracy
+  or the number of expressions considered during search,
+  by using prefixed keys like \C{:herbie-accuracy-estimate}.
+
+\subsection{Salsa}
+
+Salsa~\cite{fmics15} is a tool for soundly improving the worst-case
+accuracy of programs.  The authors evaluate Salsa on a suite of control and
+numerical algorithms, including the widely used PID controller algorithm.
+This algorithm is used in aeronautic and avionic systems for which
+correctness is critical. In C, the benchmark is written as:
+
+\begin{code}
+volatile double p, i, t, d, dt, invdt, m, e, eold, r; 
+int pid(double m0, double kp, double ki, double kd, double c){
+  t     = 0.0;
+  invdt = 5.0;
+  dt    = 0.2;
+  m     = m0 ;
+  eold  = 0.0;
+  i     = 0.0;
+  while (t < 100.0) {
+       e = c - m;
+       p = kp * e;
+       i = i + ki * dt * e;
+       d = kd * invdt * (e - eold);
+       r = p + i + d;
+       m = m + 0.01 * r; /* computing measure: the plant */
+       eold = e;
+       t = t + dt;
+  }
+  return m;
+}
+\end{code}
+
+To ease the conversion of this code from C to \core,
+  this program was first manually translated
+  to the following \surface program:
+
+\begin{code}
+(FPImp (m kp ki kd)
+ :name "PID"
+ :description "Keep a measure at its setpoint using a PID controller."
+ :cite (damouche-martel-chapoutot-nsv14)
+ :type binary64
+ :pre (and (and (< -10.0 m) (< m 10.0)) (and (< -10.0 c) (< c 10.0)))
+ [= t 0.0]
+ [= dt 0.2]
+ [= invdt (/ 1 dt)]
+ [= c 0.0]
+ [= eold 0.0]
+ [= i 0.0]
+ (while (< t 100.0)
+   [= e (- c m)]
+   [= p (* kp e)]
+   [= i (+ i (* (* ki dt) e))]
+   [= d (* (* kd invdt) (- e eold))]
+   [= r (+ (+ p i) d)]
+   [= m (+ m (* 0.01 r))]
+   [= eold e]
+   [= t (+ t dt)])
+ (output m))
+\end{code}
+
+The \surface program was then automatically compiled,
+  using the compiler tool in \name,
+  to the following \core benchmark:
+
+\begin{code}
+(FPCore (m0 kp ki kd c)
+  :name "PID"
+  :description "Keep a measure at its setpoint using a PID controller."
+  :cite (damouche-martel-chapoutot-nsv14)
+  :type binary64
+  :pre (and (and (< -10.0 m0) (< m0 10.0)) (and (< -10.0 c) (< c 10.0)))
+  (while (< t 100.0)
+   ([i 0.0 (+ i (* (* ki 0.2) (- c m)))]
+    [m m0
+     (let ([p (* kp (- c m))]
+           [d (* (* kd (/ 1 0.2)) (- (- c m) eold))])
+     (+ m (* 0.01 (+ (+ p (+ i (* (* ki 0.2) (- c m)))) d))))]
+    [eold 0.0 (- c m)]
+    [t 0.0 (+ t 0.2)])
+   m))
+\end{code}
+
+Beyond the metadata used in the FPTaylor, Rosa, and Herbie examples,
+  this benchmark includes a \C{:description} tag
+  to describe for readers what the benchmark program computes.
+These descriptions contain information about the distribution of inputs,
+  the situation in which the benchmark is used,
+  or any other information which might be useful to tool writers.
+The \name suite features descriptions for its most complex benchmarks. 
+
+\end{document}

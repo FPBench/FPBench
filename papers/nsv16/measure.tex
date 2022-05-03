@@ -1,0 +1,327 @@
+\documentclass[main.tex]{subfiles}
+\begin{document}
+
+\section{Accuracy Measurements}
+\label{sec:measure}
+
+To compare floating-point tools,
+  a common input format is not enough:
+  a common measure of accuracy is also necessary.
+\name thus defines a collection of accuracy measures
+  to allow tools to rigorously describe the accuracy measure they use.
+Given the diversity of accuracy measures in the literature,
+  standardizing on a single accuracy measure
+  would be difficult, and could harm the development
+  of some classes of tools.
+Instead, \name standardizes
+  several measures of accuracy;
+  tools that measure accuracy
+  should state which of the \name accuracy measures they use
+  to compare tools.
+
+\subsection{Measurement Axes}
+
+Floating-point accuracy is best analyzed along several axes:
+  scaling vs non-scaling error, forward vs. backward error,
+  maximum vs. average error.
+Tools that measure error may use sound vs. statistical techniques,
+  and tools that transform programs
+  have several options for how to measure accuracy improvement.
+
+\paragraph{Scaling vs non-scaling error ($\varepsilon$)}
+
+There are several ways to measure the error
+  of producing the inaccurate value $\hat x$ instead of the true value $x$.
+Two common mathematical notions are the absolute and relative error:
+\begin{equation*}
+  \varepsilon_{\text{abs}}(x, x') = \left|x - \hat x\right|
+  \quad \text{and} \quad
+  \varepsilon_{\text{rel}}(x, x') = \left|\frac{x - \hat x}{x}\right|
+\end{equation*}
+Relative error scales with the quantity being measured,
+  and thus makes sense for measuring both large and small numbers,
+  much like the floating-point format itself.
+A notion of error more closely tied to the floating-point format
+  is the Units in the Last Place (ULPs)%
+\footnote{Unfortunately, this term means different things
+  in the mathematical and programming communities.
+  We use the definition common for programming tools~%
+\cite{stoke-verify,pavel15,stoke-fp}}
+ difference.
+Some tools instead use the logarithm of the ULPs,
+  which approximately describes
+  the number of incorrect low-order bits in $\hat x$.
+These two measures are defined as:%
+\footnote{We are using $|S|$ to denote the number of elements in a set $S$}
+\begin{equation*}
+\varepsilon_{\text{ulps}}(x, x') = |\mathbb{F} \cap [\min(x, \hat x), \max(x, \hat x)]|
+\quad \text{and} \quad
+\varepsilon_{\text{bits}}(x, x') = \log_2 \varepsilon_{\text{ulps}}(x, x')
+\end{equation*}
+The floating-point numbers are distributed roughly exponentially, so
+this measure of error scales in a similar manner to relative
+error; however, it is better-behaved in the presence of denormal
+numbers and infinities.
+
+\paragraph{Forward vs. backward error ($\epsilon$)}
+
+Forward error and backward error are two common measures
+  for the error of a mathematical \emph{computation}.
+For a true function $f$ and its approximation $\hat f$,
+  forward error measures the difference between outputs for a fixed input,
+  while backward error measures the difference between inputs
+  for a fixed output.
+Formally,\footnote{Where $n$ is the number of arguments.}
+
+\begin{equation*}
+  \epsilon_{fwd}(f, \hat{f}, x) = \varepsilon(f(x), \hat{f}(x))
+\end{equation*}
+  % \quad \text{and} \quad
+\begin{equation*}
+  \epsilon_{bwd}(f, \hat{f}, x) =
+  \min \left\{ \varepsilon(x, x') : x' \in \mathbb{F}^n \land {\hat f}(x') = f(x) \right\}.
+\end{equation*}
+
+Backward error is important for evaluating the stability of an algorithm,
+  and in scientific applications where multiple sources of error
+  (algorithmic error vs. sensor error) must be compared.
+Existing tools typically measure forward error
+  because backward error can be tricky to compute
+  for floating-point computations,
+  where there may not be an input that produces the true output.
+% \name standardizes backward error due to its mathematical importance.
+
+\paragraph{Average vs. maximum error ($E$)}
+
+Describing the error of a floating-point computation
+  means summarizing its behavior across multiple inputs.
+Existing tools use either maximum or average error for this task.
+Formally,\footnote{Where $N$ is the number of valid inputs, and $n$ is the number of arguments.}
+
+\begin{equation*}
+  E_{\text{max}}(f, \hat{f}) = \max \left\{\epsilon(f, \hat{f}, x) : x \in \mathbb{F}^n\right\}
+  \quad \text{and} \quad
+  E_{\text{avg}}(f, \hat{f}) = \frac{1}{N} \sum_{x\in \mathbb{F}^n} \epsilon(f, \hat{f}, x) \enspace .
+\end{equation*}
+
+Worst-case error tends to be easier to measure soundly,
+  while average error tends to be easier to measure statistically.
+
+\paragraph{Sound vs. statistical techniques}
+
+Running a floating-point program on all valid inputs is intractable.
+Existing tools
+  either soundly overapproximate the error using static analysis
+  or approximate the error using statistical sampling.
+
+Most static techniques are based on interval or affine arithmetic
+  to over-approximate floating-point arithmetic,
+  often using abstract interpretation.
+Abstract interpretation may use either non-relational \cite{Mar05}
+  or relational abstract domains \cite{AGW15,Cha10,GP11},
+  and may use acceleration techniques (widenings \cite{CC92})
+  to over-approximate loops without unrolling them.
+While such techniques tend to provide loose over-approximations
+of the floating-point error of programs, they are fast and
+provide sound error bounds. In some embedded applications,
+correctness is critical and unsound techniques will not do.
+
+In domains where correctness is not absolutely critical,
+  sampling can provide tight approximations of error.
+Many sampling techniques are used,
+  including naive random samples~\cite{pavel15}
+  and Markov-chain Monte Carlo~\cite{stoke-fp}.
+These techniques involve running a program multiple times,
+  so tend to be slower than static analysis.
+
+\paragraph{Measuring improvement ($\iota$)}
+
+Tools that \emph{transform} floating-point programs
+  need to compare the accuracy of two floating-point programs:
+  the original and the transformed.
+Several comparison measures are possible.
+Comparisons can use the improvement in worst-case or average error
+  between the original $\hat f$ and improved $\hat f'$ implementation
+  of the same mathematical function $f$:
+\begin{align*}
+  \iota_{\text{imp}} = E(f, \hat{f}) - E(f, \hat{f}')
+\end{align*}
+However, one cannot usually
+  improve the accuracy of a computation
+  simultaneously on all inputs.
+It is thus often necessary
+  to make a computation less accurate on some points
+  to make it more accurate overall.
+In this case, it may be useful to report the largest unimprovement,
+  which measures the cost of improving accuracy:
+\begin{equation*}
+  \iota_{\text{wrs}}(\hat{f},\hat{f}') = \max \left\{ \epsilon(f, \hat{f}', x) - \epsilon(f, \hat{f}', x)   
+\ :\ x\in \mathbb{F}^n\right\}
+\end{equation*}
+
+Other measures,
+  such as those describing the trade-off between accuracy and speed,
+  are also interesting, but are less commonly used in the literature
+  and thus not standardized in \name.
+Improvement tools could also estimate their effect on numerical stability
+  using automatic differentiation~\cite{GW08} or Lyapunov exponents~\cite{Sri13},
+  but we do not know of any such tools.
+
+\subsection{Existing Tools}
+
+The error measures described can be applied
+  to categorize the error measurements used by existing tools.
+Table~\ref{tbl:tools} compares Fluctuat~\cite{Goubault13},
+  FPTaylor~\cite{fptaylor-fm15}, Herbie~\cite{pavel15},
+  Rosa~\cite{DarulovaK14}, and Salsa~\cite{fmics15}.
+
+\begin{table}[htb]
+\begin{tabular*}{\columnwidth}{@{\extracolsep{\stretch{1}}}*{6}{l}}
+Fluctuat & Absolute        & Forward & Max      & Sound \\
+FPTaylor & Absolute        & Forward & Max      & Sound \\
+Herbie   & Bits            & Forward & Average     & Statistical & Improvement \\
+Rosa     & Absolute        & Forward & Max      & Sound \\
+Salsa    & Absolute        & Forward & Max      & Sound & Improvement \\
+STOKE & ULPs & Forward & Max & Statistical & Improvement \\
+%\todo{STOKE-VERIFY} & ULPs & Forward & Sound \\
+\end{tabular*}
+\caption{A comparison of how five floating-point measure error
+  across the axes identified in this section.}
+%\todo{Add PolyPaver, Gappa?}
+\label{tbl:tools}
+\end{table}
+
+Fluctuat, FPTaylor, and Rosa all verify error bounds
+  on the accuracy of floating-point computations.
+Given their need for soundness, it is natural
+  that they use sound error analyses and estimate maximum error.
+Their use of absolute forward error derives from the difficulty
+  of approximating the other forms of error statically.
+Herbie and Salsa are tools for improving the accuracy of programs,
+  but differ dramatically in their approach.
+Salsa uses abstract interpretation to bound maximum absolute error,
+  producing a sound overapproximation of the maximum error.
+Herbie, on the other hand, uses random sampling to achieve
+  a tight statistical approximation of bits error.
+The tight estimates enabled by statistical techniques
+  provide additional opportunities for Herbie
+  to improve the accuracy of an expression,
+  but prevent it from providing sound error bounds.
+Finally, STOKE uses stochastic search to optimize floating-point programs,
+  and must compare the accuracy of floating-point programs
+  to avoid significantly compromising their accuracy.
+STOKE uses a Markov-chain Monte Carlo sampling
+  to statistically evaluate maximum ULPs error.
+
+By exactly describing the way each tool measures accuracy,
+  \name makes it possible to compare and relate tools.
+Unsound tools such as Herbie or STOKE
+  can be composed with a sound verification tool
+  to produce an accuracy guarantee,
+  and this guarantee can be compared
+  to the approximate error measurements those tools made statistically.
+Since Fluctuat, FPTaylor, Rosa, and Salsa
+  all soundly measure maximum forward absolute error,
+  they can be compared to determine which technique is best.
+
+%% There exists many ways of measuring the accuracy of a computation and
+%% it is mandatory to be very precise on which methodology is adopted in
+%% order to compare techniques or tools. Even if no existing tool
+%% implements all the measures enumerated hereafter, our goal is to
+%% propose a taxonomy of the main accuracy measurement methods. First of
+%% all, we must distinguish between the following alternatives:
+
+%% \begin{itemize}
+%% \item The kind of error considered in  benchmarks, i.e. \textit{which error} is used. The kind of error used in a benchmark may be the absolute or relative error \cite{Gol91}. While tools use in general forward errors, 
+%% backward errors are usually more relevant but also more difficult to compute \cite{Chat}.
+%% \item The object of the measure, i.e. \textit{what is measured}. For tools estimating the accuracy of a computation, the object of the measure is typically
+%% the worst case or the average error possibly arising during a computation for all the considered inputs.
+%% Other measures may be additionnaly considered for accuracy optimizing tools like the average improvement,
+%% the worst case improvement or the worst anti-improvement.
+%% \item The technique used to achieve the measure, i.e. \textit{how it is measured}. The most employed techniques rely
+%% on over-approximations of the errors obtained, for example, using interval computations or statistical approximations
+%% obtained by repeating the measurement on sample inputs the appropriate number of times.
+%% \end{itemize}
+ 
+%% We explicit hereafter the elements of measures enumerated previously. First of all, concerning the kind of
+%% error, let $x\in X$  be some input, let $f\ :\ X\rightarrow Y$ be a function assumed to be exact and 
+%% let $\hat{f}\ :\ X\rightarrow Y$ be another function approximating $f$ (note that
+%% the domain and co-domain of $\hat{f}$ may be subsets of $X$ and $Y$, for example floating-point numbers are a subset of the real numbers).
+%% The absolute error $\varepsilon_{abs}$ and relative error $\varepsilon_{rel}$  
+%% are defined by
+%% \begin{equation}
+%% \varepsilon_{abs}(x) = | f(x) - \hat{f}(x)|\quad\text{and}\quad \varepsilon_{rel}(x)= \left| \frac{f(x)-\hat{f}(x)}{f(x)}\right|\enspace .
+%% \end{equation}
+%% The error $\varepsilon_{abs}(x)$ corresponds to the forward error. The backward error $\varepsilon_{back}(x)$ is defined as the distance
+%% to the closest input $x'$ such that $f(x')=\hat{f}(x)$ or, in other word, the distance to the closest input
+%% for which $\hat{f}(x)$ is the exact result.
+%% \begin{equation}
+%% \varepsilon_{back} = \min\ \big\{ x'\in X\ :\ f(x')=\hat{f}(x)\big\}\enspace .
+%% \end{equation}
+%% To our knowledge, all the existing tools measuring automatically errors on pieces of codes compute forward errors and,
+%% in the following, we only consider this kind of error.
+
+%% The object of the measure refers to what quantity is measured.  Let $\varepsilon(x)$
+%% stand for either $\varepsilon_{abs}(x)$ or $\varepsilon_{rel}(x)$ depending on the kind of error we use. 
+%% We may distinguish the following cases.
+%% \begin{description}
+%% \item[Worst case error] The worst case error $\varepsilon_{wst}$ is the error measured in the worst case for all the admissible inputs of the program. 
+%% \begin{equation}
+%% \varepsilon_{wst} = \max\ \big\{ \varepsilon(x)\ :\ x\in X \big\} \enspace .
+%% \end{equation}
+%% \item[Average error] The average error $\varepsilon_{avg}$ is the mean error measured for the considered inputs. Let Card$(X)$ denote
+%% the cardinal of the set $X$.
+%%  \begin{equation}
+%% \varepsilon_{avg} = \frac{1}{\text{Card(X)}} \cdot \sum_{x\in X} \varepsilon(x) \enspace .
+%% \end{equation}
+%% \item[Worst anti-improvement] In general, accuracy optimizing tools cannot improve the accuracy of some computation for
+%% all the acceptable inputs (apart by generating as many specialized versions of the code as needed). Consequently,
+%% beside the worst case and average errors, other measures are relevant. The worst anti-improvement $\iota_{anti}$
+%% measures the additional error added by the transformation in the worst case. Let $\hat{f}_{opt}$ be an accuracy optimized
+%% version of $\hat{f}$. It is admitted that $\varepsilon_{wst}(\hat{f}_{opt})< \varepsilon_{wst}(\hat{f})$
+%% or $\varepsilon_{avg}(\hat{f}_{opt})< \varepsilon_{avg}(\hat{f})$. Nevertheless, $\hat{f}_{opt}$ may be
+%% less accurate than $\hat{f}$ on some input.
+%% \begin{equation}
+%% \iota_{anti}(\hat{f},\hat{f}_{opt}) = \max \left\{ \big| |f(x)-\hat{f}(x)| - |f(x)-\hat{f}_{opt}(x)|   
+%% \big|\ :\ x\in X\right\}
+%% \end{equation}
+%% \item[Worst case and average improvement] The worst case improvement $\iota_{wst}$ is the improvement of error in the worst case. The average improvement $\iota_{avg}$ is the mean improvement of error measured 
+%% for the considered inputs.  They are defined by
+%%  \begin{equation}
+%% \iota_{wst} = \varepsilon_{wst}(\hat{f}) - \varepsilon_{wst}(\hat{f}_{opt})\enspace,
+%% \end{equation}
+%%  \begin{equation}
+%% \iota_{avg} = \frac{1}{\text{Card(X)}} \cdot \sum_{x\in X}  \big| |f(x)-\hat{f}(x)| - |f(x)-\hat{f}_{opt}(x)|  \big|\enspace .
+%% \end{equation}
+%% \end{description}
+
+
+%% Note that other measures could be considered. For example, measures performing a trade-off between accuracy of the
+%% results and performances of the code would be of great interest. Other criteria, like the impact of the transformation
+%% on the numerical stability of the code could be taken into account. These measures could rely on the value
+%% of the derivatives of the code obtained by automatic differentiation \cite{} or by the computation of Lyapunov exponents \cite{}.
+
+
+%% \textbf{\large Work in progress below}
+
+%% Independently of the object measured,
+%% there exists two families of techniques to compute the errors based on static or dynamic analysis of the codes.
+%% Dynamic techniques take a subset $X' \subseteq X$ of the inputs, in general by chosing random elements of $X$,
+%% and compute $\varepsilon_{wst}$,  $\varepsilon_{avg}$, $\iota_{anti}$, $\iota_{avg}$, $\ldots$ using $X'$
+%% instead of $X$. While dynamic techniques avoid to over-approximate the errors as it may happens when static 
+%% techniques are used, the errors may also be under-approximated which may be an issue in some applicative
+%% contexts such as critical embedded systems. Another difficulty of dynamic methods is the execution time of the
+%% multiple runs, specially for programs with multiple inputs. In this case, the way random inputs are generated
+%% must be specified. For example, for a program taking two inputs $x$ and $y$, one may take $n$ sample values for $x$ and
+%% $n$ other values for $y$ and execute the $n\times n$ tests of the cartesian product or, alternatively, one may generate
+%% a suite of $n$ pairs of data $(x,y)$ and execute the $n$ tests. Obviously, this impacts the execution time and the scalability of the tool
+%% as well as how we may trust the results. Let us also remark that probabilities may be used in another ways, for example
+%% as in the CESTAC method, implemented in the Cadna tool \cite{} in which each operation is run several times with random rounding modes
+%% (towards plus or minus infinity with a probability of $0.5$).
+
+%% Static analysis techniques compute an other-approximation of the errors without executing the programs. They rely
+%% on non-relational \cite{} or relational abstract domains \cite{}. Static analysis techniques also use 
+%% acceleration techniques (widenings) to over-approximate the results of programs with loops without executing all the iterations.
+%% While this is another source of other-approximation, it makes it possible to obtain in a short time general results which hold for 
+%% programs independently of the number of iterations.
+\end{document} 

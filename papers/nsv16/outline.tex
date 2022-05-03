@@ -1,0 +1,73 @@
+\begin{verbatim}
+
+Intro / Motivation
+  - explosion of tools on FP
+      - Fluctuat
+      - Martel et al.
+      - Herbie
+      - FPTaylor
+      - Rosa
+  - difficult to compare
+      - strive to optimize slightly different measures
+      - no standard format for benchmarks
+      - no standard benchmark suite
+  - difficult to compose
+      - Users have to choose between tools, can't combine their benefits.
+      - If you could, you could use Herbie + Rosa, or Martel + FPTaylor, to get improvement AND guarantees
+  - inspired by other communities
+      - compilers: SPEC
+      - SAT: DIMACS
+      - SMT: SMT-LIB
+  - FP is different from these formats though
+      - input ranges
+      - inherently approximate, accuracy often main goal
+      - performance also still important
+      - not clear how to compare benches for different tools
+          - one tool maybe good near 0, other near \infty
+          - need visualizations to help users understand
+          - need aggregate measures that facilitate comparison
+  - Goal: develop standard FP benchmark format and suite
+      - provide numerous measures
+      - provide standard evaluation framework
+      - develop standard benchmark suite
+      - support composition of a variety of tools
+      - support numerous domains
+          - critical embedded (avionics, etc.)
+          - scientific and engineering
+          - numerical math libraries
+          - graphics
+
+Format
+  (see Pavel's draft currently in repo)
+
+Measures
+  - worst case error
+  - worst anti-improvement
+  - average error
+  - average improvement
+  - performance (?)
+  - stability (?)
+
+Supported Domains
+  TODO: characterize features useful for each domain
+
+Examples
+  - draw from Martel et al., Rosa, and  Herbie benchmarks translated in FPBench
+      - shows the FPBench can capture existing tools' benchmarks
+      - show agreement with their results (?)
+  - include table showing coverage of domain (mentioned in motivation above)
+  - include graphs showing how user will see results for comparisons
+
+Future Work
+  - more measures
+  - more benchmarks
+  - parsing / compilation between more languages
+  - more precision
+  - fixed point
+
+
+TODO:
+  - Get worst-case error measure running
+  - (if time permits) translate FPTaylor example to FPBench
+
+\end{verbatim}

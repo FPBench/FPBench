@@ -7,15 +7,6 @@
   :pre (and (<= 0 u 1) (<= 0 v 1) (<= 0 x 3/2) (<= 3/8 y 11/8))
   (let* ([a 1]
          [b -1]
-
-; http://www.lix.polytechnique.fr/~adje/uploads/Codes.pdf
-(FPCore (x y u v)
-  :name "Arrow-Hurwicz"
-  :cite (adje-2010 bibek-2020)
-
-  :pre (and (<= 0 u 1) (<= 0 v 1) (<= 0 x 3/2) (<= 3/8 y 11/8))
-  (let* ([a 1]
-         [b -1]
          [c -1]
          [r 1/2])
     (while* (> (fmax (fabs (- x u)) (fabs (- y v))) 1e-9)
@@ -29,12 +20,12 @@
   :name "Euler Oscillator"
   :cite (adje-2010 bibek-2020)
 
-  :pre (and (<= 0 x 1) (<= 0 v 1)))
+  :pre (and (<= 0 x 1) (<= 0 v 1))
   (let ([h 0.01])
     (while TRUE
       ([v v (- (* v (- 1 h)) (* h x))]
        [x x (+ x (* h v))])
-      (array x v)))
+      (array x v))))
 
 (FPCore (x y)
   :name "Filter"
@@ -65,7 +56,8 @@
   (while* TRUE
     ([d 0 (/ (+ (+ 0.1 (* x x)) (* y y)) 2)]
      [x x (* x d)]
-     [y y (* y d)])))
+     [y y (* y d)])
+    (array x y)))
 
 (FPCore (x y)
   :name "Flower"

@@ -33,8 +33,11 @@
   (define args* (string-join args ", "))
   (match op
     ['/     (format "(~a / ~a)" (first args) (second args))]
+    ['isfinite (format "f64::is_finite(~a)" args*)]
     ['isinf (format "f64::is_infinite(~a)" args*)]
     ['isnan (format "f64::is_nan(~a)" args*)]
+    ['isnormal (format "f64::is_normal(~a)" args*)]
+    ['log (format "f64::ln(~a)" args*)]
     ['log1p (format "f64::ln_1p(~a)" args*)]
     ['fma (format "f64::mul_add(~a)" args*)]
     ['fmax (format "f64::max(~a)" args*)]
@@ -45,7 +48,7 @@
     ['expm1 (format "f64::exp_m1(~a)" args*)]
     ['signbit (format "f64::is_sign_negative(~a)" args*)]
     ['pow (format "f64::powf(~a)" args*)]
-    [(or 'exp 'exp2 'log 'log10 'log2 'sqrt 'cbrt 'hypot
+    [(or 'exp 'exp2 'log10 'log2 'sqrt 'cbrt 'hypot
          'sin 'cos 'tan 'asin 'acos 'atan 'atan2 'sinh 'cosh 'tanh
          'asinh 'acosh 'atanh 'ceil 'floor
          'copysign 'trunc 'round)
@@ -71,7 +74,7 @@
     ['NAN "f64::NAN"]
     ['TRUE "true"]
     ['FALSE "false"]
-    [(? hex?) (~a x)]
+    [(? hex?) (format "~a~a" (real->double-flonum (hex->racket x)) (rust-type->suffix type))]
     [(? number?) (format "~a~a" (real->double-flonum x) (rust-type->suffix type))]
     [(? symbol?) (~a x)]))
 

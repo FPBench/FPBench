@@ -4,7 +4,7 @@
 
 (provide rust-header core->rust rust-supported)
 
-(define rust-header (lambda (_) "#![allow(non_snake_case, unused_mut, unused_parens)]\n\n"))
+(define rust-header (lambda (_) "#![allow(unused_mut, unused_parens)]\n\n"))
 
 (define rust-supported
   (supported-list
@@ -18,6 +18,14 @@
   mod move mut pub ref return self Self static struct super trait true type unsafe use
   where while async await dyn abstract become box do final macro override priv typeof
   unsized virtual yield try))
+
+(define (rust-fix-name name)
+  (string-join
+   (for/list ([char (~a name)])
+     (if (regexp-match #rx"[a-zA-Z0-9_]" (string char))
+         (string (char-downcase char))
+         (format "_~a" (char->integer char))))
+   ""))
 
 (define/match (type->rust type)
   [('binary64) "f64"]
@@ -107,6 +115,7 @@
     #:type type->rust
     #:declare declaration->rust
     #:program program->rust
+    #:fix-name rust-fix-name
     #:flags '(no-parens-around-condition spaces-for-tabs)
     #:reserved rust-reserved))
 

@@ -76,10 +76,10 @@ else
 endif
 
 rust-sanity:
-ifneq (, $(shell which cargo))
+ifneq (, $(shell which rustc))
 	cat tests/sanity/*.fpcore | racket infra/test-core2rust.rkt --repeat 1
 else
-	$(warning skipping Rust sanity tests; unable to find cargo)
+	$(warning skipping Rust sanity tests; unable to find Rust compiler)
 endif
 
 scala-sanity:
@@ -207,8 +207,8 @@ else
 endif
 
 rust-test:
-ifneq (, $(shell which cargo))
-	cat benchmarks/*.fpcore tests/*.fpcore | racket infra/test-core2rust.rkt -s --error 150
+ifneq (, $(shell which rustc))
+	cat benchmarks/*.fpcore tests/*.fpcore | racket infra/test-core2rust.rkt -s --error 3
 else
 	$(warning skipping Rust tests; unable to find Rust compiler)
 endif

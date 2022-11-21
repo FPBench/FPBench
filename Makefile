@@ -75,6 +75,13 @@ else
 	$(warning skipping Go sanity tests; unable to find go)
 endif
 
+rust-sanity:
+ifneq (, $(shell which rustc))
+	cat tests/sanity/*.fpcore | racket infra/test-core2rust.rkt --repeat 1
+else
+	$(warning skipping Rust sanity tests; unable to find Rust compiler)
+endif
+
 scala-sanity:
 ifneq (, $(shell which daisy))
 	cp -r $(DAISY_BASE)/library .
@@ -128,7 +135,8 @@ endif
 
 sanity: c-sanity java-sanity js-sanity go-sanity smtlib2-sanity sollya-sanity \
 		wls-sanity cml-sanity fptaylor-sanity scala-sanity ocaml-sanity \
-		python-sanity fortran-sanity matlab-sanity haskell-sanity julia-sanity
+		python-sanity fortran-sanity matlab-sanity haskell-sanity julia-sanity \
+		rust-sanity
 
 raco-test:
 	raco test .
@@ -196,6 +204,13 @@ ifneq (, $(shell which go))
 	cat benchmarks/*.fpcore tests/*.fpcore | racket infra/test-core2go.rkt -s --error 150
 else
 	$(warning skipping Go tests; unable to find Go compiler)
+endif
+
+rust-test:
+ifneq (, $(shell which rustc))
+	cat benchmarks/*.fpcore tests/*.fpcore | racket infra/test-core2rust.rkt -s --error 3
+else
+	$(warning skipping Rust tests; unable to find Rust compiler)
 endif
 
 scala-test:
@@ -299,8 +314,8 @@ tools-test: export-test transform-test toolserver-test evaluate-test tensor-test
 
 test: c-test java-test js-test go-test smtlib2-test sollya-test wls-test \
 	  cml-test fptaylor-test daisy-test ocaml-test python-test matlab-test \
-	  haskell-test export-test transform-test toolserver-test evaluate-test \
-	  raco-test
+	  haskell-test rust-test export-test transform-test toolserver-test \
+	  evaluate-test raco-test
 
 clean:
 	$(RM) -r library tmp log *.zo *.dep

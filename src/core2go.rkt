@@ -19,7 +19,10 @@
                    
 (define go-supported 
   (supported-list
-    (invert-op-proc (curry set-member? '(fma isnormal isfinite)))
+    (invert-op-proc
+      (curry set-member?
+            '(fma isnormal isfinite array dim size ref
+              array dim size ref for for* tensor tensor*)))
     (invert-const-proc (curry set-member? '(M_1_PI M_2_PI M_2_SQRTPI SQRT1_2)))
     (curry equal? 'binary64)
     (curry equal? 'nearestEven)))

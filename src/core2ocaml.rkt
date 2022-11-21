@@ -9,7 +9,8 @@
     (invert-op-proc
       (curry set-member?
         '(acosh asinh atanh cbrt erf erfc exp2 fdim
-          lgamma log2 nearbyint remainder tgamma)))
+          lgamma log2 nearbyint remainder tgamma
+          array dim size ref for for* tensor tensor*)))
     (curry set-member? '(TRUE FALSE INFINITY NAN MAX_VALUE PI E))
     (curry equal? 'binary64)
     (curry equal? 'nearestEven)))

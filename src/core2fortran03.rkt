@@ -11,7 +11,8 @@
       (curry set-member?
         '(acosh asinh atanh cbrt ceil copysign erf erfc exp2 expm1 floor fma
           hypot isfinite isinf isnormal lgamma log1p log2 nearbyint remainder
-          signbit tgamma trunc)))
+          signbit tgamma trunc
+          array dim size ref for for* tensor tensor*)))
     (curry set-member? '(TRUE FALSE))
     (curry set-member? '(binary32 binary64 integer))
     (curry equal? 'nearestEven)))

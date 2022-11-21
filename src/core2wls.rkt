@@ -9,7 +9,7 @@
 
 (define wls-supported
   (supported-list
-    fpcore-ops
+    (invert-op-proc (curry set-member? '(array size ref dim for for* tensor tensor*)))
     fpcore-consts
     (curry set-member? '(binary64 real integer))
     (curry set-member? '(nearestEven))))

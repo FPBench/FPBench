@@ -17,7 +17,9 @@
 (define python-supported
   (supported-list
     (invert-op-proc
-      (curry set-member? '(cbrt exp2 fdim fma isnormal nearbyint round signbit)))
+      (curry set-member?
+            '(cbrt exp2 fdim fma isnormal nearbyint round signbit
+              array dim size ref for for* tensor tensor*)))
     (curry set-member? '(TRUE FALSE INFINITY NAN PI E))
     (curry equal? 'binary64)
     (curry equal? 'nearestEven)))

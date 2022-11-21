@@ -5,7 +5,10 @@
 
 (define gappa-supported
   (supported-list 
-    (disjoin ieee754-ops (curry set-member? '(let not and or)))
+    (disjoin ieee754-ops
+             (curry set-member?
+                    '(let not and or array dim size ref
+                      for for* tensor tensor*)))
     (curry set-member? '(SQRT2 SQRT1_2 TRUE FALSE))
     (curry set-member? '(binary32 binary64 binary80 binary128))
     (curry equal? 'nearestEven)))

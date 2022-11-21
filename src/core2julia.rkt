@@ -7,7 +7,8 @@
   (supported-list
     (invert-op-proc
       (curry set-member?
-        '(erf erfc fdim isnormal lgamma nearbyint remainder tgamma)))
+        '(erf erfc fdim isnormal lgamma nearbyint remainder tgamma
+          array dim size ref for for* tensor tensor*)))
     (invert-const-proc
       (curry set-member?
         '(MAXFLOAT)))

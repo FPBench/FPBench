@@ -8,7 +8,10 @@
 
 (define rust-supported
   (supported-list
-    (invert-op-proc (curry set-member? '(tgamma lgamma fdim erf erfc remainder)))
+    (invert-op-proc
+      (curry set-member?
+            '(tgamma lgamma fdim erf erfc remainder
+              array dim size ref for for* tensor tensor*)))
     (invert-const-proc (curry set-member? '(SQRT1_2)))
     (curry equal? 'binary64)
     (curry equal? 'nearestEven)))

@@ -26,7 +26,8 @@
     (invert-op-proc
       (curry set-member?
         '(acosh asinh atanh erf erfc exp2 fdim fma fmod isnormal
-          lgamma log2 nearbyint round signbit tgamma trunc))) ; round is not C99 round
+          lgamma log2 nearbyint round signbit tgamma trunc
+          array dim size ref for for* tensor tensor*))) ; round is not C99 round
     (curry set-member? '(E PI INFINITY NAN TRUE FALSE MAXFLOAT))
     (curry equal? 'binary64)    ; binary32 only supported as storage format
     (curry equal? 'nearestEven)))

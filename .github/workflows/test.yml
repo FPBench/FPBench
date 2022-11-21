@@ -591,7 +591,7 @@ jobs:
       - name: "Install Julia"
         uses: julia-actions/setup-julia@v1
         with:
-          version: 1.8
+          version: '1.8'
 
       - name: "Install as Racket package"
         run: raco pkg install --auto
@@ -621,7 +621,7 @@ jobs:
       - name: "Install Julia"
         uses: julia-actions/setup-julia@v1
         with:
-          version: 1.8
+          version: '1.8'
 
       - name: "Install as Racket package"
         run: raco pkg install --auto
@@ -646,7 +646,12 @@ jobs:
       - name: "Install Packages"
         run: |
           sudo apt-get update
-          sudo apt-get install -y libmpfr6 libmpfr-dev julia
+          sudo apt-get install -y libmpfr6 libmpfr-dev
+
+      - name: "Install Julia"
+        uses: julia-actions/setup-julia@v1
+        with:
+          version: '1.8'
 
       - name: "Install as Racket package"
         run: raco pkg install --auto
@@ -671,7 +676,12 @@ jobs:
       - name: "Install Packages"
         run: |
           sudo apt-get update
-          sudo apt-get install -y libmpfr6 libmpfr-dev julia
+          sudo apt-get install -y libmpfr6 libmpfr-dev
+      
+      - name: "Install Julia"
+        uses: julia-actions/setup-julia@v1
+        with:
+          version: '1.8'
 
       - name: "Install as Racket package"
         run: raco pkg install --auto

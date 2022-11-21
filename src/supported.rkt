@@ -87,7 +87,8 @@
    (set)]
   [(visit-op_ vtor op args)
    (set-add (visit-op_/reduce vtor op args) op)]
-  [reduce (curry apply set-union)])
+  [reduce
+   (λ (sets) (apply set-union (set) sets))])
 
 (define/contract (operators-in core)
   (-> fpcore? (set/c symbol?))
@@ -101,7 +102,7 @@
 ; (-> expr? (set/c symbol?)
   [(visit-terminal_ vtor x) (set)]
   [(visit-constant vtor x) (set x)]
-  [reduce (curry apply set-union)])
+  [reduce (λ (sets) (apply set-union (set) sets))])
 
 (define/contract (constants-in core)
   (-> fpcore? (set/c symbol?))
@@ -129,9 +130,12 @@
                       (lambda (k v1 v2) (set-union v1 v2))) args))])
 
 (define (property-values-variables prop-hash vars)
-  (for/fold ([prop-hash* prop-hash]) ([var vars] #:when (list? var))
-    (match-define (list '! props ... name) var)
-    (property-hash-add prop-hash* props)))
+  (for/fold ([prop-hash* prop-hash]) ([var vars])
+    (match var
+      [(list '! props ... name)
+       (property-hash-add prop-hash* props)]
+      [_
+       prop-hash*])))
 
 (define/contract (property-values core)
   (-> fpcore? property-hash?)

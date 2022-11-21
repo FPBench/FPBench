@@ -14,7 +14,7 @@
     (curry set-member? '(binary64 real integer))
     (curry set-member? '(nearestEven))))
 
-(define wls-reserved '(E Pi))  ; Language-specific reserved names (avoid name collisions)
+(define wls-reserved '(E PI))  ; Language-specific reserved names (avoid name collisions)
 
 (define (fix-name name)
   (string-join

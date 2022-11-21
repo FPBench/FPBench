@@ -12,7 +12,8 @@
      ([ops (-> symbol? boolean?)]
       [consts (-> symbol? boolean?)]
       [precisions (-> any/c boolean?)]
-      [round-modes (-> symbol? boolean?)])]))
+      [round-modes (-> symbol? boolean?)]
+      [tensor-args? boolean?])]))
 
 (module+ test
   (require rackunit))
@@ -42,7 +43,7 @@
 
 ;;; Core checking
 
-(struct supported-list (ops consts precisions round-modes))
+(struct supported-list (ops consts precisions round-modes tensor-args?))
 
 (define (valid-core core supp)
   (define core-precs (dict-ref (property-values core) ':precision #f))
@@ -52,7 +53,9 @@
        (or (not core-precs)
            (andmap (supported-list-precisions supp) (set->list core-precs)))
        (or (not core-rnd-modes)
-           (andmap (supported-list-round-modes supp) (set->list core-rnd-modes)))))
+           (andmap (supported-list-round-modes supp) (set->list core-rnd-modes)))
+       (or (supported-list-tensor-args? supp)
+           (andmap (negate list?) (arguments-in core)))))
 
 (define (unsupported-features core supp)
   (define core-precs (dict-ref (property-values core) ':precision #f))
@@ -111,6 +114,16 @@
      [(list 'FPCore (list args ...) props ... body) (values args props body)]
      [(list 'FPCore name (list args ...) props ... body) (values args props body)]))
   (constants-in-expr body))
+
+(define (arguments-in core)
+  (define-values (args props body)
+    (match core
+     [(list 'FPCore (list args ...) props ... body) (values args props body)]
+     [(list 'FPCore name (list args ...) props ... body) (values args props body)]))
+  (for/list ([arg (in-list args)])
+    (match arg
+      [(list '! props ... name) name]
+      [_ arg])))
 
 (define property-hash? (hash/c symbol? (set/c any/c)))
 (define (property-hash-add prop-hash props)

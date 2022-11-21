@@ -15,7 +15,8 @@
           array dim size ref for for* tensor tensor*)))
     (curry set-member? '(TRUE FALSE))
     (curry set-member? '(binary32 binary64 integer))
-    (curry equal? 'nearestEven)))
+    (curry equal? 'nearestEven)
+    #f))
 
 (define fortran-reserved    ; Language-specific reserved names (avoid name collisions)
   '(abstract allocatable allocate assign associate asynchronous backspace bind

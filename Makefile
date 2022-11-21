@@ -1,5 +1,5 @@
 SANITY = tests/sanity/*.fpcore
-TESTS = benchmarks/*.fpcore tests/*.fpcore tests/tensor/*.fpcore
+TESTS = benchmarks/*.fpcore tests/*.fpcore
 FILTER = racket infra/filter.rkt
 
 ### Install / Compile

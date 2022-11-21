@@ -27,7 +27,8 @@
               array dim size ref for for* tensor tensor*)))
     fpcore-consts
     (curry equal? 'binary64)
-    (curry equal? 'nearestEven)))
+    (curry equal? 'nearestEven)
+    #f))
 
 (define js-reserved   ; Language-specific reserved names (avoid name collisions)
   '(abstract arguments await boolean break byte case catch char

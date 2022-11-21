@@ -14,7 +14,8 @@
               array dim size ref for for* tensor tensor*)))
     (invert-const-proc (curry set-member? '(SQRT1_2)))
     (curry equal? 'binary64)
-    (curry equal? 'nearestEven)))
+    (curry equal? 'nearestEven)
+    #f))
 
 (define rust-reserved   ; Language-specific reserved names (avoid name collisions)
   '(as break const continue crate else enum extern false fn for if impl in let loop match

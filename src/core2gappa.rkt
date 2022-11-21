@@ -11,7 +11,8 @@
                       for for* tensor tensor*)))
     (curry set-member? '(SQRT2 SQRT1_2 TRUE FALSE))
     (curry set-member? '(binary32 binary64 binary80 binary128))
-    (curry equal? 'nearestEven)))
+    (curry equal? 'nearestEven)
+    #f))
 
 (define (fix-name name)
   (string-join

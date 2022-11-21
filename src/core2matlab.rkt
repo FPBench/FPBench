@@ -13,7 +13,8 @@
           array dim size ref for for* tensor tensor*)))
     fpcore-consts
     (curry set-member? '(binary32 binary64))
-    (curry equal? 'nearestEven)))
+    (curry equal? 'nearestEven)
+    #f))
 
 (define cpp-reserved
   '(catch class const_cast delete dynamic_cast explicit export friend

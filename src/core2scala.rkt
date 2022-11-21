@@ -21,7 +21,8 @@
             array dim size ref for for* tensor tensor*))
     (curry set-member? '(TRUE FALSE))
     (curry set-member? '(binary32 binary64 binary128 binary256))        
-    (curry equal? 'nearestEven)))
+    (curry equal? 'nearestEven)
+    #f))
 
 (define scala-reserved  ; Language-specific reserved names (avoid name collisions)
   '(and abstract case catch class def do else extends false

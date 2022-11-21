@@ -13,7 +13,8 @@
           array dim size ref for for* tensor tensor*)))
     (curry set-member? '(TRUE FALSE INFINITY NAN MAX_VALUE PI E))
     (curry equal? 'binary64)
-    (curry equal? 'nearestEven)))
+    (curry equal? 'nearestEven)
+    #f))
 
 (define ocaml-reserved          ; Language-specific reserved names (avoid name collision)
   '(and as asssert asr begin class constraint do done down to else

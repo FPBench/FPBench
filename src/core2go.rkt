@@ -25,7 +25,8 @@
               array dim size ref for for* tensor tensor*)))
     (invert-const-proc (curry set-member? '(M_1_PI M_2_PI M_2_SQRTPI SQRT1_2)))
     (curry equal? 'binary64)
-    (curry equal? 'nearestEven)))
+    (curry equal? 'nearestEven)
+    #f))
 
 (define go-reserved   ; Language-specific reserved names (avoid name collisions)
   '(break case chan const continue default defer else

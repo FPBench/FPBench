@@ -8,7 +8,8 @@
     (negate (curry set-member? '(while while* array dim size ref for for* tensor tensor*)))
     (curry set-member? '(PI E INFINITY NAN TRUE FALSE))
     (const #t)
-    ieee754-rounding-modes))
+    ieee754-rounding-modes
+    #f))
 
 ;;
 ;;  This compiler is adapted from Herbie

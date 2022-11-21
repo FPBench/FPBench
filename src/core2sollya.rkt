@@ -13,7 +13,8 @@
               for for* tensor tensor*)))
     fpcore-consts
     (curry set-member? '(binary32 binary64 binary80 integer))
-    ieee754-rounding-modes))
+    ieee754-rounding-modes
+    #f))
 
 (define *sollya-warnings* (make-parameter #t))
 

@@ -30,7 +30,8 @@
           array dim size ref for for* tensor tensor*))) ; round is not C99 round
     (curry set-member? '(E PI INFINITY NAN TRUE FALSE MAXFLOAT))
     (curry equal? 'binary64)    ; binary32 only supported as storage format
-    (curry equal? 'nearestEven)))
+    (curry equal? 'nearestEven)
+    #f))
 
 (define java-reserved  ; Language-specific reserved names (avoid name collisions)
   '(abstract assert boolean break byte case catch char class

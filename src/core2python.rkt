@@ -22,7 +22,8 @@
               array dim size ref for for* tensor tensor*)))
     (curry set-member? '(TRUE FALSE INFINITY NAN PI E))
     (curry equal? 'binary64)
-    (curry equal? 'nearestEven)))
+    (curry equal? 'nearestEven)
+    #f))
 
 (define python-reserved   ; Language-specific reserved names (avoid name collision)
   '(False None True and as assert break class continue def del

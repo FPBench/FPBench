@@ -12,7 +12,8 @@
     (invert-op-proc (curry set-member? '(array size ref dim for for* tensor tensor*)))
     fpcore-consts
     (curry set-member? '(binary64 real integer))
-    (curry set-member? '(nearestEven))))
+    (curry set-member? '(nearestEven))
+    #f))
 
 (define wls-reserved '(E PI))  ; Language-specific reserved names (avoid name collisions)
 

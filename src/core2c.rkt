@@ -12,7 +12,8 @@
     (invert-op-proc (curry set-member? '(array dim size ref for for* tensor tensor*)))
     fpcore-consts
     (curry set-member? '(binary32 binary64 binary80 integer))
-    (invert-rnd-mode-proc (curry equal? 'nearestAway))))
+    (invert-rnd-mode-proc (curry equal? 'nearestAway))
+    #f))
 
 (define c-reserved  ; Language-specific reserved names (avoid name collisions)
   '(auto break case char const continue default

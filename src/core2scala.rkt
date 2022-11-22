@@ -17,10 +17,12 @@
     (curry set-member?
           '(+ - * / sqrt sin cos tan asin acos atan exp log fma      ;; pow has partial support
             < > <= >= == != and or not
-            if let let* digits !))   ;; benchmarks with if statements break with --mixed-precision flag
+            if let let* digits !    ;; benchmarks with if statements break with --mixed-precision flag
+            array dim size ref for for* tensor tensor*))
     (curry set-member? '(TRUE FALSE))
     (curry set-member? '(binary32 binary64 binary128 binary256))        
-    (curry equal? 'nearestEven)))
+    (curry equal? 'nearestEven)
+    #f))
 
 (define scala-reserved  ; Language-specific reserved names (avoid name collisions)
   '(and abstract case catch class def do else extends false

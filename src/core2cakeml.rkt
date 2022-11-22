@@ -7,10 +7,13 @@
 (define cml-supported
   (supported-list
     (disjoin (conjoin ieee754-ops (negate (curry equal? 'fma)))
-             (curry set-member? '(! cast if let let* while while* not and or digits))) 
+             (curry set-member? '(! cast if let let* while while*
+                                  not and or digits
+                                  array dim size ref for for* tensor tensor*)))
     (curry set-member? '(TRUE FALSE INFINITY NAN))
     (curry equal? 'binary64)
-    (curry equal? 'nearestEven))) ; bool
+    (curry equal? 'nearestEven) ; bool
+    #f))
 
 (define cml-reserved    ; Language-specific reserved names (avoid name collisions)
   '(datatype fun else end if in let local

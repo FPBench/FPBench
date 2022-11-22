@@ -11,11 +11,13 @@
     (invert-op-proc 
       (curry set-member?
              '(atan2 cbrt ceil copysign erf erfc exp2 expm1 fdim floor fmod hypot if 
-              lgamma log10 log1p log2 nearbyint pow remainder round tgamma trunc while while*)))
+              lgamma log10 log1p log2 nearbyint pow remainder round tgamma trunc while while*
+              array dim size ref for for* tensor tensor*)))
     (invert-const-proc (curry set-member? '(NAN INFINITY)))
     (curry set-member? '(binary16 binary32 binary64 binary128 real))
     ; Note: nearestEven and nearestAway behave identically in FPTaylor
-    ieee754-rounding-modes))
+    ieee754-rounding-modes
+    #f))
 
 ; Language-specific reserved names (avoid name collisions)
 (define fptaylor-reserved

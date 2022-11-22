@@ -12,7 +12,8 @@
      ([ops (-> symbol? boolean?)]
       [consts (-> symbol? boolean?)]
       [precisions (-> any/c boolean?)]
-      [round-modes (-> symbol? boolean?)])]))
+      [round-modes (-> symbol? boolean?)]
+      [tensor-args? boolean?])]))
 
 (module+ test
   (require rackunit))
@@ -42,7 +43,7 @@
 
 ;;; Core checking
 
-(struct supported-list (ops consts precisions round-modes))
+(struct supported-list (ops consts precisions round-modes tensor-args?))
 
 (define (valid-core core supp)
   (define core-precs (dict-ref (property-values core) ':precision #f))
@@ -52,7 +53,9 @@
        (or (not core-precs)
            (andmap (supported-list-precisions supp) (set->list core-precs)))
        (or (not core-rnd-modes)
-           (andmap (supported-list-round-modes supp) (set->list core-rnd-modes)))))
+           (andmap (supported-list-round-modes supp) (set->list core-rnd-modes)))
+       (or (supported-list-tensor-args? supp)
+           (andmap (negate list?) (arguments-in core)))))
 
 (define (unsupported-features core supp)
   (define core-precs (dict-ref (property-values core) ':precision #f))
@@ -87,7 +90,8 @@
    (set)]
   [(visit-op_ vtor op args)
    (set-add (visit-op_/reduce vtor op args) op)]
-  [reduce (curry apply set-union)])
+  [reduce
+   (λ (sets) (apply set-union (set) sets))])
 
 (define/contract (operators-in core)
   (-> fpcore? (set/c symbol?))
@@ -101,7 +105,7 @@
 ; (-> expr? (set/c symbol?)
   [(visit-terminal_ vtor x) (set)]
   [(visit-constant vtor x) (set x)]
-  [reduce (curry apply set-union)])
+  [reduce (λ (sets) (apply set-union (set) sets))])
 
 (define/contract (constants-in core)
   (-> fpcore? (set/c symbol?))
@@ -110,6 +114,16 @@
      [(list 'FPCore (list args ...) props ... body) (values args props body)]
      [(list 'FPCore name (list args ...) props ... body) (values args props body)]))
   (constants-in-expr body))
+
+(define (arguments-in core)
+  (define-values (args props body)
+    (match core
+     [(list 'FPCore (list args ...) props ... body) (values args props body)]
+     [(list 'FPCore name (list args ...) props ... body) (values args props body)]))
+  (for/list ([arg (in-list args)])
+    (match arg
+      [(list '! props ... name) name]
+      [_ arg])))
 
 (define property-hash? (hash/c symbol? (set/c any/c)))
 (define (property-hash-add prop-hash props)
@@ -129,9 +143,12 @@
                       (lambda (k v1 v2) (set-union v1 v2))) args))])
 
 (define (property-values-variables prop-hash vars)
-  (for/fold ([prop-hash* prop-hash]) ([var vars] #:when (list? var))
-    (match-define (list '! props ... name) var)
-    (property-hash-add prop-hash* props)))
+  (for/fold ([prop-hash* prop-hash]) ([var vars])
+    (match var
+      [(list '! props ... name)
+       (property-hash-add prop-hash* props)]
+      [_
+       prop-hash*])))
 
 (define/contract (property-values core)
   (-> fpcore? property-hash?)

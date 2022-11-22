@@ -21,11 +21,14 @@
 (define js-supported 
   (supported-list
     (invert-op-proc 
-      (curry set-member? '(!= copysign exp2 erf erfc fma fmod isfinite isnormal   
-                             lgamma nearbyint remainder signbit tgamma)))
+      (curry set-member?
+            '(!= copysign exp2 erf erfc fma fmod isfinite isnormal   
+              lgamma nearbyint remainder signbit tgamma
+              array dim size ref for for* tensor tensor*)))
     fpcore-consts
     (curry equal? 'binary64)
-    (curry equal? 'nearestEven)))
+    (curry equal? 'nearestEven)
+    #f))
 
 (define js-reserved   ; Language-specific reserved names (avoid name collisions)
   '(abstract arguments await boolean break byte case catch char

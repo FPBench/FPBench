@@ -207,7 +207,7 @@ Inputs: Initial guess `x0`"
                  [ff (+ (- (+ (- (* (* 5.0 x) (* (* x x) x)) (* (* 40.0 x) (* x x))) (* (* 120.0 x) x)) (* 160.0 x)) 80.0)])
              (- x (/ f ff)))]
       [e 1.0 (fabs (- x x_n))]
-      [x 0.0 x_n]
+      [x x0 x_n]
       [i 0.0 (+ i 1.0)])
      x))) ;; `i`, `x_n`, and `e` are also outputs but are skipped for now
 

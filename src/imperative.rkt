@@ -1,6 +1,6 @@
 ;
 ;   Common compiler for all imperative languages
-;     C, JS, Go, Sollya, Scala, Fortran
+;     C, JS, Go, Rust, Sollya, Scala, Fortran
 ;     FPTaylor, MATLAB
 ;
 
@@ -37,7 +37,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;; flags ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define valid-flags
-  '(no-parens-around-condition        ; removes parenthesis from 'if' and 'while' conditions (Go, Python)
+  '(no-parens-around-condition        ; removes parenthesis from 'if' and 'while' conditions (Go, Python, Rust)
     for-instead-of-while              ; changes 'while' to 'for' (Go)
     never-declare                     ; declarations are assignments (Sollya, FPTaylor, Fortran)
     semicolon-after-enclosing-brace   ; end 'if' or 'while' blocks with "};" (Sollya)
@@ -48,7 +48,7 @@
     use-elif                          ; use 'elif' instead of 'else if' (Python)
     use-elseif                        ; use 'elseif' instead of 'else if' (MATLAB, Julia)
     boolean-ops-use-name              ; boolean operators use alphabetic name rather than symbol (Python)
-    spaces-for-tabs                   ; replace tabs with 4 spaces (Fortran)
+    spaces-for-tabs                   ; replace tabs with 4 spaces (Fortran, Rust)
     do-while                          ; changes 'while' to 'do while' (Fortran)
     end-block-with-name               ; blocks enclosed by "<x> ... end <x>, implicitly no braces" (Fortran)
     end-block-with-end                ; blocks ended by "end", implictly no braces" (MATLAB, Julia)

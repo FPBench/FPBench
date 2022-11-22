@@ -20,10 +20,12 @@
       (curry set-member?
         '(acosh asinh atanh cbrt ceil erf erfc exp2 fdim floor fma fmod
           hypot isnormal lgamma log2 log10 nearbyint remainder round
-          signbit tgamma trunc)))
+          signbit tgamma trunc
+          array dim size ref for for* tensor tensor*)))
     (curry set-member? '(TRUE FALSE INFINITY NAN PI E))
     (curry set-member? '(binary64 binary32))
-    (curry equal? 'nearestEven)))
+    (curry equal? 'nearestEven)
+    #f))
 
 (define haskell-reserved    ; Language-specific reserved names (avoid name collision)
   '(as case class data default deriving do else family forall foreign

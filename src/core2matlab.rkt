@@ -9,10 +9,12 @@
     (invert-op-proc
       (curry set-member?
         '(cbrt exp2 expm1 fdim fma fmod isnormal log1p
-          nearbyint remainder signbit)))
+          nearbyint remainder signbit
+          array dim size ref for for* tensor tensor*)))
     fpcore-consts
     (curry set-member? '(binary32 binary64))
-    (curry equal? 'nearestEven)))
+    (curry equal? 'nearestEven)
+    #f))
 
 (define cpp-reserved
   '(catch class const_cast delete dynamic_cast explicit export friend

@@ -9,10 +9,11 @@
 (define c-header (const "#include <fenv.h>\n#include <math.h>\n#include <stdint.h>\n#define TRUE 1\n#define FALSE 0\n\n"))
 (define c-supported 
   (supported-list
-    fpcore-ops
+    (invert-op-proc (curry set-member? '(array dim size ref for for* tensor tensor*)))
     fpcore-consts
     (curry set-member? '(binary32 binary64 binary80 integer))
-    (invert-rnd-mode-proc (curry equal? 'nearestAway))))
+    (invert-rnd-mode-proc (curry equal? 'nearestAway))
+    #f))
 
 (define c-reserved  ; Language-specific reserved names (avoid name collisions)
   '(auto break case char const continue default

@@ -7,12 +7,14 @@
   (supported-list
     (invert-op-proc
       (curry set-member?
-        '(erf erfc fdim isnormal lgamma nearbyint remainder tgamma)))
+        '(erf erfc fdim isnormal lgamma nearbyint remainder tgamma
+          array dim size ref for for* tensor tensor*)))
     (invert-const-proc
       (curry set-member?
         '(MAXFLOAT)))
     (curry set-member? '(binary16 binary32 binary64))
-    (curry equal? 'nearestEven)))
+    (curry equal? 'nearestEven)
+    #f))
 
 (define julia-reserved      ; Language-specific reserved names (avoid name collisions)
   '(abstract baremodule begin break catch const continue do else elseif

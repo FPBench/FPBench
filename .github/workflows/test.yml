@@ -8,6 +8,7 @@ env:
   CAKEML_BIN: '../cache/cakeml'
   DAISY_VERSION: 'b483303f3914106173902669855d371ff73bf568'
   DAISY_BASE: '../cache/daisy'
+  JULIA_VERSION: '1.8'
   
 jobs:
   unit:   # package setup, Racket unit testing
@@ -161,6 +162,41 @@ jobs:
 
       - name: "Go test"
         run: make go-test
+
+  rust: # Rust language
+    name: "Rust Tests"
+    runs-on: ubuntu-latest
+    needs: [ 'unit' ]
+    steps:
+      - uses: actions/checkout@v2
+      - name: "Install Racket"
+        uses: Bogdanp/setup-racket@v1.5
+        with:
+          architecture: 'x64'
+          distribution: 'full'
+          variant: 'CS'
+          version: '8.2'
+
+      - name: "Install Rust"
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: "Install Packages"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libmpfr6 libmpfr-dev
+
+      - name: "Install as Racket package"
+        run: raco pkg install --auto
+
+      - name: "Rust sanity"
+        run: make rust-sanity
+
+      - name: "Rust test"
+        run: make rust-test
 
   js:    # JavaScript langugae
     name: "JavaScript Tests"
@@ -550,7 +586,12 @@ jobs:
       - name: "Install Packages"
         run: |
           sudo apt-get update
-          sudo apt-get install -y libmpfr6 libmpfr-dev julia
+          sudo apt-get install -y libmpfr6 libmpfr-dev
+
+      - name: "Install Julia"
+        uses: julia-actions/setup-julia@v1
+        with:
+          version: '1.8'
 
       - name: "Install as Racket package"
         run: raco pkg install --auto
@@ -575,7 +616,12 @@ jobs:
       - name: "Install Packages"
         run: |
           sudo apt-get update
-          sudo apt-get install -y libmpfr6 libmpfr-dev julia
+          sudo apt-get install -y libmpfr6 libmpfr-dev
+      
+      - name: "Install Julia"
+        uses: julia-actions/setup-julia@v1
+        with:
+          version: '1.8'
 
       - name: "Install as Racket package"
         run: raco pkg install --auto
@@ -600,7 +646,12 @@ jobs:
       - name: "Install Packages"
         run: |
           sudo apt-get update
-          sudo apt-get install -y libmpfr6 libmpfr-dev julia
+          sudo apt-get install -y libmpfr6 libmpfr-dev
+
+      - name: "Install Julia"
+        uses: julia-actions/setup-julia@v1
+        with:
+          version: '1.8'
 
       - name: "Install as Racket package"
         run: raco pkg install --auto
@@ -625,7 +676,12 @@ jobs:
       - name: "Install Packages"
         run: |
           sudo apt-get update
-          sudo apt-get install -y libmpfr6 libmpfr-dev julia
+          sudo apt-get install -y libmpfr6 libmpfr-dev
+      
+      - name: "Install Julia"
+        uses: julia-actions/setup-julia@v1
+        with:
+          version: '1.8'
 
       - name: "Install as Racket package"
         run: raco pkg install --auto

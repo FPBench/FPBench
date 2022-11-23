@@ -1,0 +1,70 @@
+
+; http://www.lix.polytechnique.fr/~adje/uploads/Codes.pdf
+(FPCore (x y u v)
+  :name "Arrow-Hurwicz"
+  :cite (adje-2010 bibek-2020)
+
+  :pre (and (<= 0 u 1) (<= 0 v 1) (<= 0 x 3/2) (<= 3/8 y 11/8))
+  (let* ([a 1]
+         [b -1]
+         [c -1]
+         [r 1/2])
+    (while* (> (fmax (fabs (- x u)) (fabs (- y v))) 1e-9)
+      ([u u x]
+       [v v y]
+       [x x (- u (* r (+ (* a u) (* b v))))]
+       [y y (fmax (+ v (* (/ r 2) (- (* b u) c))) 0)])
+      (array x y))))
+
+(FPCore (x v)
+  :name "Euler Oscillator"
+  :cite (adje-2010 bibek-2020)
+
+  :pre (and (<= 0 x 1) (<= 0 v 1))
+  (let ([h 0.01])
+    (while TRUE
+      ([v v (- (* v (- 1 h)) (* h x))]
+       [x x (+ x (* h v))])
+      (array x v))))
+
+(FPCore (x y)
+  :name "Filter"
+  :cite (adje-2010 bibek-2020)
+
+  :pre (and (<= 0 x 1) (<= 0 y 1))
+  (while* TRUE
+    ([x x (- (* 3/4 x) (* 1/8 y))]
+     [y y x])
+    y))
+
+(FPCore (x v)
+  :name "Symplectic Oscillator"
+  :cite (adje-2010 bibek-2020)
+
+  :pre (and (<= 0 x 1) (<= v 0 1))
+  (let ([tau 0.1])
+    (while* (>= v 1/2)
+      ([x x (+ (* (- 1 (/ tau 2)) x) (* (- tau (/ (pow tau 3) 4)) v))]
+       [v v (+ (* (- tau) x) (* (- 1 (/ tau 2)) v))])
+      (array x v))))
+
+(FPCore (x y)
+  :name "Circle"
+  :cite (bibek-2020)
+
+  :pre (and (<= -1/2 x 1/2) (<= -1/2 y 1/2))
+  (while* TRUE
+    ([d 0 (/ (+ (+ 0.1 (* x x)) (* y y)) 2)]
+     [x x (* x d)]
+     [y y (* y d)])
+    (array x y)))
+
+(FPCore (x y)
+  :name "Flower"
+  :cite (bibek-2020)
+
+  :pre (and (<= -0.1 x 0.1) (<= -0.1 y 0.1))
+  (while (> (/ (+ (+ 0.15 (* x x)) (* y y)) 2) 0.1)
+    ([x x (/ x (/ (+ (+ 0.15 (* x x)) (* y y)) 2))]
+     [y y (* y (/ (+ (+ 0.15 (* x x)) (* y y)) 2))])
+    (array x y)))

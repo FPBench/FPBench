@@ -77,6 +77,12 @@
       (operator->mathjs op args ctx)))
 
 
+(define (visit-if/mathjs vtor cond ift iff #:ctx ctx)
+  (format "(~a ? ~a : ~a)"
+          (visit/ctx vtor cond ctx)
+          (visit/ctx vtor ift ctx)
+          (visit/ctx vtor iff ctx)))
+
 (define (visit-let_/mathjs vtor let_ vars vals body #:ctx ctx)
   (define ctx*
     (for/fold ([ctx* ctx]) ([var (in-list vars)] [val (in-list vals)])
@@ -108,6 +114,7 @@
   (ctx-lookup-name ctx x))
 
 (define-expr-visitor default-compiler-visitor mathjs-visitor
+  [visit-if visit-if/mathjs]
   [visit-let_ visit-let_/mathjs]
   [visit-! visit-!/mathjs]
   [visit-op_ visit_op/mathjs]

@@ -17,6 +17,7 @@
          "src/core2java.rkt"
          "src/core2js.rkt"
          "src/core2julia.rkt"
+         "src/core2mathjs.rkt"
          "src/core2matlab.rkt"
          "src/core2ocaml.rkt"
          "src/core2python.rkt"
@@ -48,6 +49,7 @@
   (define *scale* (make-parameter 1))
 
   (define suppress-warnings #f)
+  (define skip-unsupported? #f)
 
   (command-line
    #:program "export.rkt"
@@ -67,6 +69,8 @@
     (*scale* (string->number scale_))]
    ["--suppress" "For Sollya, division by zero will not produce a warning"
     (set! suppress-warnings #t)]
+   ["--skip" "Skips any FPCore that cannot be translated to the target language"
+    (set! skip-unsupported? #t)]
    #:args (in-file out-file)
 
    (define input-port

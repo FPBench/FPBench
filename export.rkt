@@ -25,6 +25,7 @@
          "src/core2smtlib2.rkt"
          "src/core2sollya.rkt"
          "src/core2tex.rkt"
+         "src/core2vivado.rkt"
          "src/core2wls.rkt")
 
 (provide export-main)

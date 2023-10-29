@@ -28,7 +28,7 @@
                              (and/c hash?))
                             compiler-ctx?)]
     [ctx-unique-name (->* (compiler-ctx? (or/c symbol? string?))
-                          ((or/c boolean? symbol?))
+                          ((or/c boolean? symbol? (listof (or/c symbol? integer?))))
                           (values compiler-ctx? string?))]
     [ctx-random-name (->* (compiler-ctx?)
                           ((or/c boolean? symbol?))

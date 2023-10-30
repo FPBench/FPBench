@@ -3,7 +3,7 @@
 (require "imperative.rkt")
 
 (define vivado-header
-  (const "#include <ap_fixed.h>\n#include <hls_half.h>\n#include <hls_math.h>\n\nusing namespace literal;\n\n"))
+  (const "#include <ap_fixed.h>\n#include <hls_half.h>\n#include <hls_math.h>\n\n"))
 
 (define vivado-supported
   (supported-list
@@ -53,7 +53,7 @@
     [(or (? number?) (? hex?))
       (define val (if (number? x) (real->double-flonum x) x))
       (match type
-        [(or "half" "float" "double") (format "~a~a" val (vivado-type->suffix type))]
+        [(or "float" "double") (format "~a~a" val (vivado-type->suffix type))]
         [_ (format "~a{~a}" type val)])]
     [(or 'M_1_PI 'M_2_PI 'M_2_SQRTPI 'INFINITY 'NAN) (format "~a{~a}" type x)]
     [(? symbol?) (format "~a{M_~a}" type x)]))

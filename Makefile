@@ -135,10 +135,17 @@ else
 	$(warning skipping Julia sanity tests; unable to find Julia interpreter)
 endif
 
+vivado-sanity:
+ifneq (, $(shell which vivado_hls))
+	cat $(SANITY) | racket infra/test-core2vivado.rkt --repeat 1
+else
+	$(warning skipping Vivado sanity tests; unable to find Vivado compiler)
+endif
+
 sanity: c-sanity java-sanity js-sanity go-sanity smtlib2-sanity sollya-sanity \
 		wls-sanity cml-sanity fptaylor-sanity scala-sanity ocaml-sanity \
 		python-sanity fortran-sanity matlab-sanity haskell-sanity julia-sanity \
-		rust-sanity
+		rust-sanity vivado-sanity
 
 raco-test:
 	raco test .
@@ -291,6 +298,12 @@ else
 	$(warning skipping Julia tests; unable to find Julia interpreter)
 endif
 
+vivado-test:
+ifneq (, $(shell which vivado_hls))
+	cat $(TESTS) | racket infra/test-core2vivado.rkt --error 4
+else
+	$(warning skipping Vivado tests; unable to find Vivado compiler)
+endif
 
 update-tool-tests:
 	tests/scripts/test-export.sh generate	
@@ -316,8 +329,8 @@ tools-test: export-test transform-test toolserver-test evaluate-test tensor-test
 
 test: c-test java-test js-test go-test smtlib2-test sollya-test wls-test \
 	  cml-test fptaylor-test daisy-test ocaml-test python-test matlab-test \
-	  haskell-test rust-test export-test transform-test toolserver-test \
-	  evaluate-test raco-test
+	  haskell-test rust-test vivado-test export-test transform-test \
+	  toolserver-test evaluate-test raco-test
 
 clean:
 	$(RM) -r library tmp log *.zo *.dep
@@ -329,5 +342,6 @@ www/benchmarks.jsonp: $(wildcard benchmarks/*.fpcore)
 		julia-sanity julia-test julia-benchmarks julia-binary64 julia-binary32 \
 		smtlib2-sanity smtlib2-test sollya-sanity sollya-test wls-sanity wls-test \
 		cml-sanity cml-test go-sanity go-test scala-sanity scala-test \
-		raco-test export-test transform-test toolserver-test evaluate-test \
-		tools-test sanity test testsetup setup update-tool-tests clean
+		vivado-sanity vivado-test raco-test export-test transform-test \
+		toolserver-test evaluate-test tools-test sanity test testsetup setup \
+		update-tool-tests clean

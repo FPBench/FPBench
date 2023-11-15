@@ -2,6 +2,8 @@
 
 (require "imperative.rkt")
 
+(provide vivado-header core->vivado vivado-supported)
+
 (define vivado-header
   (const "#include <ap_fixed.h>\n#include <hls_half.h>\n#include <hls_math.h>\n\n"))
 

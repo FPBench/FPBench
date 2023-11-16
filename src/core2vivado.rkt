@@ -53,7 +53,7 @@
     ['TRUE "true"]
     ['FALSE "false"]
     [(or (? number?) (? hex?))
-      (define val (if (number? x) (real->double-flonum x) x))
+      (define val (real->double-flonum (if (hex? x) (hex->racket x) x)))
       (match type
         [(or "float" "double") (format "~a~a" val (vivado-type->suffix type))]
         [_ (format "~a{~a}" type val)])]

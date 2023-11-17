@@ -300,7 +300,7 @@ endif
 
 vivado-test:
 ifneq (, $(shell which vivado_hls))
-	cat $(TESTS) | racket infra/test-core2vivado.rkt --error 4
+	cat $(TESTS) | racket infra/test-core2vivado.rkt -s --error 4
 else
 	$(warning skipping Vivado tests; unable to find Vivado compiler)
 endif

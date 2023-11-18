@@ -13,7 +13,7 @@
       (curry set-member? '(log2 tgamma lgamma array dim size ref for for* tensor tensor*)))
     fpcore-consts
     (match-lambda
-      [(or 'binary16 'binary32 'binary64 'bool (list 'fixed _ _)) #t]
+      [(or 'binary16 'binary32 'binary64 (list 'fixed _ _)) #t]
       [_ #f])
     (curry equal? 'toNegative)
     #f))
@@ -64,8 +64,22 @@
   (define type (type->vivado (ctx-lookup-prop ctx ':precision)))
   (format "static_cast<~a>(~a)" type (trim-infix-parens x)))
 
+(define (cmp-float-prec prec1 prec2)
+  (define/match (prec->num prec)
+    [('binary64) 3]
+    [('binary32) 2]
+    [('binary16) 1]
+    [(_)         0])
+  (- (prec->num prec1) (prec->num prec2)))
+
 (define (implicit-round->vivado op arg arg-ctx ctx)
-  (round->vivado arg ctx))
+  (define prec (ctx-lookup-prop ctx ':precision))
+  (define arg-prec (ctx-lookup-prop arg-ctx ':precision))
+  (if (set-member? '(binary16 binary32 binary64) arg-prec)
+      (if (> (cmp-float-prec prec arg-prec) 0)
+          (round->vivado arg ctx)
+          arg)
+      arg))
 
 (define (params->vivado args arg-ctxs)
   (string-join

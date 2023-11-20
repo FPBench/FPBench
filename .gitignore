@@ -1,5 +1,6 @@
 www
 library/Real.scala
+fpbench-compiled/
 *~
 *.dep
 *.zo

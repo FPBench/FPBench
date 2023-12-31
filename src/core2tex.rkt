@@ -73,7 +73,7 @@
   [('lambda)  "\\lambda"]
   [('lambda1) "\\lambda_1"]
   [('lambda2) "\\lambda_2"]
-  [(_) (symbol->string expr)])
+  [(_) (string-replace (symbol->string expr) "_" "\\_")])
 
 (define/match (constant->tex expr)
   [('PI)            "\\pi"]

@@ -1,4 +1,9 @@
-#lang racket/base
+#lang racket
+
+(require 
+  "transform.rkt"
+  "evaluate.rkt"
+  "export.rkt")
 
 (require
  "src/canonicalizer.rkt"
@@ -73,7 +78,18 @@
   ))
 
 (module+ main
-  (eprintf "FPBench provides with two tools:\n")
-  (eprintf "  export.rkt - export FPCore to other languages\n")
-  (eprintf "  transform.rkt - apply program transformations to FPCores\n")
-  (eprintf "Run those tools with --help for more information.\n"))
+  (cond 
+    [(= 0 (vector-length (current-command-line-arguments)))
+      (eprintf "FPBench provides with two tools:\n")
+      (eprintf "  export/compile - export FPCore to other languages\n")
+      (eprintf "  transform - apply program transformations to FPCores\n")
+      (eprintf "Run those tools with --help for more information.\n")]
+    [(equal? (vector-ref (current-command-line-arguments) 0) "export")
+      (export-main (vector-drop (current-command-line-arguments) 1) (current-input-port) (current-output-port))]
+    [(equal? (vector-ref (current-command-line-arguments) 0) "compile")
+      (export-main (vector-drop (current-command-line-arguments) 1) (current-input-port) (current-output-port))]
+    [(equal? (vector-ref (current-command-line-arguments) 0) "transform")
+      (transform-main (vector-drop (current-command-line-arguments) 1) (current-input-port) (current-output-port))]
+    [(equal? (vector-ref (current-command-line-arguments) 0) "evaluate")
+      (evaluate-main (vector-drop (current-command-line-arguments) 1) (current-input-port) (current-output-port))]
+    ))

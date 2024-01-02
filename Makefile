@@ -11,6 +11,16 @@ setup:
 testsetup:
 	raco make infra/*.rkt
 
+distribute:
+	mkdir -p fpbench-compiled/
+	cp README.md fpbench-compiled/
+	cp LICENSE.txt fpbench-compiled/
+	cp logo.png fpbench-compiled/
+	raco exe -o fpbench --orig-exe --embed-dlls --vv main.rkt
+	[ ! -f fpbench.exe ] || (raco distribute fpbench-compiled fpbench.exe && rm fpbench.exe)
+	[ ! -f fpbench.app ] || (raco distribute fpbench-compiled fpbench.app && rm fpbench.app)
+	[ ! -f fpbench ] || (raco distribute fpbench-compiled fpbench && rm fpbench)
+
 ##### Testing
 
 c-sanity:

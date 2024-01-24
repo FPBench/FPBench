@@ -34,6 +34,7 @@
  "src/fpcore-interpreter.rkt"
  "src/fpcore-reader.rkt"
  "src/imperative.rkt"
+ "src/multi-command-line.rkt"
  "src/range-analysis.rkt"
  "src/supported.rkt"
 

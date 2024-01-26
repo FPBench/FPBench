@@ -95,6 +95,7 @@
   (define suppress-warnings #f)
   (multi-command-line
     #:program "fpbench"
+    #:args ()
     #:subcommands
     [export "Export FPCore to other Languages"
       #:once-each 

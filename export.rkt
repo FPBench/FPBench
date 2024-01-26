@@ -46,15 +46,15 @@
 
 (define (export-main ctx stdin-port stdout-port)
    (define input-port
-     (if (equal? in-file "-")
+     (if (equal? (export-ctx-in-file ctx) "-")
          stdin-port
-         (open-input-file in-file #:mode 'text)))
+         (open-input-file (export-ctx-in-file ctx) #:mode 'text)))
    (define output-port
-     (if (equal? out-file "-")
+     (if (equal? (export-ctx-out-file ctx) "-")
          stdout-port
-         (open-output-file out-file #:mode 'text #:exists 'truncate)))
+         (open-output-file (export-ctx-out-file ctx) #:mode 'text #:exists 'truncate)))
 
-   (define extension (determine-lang (export-ctx-lang ctx) out-file))
+   (define extension (determine-lang (export-ctx-lang ctx) (export-ctx-out-file ctx)))
    
    (define-values (header export footer supported)
      (match extension
@@ -72,12 +72,12 @@
            (raise-user-error "Unsupported output language" (export-ctx-lang ctx))))]))
 
    (when (and (equal? extension "js") (export-ctx-runtime ctx)) (js-runtime (export-ctx-runtime ctx)))
-   (when (and (equal? extension "sollya") suppress-warnings) (*sollya-warnings* #f))
+   (when (and (equal? extension "sollya") (export-ctx-suppress-warnings ctx)) (*sollya-warnings* #f))
    (when (and (set-member? '("fptaylor" "fpt") extension) (export-ctx-scale ctx)) (*fptaylor-inexact-scale* (export-ctx-scale ctx)))
    (when (equal? extension "scala") 
-    (let ([out-name (if (equal? out-file "-") 
+    (let ([out-name (if (equal? (export-ctx-out-file ctx) "-") 
                         "stdout" 
-                        (string-trim out-file ".scala"))])
+                        (string-trim (export-ctx-out-file ctx) ".scala"))])
       (*scala-prec-file* (open-output-file (string-append out-name ".prec.txt") #:mode 'text #:exists 'truncate))))                          
 
    (port-count-lines! input-port)
@@ -89,7 +89,7 @@
        [_ (export-ctx-namespace ctx)]))
     (fprintf output-port (header namespace)))
 
-   (for ([core (in-port (curry read-fpcore (if (equal? in-file "-") "stdin" in-file)) input-port)] [n (in-naturals)])
+   (for ([core (in-port (curry read-fpcore (if (equal? (export-ctx-in-file ctx) "-") "stdin" (export-ctx-in-file ctx))) input-port)] [n (in-naturals)])
      (let ([unsupported (unsupported-features core supported)])
       (unless (set-empty? unsupported)
         (raise-user-error (format "Sorry, the *.~a exporter does not support ~a" extension

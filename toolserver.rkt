@@ -1,7 +1,7 @@
 #lang racket
 
 (require racket/stream)
-(require "export.rkt" "transform.rkt" "evaluate.rkt")
+(require "export.rkt" "transform.rkt" "evaluate.rkt" "src/multi-command-line.rkt")
 (provide toolserver-main)
 
 ;; Non-buffering byte sequences
@@ -120,7 +120,7 @@
   (define (server-batches)
     (reverse (unbox batches)))
 
-  (command-line
+  (multi-command-line
    #:program "toolserver.rkt"
    #:argv argv
    #:multi

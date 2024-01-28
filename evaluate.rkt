@@ -1,6 +1,6 @@
 #lang racket
 
-(require "src/fpcore-checker.rkt" "src/fpcore-interpreter.rkt" "src/fpcore-reader.rkt")
+(require "src/fpcore-checker.rkt" "src/fpcore-interpreter.rkt" "src/fpcore-reader.rkt" "src/multi-command-line.rkt")
 
 (provide evaluate-main)
 
@@ -9,7 +9,7 @@
   (define *out-file* (make-parameter "-"))
   (define check-types? #t)
   (define ragged-check? #t)
-  (command-line
+  (multi-command-line
    #:program "evaluate.rkt"
    #:argv argv
    #:once-each

@@ -1,6 +1,6 @@
 #lang racket
 
-(require "../src/common.rkt" "../src/fpcore-checker.rkt" "../src/fpcore-reader.rkt" "../src/supported.rkt")
+(require "../src/common.rkt" "../src/fpcore-checker.rkt" "../src/fpcore-reader.rkt" "../src/supported.rkt" "../src/multi-command-line.rkt")
 
 (define/contract ((filter type values) core)
   (-> symbol? (listof string?) (-> fpcore? boolean?))
@@ -39,7 +39,7 @@
   (require racket/cmdline)
   (define invert? #f)
 
-  (command-line
+  (multi-command-line
    #:program "filter.rkt"
    #:once-each
    [("-v" "--invert") "Invert the meaning of the filter"

@@ -3,7 +3,8 @@
 (require "src/fpcore-reader.rkt"
          "src/fpcore-extra.rkt"
          "src/common-subexpr-elim.rkt"
-         "src/canonicalizer.rkt")
+         "src/canonicalizer.rkt"
+         "src/multi-command-line.rkt")
 
 (provide transform-main)
 
@@ -28,7 +29,7 @@
   (define (-c prop)
     (set-box! canon-to-canonicalize (set-remove (unbox canon-to-canonicalize) (string->symbol prop))))
 
-  (command-line
+  (multi-command-line
    #:program "transform.rkt"
    #:argv argv
    #:multi

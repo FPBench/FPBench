@@ -40,7 +40,7 @@
   (define invert? #f)
 
   (multi-command-line
-   #:program "filter.rkt"
+   #:program "filter"
    #:once-each
    [("-v" "--invert") "Invert the meaning of the filter"
     (set! invert? #t)]

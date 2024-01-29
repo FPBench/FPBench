@@ -10,7 +10,7 @@
   (define check-types? #t)
   (define ragged-check? #t)
   (multi-command-line
-   #:program "evaluate.rkt"
+   #:program "evaluate"
    #:argv argv
    #:once-each
    [("-i" "--in-file") in_file_ "Input file to read FPCores from"

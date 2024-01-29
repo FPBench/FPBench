@@ -121,7 +121,7 @@
     (reverse (unbox batches)))
 
   (multi-command-line
-   #:program "toolserver.rkt"
+   #:program "toolserver"
    #:argv argv
    #:multi
    ["--batch" batch_in_ batch_out_ "Process commands from a file"

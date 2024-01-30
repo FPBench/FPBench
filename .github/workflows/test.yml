@@ -8,7 +8,8 @@ env:
   CAKEML_BIN: '../cache/cakeml'
   DAISY_VERSION: 'b483303f3914106173902669855d371ff73bf568'
   DAISY_BASE: '../cache/daisy'
-  JULIA_VERSION: '1.8'
+  # latest stable version
+  JULIA_VERSION: '1'
   
 jobs:
   unit:   # package setup, Racket unit testing
@@ -591,7 +592,7 @@ jobs:
       - name: "Install Julia"
         uses: julia-actions/setup-julia@v1
         with:
-          version: '1.8'
+          version: '1'
 
       - name: "Install as Racket package"
         run: raco pkg install --auto
@@ -621,7 +622,7 @@ jobs:
       - name: "Install Julia"
         uses: julia-actions/setup-julia@v1
         with:
-          version: '1.8'
+          version: '1'
 
       - name: "Install as Racket package"
         run: raco pkg install --auto
@@ -651,7 +652,7 @@ jobs:
       - name: "Install Julia"
         uses: julia-actions/setup-julia@v1
         with:
-          version: '1.8'
+          version: '1'
 
       - name: "Install as Racket package"
         run: raco pkg install --auto
@@ -681,7 +682,7 @@ jobs:
       - name: "Install Julia"
         uses: julia-actions/setup-julia@v1
         with:
-          version: '1.8'
+          version: '1'
 
       - name: "Install as Racket package"
         run: raco pkg install --auto

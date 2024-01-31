@@ -39,7 +39,7 @@
     (parameterize ([current-error-port err-p])
       (values
         (with-output-to-string
-          (λ () (system (format "julia ~a ~a" exec-name (string-join in " ")))))
+          (λ () (system (format "julia --compile=min -O0 -g0 --history-file=no -- ~a ~a" exec-name (string-join in " ")))))
         (get-output-string err-p))))
   (define out*
     (cond

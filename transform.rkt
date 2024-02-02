@@ -6,14 +6,17 @@
          "src/canonicalizer.rkt"
          "src/multi-command-line.rkt")
 
-(provide transform-main)
+(provide transform-main transform-body make-transform-ctx)
+
+(struct transform-ctx (passes default-to-propagate default-to-canonicalize canon-to-propagate canon-to-canonicalize in-file out-file) #:transparent)
+
+(define (make-transform-ctx passes default-to-propagate default-to-canonicalize canon-to-propagate canon-to-canonicalize in-file out-file)
+  (transform-ctx passes default-to-propagate default-to-canonicalize canon-to-propagate canon-to-canonicalize in-file out-file))
 
 (define (transform-main argv stdin-port stdout-port)
   (define passes (box '()))
   (define (register-pass pass shape)
     (set-box! passes (cons (list pass shape) (unbox passes))))
-  (define (transform-passes)
-    (reverse (unbox passes)))
 
   (define default-to-propagate '(precision round math-library))
   (define default-to-canonicalize '(pre spec))
@@ -87,18 +90,23 @@
                                                                           #:to-condense to-condense))])
                         (register-pass condenser-pass 'one-to-one))]
    #:args (in-file out-file)
+   (transform-body (make-transform-ctx passes default-to-propagate default-to-canonicalize canon-to-propagate canon-to-canonicalize in-file out-file) 
+        stdin-port stdout-port)))
 
+(define (transform-body ctx stdin-port stdout-port)
+  (define (transform-passes)
+    (reverse (unbox (transform-ctx-passes ctx))))
    (define input-port
-     (if (equal? in-file "-")
+     (if (equal? (transform-ctx-in-file ctx) "-")
          stdin-port
-         (open-input-file in-file #:mode 'text)))
+         (open-input-file (transform-ctx-in-file ctx) #:mode 'text)))
    (define output-port
-     (if (equal? out-file "-")
+     (if (equal? (transform-ctx-out-file ctx) "-")
          stdout-port
-         (open-output-file out-file #:mode 'text #:exists 'truncate)))
+         (open-output-file (transform-ctx-out-file ctx) #:mode 'text #:exists 'truncate)))
 
    (port-count-lines! input-port)
-   (for ([expr (in-port (curry read-fpcore (if (equal? in-file "-") "stdin" in-file)) input-port)] [n (in-naturals)])
+   (for ([expr (in-port (curry read-fpcore (if (equal? (transform-ctx-in-file ctx) "-") "stdin" (transform-ctx-in-file ctx))) input-port)] [n (in-naturals)])
 
      (define working-exprs (box (list expr)))
      (define (apply-pass pass shape)
@@ -115,7 +123,7 @@
 
      (for ([expr (unbox working-exprs)])
        (displayln (pretty-fpcore expr) output-port)
-       (newline output-port)))))
+       (newline output-port))))
 
 (module+ main
   (transform-main (current-command-line-arguments) (current-input-port) (current-output-port)))

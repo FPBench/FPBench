@@ -77,7 +77,7 @@
     (set! suppress-warnings #t)]
    #:args (in-file out-file)
 
-   (export-main (make-export-ctx 
+   (export-body (make-export-ctx 
         (*lang*) (*runtime*) (*bare*) (*namespace*) (*rel-error*) (*scale*) suppress-warnings in-file out-file) 
         stdin-port stdout-port)))
 

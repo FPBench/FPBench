@@ -84,15 +84,16 @@
 
 (module+ main
   (define *lang* (make-parameter #f))
-
   (define *runtime* (make-parameter #f))
   (define *bare* (make-parameter #f))
   (define *namespace* (make-parameter "main"))
-
+  (define *in-file* (make-parameter "-"))
+  (define *out-file* (make-parameter "-"))
   (define *rel-error* (make-parameter #f))
   (define *scale* (make-parameter 1))
-
   (define suppress-warnings #f)
+  (define check-types? #t)
+  (define ragged-check? #t)
   (multi-command-line
     #:program "fpbench"
     #:subcommands
@@ -137,7 +138,19 @@
         (*lang*) (*runtime*) (*bare*) (*namespace*) (*rel-error*) (*scale*) suppress-warnings in-file out-file) 
         (current-input-port) (current-output-port))]
     [transform "Transform FPCore expressions"]
-    [evaluate "Evaluate an FPCore expression"]
+    [evaluate "Evaluate an FPCore expression"
+      #:once-each
+      [("-i" "--in-file") in_file_ "Input file to read FPCores from"
+        (*in-file* in_file_)]
+      [("-o" "--out-file") out_file_ "Output file to write evaluated results to"
+        (*out-file* out_file_)]
+      ["--no-check" "Disables type checking altogether (check level 1). Recursive, mutually recursive, and out-of-order FPCores can be evaluated in this mode"
+        (set! check-types? #f)]
+      ["--no-ragged-check" "Disables checking for ragged dimension sizes"
+     (set! ragged-check? #f)]
+      #:args args
+      (evaluate-body (make-evaluate-ctx (*in-file*) (*out-file*) check-types? ragged-check? args) 
+        (current-input-port) (current-output-port))]
     
     #:args files 
     (match files

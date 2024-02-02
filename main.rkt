@@ -113,7 +113,7 @@
       ["--suppress" "For Sollya, division by zero will not produce a warning"
         (set! suppress-warnings #t)]
       #:args (in-file out-file)
-      (export-main (make-export-ctx 
+      (export-body (make-export-ctx 
         (*lang*) (*runtime*) (*bare*) (*namespace*) (*rel-error*) (*scale*) suppress-warnings in-file out-file) 
         (current-input-port) (current-output-port))]
     [compile "Compile FPCore to other Languages"
@@ -133,11 +133,20 @@
       ["--suppress" "For Sollya, division by zero will not produce a warning"
         (set! suppress-warnings #t)]
       #:args (in-file out-file)
-      (export-main (make-export-ctx 
+      (export-body (make-export-ctx 
         (*lang*) (*runtime*) (*bare*) (*namespace*) (*rel-error*) (*scale*) suppress-warnings in-file out-file) 
         (current-input-port) (current-output-port))]
     [transform "Transform FPCore expressions"]
-    [evaluate "Evaluate an FPCore expression"])
+    [evaluate "Evaluate an FPCore expression"]
+    
+    #:args files 
+    (match files
+      ['()
+        (eprintf "Please specify a FPBench tool, such as `fpbench evaluate`.\n")
+        (eprintf "See <https://fpbench.org/tools.html> for more.\n")]
+      [(cons tool _)
+        (eprintf "Unknown FPBench tool `~a`.Run those tools with --help for more information.\n" tool)
+        (eprintf "See <https://fpbench.org/tools.html> for more.\n")]))
   (cond 
     [(= 0 (vector-length (current-command-line-arguments)))
       (eprintf "FPBench provides with two tools:\n")

@@ -2,7 +2,7 @@
 
 (require racket/stream)
 (require "export.rkt" "transform.rkt" "evaluate.rkt" "src/multi-command-line.rkt")
-(provide toolserver-main)
+(provide toolserver-main toolserver-body)
 
 ;; Non-buffering byte sequences
 
@@ -117,8 +117,6 @@
   (define batches (box '()))
   (define (register-batch in out)
     (set-box! batches (cons (list in out) (unbox batches))))
-  (define (server-batches)
-    (reverse (unbox batches)))
 
   (multi-command-line
    #:program "toolserver"
@@ -127,6 +125,12 @@
    ["--batch" batch_in_ batch_out_ "Process commands from a file"
               (register-batch batch_in_ batch_out_)]
    #:args ()
+   
+   (toolserver-body batches stdin-port stdout-port)))
+
+(define (toolserver-body batches stdin-port stdout-port)
+  (define (server-batches)
+    (reverse (unbox batches)))
 
    (if (empty? (server-batches))
        (serve-batch stdin-port stdout-port)
@@ -144,7 +148,7 @@
 
          (serve-batch input-port output-port)
          (unless (equal? in-file "-") (close-input-port input-port))
-         (unless (equal? out-file "-") (close-output-port output-port))))))
+         (unless (equal? out-file "-") (close-output-port output-port)))))
 
 (module+ main
   (toolserver-main (current-command-line-arguments) (current-input-port) (current-output-port)))

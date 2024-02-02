@@ -3,7 +3,9 @@
 (require 
   "transform.rkt"
   "evaluate.rkt"
-  "export.rkt")
+  "export.rkt"
+  "toolserver.rkt"
+  "infra/filter.rkt")
 
 (require
  "src/canonicalizer.rkt"
@@ -111,6 +113,10 @@
     (set-box! canon-to-canonicalize (set-add (unbox canon-to-canonicalize) (string->symbol prop))))
   (define (-c prop)
     (set-box! canon-to-canonicalize (set-remove (unbox canon-to-canonicalize) (string->symbol prop))))
+  (define batches (box '()))
+  (define (register-batch in out)
+    (set-box! batches (cons (list in out) (unbox batches))))
+  (define invert? #f)
 
   (multi-command-line
     #:program "fpbench"
@@ -222,10 +228,22 @@
       ["--no-check" "Disables type checking altogether (check level 1). Recursive, mutually recursive, and out-of-order FPCores can be evaluated in this mode"
         (set! check-types? #f)]
       ["--no-ragged-check" "Disables checking for ragged dimension sizes"
-     (set! ragged-check? #f)]
+        (set! ragged-check? #f)]
       #:args args
       (evaluate-body (make-evaluate-ctx (*in-file*) (*out-file*) check-types? ragged-check? args) 
         (current-input-port) (current-output-port))]
+    [toolserver "FPBench toolserver"
+      #:multi 
+      ["--batch" batch_in_ batch_out_ "Process commands from a file"
+              (register-batch batch_in_ batch_out_)]
+      #:args ()
+      (toolserver-body batches (current-input-port) (current-output-port))]
+    [filter "Filter FPCores"
+      #:once-each
+      [("-v" "--invert") "Invert the meaning of the filter"
+        (set! invert? #t)]
+      #:args (type . values)
+      (filter-body invert? type values (current-input-port) (current-output-port))]
     
     #:args files 
     (match files

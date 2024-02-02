@@ -57,8 +57,8 @@
 
   (define suppress-warnings #f)
 
-  (multi-command-line
-   #:program "export"
+  (command-line
+   #:program "export.rkt"
    #:argv argv
    #:once-each
    ["--lang" lang_ "Output language to compile FPCore to"

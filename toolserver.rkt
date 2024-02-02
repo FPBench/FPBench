@@ -118,8 +118,8 @@
   (define (register-batch in out)
     (set-box! batches (cons (list in out) (unbox batches))))
 
-  (multi-command-line
-   #:program "toolserver"
+  (command-line
+   #:program "toolserver.rkt"
    #:argv argv
    #:multi
    ["--batch" batch_in_ batch_out_ "Process commands from a file"

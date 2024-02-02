@@ -51,8 +51,8 @@
   (require racket/cmdline)
   (define invert? #f)
 
-  (multi-command-line
-   #:program "filter"
+  (command-line
+   #:program "filter.rkt"
    #:once-each
    [("-v" "--invert") "Invert the meaning of the filter"
     (set! invert? #t)]

@@ -32,8 +32,8 @@
   (define (-c prop)
     (set-box! canon-to-canonicalize (set-remove (unbox canon-to-canonicalize) (string->symbol prop))))
 
-  (multi-command-line
-   #:program "transform"
+  (command-line
+   #:program "transform.rkt"
    #:argv argv
    #:multi
    ["--unroll" unroll_ "Unroll the first N iterations of each loop"

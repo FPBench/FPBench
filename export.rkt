@@ -3,7 +3,8 @@
 ; utility
 (require "src/fpcore-reader.rkt"
          "src/compilers.rkt"
-         "src/supported.rkt")
+         "src/supported.rkt"
+         "src/multi-command-line.rkt")
 
 ; compilers
 (require "src/core2c.rkt"
@@ -28,7 +29,13 @@
          "src/core2vivado.rkt"
          "src/core2wls.rkt")
 
-(provide export-main)
+(provide export-body export-main make-export-ctx)
+
+; CLI args passed in through context
+(struct export-ctx (lang runtime bare namespace rel-error scale suppress-warnings in-file out-file) #:transparent)
+
+(define (make-export-ctx lang runtime bare namespace rel-error scale suppress-warnings in-file out-file)
+  (export-ctx lang runtime bare namespace rel-error scale suppress-warnings in-file out-file))
 
 (define (file-extension file-name)
   (define ext (path-get-extension file-name))
@@ -70,20 +77,26 @@
     (set! suppress-warnings #t)]
    #:args (in-file out-file)
 
-   (define input-port
-     (if (equal? in-file "-")
-         stdin-port
-         (open-input-file in-file #:mode 'text)))
-   (define output-port
-     (if (equal? out-file "-")
-         stdout-port
-         (open-output-file out-file #:mode 'text #:exists 'truncate)))
+   (export-body (make-export-ctx 
+        (*lang*) (*runtime*) (*bare*) (*namespace*) (*rel-error*) (*scale*) suppress-warnings in-file out-file) 
+        stdin-port stdout-port)))
 
-   (define extension (determine-lang (*lang*) out-file))
+; #t source means from main entry, #f for tool specific
+(define (export-body ctx stdin-port stdout-port)
+   (define input-port
+     (if (equal? (export-ctx-in-file ctx) "-")
+         stdin-port
+         (open-input-file (export-ctx-in-file ctx) #:mode 'text)))
+   (define output-port
+     (if (equal? (export-ctx-out-file ctx) "-")
+         stdout-port
+         (open-output-file (export-ctx-out-file ctx) #:mode 'text #:exists 'truncate)))
+
+   (define extension (determine-lang (export-ctx-lang ctx) (export-ctx-out-file ctx)))
    
    (define-values (header export footer supported)
      (match extension
-       [(or "gappa" "g") (values (const "") (curry core->gappa #:rel-error (*rel-error*)) (const "") gappa-supported)]
+       [(or "gappa" "g") (values (const "") (curry core->gappa #:rel-error (export-ctx-rel-error ctx)) (const "") gappa-supported)]
        [#f (raise-user-error "Please specify an output language (using the --lang flag)")]
        [_
         (apply values
@@ -94,33 +107,33 @@
                    (compiler-export compiler)
                    (compiler-footer compiler)
                    (compiler-supported compiler)))
-           (raise-user-error "Unsupported output language" (*lang*))))]))
+           (raise-user-error "Unsupported output language" (export-ctx-lang ctx))))]))
 
-   (when (and (equal? extension "js") (*runtime*)) (js-runtime (*runtime*)))
-   (when (and (equal? extension "sollya") suppress-warnings) (*sollya-warnings* #f))
-   (when (and (set-member? '("fptaylor" "fpt") extension) (*scale*)) (*fptaylor-inexact-scale* (*scale*)))
+   (when (and (equal? extension "js") (export-ctx-runtime ctx)) (js-runtime (export-ctx-runtime ctx)))
+   (when (and (equal? extension "sollya") (export-ctx-suppress-warnings ctx)) (*sollya-warnings* #f))
+   (when (and (set-member? '("fptaylor" "fpt") extension) (export-ctx-scale ctx)) (*fptaylor-inexact-scale* (export-ctx-scale ctx)))
    (when (equal? extension "scala") 
-    (let ([out-name (if (equal? out-file "-") 
+    (let ([out-name (if (equal? (export-ctx-out-file ctx) "-") 
                         "stdout" 
-                        (string-trim out-file ".scala"))])
+                        (string-trim (export-ctx-out-file ctx) ".scala"))])
       (*scala-prec-file* (open-output-file (string-append out-name ".prec.txt") #:mode 'text #:exists 'truncate))))                          
 
    (port-count-lines! input-port)
-   (unless (*bare*)
+   (unless (export-ctx-bare ctx)
     (define namespace
       (match extension
        ["js" (js-runtime)]
        ["java" (java-namespace)]
-       [_ (*namespace*)]))
+       [_ (export-ctx-namespace ctx)]))
     (fprintf output-port (header namespace)))
 
-   (for ([core (in-port (curry read-fpcore (if (equal? in-file "-") "stdin" in-file)) input-port)] [n (in-naturals)])
+   (for ([core (in-port (curry read-fpcore (if (equal? (export-ctx-in-file ctx) "-") "stdin" (export-ctx-in-file ctx))) input-port)] [n (in-naturals)])
      (let ([unsupported (unsupported-features core supported)])
       (unless (set-empty? unsupported)
         (raise-user-error (format "Sorry, the *.~a exporter does not support ~a" extension
             (string-join (map ~a unsupported) ", ")))))
      (fprintf output-port "~a\n" (export core (format "ex~a" n))))
-   (unless (*bare*) (fprintf output-port (footer)))))
+   (unless (export-ctx-bare ctx) (fprintf output-port (footer))))
 
 (module+ main
   (export-main (current-command-line-arguments) (current-input-port) (current-output-port)))

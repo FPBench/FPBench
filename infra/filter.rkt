@@ -1,6 +1,8 @@
 #lang racket
 
-(require "../src/common.rkt" "../src/fpcore-checker.rkt" "../src/fpcore-reader.rkt" "../src/supported.rkt")
+(require "../src/common.rkt" "../src/fpcore-checker.rkt" "../src/fpcore-reader.rkt" "../src/supported.rkt" "../src/multi-command-line.rkt")
+
+(provide filter-body)
 
 (define/contract ((filter type values) core)
   (-> symbol? (listof string?) (-> fpcore? boolean?))
@@ -35,6 +37,16 @@
     [(_ _)
      (raise-user-error 'filter "Unknown filter ~a with ~a arguments" type (length values))]))
 
+(define (filter-body invert? type values stdin-port stdout-port)
+   (define test
+     ((if invert? negate identity)
+      (filter (string->symbol type) values)))
+   (port-count-lines! (current-input-port))
+   (for ([core (in-port (curry read-fpcore "stdin") (current-input-port))])
+     (when (test core)
+       (pretty-print core (current-output-port) 1)
+       (newline))))
+
 (module+ main
   (require racket/cmdline)
   (define invert? #f)
@@ -45,11 +57,4 @@
    [("-v" "--invert") "Invert the meaning of the filter"
     (set! invert? #t)]
    #:args (type . values)
-   (define test
-     ((if invert? negate identity)
-      (filter (string->symbol type) values)))
-   (port-count-lines! (current-input-port))
-   (for ([core (in-port (curry read-fpcore "stdin") (current-input-port))])
-     (when (test core)
-       (pretty-print core (current-output-port) 1)
-       (newline)))))
+    (filter-body invert? type values (current-input-port) (current-output-port))))

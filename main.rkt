@@ -242,8 +242,8 @@
       #:once-each
       [("-v" "--invert") "Invert the meaning of the filter"
         (set! invert? #t)]
-      #:args (type . values)
-      (filter-body invert? type values (current-input-port) (current-output-port))]
+      #:args values
+      (filter-body invert? values (current-input-port) (current-output-port))]
     
     #:args files 
     (match files

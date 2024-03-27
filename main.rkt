@@ -240,10 +240,14 @@
       (toolserver-body batches (current-input-port) (current-output-port))]
     [filter "Filter FPCores"
       #:once-each
+      [("-i" "--in-file") in_file_ "Input file to read FPCores from"
+        (*in-file* in_file_)]
+      [("-o" "--out-file") out_file_ "Output file to write evaluated results to"
+        (*out-file* out_file_)]
       [("-v" "--invert") "Invert the meaning of the filter"
         (set! invert? #t)]
       #:args (type . values)
-      (filter-body invert? type values (current-input-port) (current-output-port))]
+      (filter-body invert? type values (*in-file*) (*out-file*) (current-input-port) (current-output-port))]
     
     #:args files 
     (match files

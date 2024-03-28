@@ -104,7 +104,7 @@
    ['exp        (format "e^{~a}" (first args))]
    ['exp2       (format "2^{~a}" (first args))]
    ['fabs       (format "\\left|~a\\right|" (first args))]
-   ['floor      (format "\\left\\lfloor~a\\right\\rfloor" (first args))]
+   ['floor      (format "\\left\\lfloor ~a\\right\\rfloor " (first args))]
    ['fma        (format "\\mathsf{fma}\\left(~a\\right)" (string-join args ", "))]
    ['fmax       (format "\\mathsf{max}\\left(~a, ~a\\right)" (first args) (second args))]
    ['fmin       (format "\\mathsf{min}\\left(~a, ~a\\right)" (first args) (second args))]

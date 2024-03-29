@@ -52,10 +52,16 @@
 (module+ main
   (require racket/cmdline)
   (define invert? #f)
+  (define *filter-in* (make-parameter "-"))
+  (define *filter-out* (make-parameter "-"))
 
   (command-line
    #:program "filter.rkt"
    #:once-each
+   [("-i" "--in-file") in_file_ "Input file to read FPCores from"
+        (*filter-in* in_file_)]
+   [("-o" "--out-file") out_file_ "Output file to write evaluated results to"
+      (*filter-out* out_file_)]
    [("-v" "--invert") "Invert the meaning of the filter"
     (set! invert? #t)]
    #:args (type . values)

@@ -21,9 +21,8 @@
       [_
         (error 'split-list-by-colon "Improper arguments")])])) lst))
 
-(define/contract ((filter values) core)
-  (-> symbol? (listof string?) (-> fpcore? boolean?))
-
+(define/contract ((filter values) core) 
+  (-> (listof string?) (-> fpcore? boolean?))
   (match values
     [(list values ...)
       (match (get-args values)
@@ -65,4 +64,4 @@
    [("-v" "--invert") "Invert the meaning of the filter"
     (set! invert? #t)]
    #:args (type . values)
-    (filter-body invert? values in-file out-file (current-input-port) (current-output-port))))
+    (filter-body invert? values *filter-in* *filter-out* (current-input-port) (current-output-port))))

@@ -31,6 +31,16 @@
         [_ (raise-user-error 'filter "Unknown filter with ~a arguments" (length values))])]
     [_ (raise-user-error 'filter "Unknown filter with ~a arguments" (length values))]))
 
+(define (filter-body invert? values stdin-port stdout-port)
+   (define test
+     ((if invert? negate identity)
+      (filter values)))
+   (port-count-lines! (current-input-port))
+   (for ([core (in-port (curry read-fpcore "stdin") (current-input-port))])
+     (when (test core)
+       (pretty-print core (current-output-port) 1)
+       (newline))))
+
 (module+ main
   (require racket/cmdline)
   (define invert? #f)

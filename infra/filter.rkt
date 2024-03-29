@@ -28,8 +28,8 @@
     [(list values ...)
       (match (get-args values)
         [(list (list operator value) ... ) (filter-apply (get-args values) core)]
-        [_ (raise-user-error 'filter "Unknown filter ~a with ~a arguments" type (length values))])]
-    [_ (raise-user-error 'filter "Unknown filter ~a with ~a arguments" type (length values))]))
+        [_ (raise-user-error 'filter "Unknown filter with ~a arguments" (length values))])]
+    [_ (raise-user-error 'filter "Unknown filter with ~a arguments" (length values))]))
 
 (module+ main
   (require racket/cmdline)

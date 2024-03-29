@@ -31,10 +31,18 @@
         [_ (raise-user-error 'filter "Unknown filter with ~a arguments" (length values))])]
     [_ (raise-user-error 'filter "Unknown filter with ~a arguments" (length values))]))
 
-(define (filter-body invert? values stdin-port stdout-port)
+(define (filter-body invert? values in-file out-file stdin-port stdout-port)
    (define test
      ((if invert? negate identity)
       (filter values)))
+  (define input-port
+     (if (equal? in-file "-")
+         stdin-port
+         (open-input-file in-file #:mode 'text)))
+  (define output-port
+     (if (equal? out-file "-")
+         stdout-port
+         (open-output-file out-file #:mode 'text #:exists 'truncate)))
    (port-count-lines! (current-input-port))
    (for ([core (in-port (curry read-fpcore "stdin") (current-input-port))])
      (when (test core)
@@ -51,4 +59,4 @@
    [("-v" "--invert") "Invert the meaning of the filter"
     (set! invert? #t)]
    #:args (type . values)
-    (filter-body invert? type values (current-input-port) (current-output-port))))
+    (filter-body invert? values in-file out-file (current-input-port) (current-output-port))))

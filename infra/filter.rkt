@@ -64,4 +64,4 @@
    [("-v" "--invert") "Invert the meaning of the filter"
     (set! invert? #t)]
    #:args (type . values)
-    (filter-body invert? values *filter-in* *filter-out* (current-input-port) (current-output-port))))
+    (filter-body invert? values (*filter-in*) (*filter-out*) (current-input-port) (current-output-port))))

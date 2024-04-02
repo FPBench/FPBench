@@ -296,7 +296,7 @@
 
 (define (fix-name name)
   (unless (non-empty-string? name)
-    (error 'fix-name "must be a non-empty string" name))
+    (error 'fix-name "must be a non-empty string ~a" name))
   (define name*
     (apply string-append
            (for/list ([char (~a name)])

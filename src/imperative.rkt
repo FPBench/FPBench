@@ -305,7 +305,7 @@
                  (format "_~a_" (char->integer char))))))
   ; can't have a leading number
   (if (regexp-match #rx"[0-9]" (string (string-ref name* 0)))
-      (string-append "_" name*)
+      (string-append "t" name*)
       name*))
 
 (define bool-ops '(< > <= >= == != and or not

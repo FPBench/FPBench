@@ -126,14 +126,6 @@
 (define single-indent (string-append half-indent half-indent))
 (define double-indent (string-append single-indent single-indent))
 
-(define (fix-name name)
-  (string-join
-   (for/list ([char (~a name)])
-     (if (regexp-match #rx"[a-zA-Z0-9_]" (string char))
-         (string char)
-         (format "_~a_" (char->integer char))))
-   ""))
-
 (define bool-ops '(< > <= >= == != and or not
                    isfinite isinf isnan isnormal signbit))
 

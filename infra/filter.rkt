@@ -15,29 +15,28 @@
   (for-each (lambda (arg)
     (match arg 
     [(list op val) 
-     (match op 
+     (match (string->symbol op) 
       ['operator
         (set-member? (operators-in core) (string->symbol val))]
-      [_
-        (error 'split-list-by-colon "Improper arguments")])])) lst))
+      [_ (raise-user-error 'filter "Unknown filter with ~a arguments" val)])])) lst))
 
 (define/contract ((filter values) core) 
   (-> (listof string?) (-> fpcore? boolean?))
   (match values
     [(list values ...)
       (match (get-args values)
-        [(list (list operator value) ... ) (filter-apply (get-args values) core)]
+        [(list (list operator value) ... )  (filter-apply (get-args values) core)]
         [_ (raise-user-error 'filter "Unknown filter with ~a arguments" (length values))])]
     [_ (raise-user-error 'filter "Unknown filter with ~a arguments" (length values))]))
 
-(define (filter-body invert? values in-file out-file stdin-port stdout-port)
+(define (filter-body invert? queries in-file out-file stdin-port stdout-port)
   (define-values (input-port input-port-name)
     (if (equal? in-file "-")
         (values stdin-port "stdin")
         (values (open-input-file in-file #:mode 'text) in-file)))
   (define test
     ((if invert? negate identity)
-      (filter values)))
+      (filter queries)))
   (define output-port
      (if (equal? out-file "-")
          stdout-port
@@ -63,5 +62,5 @@
       (*filter-out* out_file_)]
    [("-v" "--invert") "Invert the meaning of the filter"
     (set! invert? #t)]
-   #:args (queries)
+   #:args queries
     (filter-body invert? queries (*filter-in*) (*filter-out*) (current-input-port) (current-output-port))))

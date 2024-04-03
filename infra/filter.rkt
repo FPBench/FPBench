@@ -4,30 +4,20 @@
 
 (provide filter-body)
 
-(define (get-args lst)
-  (map (lambda (str)
-         (if (string-contains? str ":")
+(define (get-args str)
+  (if (string-contains? str ":")
              (string-split str ":")
-             (error 'split-list-by-colon "Improper arguments")))
-       lst))
+             '()))
 
-(define (filter-apply lst core)
-  (for-each (lambda (arg)
-    (match arg 
-    [(list op val) 
-     (match (string->symbol op) 
-      ['operator
-        (set-member? (operators-in core) (string->symbol val))]
-      [_ (raise-user-error 'filter "Unknown filter with ~a arguments" val)])])) lst))
-
-(define/contract ((filter values) core) 
-  (-> (listof string?) (-> fpcore? boolean?))
-  (match values
-    [(list values ...)
-      (match (get-args values)
-        [(list (list operator value) ... )  (filter-apply (get-args values) core)]
-        [_ (raise-user-error 'filter "Unknown filter with ~a arguments" (length values))])]
-    [_ (raise-user-error 'filter "Unknown filter with ~a arguments" (length values))]))
+(define/contract ((filter query) core)
+  (-> string? (-> fpcore? boolean?))
+  (match (get-args query)
+    [(list op val)
+      (match (string->symbol op)
+        ['operator 
+          (set-member? (operators-in core) (string->symbol val))]
+        [_ (raise-user-error 'filter "Unknown filter operation ~a" op)])]
+    [_ (raise-user-error 'filter "Improperly formatted input string ~a" query)]))
 
 (define (filter-body invert? queries in-file out-file stdin-port stdout-port)
   (define-values (input-port input-port-name)
@@ -36,7 +26,7 @@
         (values (open-input-file in-file #:mode 'text) in-file)))
   (define test
     ((if invert? negate identity)
-      (filter queries)))
+      (andmap filter queries)))
   (define output-port
      (if (equal? out-file "-")
          stdout-port

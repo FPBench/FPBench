@@ -35,8 +35,6 @@
         stdin-port stdout-port)))
 
 (define (evaluate-body ctx stdin-port stdout-port)
-  (define *in-file* (make-parameter "-"))
-  (define *out-file* (make-parameter "-"))
   (define check-types? #t)
   (define ragged-check? #t)
    

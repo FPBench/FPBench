@@ -248,7 +248,7 @@
         (*filter-out* out_file_)]
       [("-v" "--invert") "Invert the meaning of the filter"
         (set! invert? #t)]
-      #:args queries
+      #:args (queries)
       (filter-body invert? queries (*filter-in*) (*filter-out*) (current-input-port) (current-output-port))]
     
     #:args files 

@@ -70,6 +70,9 @@ jobs:
 
       - name: "Evaluate tool"
         run: make evaluate-test
+      
+      - name: "Filter tool"
+        run: make filter-test
 
       - name: "Tensor examples"
         run: make tensor-test

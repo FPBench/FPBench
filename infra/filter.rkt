@@ -14,10 +14,13 @@
   (match (get-args query)
     [(list op val)
       (match (string->symbol op)
-        ['operator 
+        ['operator
           (set-member? (operators-in core) (string->symbol val))]
         [_ (raise-user-error 'filter "Unknown filter operation ~a" op)])]
     [_ (raise-user-error 'filter "Improperly formatted input string ~a" query)]))
+
+(define ((filter-helper queries) core)
+  (andmap (lambda (q) ((filter q) core)) queries))
 
 (define (filter-body invert? queries in-file out-file stdin-port stdout-port)
   (define-values (input-port input-port-name)
@@ -26,7 +29,7 @@
         (values (open-input-file in-file #:mode 'text) in-file)))
   (define test
     ((if invert? negate identity)
-      (andmap filter queries)))
+      (filter-helper queries)))
   (define output-port
      (if (equal? out-file "-")
          stdout-port
@@ -35,7 +38,7 @@
    (for ([core (in-port (curry read-fpcore input-port-name) input-port)])
      (when (test core)
        (pretty-print core output-port 1)
-       (newline))))
+       (newline output-port))))
 
 (module+ main
   (require racket/cmdline)

@@ -39,7 +39,7 @@
     (apply string-append
            (for/list ([char (~a name)])
              (if (regexp-match #rx"[a-zA-Z0-9_]" (string char))
-                 (string char)
+                 (string (char-downcase char))
                  (format "_~a_" (char->integer char))))))
   ; can't have a leading number
   (if (regexp-match #rx"[0-9]" (string (string-ref name* 0)))

@@ -4,57 +4,56 @@
 
 (provide filter-body)
 
-(define/contract ((filter type values) core)
-  (-> symbol? (listof string?) (-> fpcore? boolean?))
+(define (get-args str)
+  (if (string-contains? str ":")
+             (string-split str ":")
+             '()))
 
-  (match* (type values)
-    [((or 'operator 'operation) (list value))
-     (set-member? (operators-in core) (string->symbol value))]
-    [((or 'operators 'operations) (list ops ...))
-     (subset? (operators-in core) (map string->symbol ops))]
-    [((or 'not-operators 'not-operations) (list ops ...))
-     (define body-ops (operators-in core))
-     (for/and ([op (map string->symbol ops)])
-       (not (set-member? body-ops op)))]
+(define/contract ((filter query) core)
+  (-> string? (-> fpcore? boolean?))
+  (match (get-args query)
+    [(list op val)
+      (match (string->symbol op)
+        ['operator
+          (set-member? (operators-in core) (string->symbol val))]
+        [_ (raise-user-error 'filter "Unknown filter operation ~a" op)])]
+    [_ (raise-user-error 'filter "Improperly formatted input string ~a" query)]))
 
-    [('constant (list value))
-     (set-member? (constants-in core) (string->symbol value))]
-    [('constants (list ops ...))
-     (subset? (constants-in core) (map string->symbol ops))]
-    [('not-constants (list ops ...))
-     (define body-ops (constants-in core))
-     (for/and ([op (map string->symbol ops)])
-       (not (set-member? body-ops op)))]
+(define ((filter-helper queries) core)
+  (andmap (lambda (q) ((filter q) core)) queries))
 
-    [((? symbol?) (list))
-     (define prop (string->symbol (format ":~a" type)))
-     (dict-has-key? (property-values core) prop)]
-    [((? symbol?) (list values ...))
-     (define prop (string->symbol (format ":~a" type)))
-     (subset? (set-map (dict-ref (property-values core) prop '()) ~a) values)]
-    [('cites (list values ...))
-     (subset? (map string->symbol values) (append-map set->list (dict-ref (property-values core) ':cite '())))]
-    [(_ _)
-     (raise-user-error 'filter "Unknown filter ~a with ~a arguments" type (length values))]))
-
-(define (filter-body invert? type values stdin-port stdout-port)
-   (define test
-     ((if invert? negate identity)
-      (filter (string->symbol type) values)))
+(define (filter-body invert? queries in-file out-file stdin-port stdout-port)
+  (define-values (input-port input-port-name)
+    (if (equal? in-file "-")
+        (values stdin-port "stdin")
+        (values (open-input-file in-file #:mode 'text) in-file)))
+  (define test
+    ((if invert? negate identity)
+      (filter-helper queries)))
+  (define output-port
+     (if (equal? out-file "-")
+         stdout-port
+         (open-output-file out-file #:mode 'text #:exists 'truncate)))
    (port-count-lines! (current-input-port))
-   (for ([core (in-port (curry read-fpcore "stdin") (current-input-port))])
+   (for ([core (in-port (curry read-fpcore input-port-name) input-port)])
      (when (test core)
-       (pretty-print core (current-output-port) 1)
-       (newline))))
+       (pretty-print core output-port 1)
+       (newline output-port))))
 
 (module+ main
   (require racket/cmdline)
   (define invert? #f)
+  (define *filter-in* (make-parameter "-"))
+  (define *filter-out* (make-parameter "-"))
 
   (command-line
    #:program "filter.rkt"
    #:once-each
+   [("-i" "--in-file") in_file_ "Input file to read FPCores from"
+        (*filter-in* in_file_)]
+   [("-o" "--out-file") out_file_ "Output file to write evaluated results to"
+      (*filter-out* out_file_)]
    [("-v" "--invert") "Invert the meaning of the filter"
     (set! invert? #t)]
-   #:args (type . values)
-    (filter-body invert? type values (current-input-port) (current-output-port))))
+   #:args queries
+    (filter-body invert? queries (*filter-in*) (*filter-out*) (current-input-port) (current-output-port))))

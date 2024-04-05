@@ -319,6 +319,7 @@ update-tool-tests:
 	tests/scripts/test-export.sh generate	
 	tests/scripts/test-transform.sh generate
 	tests/scripts/test-evaluate.sh generate
+	tests/scripts/test-filter.sh generate
 
 export-test:
 	tests/scripts/test-export.sh
@@ -330,6 +331,9 @@ toolserver-test:
 	tests/scripts/test-toolserver.sh
 
 evaluate-test:
+	tests/scripts/test-evaluate.sh
+
+filter-test:
 	tests/scripts/test-evaluate.sh
 
 tensor-test:

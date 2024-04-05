@@ -91,6 +91,8 @@
   (define *namespace* (make-parameter "main"))
   (define *in-file* (make-parameter "-"))
   (define *out-file* (make-parameter "-"))
+  (define *filter-in* (make-parameter "-"))
+  (define *filter-out* (make-parameter "-"))
   (define *rel-error* (make-parameter #f))
   (define *scale* (make-parameter 1))
   (define suppress-warnings #f)
@@ -240,10 +242,14 @@
       (toolserver-body batches (current-input-port) (current-output-port))]
     [filter "Filter FPCores"
       #:once-each
+      [("-i" "--in-file") in_file_ "Input file to read FPCores from"
+        (*filter-in* in_file_)]
+      [("-o" "--out-file") out_file_ "Output file to write evaluated results to"
+        (*filter-out* out_file_)]
       [("-v" "--invert") "Invert the meaning of the filter"
         (set! invert? #t)]
-      #:args (type . values)
-      (filter-body invert? type values (current-input-port) (current-output-port))]
+      #:args queries
+      (filter-body invert? queries (*filter-in*) (*filter-out*) (current-input-port) (current-output-port))]
     
     #:args files 
     (match files

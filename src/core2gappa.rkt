@@ -15,18 +15,12 @@
     #f))
 
 (define (fix-name name)
-  (unless (non-empty-string? name)
-    (error 'fix-name "must be a non-empty string ~a" name))
-  (define name*
-    (apply string-append
-           (for/list ([char (~a name)])
-             (if (regexp-match #rx"[a-zA-Z0-9_]" (string char))
-                 (string char)
-                 (format "_~a_" (char->integer char))))))
-  ; can't have a leading number
-  (if (regexp-match #rx"[0-9]" (string (string-ref name* 0)))
-      (string-append "t" name*)
-      name*))
+  (string-join
+   (for/list ([char (~a name)])
+     (if (regexp-match #rx"[a-zA-Z0-9]" (string char))
+         (string char)
+         (format "_~a_" (char->integer char))))
+   ""))
 
 (define constant->gappa
   (match-lambda

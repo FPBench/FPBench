@@ -295,12 +295,18 @@
     '(:precision binary64 :round nearestEven)))
 
 (define (fix-name name)
-  (string-join
-   (for/list ([char (~a name)])
-     (if (regexp-match #rx"[a-zA-Z0-9_]" (string char))
-         (string char)
-         (format "_~a_" (char->integer char))))
-   ""))
+  (unless (non-empty-string? name)
+    (error 'fix-name "must be a non-empty string ~a" name))
+  (define name*
+    (apply string-append
+           (for/list ([char (~a name)])
+             (if (regexp-match #rx"[a-zA-Z0-9_]" (string char))
+                 (string char)
+                 (format "_~a_" (char->integer char))))))
+  ; can't have a leading number
+  (if (regexp-match #rx"[0-9]" (string (string-ref name* 0)))
+      (string-append "t" name*)
+      name*))
 
 (define bool-ops '(< > <= >= == != and or not
                    isfinite isinf isnan isnormal signbit))
@@ -456,7 +462,7 @@
     (for/list ([arg args])
       (define-values (arg* _) (visit/ctx vtor arg ctx))
       arg*))
-  (values (compile-function fn args ctx) ctx))
+  (values (compile-function fn args* ctx) ctx))
 
 (define (visit-digits/imperative vtor m e b #:ctx ctx)
   (visit/ctx vtor (digits->number m e b) ctx))

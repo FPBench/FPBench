@@ -31,11 +31,18 @@
       "let c_fmin x y = if (Float.is_nan x) then y else if (Float.is_nan y) then x else (Float.min x y)\n\n")))
 
 (define (fix-name name)
-  (apply string-append
-    (for/list ([char (~a name)])
-      (if (regexp-match #rx"[a-zA-Z0-9_]" (string char))
-          (string (char-downcase char))
-          (format "_~a_" (char->integer char))))))
+  (unless (non-empty-string? name)
+    (error 'fix-name "must be a non-empty string ~a" name))
+  (define name*
+    (apply string-append
+           (for/list ([char (~a name)])
+             (if (regexp-match #rx"[a-zA-Z0-9_]" (string char))
+                (string (char-downcase char))
+                (format "_~a_" (char->integer char))))))
+  ; can't have a leading number
+  (if (regexp-match #rx"[0-9]" (string (string-ref name* 0)))
+      (string-append "t" name*)
+      name*))
 
 (define (equality->ocaml x xs)
   (format "(~a)"

@@ -3,17 +3,38 @@
 (require generic-flonum)
 (require "imperative.rkt")
 
-(provide c-header core->c c-supported
-         c-reserved type->c params->c) ; required by core2h.rkt
+(provide c-header
+         c-supported
+         c-reserved
+         core->c 
+         type->c
+         params->c      ; required by core2h.rkt
+         set-c-header!
+         set-unknown->c!)
 
 (define c-header (const "#include <fenv.h>\n#include <math.h>\n#include <stdint.h>\n#define TRUE 1\n#define FALSE 0\n\n"))
-(define c-supported 
+(define c-supported
   (supported-list
     (invert-op-proc (curry set-member? '(array dim size ref for for* tensor tensor*)))
     fpcore-consts
     (curry set-member? '(binary32 binary64 binary80 integer))
     (invert-rnd-mode-proc (curry equal? 'nearestAway))
     #f))
+
+(define (default-unknown->c ctx op args)
+  (define type (type->c (ctx-lookup-prop ctx ':precision)))
+  (format "~a~a(~a)"
+          op
+          (c-type->suffix type)
+          (string-join args ", ")))
+
+(define unknown->c (make-parameter default-unknown->c))
+
+(define (set-c-header! gen-proc)
+  (set! c-header (gen-proc c-header)))
+
+(define (set-unknown->c! gen-proc)
+  (unknown->c (gen-proc (unknown->c))))
 
 (define c-reserved  ; Language-specific reserved names (avoid name collisions)
   '(auto break case char const continue default
@@ -41,7 +62,7 @@
    [(or 'isinf 'isnan 'isfinite 'isnormal 'signbit)
     (format "~a~a" op args)]
    [_
-    (format "~a~a(~a)" op (c-type->suffix type) (string-join args ", "))]))
+    ((unknown->c) ctx op args)]))
   
 (define (binary80->string x)
   (parameterize ([gfl-exponent 15] [gfl-bits 80])

@@ -1,5 +1,7 @@
 #lang racket
 
+(require "fpbench.rkt")
+
 (provide
  (all-from-out
   "src/canonicalizer.rkt"

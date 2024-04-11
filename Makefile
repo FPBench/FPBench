@@ -5,7 +5,7 @@ FILTER = racket infra/filter.rkt
 ### Install / Compile
 
 setup:
-	raco pkg install --skip-installed -n fpbench --auto generic-flonum
+	raco pkg install --skip-installed --no-docs --auto --name fpbench
 	raco make fpbench.rkt export.rkt transform.rkt toolserver.rkt evaluate.rkt 
 
 testsetup:

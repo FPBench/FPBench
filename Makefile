@@ -6,7 +6,7 @@ FILTER = racket infra/filter.rkt
 
 setup:
 	raco pkg install --skip-installed --no-docs --auto --name fpbench
-	raco make fpbench.rkt export.rkt transform.rkt toolserver.rkt evaluate.rkt 
+	raco make fpbench.rkt main.rkt export.rkt transform.rkt toolserver.rkt evaluate.rkt 
 
 testsetup:
 	raco make infra/*.rkt

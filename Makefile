@@ -5,8 +5,8 @@ FILTER = racket infra/filter.rkt
 ### Install / Compile
 
 setup:
-	raco pkg install --skip-installed -n fpbench --auto generic-flonum
-	raco make main.rkt export.rkt transform.rkt toolserver.rkt evaluate.rkt 
+	raco pkg install --skip-installed --no-docs --auto --name fpbench
+	raco make fpbench.rkt main.rkt export.rkt transform.rkt toolserver.rkt evaluate.rkt 
 
 testsetup:
 	raco make infra/*.rkt
@@ -16,7 +16,7 @@ distribute:
 	cp README.md fpbench-compiled/
 	cp LICENSE.txt fpbench-compiled/
 	cp logo.png fpbench-compiled/
-	raco exe -o fpbench --orig-exe --embed-dlls --vv main.rkt
+	raco exe -o fpbench --orig-exe --embed-dlls --vv fpbench.rkt
 	[ ! -f fpbench.exe ] || (raco distribute fpbench-compiled fpbench.exe && rm fpbench.exe)
 	[ ! -f fpbench.app ] || (raco distribute fpbench-compiled fpbench.app && rm fpbench.app)
 	[ ! -f fpbench ] || (raco distribute fpbench-compiled fpbench && rm fpbench)

@@ -43,7 +43,8 @@ FPBench develops two compiler tools for FPCore programs:
    such as sipmlifying preconditions, unrolling loops, or expanding
    syntax sugar.
 
-These tools are documented [online](http://fpbench.org/tools.html).
+These syntax and options for these tools are documented in
+[tools.md](tools.md).
 
 Standards
 ---------

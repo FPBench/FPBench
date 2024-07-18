@@ -5,19 +5,31 @@ FPBench provides benchmarks, compilers, and standards for the floating-point res
 [![Build Status](https://github.com/FPBench/FPBench/workflows/build/badge.svg?branch=master)](https://github.com/FPBench/FPBench/actions)
 
 Setup
-----------
+-----
 
-To use FPBench tools, install [Racket](https://download.racket-lang.org) (Racket 8.0 or later is recommended).
+The FPBench tools require [Racket](https://racket-lang.org). Use the
+[official installer](http://download.racket-lang.org/racket-v8.13.html)
+to install Racket, or use distro-provided packages provided they are
+version 8.0 or later of Racket (earlier versions are not supported).
+
+Test that Racket is installed correctly and has a correct version:
+
+``` shell
+$ racket
+Welcome to Racket v8.13.
+> (exit)
+```
+
 Then, run `make setup` to install dependencies and compile the tools.
+
+[racket]: https://download.racket-lang.org
 
 Benchmarks
 ----------
 
 The FPBench benchmarks are located in `benchmarks/` in FPCore format.
-
-FPBench contains 98 benchmarks from four sources (FPTaylor, Herbie,
-Salsa, and Rosa) covering a variety of application domains and the
-full complement of FPCore features.
+These benchmarks are drawn from a variety of sources; you are welcome
+to contribute more by filing an issue.
 
 Compilers
 ---------

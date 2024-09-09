@@ -1,9 +1,9 @@
 # FPBench Tools
 
-FPBench provides two tools for FPCore: an [exporter](#export) and a
-[transformation tool](#transform).
+FPBench provides two tools for FPCore: an exporter and a
+transformation tool.
 
-## Exporting FPCores to other languages {#export}
+## Exporting FPCores to other languages
 
 The FPBench exporter compiles FPCore programs to another language. The
 exporter allows FPBench's benchmarks to be used by tools with a custom
@@ -74,7 +74,7 @@ The argument `-` can be used in place of the input or output file
 names to use standard input and output. When outputting to standard
 out, the `--lang` flag is necessary to specify the output language.
 
-## Applying transformations to FPCores {#transform}
+## Applying transformations to FPCores
 
 The FPBench transformation tool applies a variety of transformations to
 FPCore programs, such as common subexpression elimination, precondition

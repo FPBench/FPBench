@@ -12,13 +12,13 @@
          set-cuda-header!
          set-unknown->cuda!)
 
-(define cuda-header (const "#include <fenv.h>\n#include <math.h>\n#include <stdint.h>\n__device__ double e = 2.71828182845904523536;\n\n"))
+(define cuda-header (const "#include <fenv.h>\n#include <math_constants.h>\n#include <cuda_runtime.h>\n#include <math.h>\n#include <stdint.h>\n__device__ double e = 2.71828182845904523536;\n\n"))
 (define cuda-supported
   (supported-list
     (invert-op-proc (curry set-member? '(array dim size ref for for* tensor tensor*)))
     fpcore-consts
-    (curry set-member? '(binary32 binary64 binary80 integer))
-    (invert-rnd-mode-proc (curry equal? 'nearestAway))
+    (curry set-member? '(binary32 binary64 integer))
+    (curry equal? 'nearestEven)
     #f))
 
 (define (default-unknown->cuda ctx op args)
@@ -46,13 +46,11 @@
 (define/match (cuda-type->suffix type)
   [("int64_t") ""]
   [("double") ""]
-  [("float") "f"]
-  [("long double") "l"])
+  [("float") "f"])
 
 (define/match (type->cuda type)
   [('binary64) "double"]
   [('binary32) "float"]
-  [('binary80) "long double"]
   [('boolean) "int"]
   [('integer) "int64_t"])
 
@@ -65,22 +63,26 @@
     ((unknown->cuda) ctx op args)]))
   
 (define (binary80->string x)
-  (parameterize ([gfl-exponent 15] [gfl-bits 80])
+  (parameterize ([gfl-exponent 15])
     (let ([s (gfl->string (gfl x))])
       (if (string-contains? s ".") s (string-append s ".0")))))
 
 (define (constant->cuda x ctx)
   (define type (type->cuda (ctx-lookup-prop ctx ':precision)))
   (match x
-   [(or 'TRUE 'FALSE (? hex?)) (~a x)]
-   [(or 'M_1_PI 'M_2_PI 'M_2_SQRTPI 'INFINITY 'NAN)
-    (format "((~a) ~a)" type x)]
-   [(? number?)
-    (match type
-     ["int64_t" (~a (inexact->exact x))]
-     ["long double" (format "~a~a" (binary80->string x) (cuda-type->suffix type))]
-     [_ (format "~a~a" (real->double-flonum x) (cuda-type->suffix type))])]
-   [(? symbol?) (format "((~a) M_~a)" type x)]))
+    [(or 'TRUE 'FALSE (? hex?)) (~a x)]
+    ; Special case the CUDA-specific infinity and nan constants
+    ['INFINITY (format "((~a) CUDART_INF)" type)]
+    ['NAN (format "((~a) CUDART_NAN)" type)]
+    ; Handle the derived PI constants using CUDART_PI
+    ['M_1_PI (format "((~a) (1.0 / CUDART_PI))" type)]
+    ['M_2_PI (format "((~a) (2.0 / CUDART_PI))" type)]
+    ['M_2_SQRTPI (format "((~a) (2.0 / sqrt(CUDART_PI)))" type)]
+    [(? number?)
+     (match type
+       ["int64_t" (~a (inexact->exact x))]
+       [_ (format "~a~a" (real->double-flonum x) (cuda-type->suffix type))])]
+    [(? symbol?) (format "((~a) M_~a)" type x)]))
   
 (define (round->cuda x ctx)
   (define type (type->cuda (ctx-lookup-prop ctx ':precision)))
@@ -104,16 +106,6 @@
           arg)  ; TODO: warn unfaithful
       arg))
 
-(define (round-mode->cuda mode ctx)
-  (define indent (ctx-lookup-extra ctx 'indent))
-  (format "~afesetround(~a);\n" indent
-    (match mode
-     ['nearestEven  "FE_TONEAREST"]
-     ['toPositive   "FE_UPWARD"]
-     ['toNegative   "FE_DOWNWARD"]
-     ['toZero       "FE_TOWARDZERO"]
-     [_             (error 'round-mode->cuda (format "Unsupported rounding mode ~a" mode))])))
-
 (define (params->cuda args arg-ctxs)
   (string-join
     (for/list ([arg (in-list args)] [ctx (in-list arg-ctxs)])
@@ -128,14 +120,7 @@
    ['nearestEven
     (format "__device__ ~a ~a(~a) {\n~a\treturn ~a;\n}\n"
             type name (params->cuda args arg-ctxs)
-            body (trim-infix-parens ret))]
-   [_
-    (define-values (_ ret-var) (ctx-random-name ctx))
-    (format "__device__ ~a ~a(~a) {\n~a~a~a ~a = ~a;\n~a\treturn ~a;\n}\n"
-            type name (params->cuda args arg-ctxs)
-            (round-mode->cuda rnd-mode ctx) body
-            type ret-var (trim-infix-parens ret) 
-            (round-mode->cuda 'nearestEven ctx) ret-var)]))
+            body (trim-infix-parens ret))]))
 
 
 (define core->cuda
@@ -145,7 +130,6 @@
     #:type type->cuda
     #:round round->cuda
     #:implicit-round implicit-round->cuda
-    #:round-mode round-mode->cuda
     #:program program->cuda
     #:reserved cuda-reserved))
 

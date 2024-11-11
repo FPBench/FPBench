@@ -61,11 +61,6 @@
     (format "~a~a" op args)]
    [_
     ((unknown->cuda) ctx op args)]))
-  
-(define (binary80->string x)
-  (parameterize ([gfl-exponent 15])
-    (let ([s (gfl->string (gfl x))])
-      (if (string-contains? s ".") s (string-append s ".0")))))
 
 (define (constant->cuda x ctx)
   (define type (type->cuda (ctx-lookup-prop ctx ':precision)))

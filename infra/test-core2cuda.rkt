@@ -1,4 +1,6 @@
 #lang racket
+
+(require generic-flonum)
 (require "test-common.rkt" "../src/core2cuda.rkt" "../src/evaluator.rkt")
 
 (define (compile->cuda prog ctx type test-file)
@@ -53,6 +55,20 @@
  (system (format "nvcc ~a -o ~a" cuda-file test-file))
  test-file)
 
+(define (cuda-equality a b ulps type ignore?)
+  (cond
+   [(equal? a 'timeout) true]
+   [else
+    (define a* (->value a type))
+    (define b* (->value b type))
+    (<= (abs (gfls-between a* b*)) ulps)]))
+
+(define (cuda-format-args var val type)
+  (format "~a = ~a" var val))
+
+(define (cuda-format-output result)
+  (format "~a" result))
+
 (define (run<-cuda exec-name ctx type number)
  (define out
  (with-output-to-string
@@ -74,9 +90,9 @@
     (tester "cuda" 
             compile->cuda 
             run<-cuda 
-            c-equality  ; Can reuse C equality testing
-            c-format-args 
-            c-format-output 
+            cuda-equality  
+            cuda-format-args 
+            cuda-format-output 
             (const #t) 
             cuda-supported 
             #f))

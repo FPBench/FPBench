@@ -1,6 +1,5 @@
 #lang racket
 
-(require generic-flonum)
 (require "imperative.rkt")
 
 (provide cuda-header
@@ -12,7 +11,7 @@
          set-cuda-header!
          set-unknown->cuda!)
 
-(define cuda-header (const "#include <fenv.h>\n#include <math_constants.h>\n#include <cuda_runtime.h>\n#include <math.h>\n#include <stdint.h>\n__device__ double e = 2.71828182845904523536;\n\n"))
+(define cuda-header (const "#include <fenv.h>\n#include <math_constants.h>\n#include <cuda_runtime.h>\n#include <math.h>\n#include <stdint.h>\n\n"))
 (define cuda-supported
   (supported-list
     (invert-op-proc (curry set-member? '(array dim size ref for for* tensor tensor*)))
@@ -110,12 +109,9 @@
 
 (define (program->cuda name args arg-ctxs body ret ctx used-vars)
   (define type (type->cuda (ctx-lookup-prop ctx ':precision)))
-  (define rnd-mode (ctx-lookup-prop ctx ':round))
-  (match rnd-mode
-   ['nearestEven
     (format "__device__ ~a ~a(~a) {\n~a\treturn ~a;\n}\n"
             type name (params->cuda args arg-ctxs)
-            body (trim-infix-parens ret))]))
+            body (trim-infix-parens ret)))
 
 
 (define core->cuda

@@ -1,0 +1,95 @@
+user break
+double ex0(double arg0, double arg1) {
+	return arg0 + arg1;
+}
+
+double ex1(double arg0) {
+	return sqrt(arg0);
+}
+
+double ex2(double arg0, double arg1) {
+	double arg0_1 = arg1;
+	double arg1_2 = arg0;
+	return arg0_1 - arg1_2;
+}
+
+user break
+package main
+
+import "math"
+
+// Helper function to get rid of annoying unused variable errors
+func Use(vals ...interface{}) { for _, val := range vals { _ = val }}
+func Lgamma(x float64) float64 { res, _ := math.Lgamma(x); return res; }
+func Fmax(x float64, y float64) float64 { if x != x { return y; } else if y != y { return x; } else { return math.Max(x, y); }}
+func Fmin(x float64, y float64) float64 { if x != x { return y; } else if y != y { return x; } else { return math.Min(x, y); }}
+
+func ex0(arg0 float64, arg1 float64) float64 {
+	return arg0 + arg1
+}
+
+func ex1(arg0 float64) float64 {
+	return math.Sqrt(arg0)
+}
+
+func ex2(arg0 float64, arg1 float64) float64 {
+	var arg0_1 = float64(arg1)
+	var arg1_2 = float64(arg0)
+	Use(arg0_1, arg1_2)
+	return arg0_1 - arg1_2
+}
+
+user break
+function fmax(x, y) { if (x != x) { return y; } else if (y != y) { return x; } else { return Custom.max(x, y); }}
+function fmin(x, y) { if (x != x) { return y; } else if (y != y) { return x; } else { return Custom.min(x, y); }}
+function pow(x, y) { if (x == 1.0 && isNaN(y)) { return 1.0; } else { return Custom.pow(x, y); }}
+function fdim(x , y) { if (x != x || y != y) { return NaN; } else if (x > y) { return x - y; } else { return 0; }}
+
+function ex0(arg0, arg1) {
+	return arg0 + arg1;
+}
+
+function ex1(arg0) {
+	return Custom.sqrt(arg0);
+}
+
+function ex2(arg0, arg1) {
+	var arg0_1 = arg1;
+	var arg1_2 = arg0;
+	return arg0_1 - arg1_2;
+}
+
+user break
+arg0 = float<ieee_64,ne>(Marg0);
+arg1 = float<ieee_64,ne>(Marg1);
+
+Mex0 = (Marg0 + Marg1);
+
+ex0 float<ieee_64,ne>= (arg0 + arg1);
+
+{ (((Marg0 >= 1) /\ (Marg0 <= 10)) /\ ((Marg1 >= 1) /\ (Marg1 <= 10))) /\ (Marg0 in [1, 10] /\ Marg1 in [1, 10])
+  -> ex0 -/ Mex0 in ? }
+
+arg0 = float<ieee_64,ne>(Marg0);
+
+Mex1 = sqrt(Marg0);
+
+ex1 float<ieee_64,ne>= sqrt(arg0);
+
+{ ((Marg0 >= 0) /\ (Marg0 <= 10)) /\ (Marg0 in [0, 10])
+  -> ex1 -/ Mex1 in ? }
+
+arg0 = float<ieee_64,ne>(Marg0);
+arg1 = float<ieee_64,ne>(Marg1);
+
+Marg01 = Marg1;
+Marg11 = Marg0;
+Mex2 = (Marg01 - Marg11);
+
+arg01 float<ieee_64,ne>= arg1;
+arg11 float<ieee_64,ne>= arg0;
+ex2 float<ieee_64,ne>= (arg01 - arg11);
+
+{ (((Marg0 >= 1) /\ (Marg0 <= 10)) /\ ((Marg1 >= 1) /\ (Marg1 <= 10))) /\ (Marg0 in [1, 10] /\ Marg1 in [1, 10])
+  -> ex2 -/ Mex2 in ? }
+

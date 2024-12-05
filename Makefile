@@ -350,7 +350,7 @@ clean:
 	$(RM) -r library tmp log *.zo *.dep
 
 www/benchmarks.jsonp: $(wildcard benchmarks/*.fpcore)
-	racket infra/core2json.rkt --padding load_benchmarks $^ > "$@"
+	racket -y infra/core2json.rkt --padding load_benchmarks $^ > "$@"
 
 .PHONY: c-sanity c-test fptaylor-sanity fptaylor-test js-sanity js-test \
 		julia-sanity julia-test julia-benchmarks julia-binary64 julia-binary32 \

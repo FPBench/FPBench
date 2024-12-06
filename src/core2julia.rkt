@@ -1,7 +1,7 @@
 #lang racket
 
 (require "imperative.rkt")
-(provide core->julia julia-supported type->julia)
+(provide core->julia julia-supported type->julia julia-header)
 
 (define julia-supported 
   (supported-list

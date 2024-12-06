@@ -22,6 +22,16 @@
     macro module mutable primitive quote return struct true try type
     using while))
 
+(define julia-header
+  (const
+   (string-append
+    "function fmin(x, y)\n"
+    "  isnan(x) ? y : isnan(y) ? x : min(x, y)\n"
+    "end\n"
+    "function fmax(x, y)\n"
+    "  isnan(x) ? y : isnan(y) ? x : max(x, y)\n"
+    "end\n")))
+
 (define/match (type->julia prec)
   [('binary64) "Float64"]
   [('binary32) "Float32"]
@@ -32,10 +42,8 @@
   (match (cons op args)
    [(list 'atan2 a b) (format "atan(~a, ~a)" a b)]
    [(list 'fabs a) (format "abs(~a)" a)]
-   [(list 'fmax a b) (format "((~a != ~a) ? ~a : ((~a != ~a) ? ~a : max(~a, ~a)))"
-                             a a b b b a a b)]
-   [(list 'fmin a b) (format "((~a != ~a) ? ~a : ((~a != ~a) ? ~a : min(~a, ~a)))"
-                             a a b b b a a b)]
+   [(list 'fmax a b) (format "fmax(~a, ~a)" a b)]
+   [(list 'fmin a b) (format "fmin(~a, ~a)" a b)]
    [(list 'fmod a b) (format "rem(~a, ~a)" a b)]
    [(list 'pow a b) (format "(~a ^ ~a)" a b)]
    [_ (format "~a(~a)" op (string-join args ", "))]))
@@ -117,4 +125,4 @@
               round-after-operation)    ; Julia is loose about types, force rounding
     #:reserved julia-reserved))
 
-(define-compiler '("jl") (const "") core->julia (const "") julia-supported)
+(define-compiler '("jl") julia-header core->julia (const "") julia-supported)

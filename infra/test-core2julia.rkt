@@ -18,7 +18,7 @@
   (call-with-output-file test-file #:exists 'replace
     (λ (p)
       (define-values (N arg-types) (arg-info prog type))
-      (fprintf p "using Printf\n\n~a\n\n" (core->julia prog "f"))
+      (fprintf p "using Printf\n\n~a\n\n~a\n\n" (julia-header) (core->julia prog "f"))
       (fprintf p "@printf(\"%.17g\", f(~a))\n"
                  (string-join
                    (for/list ([i (in-range 1 (+ N 1))] [type arg-types])

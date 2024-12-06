@@ -1,0 +1,58 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>FPBench Benchmarks</title>
+  <link rel="stylesheet" type="text/css" href="fpbench.css">
+</head>
+<body>
+  <header>
+    <a href='.' style='color: black; text-decoration: none;'>
+      <img src='logo.png' height='150' alt='FPBench Logo' />
+      <h1>FPBench Benchmarks</h1>
+    </a>
+    <p>Browse the standard benchmark suite</p>
+    <ul>
+      <li><a href="index.html">Home</a></li>
+      <li><a href="benchmarks.html">Benchmarks</a></li>
+      <li><a href="https://github.com/FPBench/FPBench/blob/main/tools.md">Compilers</a></li>
+      <li><a href="spec/index.html">Standards</a></li>
+    </ul>
+  </header>
+
+  <p>FPBench is open for contributions. Please <a href="https://github.com/FPBench/FPBench/issues/new?labels=&template=benchmark-contribution.md">contribute your benchmarks</a>.</p>
+  
+  <form method="get" action="#" id="benchmark-search">
+    <div class="search-container">
+      <input id="search" type="text" />
+      <div id="overlay">
+        <span id="num-found"></span>
+        <span class="help" title="Search operator help">?</span>
+      </div>
+    </div>
+  </form>
+
+  <section id="help">
+    <p>Search terms are case-insensitive and space-separated. Multiple
+    search terms are ANDed together. Advanced search operators include:</p>
+
+    <table class="code-terms">
+      <tr><td>operator:exp</td><td>operator:array</td><td>!operator:while</td></tr>
+      <tr><td>example:</td><td>pre:</td><td>rosa-ensuring:</td></tr>
+      <tr><td>from:herbie</td><td>domain:math</td><td>tool:titanic</td></tr>
+    </table>
+
+    <p>Bookmark or email the URL to save or share a search!</p>
+  </section>
+  
+  <section id="benchmarks">
+
+  </section>
+  <footer>
+    <a id="download-all" download="benchmarks.json" href="#">Download all »</a>
+  </footer>
+
+  <script src="benchmarks.js"></script>
+  <script src="benchmarks.jsonp"></script>
+</body>
+</html>

@@ -120,8 +120,7 @@
       (unless (nonempty-bounded? range)
         (error 'fptaylor->function "Bad range for ~a in ~a (~a)" arg name range))
       (unless (= (length range) 1)
-        (print range)
-        (error 'fptaylor->function "FPTaylor only accepts one sampling range"))
+        (error 'fptaylor->function "FPTaylor only accepts one sampling range, not ~a" range))
       (match-define (interval l u l? u?) (car range))
       (define prec (ctx-lookup-prop ctx ':precision))
       (format "\t~a ~a in [~a, ~a];" (prec->fptaylor prec) arg

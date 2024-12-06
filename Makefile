@@ -30,6 +30,13 @@ else
 	$(warning skipping C sanity tests; unable to find C compiler $(CC))
 endif
 
+cuda-sanity:
+ifneq (, $(shell which nvcc))
+	cat $(SANITY) | racket infra/test-core2cuda.rkt --repeat 1
+else
+	$(warning skipping cuda sanity tests; unable to find cuda compiler $(CC))
+endif
+
 java-sanity:
 ifneq (, $(shell which java))
 	cat $(SANITY) | racket infra/test-core2java.rkt --repeat 1

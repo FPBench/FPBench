@@ -30,6 +30,8 @@ jobs:
         run: sudo apt-get install -y libmpfr6 libmpfr-dev
       - name: "Install Racket"
         uses: Bogdanp/setup-racket@v1.11
+        with:
+          version: 8.15
       - name: Checkout
         uses: actions/checkout@v4
       - name: Setup Pages

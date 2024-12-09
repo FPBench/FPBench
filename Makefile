@@ -159,7 +159,7 @@ else
 	$(warning skipping Vivado sanity tests; unable to find Vivado compiler)
 endif
 
-sanity: c-sanity java-sanity js-sanity go-sanity smtlib2-sanity sollya-sanity \
+sanity: c-sanity cuda-sanity java-sanity js-sanity go-sanity smtlib2-sanity sollya-sanity \
 		wls-sanity cml-sanity fptaylor-sanity scala-sanity ocaml-sanity \
 		python-sanity fortran-sanity matlab-sanity haskell-sanity julia-sanity \
 		rust-sanity vivado-sanity
@@ -172,6 +172,13 @@ ifneq (, $(shell which $(CC)))
 	cat $(TESTS) | racket infra/test-core2c.rkt --error 3
 else
 	$(warning skipping C tests; unable to find C compiler $(CC))
+endif
+
+cuda-test:
+ifneq (, $(shell which nvcc))
+	cat $(TESTS) | racket infra/test-core2cuda.rkt --error 3
+else
+	$(warning skipping cuda tests; unable to find cuda compiler $(CC))
 endif
 
 java-test:
@@ -348,7 +355,7 @@ tensor-test:
 
 tools-test: export-test transform-test toolserver-test evaluate-test tensor-test
 
-test: c-test java-test js-test go-test smtlib2-test sollya-test wls-test \
+test: c-test cuda-test java-test js-test go-test smtlib2-test sollya-test wls-test \
 	  cml-test fptaylor-test daisy-test ocaml-test python-test matlab-test \
 	  haskell-test rust-test vivado-test export-test transform-test \
 	  toolserver-test evaluate-test raco-test

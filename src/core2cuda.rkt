@@ -11,7 +11,7 @@
          set-cuda-header!
          set-unknown->cuda!)
 
-(define cuda-header (const "#include <fenv.h>\n#include <math_constants.h>\n#include <cuda_runtime.h>\n#include <math.h>\n#include <stdint.h>\n\n"))
+(define cuda-header (const "#include <fenv.h>\n#include <math_constants.h>\n#include <cuda_runtime.h>\n#include <cuda_fp16.h>\n#include <math.h>\n#include <stdint.h>\n#define TRUE 1\n#define FALSE 0\n\n"))
 (define cuda-supported
   (supported-list
     (invert-op-proc (curry set-member? '(array dim size ref for for* tensor tensor*)))
@@ -60,6 +60,14 @@
     (format "~a~a" op args)]
    [_
     ((unknown->cuda) ctx op args)]))
+
+; (define (operator->cuda op args ctx)
+;  (define type (type->cuda (ctx-lookup-prop ctx ':precision)))
+;  (match op
+;    [(and (or 'isinf 'isnan 'isfinite 'isnormal 'signbit) x)
+;     (format "__~a~a" x args)]  ; Prefix any of these functions with __
+;    [_
+;     ((unknown->cuda) ctx op args)]))
 
 (define (constant->cuda x ctx)
   (define type (type->cuda (ctx-lookup-prop ctx ':precision)))

@@ -1,0 +1,1 @@
+(FPCore () :name "Test isnormal (1/1)" :spec 0.0 (if (isnormal 0.0) 1 0))

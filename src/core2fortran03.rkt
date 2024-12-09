@@ -128,7 +128,7 @@
     ~a, intent (in) :: x
     ~a, intent (in) :: y
     fmin = merge(y, merge(x, min(x, y), y /= y), x /= x)
-end function
+end function\n
 ~a function fmax(x, y)
     ~a, intent (in) :: x
     ~a, intent (in) :: y

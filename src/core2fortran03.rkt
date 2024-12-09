@@ -90,10 +90,8 @@
    [(list 'isnan a) (format "(~a /= ~a)" a a)]
    [(list 'fabs a) (format "abs(~a)" a)]
    [(list 'fdim a b) (format "dim(~a, ~a)" a b)]
-   [(list 'fmax a b) (format "merge(~a, merge(~a, max(~a, ~a), ~a /= ~a), ~a /= ~a)"
-                             b a a b b b a a)]
-   [(list 'fmin a b) (format "merge(~a, merge(~a, min(~a, ~a), ~a /= ~a), ~a /= ~a)"
-                              b a a b b b a a)]
+   [(list 'fmax a b) (format "fmax(~a, ~a)" a b)]
+   [(list 'fmin a b) (format "fmin(~a, ~a)" a b)]
    [(list 'fmod a b) (format "mod(~a, ~a)" a b)]
    [(list 'pow a b) (format "(~a ** ~a)" a b)]
    [(list 'round a) (format "anint(~a)" a)]
@@ -124,10 +122,23 @@
           arg)  ; TODO: warn unfaithful
       arg))
 
+(define (fortran-header)
+   "real function fmin(x, y)
+    real, intent (in) :: x
+    real, intent (in) :: y
+    fmin = merge(y, merge(x, min(x, y), y /= y), x /= x)
+end function\n
+real function fmax(x, y)
+    real, intent (in) :: x
+    real, intent (in) :: y
+    fmax = merge(y, merge(x, max(x, y), y /= y), x /= x)
+end function\n\n")
+
 (define (program->fortran name args arg-ctxs body ret ctx used-vars)
   (define type (type->fortran (ctx-lookup-prop ctx ':precision)))
   (define declared-in (sort (remove* args used-vars) string<?))
-  (format "~a function ~a(~a)\n~a~a~a    ~a = ~a\nend function\n" type name
+  (define header (fortran-header))
+  (format "~a~a function ~a(~a)\n~a~a~a    ~a = ~a\nend function\n"  header type name
           (string-join args ", ")
           (apply string-append
             (for/list ([arg args] [ctx arg-ctxs])

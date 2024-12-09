@@ -122,23 +122,22 @@
           arg)  ; TODO: warn unfaithful
       arg))
 
-(define (fortran-header type)
-  (format
-   "~a function fmin(x, y)
-    ~a, intent (in) :: x
-    ~a, intent (in) :: y
+(define (fortran-header)
+   "real function fmin(x, y)
+    real, intent (in) :: x
+    real, intent (in) :: y
     fmin = merge(y, merge(x, min(x, y), y /= y), x /= x)
 end function\n
-~a function fmax(x, y)
-    ~a, intent (in) :: x
-    ~a, intent (in) :: y
+real function fmax(x, y)
+    real, intent (in) :: x
+    real, intent (in) :: y
     fmax = merge(y, merge(x, max(x, y), y /= y), x /= x)
-end function\n\n" type type type type type type))
+end function\n\n")
 
 (define (program->fortran name args arg-ctxs body ret ctx used-vars)
   (define type (type->fortran (ctx-lookup-prop ctx ':precision)))
   (define declared-in (sort (remove* args used-vars) string<?))
-  (define header (fortran-header type))
+  (define header (fortran-header))
   (format "~a~a function ~a(~a)\n~a~a~a    ~a = ~a\nend function\n"  header type name
           (string-join args ", ")
           (apply string-append

@@ -6,3 +6,4 @@ fpbench-compiled/
 *.dep
 *.zo
 *.swp
+fmin_fmax_functions.mod

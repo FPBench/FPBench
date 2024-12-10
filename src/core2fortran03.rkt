@@ -124,7 +124,7 @@
 
 (define (fortran-header)
   (format
-   "module min_max_functions
+   "module fmin_fmax_functions
     implicit none
     private
     public fmax

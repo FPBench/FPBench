@@ -90,10 +90,8 @@
    [(list 'isnan a) (format "(~a /= ~a)" a a)]
    [(list 'fabs a) (format "abs(~a)" a)]
    [(list 'fdim a b) (format "dim(~a, ~a)" a b)]
-   [(list 'fmax a b) (format "merge(~a, merge(~a, max(~a, ~a), ~a /= ~a), ~a /= ~a)"
-                             b a a b b b a a)]
-   [(list 'fmin a b) (format "merge(~a, merge(~a, min(~a, ~a), ~a /= ~a), ~a /= ~a)"
-                              b a a b b b a a)]
+   [(list 'fmax a b) (format "fmax(~a, ~a)" a b)]
+   [(list 'fmin a b) (format "fmin(~a, ~a)" a b)]
    [(list 'fmod a b) (format "mod(~a, ~a)" a b)]
    [(list 'pow a b) (format "(~a ** ~a)" a b)]
    [(list 'round a) (format "anint(~a)" a)]
@@ -124,10 +122,75 @@
           arg)  ; TODO: warn unfaithful
       arg))
 
+(define (fortran-header)
+  (format
+   "module fmin_fmax_functions
+    implicit none
+    private
+    public fmax
+    public fmin
+
+    interface fmax
+        module procedure fmax88
+        module procedure fmax44
+        module procedure fmax84
+        module procedure fmax48
+    end interface
+    interface fmin
+        module procedure fmin88
+        module procedure fmin44
+        module procedure fmin84
+        module procedure fmin48
+    end interface
+contains
+    real(8) function fmax88(x, y) result (res)
+        real(8), intent (in) :: x
+        real(8), intent (in) :: y
+        res = merge(y, merge(x, max(x, y), y /= y), x /= x)
+    end function
+    real(4) function fmax44(x, y) result (res)
+        real(4), intent (in) :: x
+        real(4), intent (in) :: y
+        res = merge(y, merge(x, max(x, y), y /= y), x /= x)
+    end function
+    real(8) function fmax84(x, y) result(res)
+        real(8), intent (in) :: x
+        real(4), intent (in) :: y
+        res = merge(dble(y), merge(x, max(x, dble(y)), y /= y), x /= x)
+    end function
+    real(8) function fmax48(x, y) result(res)
+        real(4), intent (in) :: x
+        real(8), intent (in) :: y
+        res = merge(y, merge(dble(x), max(dble(x), y), y /= y), x /= x)
+    end function
+    real(8) function fmin88(x, y) result (res)
+        real(8), intent (in) :: x
+        real(8), intent (in) :: y
+        res = merge(y, merge(x, min(x, y), y /= y), x /= x)
+    end function
+    real(4) function fmin44(x, y) result (res)
+        real(4), intent (in) :: x
+        real(4), intent (in) :: y
+        res = merge(y, merge(x, min(x, y), y /= y), x /= x)
+    end function
+    real(8) function fmin84(x, y) result(res)
+        real(8), intent (in) :: x
+        real(4), intent (in) :: y
+        res = merge(dble(y), merge(x, min(x, dble(y)), y /= y), x /= x)
+    end function
+    real(8) function fmin48(x, y) result(res)
+        real(4), intent (in) :: x
+        real(8), intent (in) :: y
+        res = merge(y, merge(dble(x), min(dble(x), y), y /= y), x /= x)
+    end function
+end module\n\n"))
+
 (define (program->fortran name args arg-ctxs body ret ctx used-vars)
   (define type (type->fortran (ctx-lookup-prop ctx ':precision)))
   (define declared-in (sort (remove* args used-vars) string<?))
-  (format "~a function ~a(~a)\n~a~a~a    ~a = ~a\nend function\n" type name
+  (define header (fortran-header))
+  (format "~a~a function ~a(~a)\nuse fmin_fmax_functions\n~a~a~a    ~a = ~a\nend function\n"
+          header type name
           (string-join args ", ")
           (apply string-append
             (for/list ([arg args] [ctx arg-ctxs])

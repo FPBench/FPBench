@@ -53,21 +53,24 @@
   [('boolean) "int"]
   [('integer) "int64_t"])
 
-(define (operator->cuda op args ctx)
-  (define type (type->cuda (ctx-lookup-prop ctx ':precision)))
-  (match op
-   [(or 'isinf 'isnan 'isfinite 'isnormal 'signbit)
-    (format "~a~a" op args)]
-   [_
-    ((unknown->cuda) ctx op args)]))
-
+; Passing almost all tests version
 ; (define (operator->cuda op args ctx)
-;  (define type (type->cuda (ctx-lookup-prop ctx ':precision)))
-;  (match op
-;    [(and (or 'isinf 'isnan 'isfinite 'isnormal 'signbit) x)
-;     (format "__~a~a" x args)]  ; Prefix any of these functions with __
+;   (define type (type->cuda (ctx-lookup-prop ctx ':precision)))
+;   (match op
+;    [(or 'isinf 'isnan 'isfinite 'isnormal 'signbit)
+;     (format "~a~a" op args)]
 ;    [_
 ;     ((unknown->cuda) ctx op args)]))
+
+(define (operator->cuda op args ctx)
+ (define type (type->cuda (ctx-lookup-prop ctx ':precision)))
+ (match op
+ ['isnormal 
+    (format "isfinite~a" args)]
+ [(or 'isinf 'isnan 'isfinite 'signbit)
+    (format "~a~a" op args)]
+ [_
+    ((unknown->cuda) ctx op args)]))
 
 (define (constant->cuda x ctx)
   (define type (type->cuda (ctx-lookup-prop ctx ':precision)))

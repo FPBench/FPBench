@@ -3,7 +3,7 @@
 (require generic-flonum)
 (require "imperative.rkt")
 
-(provide core->fortran type->fortran fortran-supported)
+(provide core->fortran type->fortran fortran-supported fortran-header)
 
 (define fortran-supported 
   (supported-list
@@ -188,9 +188,8 @@ end module\n\n"))
 (define (program->fortran name args arg-ctxs body ret ctx used-vars)
   (define type (type->fortran (ctx-lookup-prop ctx ':precision)))
   (define declared-in (sort (remove* args used-vars) string<?))
-  (define header (fortran-header))
-  (format "~a~a function ~a(~a)\nuse fmin_fmax_functions\n~a~a~a    ~a = ~a\nend function\n"
-          header type name
+  (format "~a function ~a(~a)\nuse fmin_fmax_functions\n~a~a~a    ~a = ~a\nend function\n"
+          type name
           (string-join args ", ")
           (apply string-append
             (for/list ([arg args] [ctx arg-ctxs])
@@ -221,4 +220,4 @@ end module\n\n"))
     #:fix-name fortran-fix-name
     #:indent "    "))
 
-(define-compiler '("f03") (const "") core->fortran (const "") fortran-supported)
+(define-compiler '("f03") fortran-header core->fortran (const "") fortran-supported)

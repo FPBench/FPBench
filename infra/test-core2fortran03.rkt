@@ -20,7 +20,7 @@
       (define-values (N arg-types) (arg-info prog type))
       (define args* (for/list ([i (in-range 1 (+ N 1))]) (format "a~a" i)))
       (define vals* (for/list ([i (in-range 1 (+ N 1))]) (format "r~a" i)))
-      (fprintf p "~a\n\n" (core->fortran prog "f"))
+      (fprintf p "~a\n~a\n\n" (fortran-header) (core->fortran prog "f"))
       (fprintf p "program main\n    integer :: i\n")
       (when (> N 0) (fprintf p "    character (len=65) :: ~a\n" (string-join args* ", ")))
       (for ([val vals*] [type arg-types])

@@ -52,6 +52,9 @@ cat "${output}.cml" >> $test
 racket export.rkt $target "${output}.scala" 2>> $test
 cat "${output}.scala" >> $test
 
+racket export.rkt $target "${output}.cu" 2>> $test
+cat "${output}.cu" >> $test
+
 # compare
 if [ "$1" != "generate" ]
 then

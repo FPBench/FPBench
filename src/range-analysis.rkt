@@ -7,8 +7,6 @@
 (module+ test
   (require rackunit))
 
-;; Range analysis is based on https://github.com/uwplse/herbie/blob/master/src/range-analysis.rkt
-
 ; Standard min and max can transform exact numbers into inexact numbers
 (define (exact-max arg1 . args)
   (for/fold ([max arg1]) ([arg args])

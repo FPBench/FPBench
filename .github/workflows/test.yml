@@ -284,7 +284,7 @@ jobs:
       - name: "Install OCaml"
         uses: ocaml/setup-ocaml@v3
         with:
-          ocaml-compiler: 5
+          ocaml-compiler: '4.04.2'
 
       - name: "Install Packages"
         run: |

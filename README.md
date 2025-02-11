@@ -2,7 +2,7 @@
 
 FPBench provides benchmarks, compilers, and standards for the floating-point research community. 
 
-[![Build Status](https://github.com/FPBench/FPBench/workflows/build/badge.svg?branch=master)](https://github.com/FPBench/FPBench/actions)
+[![Build Status](https://github.com/FPBench/FPBench/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/FPBench/FPBench/actions)
 
 Setup
 -----

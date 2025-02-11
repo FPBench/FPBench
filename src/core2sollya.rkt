@@ -32,7 +32,7 @@
       "procedure isinf(x) { return (abs(x) == infty); };\n"
       "procedure isnan(x) { return (x != x); };\n"
       "procedure trunc(x) { var res; if (x < 0) then res = ceil(x) else res = floor(x); return res; };\n"
-      "procedure pow(x, y) { var res; if (x == 1 && y != y) then res = 1 else res = (x ^ y); return res; };\n"
+      "procedure pow(x, y) { var res; if (x == 1 && y != y) then res = 1 else res := (x ^ y); return res; };\n"
       "procedure sin_libm(x) { var res; if (abs(x) == infty) then res = nan else res = sin(x); return res; };\n"
       "procedure cos_libm(x) { var res; if (abs(x) == infty) then res = nan else res = cos(x); return res; };\n"
       "procedure div_warn(x, y) { if (x != 0 && y == 0) then print(\"[WARNING] FPBench: Division by zero. Sollya always returns NaN.\"); return (x / y); };\n\n")))

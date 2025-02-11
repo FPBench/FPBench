@@ -1,7 +1,9 @@
-www
+fptalks/
+www/benchmarks.jsonp
 library/Real.scala
 fpbench-compiled/
 *~
 *.dep
 *.zo
 *.swp
+fmin_fmax_functions.mod

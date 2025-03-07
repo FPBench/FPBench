@@ -1,8 +1,6 @@
 SANITY = tests/sanity/*.fpcore
 TESTS = benchmarks/*.fpcore tests/*.fpcore
 FILTER = racket infra/filter.rkt
-SALSA = benchmarks/salsa.fpcore
-CONT = tests/depth1-bool-binary32.fpcore
 
 ### Install / Compile
 
@@ -35,13 +33,6 @@ endif
 cuda-sanity:
 ifneq (, $(shell which nvcc))
 	cat $(SANITY) | racket infra/test-core2cuda.rkt --repeat 1
-else
-	$(warning skipping cuda sanity tests; unable to find cuda compiler $(CC))
-endif
-
-cuda-sanity-1:
-ifneq (, $(shell which nvcc))
-	cat $(CONT) | racket infra/test-core2cuda.rkt --repeat 1
 else
 	$(warning skipping cuda sanity tests; unable to find cuda compiler $(CC))
 endif
@@ -186,13 +177,6 @@ endif
 cuda-test:
 ifneq (, $(shell which nvcc))
 	cat $(TESTS) | racket infra/test-core2cuda.rkt --error 150
-else
-	$(warning skipping cuda tests; unable to find cuda compiler $(CC))
-endif
-
-cuda-salsa-test:
-ifneq (, $(shell which nvcc))
-	cat $(SALSA) | racket infra/test-core2cuda.rkt --error 150
 else
 	$(warning skipping cuda tests; unable to find cuda compiler $(CC))
 endif

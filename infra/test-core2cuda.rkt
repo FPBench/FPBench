@@ -78,18 +78,14 @@
                  ['binary32 "17g"]
                  ['integer "li"]))))
   
-  ; Print the generated file for debugging
-  (printf "Generated CUDA file:\n")
-  (printf "-------------------\n")
-  (display (file->string test-file))
-  (printf "-------------------\n")
-
   
-  ; Compile with nvcc instead of gcc
+  ; Compile
   (define cuda-file (string-replace test-file ".cu" ".cu"))
-  (system (format "nvcc --expt-relaxed-constexpr ~a -o ~a" cuda-file test-file))
+  (system (format "nvcc --expt-relaxed-constexpr -fmad=false ~a -o ~a" cuda-file test-file))
   test-file)
-  
+
+ 
+ 
 
 (define (cuda-equality a b ulps type ignore?)
   (cond

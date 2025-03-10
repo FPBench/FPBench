@@ -80,12 +80,15 @@
   
   
   ; Compile
-  (define cuda-file (string-replace test-file ".cu" ".cu"))
-  (system (format "nvcc --expt-relaxed-constexpr -fmad=false ~a -o ~a" cuda-file test-file))
-  test-file)
+  ; (define cuda-file (string-replace test-file ".cu" ".bin"))
+  ; (system (format "nvcc --expt-relaxed-constexpr -fmad=false ~a -o ~a" test-file cuda-file))
+  ; test-file)
+  (define cuda-file (string-replace test-file ".cu" ".bin"))
+  (system (format "nvcc --expt-relaxed-constexpr -fmad=false ~a -o ~a" test-file cuda-file))
+  cuda-file)
 
  
- 
+  ; nvcc --expt-relaxed-constexpr /tmp/test.cu -o /tmp/test
 
 (define (cuda-equality a b ulps type ignore?)
   (cond

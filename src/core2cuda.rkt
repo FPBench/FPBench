@@ -53,15 +53,6 @@
   [('boolean) "int"]
   [('integer) "int64_t"])
 
-; Passing almost all tests version
-; (define (operator->cuda op args ctx)
-;   (define type (type->cuda (ctx-lookup-prop ctx ':precision)))
-;   (match op
-;    [(or 'isinf 'isnan 'isfinite 'isnormal 'signbit)
-;     (format "~a~a" op args)]
-;    [_
-;     ((unknown->cuda) ctx op args)]))
-
 (define (operator->cuda op args ctx)
  (define type (type->cuda (ctx-lookup-prop ctx ':precision)))
  (match op

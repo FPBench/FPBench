@@ -80,9 +80,6 @@
   
   
   ; Compile
-  ; (define cuda-file (string-replace test-file ".cu" ".bin"))
-  ; (system (format "nvcc --expt-relaxed-constexpr -fmad=false ~a -o ~a" test-file cuda-file))
-  ; test-file)
   (define cuda-file (string-replace test-file ".cu" ".bin"))
   (system (format "nvcc --expt-relaxed-constexpr -fmad=false ~a -o ~a" test-file cuda-file))
   cuda-file)

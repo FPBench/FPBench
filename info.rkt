@@ -1,6 +1,6 @@
 #lang info
 (define name "fpbench")
-(define version "2.0.3")
+(define version "2.0.4")
 
 (define racket-launcher-names '("fpbench"))
 (define racket-launcher-libraries '("fpbench.rkt"))

@@ -7,3 +7,4 @@ fpbench-compiled/
 *.zo
 *.swp
 fmin_fmax_functions.mod
+.DS_Store

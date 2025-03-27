@@ -8,7 +8,7 @@ Setup
 -----
 
 The FPBench tools require [Racket](https://racket-lang.org). Use the
-[official installer](http://download.racket-lang.org/racket-v8.13.html)
+[official installer](http://download.racket-lang.org/racket-v8.16.html)
 to install Racket, or use distro-provided packages provided they are
 version 8.0 or later of Racket (earlier versions are not supported).
 

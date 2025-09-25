@@ -39,7 +39,7 @@
                       asin
                       atan
                       fmod
-                      ; 
+                      ;
                       fma
                       exp2
                       expm1
@@ -144,16 +144,26 @@
 (define (program->pvs name args arg-ctxs body ret ctx used-vars)
   (format "~a: THEORY\nBEGIN\nf(~a): real = \n~a\n~a\nEND ~a" name (params->pvs args) body ret name))
 
+(define let-bind-format "~a = ~a")
+(define let-format "LET ~a IN\n~a")
+(define let-bind-separator ",\n")
+(define if-format "IF ~a THEN ~a ELSE ~a ENDIF")
+
 ; Override visitor behavior
 (define-expr-visitor
  imperative-visitor
  pvs-visitor
  [(visit-if vtor cond ift iff #:ctx ctx)
+  (define-values (ctx* tmpvar) ; allocate a variable
+    (parameterize ([current-output-port (open-output-nowhere)])
+      (define-values (_ ift-ctx) (visit/ctx vtor ift ctx))
+      (define prec (ctx-lookup-prop ift-ctx ':precision))
+      (ctx-random-name (ctx-update-props ctx `(:precision ,prec)))))
   (define-values (cond* cond-ctx) (visit/ctx vtor cond ctx))
   (define-values (ift* ift-ctx) (visit/ctx vtor ift ctx))
   (define-values (iff* iff-ctx) (visit/ctx vtor iff ctx))
-  (define if-format "IF ~a THEN ~a ELSE ~a ENDIF")
-  (values (format if-format cond* ift* iff*) ift-ctx)]
+  (printf (format let-format (format let-bind-format tmpvar (format if-format cond* ift* iff*)) ""))
+  (values tmpvar ctx*)]
  [(visit-let vtor vars vals body #:ctx ctx)
   (define-values (ctx* vars* vals*)
     (for/fold ([ctx* ctx]
@@ -204,12 +214,16 @@
   (define (compile* . exprs)
     (for/list ([expr exprs]
                [i (in-naturals 1)])
-      (compile0 expr "2sin (example 3.3)" #;(format "fn~a" i))))
+      (compile0 expr (format "fn~a" i))))
 
-  ;'(FPCore (x) (if (< x 0) (+ x 1) (- x 1)))
   ;'(FPCore (x) (let ([x 1] [y x]) (+ x y)))
   ;'(FPCore (x) (let* ([x 1] [y x]) (+ x y)))
-  (compile* '(FPCore (x eps)
+  (compile* '(FPCore (x)
+                     (+ 1
+                        (if (< x 0)
+                            (+ x 1)
+                            (- x 1))))
+            '(FPCore (x eps)
                      :name
                      "2sin (example 3.3)"
                      :pre

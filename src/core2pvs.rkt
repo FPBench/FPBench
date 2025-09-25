@@ -162,6 +162,8 @@
   (define-values (cond* cond-ctx) (visit/ctx vtor cond ctx))
   (define-values (ift* ift-ctx) (visit/ctx vtor ift ctx))
   (define-values (iff* iff-ctx) (visit/ctx vtor iff ctx))
+  ;; Currying anything outside of if-statement into let-body
+  ;; to allow nesting over if-statement
   (printf (format let-format (format let-bind-format tmpvar (format if-format cond* ift* iff*)) ""))
   (values tmpvar ctx*)]
  [(visit-let vtor vars vals body #:ctx ctx)
@@ -176,14 +178,13 @@
       (define prec (ctx-lookup-prop val-ctx ':precision))
       (define-values (name-ctx name) (ctx-unique-name ctx* var prec))
       (values name-ctx (cons name vars*) (cons val* vals*))))
-  (define-values (body* body-ctx) (visit/ctx vtor body ctx*))
-  (define let-bind-format "~a = ~a")
-  (define let-format "LET ~a IN\n~a")
-  (define let-bind-separator ",\n")
-  (values (format let-format
+  ;; Currying anything outside of let-statement into let-body
+  ;; to allow nesting over let-statement
+  (printf (format let-format
                   (string-join (map (curry format let-bind-format) vars* vals*) let-bind-separator)
-                  body*)
-          body-ctx)]
+                  ""))
+  (define-values (body* body-ctx) (visit/ctx vtor body ctx*))
+  (values body* body-ctx)]
  [(visit-let* vtor vars vals body #:ctx ctx)
   (visit/ctx vtor
              (let loop ([vars vars]
@@ -216,19 +217,38 @@
                [i (in-naturals 1)])
       (compile0 expr (format "fn~a" i))))
 
-  ;'(FPCore (x) (let ([x 1] [y x]) (+ x y)))
-  ;'(FPCore (x) (let* ([x 1] [y x]) (+ x y)))
+  #;'(FPCore (x) ; nested if check
+             (if (< x 0)
+                 (if (< x 0)
+                     (+ x 1)
+                     (- x 1))
+                 (if (< x 0)
+                     (+ x 1)
+                     (- x 1))))
   (compile* '(FPCore (x)
+                     (let ([x 1]
+                           [y x])
+                       (+ x y))) ; let check
+            '(FPCore (x)
+                     (let* ([x 1]
+                            [y x])
+                       (+ x y))) ; let* check
+            '(FPCore (x)
                      (+ 1
-                        (if (< x 0)
-                            (+ x 1)
-                            (- x 1))))
-            '(FPCore (x eps)
-                     :name
-                     "2sin (example 3.3)"
-                     :pre
-                     (and (<= -1e4 x) (<= x 1e4) (< (* 1e-16 (fabs x)) eps) (< eps (* (fabs x))))
-                     (- (sin (+ x eps)) (sin x)))
+                        (let ([x 1]
+                              [y x])
+                          (+ x y)))) ; nested let check
+            '(FPCore (x)
+                     (+ 1
+                        (let* ([x 1]
+                               [y x])
+                          (+ x y)))) ; nested let* check
+            #;'(FPCore (x eps)
+                       :name
+                       "2sin (example 3.3)"
+                       :pre
+                       (and (<= -1e4 x) (<= x 1e4) (< (* 1e-16 (fabs x)) eps) (< eps (* (fabs x))))
+                       (- (sin (+ x eps)) (sin x)))
             ;'(FPCore (x) (while* (< x 4) ([x 0.0 (+ x 1.0)]) x))
             ;'(FPCore (x) (+ (foo x) 1))
             ;'(FPCore (x) (- (sqrt (+ x 1)) (sqrt x)))

@@ -6,7 +6,7 @@
 ;; For reference: https://github.com/nasa/PRECiSA/blob/main/PRECiSA/src/MapRealPVSLangAST.hs
 
 ;; Missing operators:
-;; Can be added:
+;; Potentially can be added:
 ;; | remainder, max, min,
 ;; | atan2,
 ;; | fdim, copysign.
@@ -53,7 +53,9 @@
                       tanh
                       asinh
                       acosh
-                      atanh)
+                      atanh
+                      fmax
+                      fmin)
                   '(< > <= >= == != and or not)
                   '(if let let*)))
    (curry set-member?
@@ -64,7 +66,42 @@
 
 ; TODO
 (define pvs-reserved ; Language-specific reserved names (avoid name collisions)
-  '(f)) ;; f IS GONNA BE RESERVED TEMPORARILY AS I USE IT AS A FUNCTION
+  '(f THEORY
+      BEGIN
+      END
+      real
+      OR
+      AND
+      =
+      NOT
+      +
+      -
+      *
+      /
+      <
+      >
+      <=
+      >=
+      ^
+      %
+      exp
+      sqrt
+      sin
+      cos
+      tan
+      acos
+      asin
+      atan
+      abs
+      ln
+      TRUE
+      FALSE
+      LET
+      IN
+      IF
+      THEN
+      ELSE
+      ENDIF))
 
 (define (operator->pvs op args ctx)
   (match op
@@ -80,10 +117,10 @@
     ['fabs (format "(abs(~a))" (car args))]
     ; New
     ['fma (format "((~a * ~a) + a)" (car args) (cadr args) (caddr args))]
-    ['exp2 (format "2 ^ ~a" (car args))]
+    ['exp2 (format "(2 ^ ~a)" (car args))]
     ['expm1 (format "(exp(~a) - 1)" (car args))]
     ['cbrt (format "(~a ^ (1 / 3))" (car args))]
-    ['hypot (format "sqrt((~a ^ 2) + (~a ^ 2))" (car args) (cadr args))]
+    ['hypot (format "(sqrt((~a ^ 2) + (~a ^ 2)))" (car args) (cadr args))]
     ['log (format "(ln(~a))" (car args))]
     ['log10 (format "(ln(~a) / ln(10))" (car args))]
     ['log2 (format "(ln(~a) / ln(2))" (car args))]
@@ -105,10 +142,10 @@
   (match x
     [(or 'TRUE 'FALSE) (~a x)]
     ['E "exp(1)"]
-    ['LOG2E "(log(exp(1)) / log(2))"]
-    ['LOG10E "(log(exp(1)) / log(10))"]
-    ['LN2 "(log(2))"]
-    ['LN10 "(log(10))"]
+    ['LOG2E "(ln(exp(1)) / ln(2))"]
+    ['LOG10E "(ln(exp(1)) / ln(10))"]
+    ['LN2 "(ln(2))"]
+    ['LN10 "(ln(10))"]
     ['PI "(4 * atan(1))"]
     ['PI_2 "(2 * atan(1))"]
     ['PI_4 "(atan(1))"]
@@ -120,19 +157,23 @@
     [(? number?) (format-number x)]
     [_ (error 'constant->pvs "parsing for ~a constant is not implemented in core2pvs" x)]))
 
+;; Types are not supported
 (define (type->pvs type)
   (match type
     ['binary64 ""]
     ['binary32 ""]
-    ['boolean ""] ;; it is not really supported
+    ['boolean ""]
     [_ (error 'type->pvs "unsupported type ~a in core2pvs" type)]))
 
+;; Roundings are not supported
 (define (round->pvs x ctx)
   (~a x))
 
+;; Roundings are not supported
 (define (implicit-round->pvs op arg arg-ctx ctx)
   (~a arg))
 
+;; Rounding modes are not supported
 (define (round-mode->pvs mode ctx)
   (unless (equal? mode 'nearestEven)
     (error 'round-mode->pvs (format "Unsupported rounding mode ~a in core2pvs" mode)))
@@ -142,7 +183,7 @@
   (string-join (map (curry format "~a: real") args) ", "))
 
 (define (program->pvs name args arg-ctxs body ret ctx used-vars)
-  (format "~a: THEORY\nBEGIN\nf(~a): real = \n~a\n~a\nEND ~a" name (params->pvs args) body ret name))
+  (format "~a: THEORY\nBEGIN\nf(~a): real =\n~a~a\nEND ~a" name (params->pvs args) body ret name))
 
 (define let-bind-format "~a = ~a")
 (define let-format "LET ~a IN\n~a")
@@ -192,7 +233,34 @@
                (cond
                  [(null? vars) body]
                  [else `(let (,(list (car vars) (car vals))) ,(loop (cdr vars) (cdr vals)))]))
-             ctx)])
+             ctx)]
+ [(visit-op vtor op args #:ctx ctx)
+  (cond
+    [(equal? op 'fmax)
+     (visit/ctx vtor
+                `(if (> ,(car args) ,(cadr args))
+                     ,(car args)
+                     ,(cadr args))
+                ctx)]
+    [(equal? op 'fmin)
+     (visit/ctx vtor
+                `(if (< ,(car args) ,(cadr args))
+                     ,(car args)
+                     ,(cadr args))
+                ctx)]
+    [else
+     (define prec (ctx-lookup-prop ctx ':precision))
+     (define args*
+       (for/list ([arg args])
+         (define-values (arg* arg-ctx) (visit/ctx vtor arg ctx))
+         (define arg-prec (ctx-lookup-prop arg-ctx ':precision))
+         (if (equal? prec arg-prec)
+             arg*
+             (implicit-round->pvs op arg* arg-ctx ctx))))
+     (values (operator->pvs op args* ctx)
+             (if (set-member? bool-ops op)
+                 (ctx-update-props ctx (list ':precision 'boolean))
+                 ctx))])])
 
 (define core->pvs
   (make-imperative-compiler "pvs"
@@ -216,15 +284,6 @@
     (for/list ([expr exprs]
                [i (in-naturals 1)])
       (compile0 expr (format "fn~a" i))))
-
-  #;'(FPCore (x) ; nested if check
-             (if (< x 0)
-                 (if (< x 0)
-                     (+ x 1)
-                     (- x 1))
-                 (if (< x 0)
-                     (+ x 1)
-                     (- x 1))))
   (compile* '(FPCore (x)
                      (let ([x 1]
                            [y x])
@@ -234,23 +293,24 @@
                             [y x])
                        (+ x y))) ; let* check
             '(FPCore (x)
-                     (+ 1
-                        (let ([x 1]
-                              [y x])
-                          (+ x y)))) ; nested let check
+                     (hypot 1
+                            (let ([x 1]
+                                  [y x])
+                              (+ x y)))) ; nested let check
             '(FPCore (x)
                      (+ 1
                         (let* ([x 1]
                                [y x])
                           (+ x y)))) ; nested let* check
-            #;'(FPCore (x eps)
-                       :name
-                       "2sin (example 3.3)"
-                       :pre
-                       (and (<= -1e4 x) (<= x 1e4) (< (* 1e-16 (fabs x)) eps) (< eps (* (fabs x))))
-                       (- (sin (+ x eps)) (sin x)))
+            '(FPCore (x) (fmin x 1)) ; fmin implemented as if statement
+            '(FPCore (x) (* (fmax x 1) 1)) ; nested fmax check
+            '(FPCore (x eps)
+                     :name
+                     "2sin (example 3.3)"
+                     :pre
+                     (and (<= -1e4 x) (<= x 1e4) (< (* 1e-16 (fabs x)) eps) (< eps (* (fabs x))))
+                     (- (sin (+ x eps)) (sin x)))
             ;'(FPCore (x) (while* (< x 4) ([x 0.0 (+ x 1.0)]) x))
             ;'(FPCore (x) (+ (foo x) 1))
-            ;'(FPCore (x) (- (sqrt (+ x 1)) (sqrt x)))
-            ;'(FPCore (a b) (+ (* a b) (- a b)))
-            ))
+            '(FPCore (x) (- (sqrt (+ x 1)) (sqrt x)))
+            '(FPCore (a b) (+ (* a b) (- a b)))))

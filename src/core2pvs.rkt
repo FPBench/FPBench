@@ -3,69 +3,40 @@
 (require "imperative.rkt"
          "fpcore-extra.rkt")
 
-;; For reference: https://github.com/nasa/PRECiSA/blob/main/PRECiSA/src/MapRealPVSLangAST.hs
-
-;; Missing operators:
-;; Potentially can be added:
-;; | remainder, max, min,
-;; | atan2,
-;; | fdim, copysign.
-
-;; Potentially can not be added:
-;; | erf, erfc,
-;; | tgamma, lgamma,
-;; | (! <property>* <expr>),
-;; | while, while*, digits
-
-;; No need to add probably as the input program is strictly real type
-;; | floor, trunc, round, nearbyint, cast,
-;; | isfinite, isinf, isnan, isnormal, signbit.
-
 (define pvs-supported
-  (supported-list
-   (curry set-member?
-          (append '(+ -
-                      *
-                      /
-                      fabs
-                      exp
-                      log
-                      pow
-                      sqrt
-                      sin
-                      cos
-                      tan
-                      acos
-                      asin
-                      atan
-                      fmod
-                      ;
-                      fma
-                      exp2
-                      expm1
-                      cbrt
-                      hypot
-                      log10
-                      log2
-                      log1p
-                      sinh
-                      cosh
-                      tanh
-                      asinh
-                      acosh
-                      atanh
-                      fmax
-                      fmin)
-                  '(< > <= >= == != and or not)
-                  '(if let let*)))
-   (curry set-member?
-          '(TRUE FALSE E LOG2E LOG10E LN2 LN10 PI PI_2 PI_4 M_1_PI M_2_PI M_2_SQRTPI SQRT2 SQRT1_2))
-   (curry set-member? '(binary32 binary64))
-   (curry equal? 'nearestEven)
-   #f)) ;; to check
+  (supported-list (invert-op-proc (curry set-member?
+                                         '(remainder atan2
+                                                     fdim
+                                                     copysign
+                                                     erf
+                                                     erfc
+                                                     tgamma
+                                                     lgamma
+                                                     !
+                                                     while
+                                                     while
+                                                     digits
+                                                     floor
+                                                     trunc
+                                                     round
+                                                     nearbyint
+                                                     cast
+                                                     ceil
+                                                     isfinite
+                                                     isinf
+                                                     isnan
+                                                     isnormal
+                                                     signbit
+                                                     dim
+                                                     size
+                                                     ref)))
+                  (invert-const-proc (curry set-member? '(INFINITY NAN)))
+                  (curry set-member? '(binary32 binary64))
+                  (curry equal? 'nearestEven)
+                  #f))
 
-; TODO
-(define pvs-reserved ; Language-specific reserved names (avoid name collisions)
+;; Language-specific reserved names (avoid name collisions)
+(define pvs-reserved
   '(f THEORY
       BEGIN
       END
@@ -101,8 +72,35 @@
       IF
       THEN
       ELSE
-      ENDIF))
+      ENDIF
+      IMPORTING
+      LEMMA
+      IMPLIES
+      FORALL))
 
+;; Rewrites due to operations not being implemented in ReFLOW
+(define (rewrite2pvs op args)
+  (match (cons op args)
+    [(list '!= arg1 arg2) `(not (== ,arg1 ,arg2))]
+    [(list 'fma arg1 arg2 arg3) `(+ (* ,arg1 ,arg2) ,arg3)]
+    [(list 'exp2 arg) `(pow 2 ,arg)]
+    [(list 'expm1 arg) `(- (exp ,arg) 1)]
+    [(list 'cbrt arg) `(pow ,arg (/ 1 3))]
+    [(list 'hypot arg1 arg2) `(sqrt (+ (pow ,arg1 2) (pow ,arg2 2)))]
+    [(list 'log10 arg) `(/ (ln ,arg) (ln 10))]
+    [(list 'log2 arg) `(/ (ln ,arg) (ln 2))]
+    [(list 'log1p arg) `(log (+ ,arg 1))]
+    [(list 'sinh arg) `(* 1/2 (+ (exp ,arg) (/ -1 (exp ,arg))))]
+    [(list 'cosh arg) `(* 1/2 (+ (exp ,arg) (/ 1 (exp ,arg))))]
+    [(list 'tanh arg) `(/ (+ (exp ,arg) (neg (/ 1 (exp ,arg)))) (+ (exp ,arg) (/ 1 (exp ,arg))))]
+    [(list 'asinh arg) `(log (+ ,arg (sqrt (+ (pow ,arg 2) 1))))]
+    [(list 'acosh arg) `(log (+ ,arg (sqrt (+ (pow ,arg 2) -1))))]
+    [(list 'atanh arg) `(* 1/2 (log (/ (+ 1 ,arg) (+ 1 (neg ,arg)))))]
+    [(list 'fmin arg1 arg2) `(if (< ,arg1 ,arg2) ,arg1 ,arg2)]
+    [(list 'fmax arg1 arg2) `(if (> ,arg1 ,arg2) ,arg1 ,arg2)]
+    [_ #f]))
+
+;; Basic operations implemented in ReFLOW
 (define (operator->pvs op args ctx)
   (match op
     ['or (format "(~a OR ~a)" (car args) (cadr args))]
@@ -115,27 +113,7 @@
     [(or 'exp 'sqrt 'sin 'cos 'tan 'acos 'asin 'atan) (format "(~a(~a))" op (car args))]
     ['not (format "(NOT(~a))" (car args))]
     ['fabs (format "(abs(~a))" (car args))]
-    ; New
-    ['fma (format "((~a * ~a) + a)" (car args) (cadr args) (caddr args))]
-    ['exp2 (format "(2 ^ ~a)" (car args))]
-    ['expm1 (format "(exp(~a) - 1)" (car args))]
-    ['cbrt (format "(~a ^ (1 / 3))" (car args))]
-    ['hypot (format "(sqrt((~a ^ 2) + (~a ^ 2)))" (car args) (cadr args))]
     ['log (format "(ln(~a))" (car args))]
-    ['log10 (format "(ln(~a) / ln(10))" (car args))]
-    ['log2 (format "(ln(~a) / ln(2))" (car args))]
-    ['log1p (format "(ln(~a + 1))" (car args))]
-    ['sinh (format "((exp(~a) - exp(-(~a))) / 2)" (car args) (car args))]
-    ['cosh (format "((exp(~a) + exp(-(~a))) / 2)" (car args) (car args))]
-    ['tanh
-     (format "(((exp(~a) - exp(-(~a))) / 2) / ((exp(~a) + exp(-(~a))) / 2))"
-             (car args)
-             (car args)
-             (car args)
-             (car args))]
-    ['asinh (format "(ln(~a + sqrt((~a ^ 2) + 1)))" (car args) (car args))]
-    ['acosh (format "(ln(~a + sqrt((~a ^ 2) - 1)))" (car args) (car args))]
-    ['atanh (format "((1 / 2) * ln((1 + ~a) / (1 - ~a)))" (car args) (car args))]
     [_ (error 'operator->pvs "parsing for ~a operator is not implemented in core2pvs" op)]))
 
 (define (constant->pvs x ctx)
@@ -157,28 +135,6 @@
     [(? number?) (format-number x)]
     [_ (error 'constant->pvs "parsing for ~a constant is not implemented in core2pvs" x)]))
 
-;; Types are not supported
-(define (type->pvs type)
-  (match type
-    ['binary64 ""]
-    ['binary32 ""]
-    ['boolean ""]
-    [_ (error 'type->pvs "unsupported type ~a in core2pvs" type)]))
-
-;; Roundings are not supported
-(define (round->pvs x ctx)
-  (~a x))
-
-;; Roundings are not supported
-(define (implicit-round->pvs op arg arg-ctx ctx)
-  (~a arg))
-
-;; Rounding modes are not supported
-(define (round-mode->pvs mode ctx)
-  (unless (equal? mode 'nearestEven)
-    (error 'round-mode->pvs (format "Unsupported rounding mode ~a in core2pvs" mode)))
-  (~a mode))
-
 (define (params->pvs args)
   (string-join (map (curry format "~a: real") args) ", "))
 
@@ -192,84 +148,70 @@
 
 ; Override visitor behavior
 (define-expr-visitor
- imperative-visitor
- pvs-visitor
- [(visit-if vtor cond ift iff #:ctx ctx)
-  (define-values (ctx* tmpvar) ; allocate a variable
-    (parameterize ([current-output-port (open-output-nowhere)])
-      (define-values (_ ift-ctx) (visit/ctx vtor ift ctx))
-      (define prec (ctx-lookup-prop ift-ctx ':precision))
-      (ctx-random-name (ctx-update-props ctx `(:precision ,prec)))))
-  (define-values (cond* cond-ctx) (visit/ctx vtor cond ctx))
-  (define-values (ift* ift-ctx) (visit/ctx vtor ift ctx))
-  (define-values (iff* iff-ctx) (visit/ctx vtor iff ctx))
+  imperative-visitor
+  pvs-visitor
   ;; Currying anything outside of if-statement into let-body
   ;; to allow nesting over if-statement
-  (printf (format let-format (format let-bind-format tmpvar (format if-format cond* ift* iff*)) ""))
-  (values tmpvar ctx*)]
- [(visit-let vtor vars vals body #:ctx ctx)
-  (define-values (ctx* vars* vals*)
-    (for/fold ([ctx* ctx]
-               [vars* '()]
-               [vals* '()]
-               #:result (values ctx* (reverse vars*) (reverse vals*)))
-              ([var (in-list vars)]
-               [val (in-list vals)])
-      (define-values (val* val-ctx) (visit/ctx vtor val ctx))
-      (define prec (ctx-lookup-prop val-ctx ':precision))
-      (define-values (name-ctx name) (ctx-unique-name ctx* var prec))
-      (values name-ctx (cons name vars*) (cons val* vals*))))
+  [(visit-if vtor cond ift iff #:ctx ctx)
+   (define-values (ctx* tmpvar) ; allocate a variable
+     (parameterize ([current-output-port (open-output-nowhere)])
+       (define-values (_ ift-ctx) (visit/ctx vtor ift ctx))
+       (define prec (ctx-lookup-prop ift-ctx ':precision))
+       (ctx-random-name (ctx-update-props ctx `(:precision ,prec)))))
+   (define-values (cond* cond-ctx) (visit/ctx vtor cond ctx))
+   (define-values (ift* ift-ctx) (visit/ctx vtor ift ctx))
+   (define-values (iff* iff-ctx) (visit/ctx vtor iff ctx))
+   (printf (format let-format (format let-bind-format tmpvar (format if-format cond* ift* iff*)) ""))
+   (values tmpvar ctx*)]
   ;; Currying anything outside of let-statement into let-body
   ;; to allow nesting over let-statement
-  (printf (format let-format
-                  (string-join (map (curry format let-bind-format) vars* vals*) let-bind-separator)
-                  ""))
-  (define-values (body* body-ctx) (visit/ctx vtor body ctx*))
-  (values body* body-ctx)]
- [(visit-let* vtor vars vals body #:ctx ctx)
-  (visit/ctx vtor
-             (let loop ([vars vars]
-                        [vals vals])
-               (cond
-                 [(null? vars) body]
-                 [else `(let (,(list (car vars) (car vals))) ,(loop (cdr vars) (cdr vals)))]))
-             ctx)]
- [(visit-op vtor op args #:ctx ctx)
-  (cond
-    [(equal? op 'fmax)
-     (visit/ctx vtor
-                `(if (> ,(car args) ,(cadr args))
-                     ,(car args)
-                     ,(cadr args))
-                ctx)]
-    [(equal? op 'fmin)
-     (visit/ctx vtor
-                `(if (< ,(car args) ,(cadr args))
-                     ,(car args)
-                     ,(cadr args))
-                ctx)]
-    [else
-     (define prec (ctx-lookup-prop ctx ':precision))
-     (define args*
-       (for/list ([arg args])
-         (define-values (arg* arg-ctx) (visit/ctx vtor arg ctx))
-         (define arg-prec (ctx-lookup-prop arg-ctx ':precision))
-         (if (equal? prec arg-prec)
-             arg*
-             (implicit-round->pvs op arg* arg-ctx ctx))))
-     (values (operator->pvs op args* ctx)
-             (if (set-member? bool-ops op)
-                 (ctx-update-props ctx (list ':precision 'boolean))
-                 ctx))])])
+  [(visit-let vtor vars vals body #:ctx ctx)
+   (define-values (ctx* vars* vals*)
+     (for/fold ([ctx* ctx]
+                [vars* '()]
+                [vals* '()]
+                #:result (values ctx* (reverse vars*) (reverse vals*)))
+               ([var (in-list vars)]
+                [val (in-list vals)])
+       (define-values (val* val-ctx) (visit/ctx vtor val ctx))
+       (define prec (ctx-lookup-prop val-ctx ':precision))
+       (define-values (name-ctx name) (ctx-unique-name ctx* var prec))
+       (values name-ctx (cons name vars*) (cons val* vals*))))
+   (printf (format let-format
+                   (string-join (map (curry format let-bind-format) vars* vals*) let-bind-separator)
+                   ""))
+   (define-values (body* body-ctx) (visit/ctx vtor body ctx*))
+   (values body* body-ctx)]
+  [(visit-let* vtor vars vals body #:ctx ctx)
+   (visit/ctx vtor
+              (let loop ([vars vars]
+                         [vals vals])
+                (cond
+                  [(null? vars) body]
+                  [else `(let (,(list (car vars) (car vals))) ,(loop (cdr vars) (cdr vals)))]))
+              ctx)]
+  [(visit-op vtor op args #:ctx ctx)
+   ;; Try to find rewrites for operators that are not supported in ReFLOW
+   (match (rewrite2pvs op args)
+     [(? list? rewrite) (visit/ctx vtor rewrite ctx)]
+     [#f
+      (define args*
+        (for/list ([arg args])
+          (define-values (arg* arg-ctx) (visit/ctx vtor arg ctx))
+          arg*))
+      (values (operator->pvs op args* ctx)
+              (if (set-member? bool-ops op)
+                  (ctx-update-props ctx (list ':precision 'boolean))
+                  ctx))])])
 
 (define core->pvs
   (make-imperative-compiler "pvs"
                             #:operator operator->pvs
                             #:constant constant->pvs
-                            #:type type->pvs
-                            #:round round->pvs
-                            #:implicit-round implicit-round->pvs
-                            #:round-mode round-mode->pvs
+                            #:type (const "") ;; not supported in ReFLOW input
+                            #:round ~a ;; not supported in ReFLOW input
+                            #:implicit-round ~a ;; not supported in ReFLOW input
+                            #:round-mode ~a ;; not supported in ReFLOW input
                             #:program program->pvs
                             #:flags '()
                             #:reserved pvs-reserved

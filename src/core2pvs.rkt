@@ -1,7 +1,16 @@
 #lang racket
 
 (require "imperative.rkt"
-         "fpcore-extra.rkt")
+         "fpcore-extra.rkt"
+         "range-analysis.rkt")
+
+(provide core->pvs
+         pvs-supported)
+
+(define let-bind-format "~a = ~a")
+(define let-format "LET ~a IN\n~a")
+(define let-bind-separator ",\n")
+(define if-format "IF ~a THEN ~a ELSE ~a ENDIF")
 
 (define pvs-supported
   (supported-list (invert-op-proc (curry set-member?
@@ -12,7 +21,6 @@
                                                      erfc
                                                      tgamma
                                                      lgamma
-                                                     !
                                                      while
                                                      while
                                                      digits
@@ -135,74 +143,109 @@
     [(? number?) (format-number x)]
     [_ (error 'constant->pvs "parsing for ~a constant is not implemented in core2pvs" x)]))
 
+; Override visitor behavior
+(define-expr-visitor
+ imperative-visitor
+ pvs-visitor
+ ;; Currying anything outside of if-statement into let-body
+ ;; to allow nesting over if-statement
+ [(visit-if vtor cond ift iff #:ctx ctx)
+  (define indent (ctx-lookup-extra ctx 'indent))
+  (define-values (ctx* tmpvar) ; allocate a variable
+    (parameterize ([current-output-port (open-output-nowhere)])
+      (define-values (_ ift-ctx) (visit/ctx vtor ift ctx))
+      (define prec (ctx-lookup-prop ift-ctx ':precision))
+      (ctx-random-name (ctx-update-props ctx `(:precision ,prec)))))
+  (define-values (cond* cond-ctx) (visit/ctx vtor cond ctx))
+  (define-values (ift* ift-ctx) (visit/ctx vtor ift ctx))
+  (define-values (iff* iff-ctx) (visit/ctx vtor iff ctx))
+  ; tabulations
+  (printf "~a~a"
+          indent
+          (format let-format (format let-bind-format tmpvar (format if-format cond* ift* iff*)) ""))
+  (define ctx** (ctx-set-extra ctx 'indent (format "~a~a" indent "\t")))
+  (values tmpvar ctx**)]
+ ;; Currying anything outside of let-statement into let-body
+ ;; to allow nesting over let-statement
+ [(visit-let vtor vars vals body #:ctx ctx)
+  (define indent (ctx-lookup-extra ctx 'indent))
+  (define-values (ctx* vars* vals*)
+    (for/fold ([ctx* ctx]
+               [vars* '()]
+               [vals* '()]
+               #:result (values ctx* (reverse vars*) (reverse vals*)))
+              ([var (in-list vars)]
+               [val (in-list vals)])
+      (define-values (val* val-ctx) (visit/ctx vtor val ctx))
+      (define prec (ctx-lookup-prop val-ctx ':precision))
+      (define-values (name-ctx name) (ctx-unique-name ctx* var prec))
+      (values name-ctx (cons name vars*) (cons val* vals*))))
+  (printf "~a~a"
+          indent
+          (format let-format
+                  (string-join (map (curry format let-bind-format) vars* vals*)
+                               (string-append let-bind-separator indent))
+                  ""))
+  (define ctx** (ctx-set-extra ctx 'indent (format "~a~a" indent "\t")))
+  (define-values (body* body-ctx) (visit/ctx vtor body ctx**))
+  (values body* body-ctx)]
+ [(visit-let* vtor vars vals body #:ctx ctx)
+  (visit/ctx vtor
+             (let loop ([vars vars]
+                        [vals vals])
+               (cond
+                 [(null? vars) body]
+                 [else `(let (,(list (car vars) (car vals))) ,(loop (cdr vars) (cdr vals)))]))
+             ctx)]
+ [(visit-op vtor op args #:ctx ctx)
+  ;; Try to find rewrites for operators that are not supported in ReFLOW
+  (match (rewrite2pvs op args)
+    [(? list? rewrite) (visit/ctx vtor rewrite ctx)]
+    [#f
+     (define args*
+       (for/list ([arg args])
+         (define-values (arg* arg-ctx) (visit/ctx vtor arg ctx))
+         arg*))
+     (values (operator->pvs op args* ctx)
+             (if (set-member? bool-ops op)
+                 (ctx-update-props ctx (list ':precision 'boolean))
+                 ctx))])])
+
+(define (pre->pvs-input name args arg-ctxs ctx)
+  (define pre ((compose canonicalize remove-let) (ctx-lookup-prop ctx ':pre 'TRUE)))
+  (define var-ranges
+    (make-immutable-hash (dict-map (condition->range-table pre)
+                                   (lambda (var range) (cons (ctx-lookup-name ctx var) range)))))
+  (define arg-strings
+    (for/list ([arg args]
+               [ctx arg-ctxs])
+      (define range (dict-ref var-ranges arg (list (make-interval -123.0 123.0))))
+      ;; not sure what to do here for now
+      #;(unless (nonempty-bounded? range)
+          (error 'pre->pvs-input "Bad range for ~a in ~a (~a)" arg name range))
+      (unless (= (length range) 1)
+        (error 'pre->pvs-input "ReFLOW only accepts one sampling range, not ~a" (length range)))
+      (match-define (interval l u l? u?) (car range))
+      (format "\t~a in [~a, ~a]" arg (format-number l) (format-number u))))
+  (format "f(~a):\n~a" (string-join args ", ") (string-join arg-strings ",\n")))
+
 (define (params->pvs args)
   (string-join (map (curry format "~a: real") args) ", "))
 
 (define (program->pvs name args arg-ctxs body ret ctx used-vars)
-  (format "~a: THEORY\nBEGIN\nf(~a): real =\n~a~a\nEND ~a" name (params->pvs args) body ret name))
+  (define indent (ctx-lookup-extra ctx 'indent))
 
-(define let-bind-format "~a = ~a")
-(define let-format "LET ~a IN\n~a")
-(define let-bind-separator ",\n")
-(define if-format "IF ~a THEN ~a ELSE ~a ENDIF")
+  (define pvs-input (pre->pvs-input name args arg-ctxs ctx))
 
-; Override visitor behavior
-(define-expr-visitor
-  imperative-visitor
-  pvs-visitor
-  ;; Currying anything outside of if-statement into let-body
-  ;; to allow nesting over if-statement
-  [(visit-if vtor cond ift iff #:ctx ctx)
-   (define-values (ctx* tmpvar) ; allocate a variable
-     (parameterize ([current-output-port (open-output-nowhere)])
-       (define-values (_ ift-ctx) (visit/ctx vtor ift ctx))
-       (define prec (ctx-lookup-prop ift-ctx ':precision))
-       (ctx-random-name (ctx-update-props ctx `(:precision ,prec)))))
-   (define-values (cond* cond-ctx) (visit/ctx vtor cond ctx))
-   (define-values (ift* ift-ctx) (visit/ctx vtor ift ctx))
-   (define-values (iff* iff-ctx) (visit/ctx vtor iff ctx))
-   (printf (format let-format (format let-bind-format tmpvar (format if-format cond* ift* iff*)) ""))
-   (values tmpvar ctx*)]
-  ;; Currying anything outside of let-statement into let-body
-  ;; to allow nesting over let-statement
-  [(visit-let vtor vars vals body #:ctx ctx)
-   (define-values (ctx* vars* vals*)
-     (for/fold ([ctx* ctx]
-                [vars* '()]
-                [vals* '()]
-                #:result (values ctx* (reverse vars*) (reverse vals*)))
-               ([var (in-list vars)]
-                [val (in-list vals)])
-       (define-values (val* val-ctx) (visit/ctx vtor val ctx))
-       (define prec (ctx-lookup-prop val-ctx ':precision))
-       (define-values (name-ctx name) (ctx-unique-name ctx* var prec))
-       (values name-ctx (cons name vars*) (cons val* vals*))))
-   (printf (format let-format
-                   (string-join (map (curry format let-bind-format) vars* vals*) let-bind-separator)
-                   ""))
-   (define-values (body* body-ctx) (visit/ctx vtor body ctx*))
-   (values body* body-ctx)]
-  [(visit-let* vtor vars vals body #:ctx ctx)
-   (visit/ctx vtor
-              (let loop ([vars vars]
-                         [vals vals])
-                (cond
-                  [(null? vars) body]
-                  [else `(let (,(list (car vars) (car vals))) ,(loop (cdr vars) (cdr vals)))]))
-              ctx)]
-  [(visit-op vtor op args #:ctx ctx)
-   ;; Try to find rewrites for operators that are not supported in ReFLOW
-   (match (rewrite2pvs op args)
-     [(? list? rewrite) (visit/ctx vtor rewrite ctx)]
-     [#f
-      (define args*
-        (for/list ([arg args])
-          (define-values (arg* arg-ctx) (visit/ctx vtor arg ctx))
-          arg*))
-      (values (operator->pvs op args* ctx)
-              (if (set-member? bool-ops op)
-                  (ctx-update-props ctx (list ':precision 'boolean))
-                  ctx))])])
+  (define pvs-program
+    (format "~a: THEORY\nBEGIN\nf(~a): real =\n~a~a~a\nEND ~a"
+            name
+            (params->pvs args)
+            body
+            indent
+            ret
+            name))
+  (values pvs-input pvs-program))
 
 (define core->pvs
   (make-imperative-compiler "pvs"
@@ -223,9 +266,10 @@
   (require rackunit)
   (define compile0 core->pvs)
   (define (compile* . exprs)
-    (for/list ([expr exprs]
-               [i (in-naturals 1)])
-      (compile0 expr (format "fn~a" i))))
+    (for ([expr exprs]
+          [i (in-naturals 1)])
+      (define-values (input prog) (compile0 expr (format "fn~a" i)))
+      (printf "~a\n~a\n\n" input prog)))
   (compile* '(FPCore (x)
                      (let ([x 1]
                            [y x])
@@ -250,7 +294,7 @@
                      :name
                      "2sin (example 3.3)"
                      :pre
-                     (and (<= -1e4 x) (<= x 1e4) (< (* 1e-16 (fabs x)) eps) (< eps (* (fabs x))))
+                     (and (<= -1e4 x) (<= x 1e4) (< (* 1e-16 (fabs x)) eps) (< eps (fabs x)))
                      (- (sin (+ x eps)) (sin x)))
             ;'(FPCore (x) (while* (< x 4) ([x 0.0 (+ x 1.0)]) x))
             ;'(FPCore (x) (+ (foo x) 1))

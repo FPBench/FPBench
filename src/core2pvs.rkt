@@ -22,7 +22,7 @@
                                                      tgamma
                                                      lgamma
                                                      while
-                                                     while
+                                                     while*
                                                      digits
                                                      floor
                                                      trunc
@@ -37,7 +37,9 @@
                                                      signbit
                                                      dim
                                                      size
-                                                     ref)))
+                                                     ref
+                                                     array
+                                                     !)))
                   (invert-const-proc (curry set-member? '(INFINITY NAN)))
                   (curry set-member? '(binary32 binary64))
                   (curry equal? 'nearestEven)
@@ -115,6 +117,9 @@
     ['and (format "(~a AND ~a)" (car args) (cadr args))]
     ['== (format "(~a = ~a)" (car args) (cadr args))]
     ['!= (format "(NOT(~a = ~a))" (car args) (cadr args))]
+    ['-
+     #:when (equal? 1 (length args))
+     (format "(- ~a)" (car args))]
     [(or '+ '- '* '/ '< '> '<= '>=) (format "(~a ~a ~a)" (car args) op (cadr args))]
     ['pow (format "(~a ^ ~a)" (car args) (cadr args))]
     ['fmod (format "(~a % ~a)" (car args) (cadr args))]
@@ -184,9 +189,9 @@
           indent
           (format let-format
                   (string-join (map (curry format let-bind-format) vars* vals*)
-                               (string-append let-bind-separator indent))
+                               (string-append let-bind-separator indent "    "))
                   ""))
-  (define ctx** (ctx-set-extra ctx 'indent (format "~a~a" indent "\t")))
+  (define ctx** (ctx-set-extra ctx* 'indent (format "~a~a" indent "\t")))
   (define-values (body* body-ctx) (visit/ctx vtor body ctx**))
   (values body* body-ctx)]
  [(visit-let* vtor vars vals body #:ctx ctx)
@@ -219,24 +224,24 @@
   (define arg-strings
     (for/list ([arg args]
                [ctx arg-ctxs])
-      (define range (dict-ref var-ranges arg (list (make-interval -123.0 123.0))))
       ;; not sure what to do here for now
-      #;(unless (nonempty-bounded? range)
-          (error 'pre->pvs-input "Bad range for ~a in ~a (~a)" arg name range))
+      (define range (dict-ref var-ranges arg (list (make-interval -123.0 123.0))))
+      (unless (nonempty-bounded? range)
+        (set! range (list (make-interval -123.0 123.0)))
+        #;(error 'pre->pvs-input "Bad range for ~a in ~a (~a)" arg name range))
       (unless (= (length range) 1)
-        (error 'pre->pvs-input "ReFLOW only accepts one sampling range, not ~a" (length range)))
+        (set! range (list (make-interval -123.0 123.0)))
+        #;(error 'pre->pvs-input "ReFLOW only accepts one sampling range, not ~a" (length range)))
       (match-define (interval l u l? u?) (car range))
       (format "\t~a in [~a, ~a]" arg (format-number l) (format-number u))))
   (format "f(~a):\n~a" (string-join args ", ") (string-join arg-strings ",\n")))
 
 (define (params->pvs args)
-  (string-join (map (curry format "~a: real") args) ", "))
+  (format "~a: real" (string-join args ", ")))
 
 (define (program->pvs name args arg-ctxs body ret ctx used-vars)
-  (define indent (ctx-lookup-extra ctx 'indent))
-
   (define pvs-input (pre->pvs-input name args arg-ctxs ctx))
-
+  (define indent (ctx-lookup-extra ctx 'indent))
   (define pvs-program
     (format "~a: THEORY\nBEGIN\nf(~a): real =\n~a~a~a\nEND ~a"
             name
@@ -297,6 +302,28 @@
                      (and (<= -1e4 x) (<= x 1e4) (< (* 1e-16 (fabs x)) eps) (< eps (fabs x)))
                      (- (sin (+ x eps)) (sin x)))
             ;'(FPCore (x) (while* (< x 4) ([x 0.0 (+ x 1.0)]) x))
-            ;'(FPCore (x) (+ (foo x) 1))
+            '(FPCore (x1 x2)
+                     :name
+                     "jetEngine"
+                     :cite
+                     (darulova-kuncak-2014 solovyev-et-al-2015)
+                     :fpbench-domain
+                     controls
+                     :precision
+                     binary64
+                     :pre
+                     (and (<= -5 x1 5) (<= -20 x2 5))
+                     (let ([t (- (+ (* (* 3 x1) x1) (* 2 x2)) x1)]
+                           [t* (- (- (* (* 3 x1) x1) (* 2 x2)) x1)]
+                           [d (+ (* x1 x1) 1)])
+                       (let ([s (/ t d)]
+                             [s* (/ t* d)])
+                         (+ x1
+                            (+ (+ (+ (+ (* (+ (* (* (* 2 x1) s) (- s 3)) (* (* x1 x1) (- (* 4 s) 6)))
+                                           d)
+                                        (* (* (* 3 x1) x1) s))
+                                     (* (* x1 x1) x1))
+                                  x1)
+                               (* 3 s*))))))
             '(FPCore (x) (- (sqrt (+ x 1)) (sqrt x)))
             '(FPCore (a b) (+ (* a b) (- a b)))))

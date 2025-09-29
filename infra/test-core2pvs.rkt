@@ -16,7 +16,9 @@
                                ['binary32 "strtof(argv[~a], NULL)"]
                                ['integer "strtoll(argv[~a], NULL, 10)"]))
 
-                           (fprintf p "#include <stdio.h>\ndouble example_num(~a);\n\n" args*)
+                           (fprintf p "double f_num(~a);\n\n" args*)
+                           (fprintf p "#include <stdio.h>\n#include <stdlib.h>\n\n")
+
                            (fprintf p "int main(int argc, char **argv) {\n")
                            (fprintf p
                                     "printf(\"%.~a\", f_num(~a)); return 0; }\n"
@@ -206,7 +208,7 @@ struct maybeBool someBool (bool val) {
   (call-with-output-file "/tmp/example.input" #:exists 'replace (lambda (p) (fprintf p pvs-ranges)))
 
   ;; Compile PVS to C using Reflow - it will produce example.c
-  (system "reflow /tmp/example.pvs /tmp/example.input --format=double")
+  (system "reflow \"/tmp/example.pvs\" \"/tmp/example.input\" --format=double")
 
   ;; Generate a wrapper for example.c to call directly double example_num
   (generate-wrapper N args test-file 'binary64)

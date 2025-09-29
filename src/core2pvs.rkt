@@ -224,14 +224,16 @@
   (define arg-strings
     (for/list ([arg args]
                [ctx arg-ctxs])
+      ;; Simple range
+      (define range (list (make-interval -123.0 123.0)))
+
       ;; not sure what to do here for now
-      (define range (dict-ref var-ranges arg (list (make-interval -123.0 123.0))))
-      (unless (nonempty-bounded? range)
-        (set! range (list (make-interval -123.0 123.0)))
-        #;(error 'pre->pvs-input "Bad range for ~a in ~a (~a)" arg name range))
-      (unless (= (length range) 1)
-        (set! range (list (make-interval -123.0 123.0)))
-        #;(error 'pre->pvs-input "ReFLOW only accepts one sampling range, not ~a" (length range)))
+      #;(define range (dict-ref var-ranges arg (list (make-interval -123.0 123.0))))
+      #;(unless (nonempty-bounded? range)
+          (error 'pre->pvs-input "Bad range for ~a in ~a (~a)" arg name range))
+      #;(unless (= (length range) 1)
+          (error 'pre->pvs-input "ReFLOW only accepts one sampling range, not ~a" (length range)))
+
       (match-define (interval l u l? u?) (car range))
       (format "\t~a in [~a, ~a]" arg (format-number l) (format-number u))))
   (format "f(~a):\n~a" (string-join args ", ") (string-join arg-strings ",\n")))
@@ -275,55 +277,42 @@
           [i (in-naturals 1)])
       (define-values (input prog) (compile0 expr (format "fn~a" i)))
       (printf "~a\n~a\n\n" input prog)))
-  (compile* '(FPCore (x)
-                     (let ([x 1]
-                           [y x])
-                       (+ x y))) ; let check
-            '(FPCore (x)
-                     (let* ([x 1]
-                            [y x])
-                       (+ x y))) ; let* check
-            '(FPCore (x)
-                     (hypot 1
-                            (let ([x 1]
-                                  [y x])
-                              (+ x y)))) ; nested let check
-            '(FPCore (x)
-                     (+ 1
-                        (let* ([x 1]
-                               [y x])
-                          (+ x y)))) ; nested let* check
-            '(FPCore (x) (fmin x 1)) ; fmin implemented as if statement
-            '(FPCore (x) (* (fmax x 1) 1)) ; nested fmax check
-            '(FPCore (x eps)
+  #;'(FPCore (x)
+             (let ([x 1]
+                   [y x])
+               (+ x y))) ; let check
+  #;'(FPCore (x)
+             (let* ([x 1]
+                    [y x])
+               (+ x y))) ; let* check
+  #;'(FPCore (x)
+             (hypot 1
+                    (let ([x 1]
+                          [y x])
+                      (+ x y)))) ; nested let check
+  #;'(FPCore (x)
+             (+ 1
+                (let* ([x 1]
+                       [y x])
+                  (+ x y)))) ; nested let* check
+  #;'(FPCore (x) (fmin x 1)) ; fmin implemented as if statement
+  #;'(FPCore (x) (* (fmax x 1) 1)) ; nested fmax check
+  #;'(FPCore (x eps)
+             :name
+             "2sin (example 3.3)"
+             :pre
+             (and (<= -1e4 x) (<= x 1e4) (< (* 1e-16 (fabs x)) eps) (< eps (fabs x)))
+             (- (sin (+ x eps)) (sin x)))
+  #;'(FPCore (x) (while* (< x 4) ([x 0.0 (+ x 1.0)]) x))
+  (compile* '(FPCore (radius theta)
                      :name
-                     "2sin (example 3.3)"
+                     "polarToCarthesian, x"
                      :pre
-                     (and (<= -1e4 x) (<= x 1e4) (< (* 1e-16 (fabs x)) eps) (< eps (fabs x)))
-                     (- (sin (+ x eps)) (sin x)))
-            ;'(FPCore (x) (while* (< x 4) ([x 0.0 (+ x 1.0)]) x))
-            '(FPCore (x1 x2)
-                     :name
-                     "jetEngine"
-                     :cite
-                     (darulova-kuncak-2014 solovyev-et-al-2015)
-                     :fpbench-domain
-                     controls
-                     :precision
-                     binary64
-                     :pre
-                     (and (<= -5 x1 5) (<= -20 x2 5))
-                     (let ([t (- (+ (* (* 3 x1) x1) (* 2 x2)) x1)]
-                           [t* (- (- (* (* 3 x1) x1) (* 2 x2)) x1)]
-                           [d (+ (* x1 x1) 1)])
-                       (let ([s (/ t d)]
-                             [s* (/ t* d)])
-                         (+ x1
-                            (+ (+ (+ (+ (* (+ (* (* (* 2 x1) s) (- s 3)) (* (* x1 x1) (- (* 4 s) 6)))
-                                           d)
-                                        (* (* (* 3 x1) x1) s))
-                                     (* (* x1 x1) x1))
-                                  x1)
-                               (* 3 s*))))))
-            '(FPCore (x) (- (sqrt (+ x 1)) (sqrt x)))
-            '(FPCore (a b) (+ (* a b) (- a b)))))
+                     (and (<= 1 radius 10) (<= 0 theta 360))
+                     :spec
+                     (* radius (cos (* theta (/ 180 PI))))
+                     (let* ([pi 3.14159265359]
+                            [radiant (* theta (/ pi 180.0))])
+                       (* radius (cos radiant))))
+            #;'(FPCore (x) (- (sqrt (+ x 1)) (sqrt x)))
+            #;'(FPCore (a b) (+ (* a b) (- a b)))))

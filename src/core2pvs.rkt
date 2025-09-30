@@ -122,7 +122,7 @@
      (format "(- ~a)" (car args))]
     [(or '+ '- '* '/ '< '> '<= '>=) (format "(~a ~a ~a)" (car args) op (cadr args))]
     ['pow (format "(~a ^ ~a)" (car args) (cadr args))]
-    ['fmod (format "(~a % ~a)" (car args) (cadr args))]
+    ['fmod (format "mod(~a, ~a)" (car args) (cadr args))]
     [(or 'exp 'sqrt 'sin 'cos 'tan 'acos 'asin 'atan) (format "(~a(~a))" op (car args))]
     ['not (format "(NOT(~a))" (car args))]
     ['fabs (format "(abs(~a))" (car args))]

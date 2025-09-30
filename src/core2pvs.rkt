@@ -41,7 +41,7 @@
                                                      array
                                                      !)))
                   (invert-const-proc (curry set-member? '(INFINITY NAN)))
-                  (curry set-member? '(binary32 binary64))
+                  (curry set-member? '(binary64))
                   (curry equal? 'nearestEven)
                   #f))
 
@@ -97,15 +97,15 @@
     [(list 'expm1 arg) `(- (exp ,arg) 1)]
     [(list 'cbrt arg) `(pow ,arg (/ 1 3))]
     [(list 'hypot arg1 arg2) `(sqrt (+ (pow ,arg1 2) (pow ,arg2 2)))]
-    [(list 'log10 arg) `(/ (ln ,arg) (ln 10))]
-    [(list 'log2 arg) `(/ (ln ,arg) (ln 2))]
+    [(list 'log10 arg) `(/ (log ,arg) (log 10))]
+    [(list 'log2 arg) `(/ (log ,arg) (log 2))]
     [(list 'log1p arg) `(log (+ ,arg 1))]
-    [(list 'sinh arg) `(* 1/2 (+ (exp ,arg) (/ -1 (exp ,arg))))]
-    [(list 'cosh arg) `(* 1/2 (+ (exp ,arg) (/ 1 (exp ,arg))))]
-    [(list 'tanh arg) `(/ (+ (exp ,arg) (neg (/ 1 (exp ,arg)))) (+ (exp ,arg) (/ 1 (exp ,arg))))]
+    [(list 'sinh arg) `(* (/ 1 2) (+ (exp ,arg) (/ (- 1) (exp ,arg))))]
+    [(list 'cosh arg) `(* (/ 1 2) (+ (exp ,arg) (/ 1 (exp ,arg))))]
+    [(list 'tanh arg) `(/ (+ (exp ,arg) (- (/ 1 (exp ,arg)))) (+ (exp ,arg) (/ 1 (exp ,arg))))]
     [(list 'asinh arg) `(log (+ ,arg (sqrt (+ (pow ,arg 2) 1))))]
-    [(list 'acosh arg) `(log (+ ,arg (sqrt (+ (pow ,arg 2) -1))))]
-    [(list 'atanh arg) `(* 1/2 (log (/ (+ 1 ,arg) (+ 1 (neg ,arg)))))]
+    [(list 'acosh arg) `(log (+ ,arg (sqrt (- (pow ,arg 2) 1))))]
+    [(list 'atanh arg) `(* (/ 1 2) (log (/ (+ 1 ,arg) (+ 1 (- ,arg)))))]
     [(list 'fmin arg1 arg2) `(if (< ,arg1 ,arg2) ,arg1 ,arg2)]
     [(list 'fmax arg1 arg2) `(if (> ,arg1 ,arg2) ,arg1 ,arg2)]
     [_ #f]))
@@ -224,15 +224,14 @@
   (define arg-strings
     (for/list ([arg args]
                [ctx arg-ctxs])
-      ;; Simple range
-      (define range (list (make-interval -123.0 123.0)))
-
       ;; not sure what to do here for now
-      #;(define range (dict-ref var-ranges arg (list (make-interval -123.0 123.0))))
-      #;(unless (nonempty-bounded? range)
-          (error 'pre->pvs-input "Bad range for ~a in ~a (~a)" arg name range))
-      #;(unless (= (length range) 1)
-          (error 'pre->pvs-input "ReFLOW only accepts one sampling range, not ~a" (length range)))
+      (define range (dict-ref var-ranges arg (list (make-interval -123.0 123.0))))
+      (unless (nonempty-bounded? range)
+        (set! range (list (make-interval -123.0 123.0))) ;; purely for debugging
+        #;(error 'pre->pvs-input "Bad range for ~a in ~a (~a)" arg name range))
+      (unless (= (length range) 1)
+        (set! range (list (make-interval -123.0 123.0))) ;; purely for debugging
+        #;(error 'pre->pvs-input "ReFLOW only accepts one sampling range, not ~a" (length range)))
 
       (match-define (interval l u l? u?) (car range))
       (format "\t~a in [~a, ~a]" arg (format-number l) (format-number u))))

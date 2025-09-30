@@ -135,7 +135,13 @@ struct maybeBool someBool (bool val) {
   (call-with-output-file "/tmp/example.input" #:exists 'replace (lambda (p) (fprintf p pvs-ranges)))
 
   ;; Step 3. Compile PVS to C (example.c) using Reflow
-  (system "reflow \"/tmp/example.pvs\" \"/tmp/example.input\" --format=double")
+  (parameterize ([current-error-port (open-output-string)])
+    (define stdout
+      (with-output-to-string
+       (lambda () (system "reflow \"/tmp/example.pvs\" \"/tmp/example.input\" --format=double"))))
+    (define stderr (get-output-string (current-error-port)))
+    (when (non-empty-string? stderr)
+      (printf "\e[31m\nError at compiling using reflow:\n\t~a\e[0m" stderr)))
 
   ;; Step 4. Generate a wrapper for example.c to call a testing function directly
   (generate-wrapper N args test-file 'binary64)
@@ -159,6 +165,10 @@ struct maybeBool someBool (bool val) {
       ["inf" "+inf.0"]
       ["-inf" "-inf.0"]
       [x x]))
+  (when (equal?
+         out*
+         "") ;; for debugging, it happens when reflow compilation fails and test.bin is not generated
+    (set! out* 0.0))
   (cons (->value out* type) out*))
 
 (define (c-equality a b ulps type ignore?)

@@ -225,13 +225,16 @@
     (for/list ([arg args]
                [ctx arg-ctxs])
       ;; not sure what to do here for now
-      (define range (dict-ref var-ranges arg (list (make-interval -123.0 123.0))))
+      (define range (dict-ref var-ranges arg (list (make-interval -inf.0 +inf.0))))
+
+      (unless (= (length range) 1) ;; union in case if range has multiple intervals
+        (set! range
+              (list (for/fold ([ival* (car range)]) ([ival (in-list (cdr range))])
+                      (interval-union ival* ival)))))
+
       (unless (nonempty-bounded? range)
-        (set! range (list (make-interval -123.0 123.0))) ;; purely for debugging
+        (set! range (list (make-interval -123.0 123.0))) ;; to be erased
         #;(error 'pre->pvs-input "Bad range for ~a in ~a (~a)" arg name range))
-      (unless (= (length range) 1)
-        (set! range (list (make-interval -123.0 123.0))) ;; purely for debugging
-        #;(error 'pre->pvs-input "ReFLOW only accepts one sampling range, not ~a" (length range)))
 
       (match-define (interval l u l? u?) (car range))
       (format "\t~a in [~a, ~a]" arg (format-number l) (format-number u))))

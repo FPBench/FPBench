@@ -5,31 +5,20 @@
          "test-common.rkt")
 
 ;; A wrapper that calls functions inside C-output of Reflow
-(define (generate-wrapper N args test-file [type 'binary64])
+(define (generate-wrapper N args test-file)
   (call-with-output-file test-file
                          #:exists 'replace
                          (lambda (p)
                            (define args* (string-join (map (curry format "double ~a") args) ", "))
-                           (define strtox
-                             (match type
-                               ['binary80 "strtold(argv[~a], NULL)"]
-                               ['binary64 "strtod(argv[~a], NULL)"]
-                               ['binary32 "strtof(argv[~a], NULL)"]
-                               ['integer "strtoll(argv[~a], NULL, 10)"]))
-
                            (fprintf p "double f_num(~a);\n\n" args*)
                            (fprintf p "#include <stdio.h>\n")
                            (fprintf p "#include <stdlib.h>\n\n")
 
                            (fprintf p "int main(int argc, char **argv) {\n")
                            (fprintf p
-                                    "printf(\"%.~a\", f_num(~a)); return 0; }\n"
-                                    (match type
-                                      ['binary80 "20Lg"]
-                                      ['binary64 "17g"]
-                                      ['binary32 "17g"]
-                                      ['integer "li"])
-                                    (string-join (map (curry format strtox) (map add1 (range N)))
+                                    "printf(\"%.17g\", f_num(~a)); return 0; }\n"
+                                    (string-join (map (curry format "strtod(argv[~a], NULL)")
+                                                      (map add1 (range N)))
                                                  ", ")))))
 
 ;; A dependency file that C-output of Reflow relies on
@@ -144,7 +133,7 @@ struct maybeBool someBool (bool val) {
       (printf "\e[31m\nError at compiling using reflow:\n\t~a\e[0m" stderr)))
 
   ;; Step 4. Generate a wrapper for example.c to call a testing function directly
-  (generate-wrapper N args test-file 'binary64)
+  (generate-wrapper N args test-file)
 
   ;; Step 5. Compile original example.c with renaming "main" to "example_main" (to avoid duplicative main functions)
   (system "cc -c /tmp/example.c -o /tmp/example.o -Dmain=example_main")

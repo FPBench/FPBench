@@ -279,33 +279,7 @@
           [i (in-naturals 1)])
       (define-values (input prog) (compile0 expr (format "fn~a" i)))
       (printf "~a\n~a\n\n" input prog)))
-  #;'(FPCore (x)
-             (let ([x 1]
-                   [y x])
-               (+ x y))) ; let check
-  #;'(FPCore (x)
-             (let* ([x 1]
-                    [y x])
-               (+ x y))) ; let* check
-  #;'(FPCore (x)
-             (hypot 1
-                    (let ([x 1]
-                          [y x])
-                      (+ x y)))) ; nested let check
-  #;'(FPCore (x)
-             (+ 1
-                (let* ([x 1]
-                       [y x])
-                  (+ x y)))) ; nested let* check
-  #;'(FPCore (x) (fmin x 1)) ; fmin implemented as if statement
-  #;'(FPCore (x) (* (fmax x 1) 1)) ; nested fmax check
-  #;'(FPCore (x eps)
-             :name
-             "2sin (example 3.3)"
-             :pre
-             (and (<= -1e4 x) (<= x 1e4) (< (* 1e-16 (fabs x)) eps) (< eps (fabs x)))
-             (- (sin (+ x eps)) (sin x)))
-  #;'(FPCore (x) (while* (< x 4) ([x 0.0 (+ x 1.0)]) x))
+
   (compile* '(FPCore (radius theta)
                      :name
                      "polarToCarthesian, x"
@@ -313,8 +287,4 @@
                      (and (<= 1 radius 10) (<= 0 theta 360))
                      :spec
                      (* radius (cos (* theta (/ 180 PI))))
-                     (let* ([pi 3.14159265359]
-                            [radiant (* theta (/ pi 180.0))])
-                       (* radius (cos radiant))))
-            #;'(FPCore (x) (- (sqrt (+ x 1)) (sqrt x)))
-            #;'(FPCore (a b) (+ (* a b) (- a b)))))
+                     (let* ([radiant (* theta (/ M_2_SQRTPI 180.0))]) (* radius (cos radiant))))))

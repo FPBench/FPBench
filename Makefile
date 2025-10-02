@@ -152,6 +152,13 @@ else
 	$(warning skipping Julia sanity tests; unable to find Julia interpreter)
 endif
 
+reflow-sanity:
+ifneq (, $(shell which reflow))
+	cat $(SANITY) | racket infra/test-core2pvs.rkt --repeat 1
+else
+	$(warning skipping Reflow sanity tests; unable to find Reflow compiler)
+endif
+
 vivado-sanity:
 ifneq (, $(shell which vivado_hls))
 	cat $(SANITY) | racket infra/test-core2vivado.rkt --repeat 1
@@ -320,6 +327,13 @@ ifneq (, $(shell which julia))
 	cat tests/*binary32.fpcore | racket infra/test-core2julia.rkt --error 20
 else
 	$(warning skipping Julia tests; unable to find Julia interpreter)
+endif
+
+reflow-test:
+ifneq (, $(shell which reflow))
+	cat $(TESTS) | racket infra/test-core2pvs.rkt --error 3
+else
+	$(warning skipping reflow tests; unable to find reflow)
 endif
 
 vivado-test:

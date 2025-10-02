@@ -739,7 +739,7 @@ jobs:
 
       - name: "Install Reflow"
         run: |
-          git clone https://https://github.com/nasa/reflow ../cache/reflow
+          git clone https://github.com/nasa/reflow ../cache/reflow
           (cd ../cache/reflow && git checkout ${REFLOW_VERSION} && make)
           echo "${PWD}/../cache/reflow " >> $GITHUB_PATH
 

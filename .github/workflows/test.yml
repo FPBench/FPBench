@@ -710,6 +710,12 @@ jobs:
           variant: 'CS'
           version: '8.2'
 
+      - name: "Install Haskell"
+        uses: haskell/actions/setup@v2
+        with:
+          ghc-version: "9.2.8"
+          cabal-version: "3.10.2.0"
+
       - name: "Install Packages"
         run: |
           sudo apt-get update
@@ -722,8 +728,6 @@ jobs:
             libopencv-dev \
             python3-dev \
             python3-pip \
-            ghc=9.2.8 \
-            cabal-install
 
       - name: "C sanity"
         run: make c-sanity

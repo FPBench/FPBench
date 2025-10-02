@@ -733,4 +733,4 @@ jobs:
           echo "${PWD}/../cache/reflow " >> $GITHUB_PATH
 
       - name: "Reflow tests"
-        run: make reflow-binary64
+        run: make reflow-test

@@ -1,8 +1,6 @@
 name: CI
 
-on:
-  workflow_dispatch:
-  push:
+on: [push]
 
 env:
   FPTAYLOR_VERSION: 'fabc895ddc595dc41fbe7ce511049c745e1f9136'

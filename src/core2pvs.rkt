@@ -133,8 +133,8 @@
   (match x
     [(or 'TRUE 'FALSE) (~a x)]
     ['E "exp(1)"]
-    ['LOG2E "(ln(exp(1)) / ln(2))"]
-    ['LOG10E "(ln(exp(1)) / ln(10))"]
+    ['LOG2E "(1.0 / ln(2))"]
+    ['LOG10E "(1.0 / ln(10))"]
     ['LN2 "(ln(2))"]
     ['LN10 "(ln(10))"]
     ['PI "(4 * atan(1))"]
@@ -145,7 +145,13 @@
     ['M_2_SQRTPI "(1 / sqrt(atan(1)))"]
     ['SQRT2 "(sqrt(2))"]
     ['SQRT1_2 "(1 / sqrt(2))"]
-    [(? number?) (format-number x)]
+    [(? number?)
+     (define out (format-number x))
+     (when (string-contains? out "e")
+       (error 'format-error
+              "parsing for ~a constant is not implemented in core2pvs due to 'e' symbol"
+              out))
+     out]
     [_ (error 'constant->pvs "parsing for ~a constant is not implemented in core2pvs" x)]))
 
 ; Override visitor behavior
@@ -216,6 +222,19 @@
                  (ctx-update-props ctx (list ':precision 'boolean))
                  ctx))])])
 
+(define (any-bound-contains-e? intvl)
+  (match intvl
+    [(list intvls ...)
+     (for/or ([i intvls])
+       (any-bound-contains-e? i))]
+    [(interval l u l? u?)
+     (or (string-contains? (format-number l) "e") (string-contains? (format-number u) "e"))]
+    [else #f]))
+
+(define (format-interval range)
+  (match-define (interval l u l? u?) (car range))
+  (format "[~a, ~a]" (format-number l) (format-number u)))
+
 (define (pre->pvs-input name args arg-ctxs ctx)
   (define pre ((compose canonicalize remove-let) (ctx-lookup-prop ctx ':pre 'TRUE)))
   (define var-ranges
@@ -233,11 +252,15 @@
                       (interval-union ival* ival)))))
 
       (unless (nonempty-bounded? range)
-        (set! range (list (make-interval -123.0 123.0))) ;; to be erased
-        #;(error 'pre->pvs-input "Bad range for ~a in ~a (~a)" arg name range))
+        (error 'format-error "Bad range for ~a in ~a (~a), the range is not bounded" arg name range))
+      (when (any-bound-contains-e? range)
+        (error 'format-error
+               "Bad range for ~a in ~a (~a), symbol 'e' is not supported"
+               arg
+               name
+               (format-interval range)))
 
-      (match-define (interval l u l? u?) (car range))
-      (format "\t~a in [~a, ~a]" arg (format-number l) (format-number u))))
+      (format "\t~a in ~a" arg (format-interval range))))
   (format "f(~a):\n~a" (string-join args ", ") (string-join arg-strings ",\n")))
 
 (define (params->pvs args)
@@ -278,13 +301,13 @@
     (for ([expr exprs]
           [i (in-naturals 1)])
       (define-values (input prog) (compile0 expr (format "fn~a" i)))
-      (printf "~a\n~a\n\n" input prog)))
+      (printf "~a\n\n~a\n\n" input prog)))
 
-  (compile* '(FPCore (radius theta)
+  (compile* '(FPCore (x)
                      :name
-                     "polarToCarthesian, x"
+                     "test05_nonlin1, test2"
+                     :precision
+                     binary64
                      :pre
-                     (and (<= 1 radius 10) (<= 0 theta 360))
-                     :spec
-                     (* radius (cos (* theta (/ 180 PI))))
-                     (let* ([radiant (* theta (/ M_2_SQRTPI 180.0))]) (* radius (cos radiant))))))
+                     (< 1.00001 x 2)
+                     (/ 1 (+ x 1)))))

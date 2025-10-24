@@ -174,6 +174,16 @@ struct maybeBool someBool (bool val) {
 (define (c-format-output result)
   (format "~a" result))
 
+(define (pvs-filter core)
+  ;; Checks for (error 'format-error ...)
+  (with-handlers ([exn:fail? (lambda (e)
+                               (unless (string-contains? (exn-message e) "format-error")
+                                 (raise e))
+                               #f)])
+    (define-values (pvs-ranges pvs-prog) (core->pvs core "example"))
+    (define args (second core))
+    (if (null? args) #f #t)))
+
 (define pvs-tester
   (tester "pvs"
           compile->pvs
@@ -181,7 +191,7 @@ struct maybeBool someBool (bool val) {
           c-equality
           c-format-args
           c-format-output
-          (const #t)
+          pvs-filter
           pvs-supported
           #f))
 

@@ -130,7 +130,7 @@ struct maybeBool someBool (bool val) {
        (lambda () (system "reflow \"/tmp/example.pvs\" \"/tmp/example.input\" --format=double"))))
     (define stderr (get-output-string (current-error-port)))
     (when (non-empty-string? stderr)
-      (printf "\e[31m\nError at compiling using reflow:\n\t~a\e[0m" stderr)))
+      (error 'compile->pvs stderr)))
 
   ;; Step 4. Generate a wrapper for example.c to call a testing function directly
   (generate-wrapper N args test-file)
@@ -175,12 +175,14 @@ struct maybeBool someBool (bool val) {
   (format "~a" result))
 
 (define (pvs-filter core)
-  ;; Checks for (error 'format-error ...)
+  ;; Check for a successful compilation
   (with-handlers ([exn:fail? (lambda (e)
-                               (unless (string-contains? (exn-message e) "format-error")
+                               (unless (or (string-contains? (exn-message e) "compile->pvs")
+                                           (string-contains? (exn-message e) "format-error"))
                                  (raise e))
                                #f)])
     (define-values (pvs-ranges pvs-prog) (core->pvs core "example"))
+    (compile->pvs core "" "" "/tmp/test.c")
     (define args (second core))
     (if (null? args) #f #t)))
 

@@ -303,11 +303,18 @@
       (define-values (input prog) (compile0 expr (format "fn~a" i)))
       (printf "~a\n\n~a\n\n" input prog)))
 
-  (compile* '(FPCore (x)
+  (compile* '(FPCore (a b c d e f g h i)
                      :name
-                     "test05_nonlin1, test2"
-                     :precision
-                     binary64
+                     "matrixDeterminant"
                      :pre
-                     (< 1.00001 x 2)
-                     (/ 1 (+ x 1)))))
+                     (and (<= -10 a 10)
+                          (<= -10 b 10)
+                          (<= -10 c 10)
+                          (<= -10 d 10)
+                          (<= -10 e 10)
+                          (<= -10 f 10)
+                          (<= -10 g 10)
+                          (<= -10 h 10)
+                          (<= -10 i 10))
+                     (- (+ (+ (* (* a e) i) (* (* b f) g)) (* (* c d) h))
+                        (+ (+ (* (* c e) g) (* (* b d) i)) (* (* a f) h))))))

@@ -154,10 +154,6 @@ struct maybeBool someBool (bool val) {
       ["inf" "+inf.0"]
       ["-inf" "-inf.0"]
       [x x]))
-  (when (equal?
-         out*
-         "") ;; for debugging, it happens when reflow compilation fails and test.bin is not generated
-    (set! out* 0.0))
   (cons (->value out* type) out*))
 
 (define (c-equality a b ulps type ignore?)

@@ -243,7 +243,6 @@
   (define arg-strings
     (for/list ([arg args]
                [ctx arg-ctxs])
-      ;; not sure what to do here for now
       (define range (dict-ref var-ranges arg (list (make-interval -inf.0 +inf.0))))
 
       (unless (= (length range) 1) ;; union in case if range has multiple intervals

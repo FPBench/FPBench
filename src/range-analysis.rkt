@@ -2,7 +2,7 @@
 
 (require "common.rkt")
 (provide (struct-out interval) make-interval nonempty-bounded? condition->range-table interval->condition
-         range-table-ref)
+         range-table-ref interval-union)
 
 (module+ test
   (require rackunit))

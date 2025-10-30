@@ -4,6 +4,7 @@ on: [push]
 
 env:
   FPTAYLOR_VERSION: 'fabc895ddc595dc41fbe7ce511049c745e1f9136'
+  REFLOW_VERSION: '6e4ea6a2a2ea1745bed99bdcd6dd1b91c4c3d615'
   CAKEML_VERSION: 'v1217'
   CAKEML_BIN: '../cache/cakeml'
   DAISY_VERSION: 'b483303f3914106173902669855d371ff73bf568'
@@ -692,3 +693,53 @@ jobs:
 
       - name: "Julia tests"
         run: make julia-binary32
+
+  reflow:
+    name: Reflow tests (binary64)
+    runs-on: ubuntu-latest
+    needs: [ 'unit' ]
+    steps:
+      - uses: actions/checkout@v2
+      - name: "Install Racket"
+        uses: Bogdanp/setup-racket@v1.5
+        with:
+          architecture: 'x64'
+          distribution: 'full'
+          variant: 'CS'
+          version: '8.2'
+
+      - name: "Install Haskell"
+        uses: haskell/actions/setup@v2
+        with:
+          ghc-version: "9.2.8"
+          cabal-version: "3.10.2.0"
+
+      - name: "Install Packages"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            build-essential \
+            git \
+            libeigen3-dev \
+            libboost-all-dev \
+            libopencv-dev \
+            python3-dev \
+            python3-pip \
+            libmpfr6 \
+            libmpfr-dev
+
+      - name: "Install as Racket package"
+        run: raco pkg install --auto
+
+      - name: "C sanity"
+        run: make c-sanity
+
+      - name: "Install Reflow"
+        run: |
+          git clone https://github.com/nasa/reflow ../cache/reflow
+          (cd ../cache/reflow && git checkout ${REFLOW_VERSION} && make)
+          echo "${PWD}/../cache/reflow " >> $GITHUB_PATH
+
+      - name: "Reflow tests"
+        run: make reflow-test

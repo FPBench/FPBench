@@ -240,7 +240,7 @@
   (define var-ranges
     (make-immutable-hash (dict-map (condition->range-table pre)
                                    (lambda (var range) (cons (ctx-lookup-name ctx var) range)))))
-
+  
   (define arg-strings
     (for/list ([arg args]
                [ctx arg-ctxs])
@@ -299,8 +299,7 @@
   (define (compile* . exprs)
     (for ([expr exprs]
           [i (in-naturals 1)])
-      (define-values (input prog) (compile0 expr (format "fn~a" i)))
-      (printf "~a\n\n~a\n\n" input prog)))
+      (printf "~a\n" (compile0 expr (format "fn~a" i)))))
 
   (compile* '(FPCore (a b c d e f g h i)
                      :name

@@ -240,6 +240,7 @@
   (define var-ranges
     (make-immutable-hash (dict-map (condition->range-table pre)
                                    (lambda (var range) (cons (ctx-lookup-name ctx var) range)))))
+
   (define arg-strings
     (for/list ([arg args]
                [ctx arg-ctxs])
@@ -268,15 +269,14 @@
 (define (program->pvs name args arg-ctxs body ret ctx used-vars)
   (define pvs-input (pre->pvs-input name args arg-ctxs ctx))
   (define indent (ctx-lookup-extra ctx 'indent))
-  (define pvs-program
-    (format "~a: THEORY\nBEGIN\nf(~a): real =\n~a~a~a\nEND ~a"
-            name
-            (params->pvs args)
-            body
-            indent
-            ret
-            name))
-  (values pvs-input pvs-program))
+  (format "~a\n~a: THEORY\nBEGIN\nf(~a): real =\n~a~a~a\nEND ~a"
+          pvs-input
+          name
+          (params->pvs args)
+          body
+          indent
+          ret
+          name))
 
 (define core->pvs
   (make-imperative-compiler "pvs"
@@ -291,7 +291,7 @@
                             #:reserved pvs-reserved
                             #:visitor pvs-visitor))
 
-(define-compiler '(PVS) (const "") core->pvs (const "") pvs-supported)
+(define-compiler '("pvs") (const "") core->pvs (const "") pvs-supported)
 
 (module+ test
   (require rackunit)

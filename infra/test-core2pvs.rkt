@@ -108,6 +108,10 @@ struct maybeBool someBool (bool val) {
   return result;
 }"))))
 
+(define (split-PVS pvs name)
+  (match-define (list pvs-ranges pvs-prog) (string-split pvs (format "\n~a" name)))
+  (values pvs-ranges (format "\n~a~a" name pvs-prog)))
+
 (define (compile->pvs prog ctx type test-file)
   (define N
     (if (list? (second prog))
@@ -119,15 +123,24 @@ struct maybeBool someBool (bool val) {
   (generate-precisa-prelude)
 
   ;; Step 2. Rewrite FPCore to PVS
-  (define-values (pvs-ranges pvs-prog) (core->pvs prog "example"))
-  (call-with-output-file "/tmp/example.pvs" #:exists 'replace (lambda (p) (fprintf p pvs-prog)))
-  (call-with-output-file "/tmp/example.input" #:exists 'replace (lambda (p) (fprintf p pvs-ranges)))
+  (define prog-name "example")
+  (define pvs (core->pvs prog prog-name))
+  (define-values (pvs-ranges pvs-prog) (split-PVS pvs prog-name))
+
+  (call-with-output-file (format "/tmp/~a.pvs" prog-name)
+                         #:exists 'replace
+                         (lambda (p) (fprintf p pvs-prog)))
+  (call-with-output-file (format "/tmp/~a.input" prog-name)
+                         #:exists 'replace
+                         (lambda (p) (fprintf p pvs-ranges)))
 
   ;; Step 3. Compile PVS to C (example.c) using Reflow
   (parameterize ([current-error-port (open-output-string)])
     (define stdout
       (with-output-to-string
-       (lambda () (system "reflow \"/tmp/example.pvs\" \"/tmp/example.input\" --format=double"))))
+       (lambda ()
+         (system
+          (format "reflow \"/tmp/~a.pvs\" \"/tmp/~a.input\" --format=double" prog-name prog-name)))))
     (define stderr (get-output-string (current-error-port)))
     (when (non-empty-string? stderr)
       (error 'compile->pvs stderr)))
@@ -136,11 +149,11 @@ struct maybeBool someBool (bool val) {
   (generate-wrapper N args test-file)
 
   ;; Step 5. Compile original example.c with renaming "main" to "example_main" (to avoid duplicative main functions)
-  (system "cc -c /tmp/example.c -o /tmp/example.o -Dmain=example_main")
+  (system (format "cc -c /tmp/~a.c -o /tmp/~a.o -Dmain=~a_main" prog-name prog-name prog-name))
 
   ;; Step 6. Compile a binary (out of wrapper + example.o) that is to be called
   (define c-file (string-replace test-file ".c" ".bin"))
-  (system (format "cc ~a /tmp/example.o -lm -frounding-math -o ~a" test-file c-file))
+  (system (format "cc ~a /tmp/~a.o -lm -frounding-math -o ~a" test-file prog-name c-file))
   c-file)
 
 (define (run<-c exec-name ctx type number)
@@ -177,7 +190,7 @@ struct maybeBool someBool (bool val) {
                                            (string-contains? (exn-message e) "format-error"))
                                  (raise e))
                                #f)])
-    (define-values (pvs-ranges pvs-prog) (core->pvs core "example"))
+    (core->pvs core "example")
     (compile->pvs core "" "" "/tmp/test.c")
     (define args (second core))
     (if (null? args) #f #t)))

@@ -154,7 +154,7 @@ endif
 
 reflow-sanity:
 ifneq (, $(shell which reflow))
-	cat $(SANITY) | racket infra/test-core2pvs.rkt --repeat 1
+	cat $(SANITY) | racket infra/test-core2reflow.rkt --repeat 1
 else
 	$(warning skipping Reflow sanity tests; unable to find Reflow compiler)
 endif
@@ -331,7 +331,7 @@ endif
 
 reflow-test:
 ifneq (, $(shell which reflow))
-	cat $(TESTS) | racket infra/test-core2pvs.rkt --error 3
+	cat $(TESTS) | racket infra/test-core2reflow.rkt --error 3
 else
 	$(warning skipping reflow tests; unable to find reflow)
 endif

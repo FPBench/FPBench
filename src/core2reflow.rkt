@@ -145,7 +145,7 @@
     ['M_2_SQRTPI "(1 / sqrt(atan(1)))"]
     ['SQRT2 "(sqrt(2))"]
     ['SQRT1_2 "(1 / sqrt(2))"]
-    [(? number?) (format-number x)]
+    [(? number?) (format "(~a)" (format-number x))]
     [_ (error 'constant->reflow "parsing for ~a constant is not implemented in core2reflow" x)]))
 
 ; Override visitor behavior
@@ -223,26 +223,24 @@
       [(and (infinite? x) (positive? x)) "+inf"]
       [else #f]))
   (match-define (interval l u l? u?) (car range))
-  (format "[~a, ~a]"
-          (or (inf-parse l) (format-number l))
-          (or (inf-parse u) (format-number u))))
+  (format "[~a, ~a]" (or (inf-parse l) (format-number l)) (or (inf-parse u) (format-number u))))
 
 (define (pre->reflow-input name args arg-ctxs ctx)
   (define pre ((compose canonicalize remove-let) (ctx-lookup-prop ctx ':pre 'TRUE)))
   (define var-ranges
     (make-immutable-hash (dict-map (condition->range-table pre)
                                    (lambda (var range) (cons (ctx-lookup-name ctx var) range)))))
-  
+
   (define arg-strings
     (for/list ([arg args]
                [ctx arg-ctxs])
       (define range (dict-ref var-ranges arg (list (make-interval -inf.0 +inf.0))))
-      
+
       (unless (= (length range) 1) ;; union in case if range has multiple intervals
         (set! range
               (list (for/fold ([ival* (car range)]) ([ival (in-list (cdr range))])
                       (interval-union ival* ival)))))
-      
+
       (format "\t~a in ~a" arg (format-interval range))))
   (format "f(~a):\n~a" (string-join args ", ") (string-join arg-strings ",\n")))
 

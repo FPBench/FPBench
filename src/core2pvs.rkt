@@ -145,13 +145,7 @@
     ['M_2_SQRTPI "(1 / sqrt(atan(1)))"]
     ['SQRT2 "(sqrt(2))"]
     ['SQRT1_2 "(1 / sqrt(2))"]
-    [(? number?)
-     (define out (format-number x))
-     (when (string-contains? out "e")
-       (error 'format-error
-              "parsing for ~a constant is not implemented in core2pvs due to 'e' symbol"
-              out))
-     out]
+    [(? number?) (format-number x)]
     [_ (error 'constant->pvs "parsing for ~a constant is not implemented in core2pvs" x)]))
 
 ; Override visitor behavior
@@ -222,15 +216,6 @@
                  (ctx-update-props ctx (list ':precision 'boolean))
                  ctx))])])
 
-(define (any-bound-contains-e? intvl)
-  (match intvl
-    [(list intvls ...)
-     (for/or ([i intvls])
-       (any-bound-contains-e? i))]
-    [(interval l u l? u?)
-     (or (string-contains? (format-number l) "e") (string-contains? (format-number u) "e"))]
-    [else #f]))
-
 (define (format-interval range)
   (match-define (interval l u l? u?) (car range))
   (format "[~a, ~a]" (format-number l) (format-number u)))
@@ -253,12 +238,6 @@
 
       (unless (nonempty-bounded? range)
         (error 'format-error "Bad range for ~a in ~a (~a), the range is not bounded" arg name range))
-      (when (any-bound-contains-e? range)
-        (error 'format-error
-               "Bad range for ~a in ~a (~a), symbol 'e' is not supported"
-               arg
-               name
-               (format-interval range)))
 
       (format "\t~a in ~a" arg (format-interval range))))
   (format "f(~a):\n~a" (string-join args ", ") (string-join arg-strings ",\n")))

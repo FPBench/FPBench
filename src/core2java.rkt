@@ -31,6 +31,7 @@
     (curry set-member? '(E PI INFINITY NAN TRUE FALSE MAXFLOAT))
     (curry equal? 'binary64)    ; binary32 only supported as storage format
     (curry equal? 'nearestEven)
+    (const #t)
     #f))
 
 (define java-reserved  ; Language-specific reserved names (avoid name collisions)

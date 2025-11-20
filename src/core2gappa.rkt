@@ -12,6 +12,7 @@
     (curry set-member? '(SQRT2 SQRT1_2 TRUE FALSE))
     (curry set-member? '(binary32 binary64 binary80 binary128))
     (curry equal? 'nearestEven)
+    (const #t)
     #f))
 
 (define (fix-name name)

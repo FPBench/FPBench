@@ -16,6 +16,7 @@
       [(or 'binary16 'binary32 'binary64 (list 'fixed _ _)) #t]
       [_ #f])
     (curry equal? 'toNegative)
+    (const #t)
     #f))
 
 (define vivado-reserved

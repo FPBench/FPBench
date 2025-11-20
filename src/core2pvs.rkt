@@ -43,6 +43,7 @@
                   (invert-const-proc (curry set-member? '(INFINITY NAN)))
                   (curry set-member? '(binary64))
                   (curry equal? 'nearestEven)
+                  (lambda (x) (and (rational? x) (not (string-contains? (format-number x) "e"))))
                   #f))
 
 ;; Language-specific reserved names (avoid name collisions)

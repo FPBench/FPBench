@@ -18,6 +18,7 @@
     fpcore-consts
     (curry set-member? '(binary32 binary64 integer))
     (curry equal? 'nearestEven)
+    (const #t)
     #f))
 
 (define (default-unknown->cuda ctx op args)

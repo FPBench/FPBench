@@ -23,6 +23,7 @@
     (curry set-member? '(TRUE FALSE INFINITY NAN PI E))
     (curry equal? 'binary64)
     (curry equal? 'nearestEven)
+    (const #t)
     #f))
 
 (define python-reserved   ; Language-specific reserved names (avoid name collision)

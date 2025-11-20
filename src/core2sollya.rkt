@@ -14,6 +14,7 @@
     fpcore-consts
     (curry set-member? '(binary32 binary64 binary80 integer))
     ieee754-rounding-modes
+    (const #t)
     #f))
 
 (define *sollya-warnings* (make-parameter #t))

@@ -14,6 +14,7 @@
         '(MAXFLOAT)))
     (curry set-member? '(binary16 binary32 binary64))
     (curry equal? 'nearestEven)
+    (const #t)
     #f))
 
 (define julia-reserved      ; Language-specific reserved names (avoid name collisions)

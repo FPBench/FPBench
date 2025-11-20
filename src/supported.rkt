@@ -4,7 +4,7 @@
 (provide valid-core unsupported-features
          invert-op-proc invert-const-proc invert-rnd-mode-proc
          ieee754-ops ieee754-rounding-modes fpcore-ops fpcore-consts
-         operators-in constants-in property-values)
+         operators-in constants-in literals-in property-values)
 
 (provide
   (contract-out
@@ -13,6 +13,7 @@
       [consts (-> symbol? boolean?)]
       [precisions (-> any/c boolean?)]
       [round-modes (-> symbol? boolean?)]
+      [literals (-> any/c boolean?)]
       [tensor-args? boolean?])]))
 
 (module+ test
@@ -43,7 +44,7 @@
 
 ;;; Core checking
 
-(struct supported-list (ops consts precisions round-modes tensor-args?))
+(struct supported-list (ops consts precisions round-modes literals tensor-args?))
 
 (define (valid-core core supp)
   (define core-precs (dict-ref (property-values core) ':precision #f))
@@ -54,6 +55,7 @@
            (andmap (supported-list-precisions supp) (set->list core-precs)))
        (or (not core-rnd-modes)
            (andmap (supported-list-round-modes supp) (set->list core-rnd-modes)))
+       (andmap (supported-list-literals supp) (set->list (literals-in core)))
        (or (supported-list-tensor-args? supp)
            (andmap (negate list?) (arguments-in core)))))
 
@@ -68,7 +70,8 @@
         '())
     (if core-rnd-modes
         (filter-not (supported-list-round-modes supp) (set->list core-rnd-modes))
-        '())))
+        '())
+    (filter-not (supported-list-literals supp) (set->list (literals-in core)))))
 
 (define/reduce-expr (operators-in-expr expr)
 ; (-> expr? (set/c symbol?))
@@ -100,6 +103,21 @@
      [(list 'FPCore (list args ...) props ... body) (values args props body)]
      [(list 'FPCore name (list args ...) props ... body) (values args props body)]))
   (operators-in-expr body))
+
+(define/reduce-expr (literals-in-expr expr)
+; (-> expr? (set/c any/c))
+  [(visit-terminal_ vtor x) (set)]
+  [(visit-number vtor x) (set x)]
+  [(visit-digits vtor m e b) (set (digits->number m e b))]
+  [reduce (λ (sets) (apply set-union (set) sets))])
+
+(define/contract (literals-in core)
+  (-> fpcore? (set/c any/c))
+  (define-values (args props body)
+    (match core
+     [(list 'FPCore (list args ...) props ... body) (values args props body)]
+     [(list 'FPCore name (list args ...) props ... body) (values args props body)]))
+  (literals-in-expr body))
 
 (define/reduce-expr (constants-in-expr expr)
 ; (-> expr? (set/c symbol?)
@@ -180,6 +198,25 @@
     (map list->set `(() (E) (LOG2E) (PI) () () ())))
 
   (check-equal?
+    (map list->set (map literals-in-expr exprs))
+    (map list->set `(() () (2) (1) (0 2 100 1) (0 2 100 1) ())))
+
+  (check-equal?
     (map property-values-expr exprs)
     (list (hash) (hash) (hash) (hash) (hash) (hash)
-          (hash ':precision (set 'binary64) ':round (set 'toNegative 'toPositive)))))
+          (hash ':precision (set 'binary64) ':round (set 'toNegative 'toPositive))))
+
+  (define test-supp
+    (supported-list
+      (const #t)
+      (const #t)
+      (const #t)
+      (const #t)
+      (lambda (x) (and (number? x) (< x 10)))
+      #f))
+
+  (define core-valid '(FPCore (x) (+ x 1)))
+  (define core-invalid '(FPCore (x) (+ x 100)))
+
+  (check-true (valid-core core-valid test-supp))
+  (check-false (valid-core core-invalid test-supp)))

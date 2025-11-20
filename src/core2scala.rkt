@@ -22,6 +22,7 @@
     (curry set-member? '(TRUE FALSE))
     (curry set-member? '(binary32 binary64 binary128 binary256))        
     (curry equal? 'nearestEven)
+    (const #t)
     #f))
 
 (define scala-reserved  ; Language-specific reserved names (avoid name collisions)

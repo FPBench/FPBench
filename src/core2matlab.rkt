@@ -14,6 +14,7 @@
     fpcore-consts
     (curry set-member? '(binary32 binary64))
     (curry equal? 'nearestEven)
+    (const #t)
     #f))
 
 (define cpp-reserved

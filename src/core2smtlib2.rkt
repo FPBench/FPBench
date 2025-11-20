@@ -16,6 +16,7 @@
     (invert-const-proc (curry set-member? '(LOG2E LOG10E M_1_PI M_2_PI M_2_SQRTPI)))
     (curry set-member? '(binary32 binary64))
     ieee754-rounding-modes
+    (const #t)
     #f))
 
 (define smt-reserved  ; Language-specific reserved names (avoid name collisions)

@@ -16,6 +16,7 @@
     (curry set-member? '(TRUE FALSE))
     (curry set-member? '(binary32 binary64 integer))
     (curry equal? 'nearestEven)
+    (const #t)
     #f))
 
 (define fortran-reserved    ; Language-specific reserved names (avoid name collisions)

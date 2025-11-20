@@ -19,6 +19,7 @@
     fpcore-consts
     (curry set-member? '(binary32 binary64 binary80 integer))
     (invert-rnd-mode-proc (curry equal? 'nearestAway))
+    (const #t)
     #f))
 
 (define (default-unknown->c ctx op args)

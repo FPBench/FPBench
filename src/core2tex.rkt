@@ -9,6 +9,7 @@
     (curry set-member? '(PI E INFINITY NAN TRUE FALSE))
     (const #t)
     ieee754-rounding-modes
+    (const #t)
     #f))
 
 ;;

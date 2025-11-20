@@ -14,6 +14,7 @@
     (curry set-member? '(TRUE FALSE INFINITY NAN MAX_VALUE PI E))
     (curry equal? 'binary64)
     (curry equal? 'nearestEven)
+    (const #t)
     #f))
 
 (define ocaml-reserved          ; Language-specific reserved names (avoid name collision)

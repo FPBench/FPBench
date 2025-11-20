@@ -25,6 +25,7 @@
     (curry set-member? '(TRUE FALSE INFINITY NAN PI E))
     (curry set-member? '(binary64 binary32))
     (curry equal? 'nearestEven)
+    (const #t)
     #f))
 
 (define haskell-reserved    ; Language-specific reserved names (avoid name collision)

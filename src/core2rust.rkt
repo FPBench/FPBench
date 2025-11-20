@@ -15,6 +15,7 @@
     (invert-const-proc (curry set-member? '(SQRT1_2)))
     (curry equal? 'binary64)
     (curry equal? 'nearestEven)
+    (const #t)
     #f))
 
 (define rust-reserved   ; Language-specific reserved names (avoid name collisions)

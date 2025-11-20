@@ -12,6 +12,7 @@
     (curry set-member? '(TRUE FALSE INFINITY NAN))
     (curry equal? 'binary64)
     (curry equal? 'nearestEven) ; bool
+    (const #t)
     #f))
 
 (define cml-reserved    ; Language-specific reserved names (avoid name collisions)

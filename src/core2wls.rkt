@@ -13,6 +13,7 @@
     fpcore-consts
     (curry set-member? '(binary64 real integer))
     (curry set-member? '(nearestEven))
+    (const #t)
     #f))
 
 (define wls-reserved '(E PI))  ; Language-specific reserved names (avoid name collisions)

@@ -17,6 +17,7 @@
     (curry set-member? '(binary16 binary32 binary64 binary128 real))
     ; Note: nearestEven and nearestAway behave identically in FPTaylor
     ieee754-rounding-modes
+    (const #t)
     #f))
 
 ; Language-specific reserved names (avoid name collisions)

@@ -28,6 +28,7 @@
     fpcore-consts
     (curry equal? 'binary64)
     (curry equal? 'nearestEven)
+    (const #t)
     #f))
 
 (define js-reserved   ; Language-specific reserved names (avoid name collisions)

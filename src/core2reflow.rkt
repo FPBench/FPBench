@@ -4,15 +4,15 @@
          "fpcore-extra.rkt"
          "range-analysis.rkt")
 
-(provide core->pvs
-         pvs-supported)
+(provide core->reflow
+         reflow-supported)
 
 (define let-bind-format "~a = ~a")
 (define let-format "LET ~a IN\n~a")
 (define let-bind-separator ",\n")
 (define if-format "IF ~a THEN ~a ELSE ~a ENDIF")
 
-(define pvs-supported
+(define reflow-supported
   (supported-list (invert-op-proc (curry set-member?
                                          '(remainder atan2
                                                      fdim
@@ -46,7 +46,7 @@
                   #f))
 
 ;; Language-specific reserved names (avoid name collisions)
-(define pvs-reserved
+(define reflow-reserved
   '(f THEORY
       BEGIN
       END
@@ -89,7 +89,7 @@
       FORALL))
 
 ;; Rewrites due to operations not being implemented in ReFLOW
-(define (rewrite2pvs op args)
+(define (rewrite2reflow op args)
   (match (cons op args)
     [(list '!= arg1 arg2) `(not (== ,arg1 ,arg2))]
     [(list 'fma arg1 arg2 arg3) `(+ (* ,arg1 ,arg2) ,arg3)]
@@ -111,7 +111,7 @@
     [_ #f]))
 
 ;; Basic operations implemented in ReFLOW
-(define (operator->pvs op args ctx)
+(define (operator->reflow op args ctx)
   (match op
     ['or (format "(~a OR ~a)" (car args) (cadr args))]
     ['and (format "(~a AND ~a)" (car args) (cadr args))]
@@ -127,9 +127,9 @@
     ['not (format "(NOT(~a))" (car args))]
     ['fabs (format "(abs(~a))" (car args))]
     ['log (format "(ln(~a))" (car args))]
-    [_ (error 'operator->pvs "parsing for ~a operator is not implemented in core2pvs" op)]))
+    [_ (error 'operator->reflow "parsing for ~a operator is not implemented in core2reflow" op)]))
 
-(define (constant->pvs x ctx)
+(define (constant->reflow x ctx)
   (match x
     [(or 'TRUE 'FALSE) (~a x)]
     ['E "exp(1)"]
@@ -145,19 +145,13 @@
     ['M_2_SQRTPI "(1 / sqrt(atan(1)))"]
     ['SQRT2 "(sqrt(2))"]
     ['SQRT1_2 "(1 / sqrt(2))"]
-    [(? number?)
-     (define out (format-number x))
-     (when (string-contains? out "e")
-       (error 'format-error
-              "parsing for ~a constant is not implemented in core2pvs due to 'e' symbol"
-              out))
-     out]
-    [_ (error 'constant->pvs "parsing for ~a constant is not implemented in core2pvs" x)]))
+    [(? number?) (format "(~a)" (format-number x))]
+    [_ (error 'constant->reflow "parsing for ~a constant is not implemented in core2reflow" x)]))
 
 ; Override visitor behavior
 (define-expr-visitor
  imperative-visitor
- pvs-visitor
+ reflow-visitor
  ;; Currying anything outside of if-statement into let-body
  ;; to allow nesting over if-statement
  [(visit-if vtor cond ift iff #:ctx ctx)
@@ -210,37 +204,33 @@
              ctx)]
  [(visit-op vtor op args #:ctx ctx)
   ;; Try to find rewrites for operators that are not supported in ReFLOW
-  (match (rewrite2pvs op args)
+  (match (rewrite2reflow op args)
     [(? list? rewrite) (visit/ctx vtor rewrite ctx)]
     [#f
      (define args*
        (for/list ([arg args])
          (define-values (arg* arg-ctx) (visit/ctx vtor arg ctx))
          arg*))
-     (values (operator->pvs op args* ctx)
+     (values (operator->reflow op args* ctx)
              (if (set-member? bool-ops op)
                  (ctx-update-props ctx (list ':precision 'boolean))
                  ctx))])])
 
-(define (any-bound-contains-e? intvl)
-  (match intvl
-    [(list intvls ...)
-     (for/or ([i intvls])
-       (any-bound-contains-e? i))]
-    [(interval l u l? u?)
-     (or (string-contains? (format-number l) "e") (string-contains? (format-number u) "e"))]
-    [else #f]))
-
 (define (format-interval range)
+  (define (inf-parse x)
+    (cond
+      [(and (infinite? x) (negative? x)) "-inf"]
+      [(and (infinite? x) (positive? x)) "+inf"]
+      [else #f]))
   (match-define (interval l u l? u?) (car range))
-  (format "[~a, ~a]" (format-number l) (format-number u)))
+  (format "[~a, ~a]" (or (inf-parse l) (format-number l)) (or (inf-parse u) (format-number u))))
 
-(define (pre->pvs-input name args arg-ctxs ctx)
+(define (pre->reflow-input name args arg-ctxs ctx)
   (define pre ((compose canonicalize remove-let) (ctx-lookup-prop ctx ':pre 'TRUE)))
   (define var-ranges
     (make-immutable-hash (dict-map (condition->range-table pre)
                                    (lambda (var range) (cons (ctx-lookup-name ctx var) range)))))
-  
+
   (define arg-strings
     (for/list ([arg args]
                [ctx arg-ctxs])
@@ -251,51 +241,42 @@
               (list (for/fold ([ival* (car range)]) ([ival (in-list (cdr range))])
                       (interval-union ival* ival)))))
 
-      (unless (nonempty-bounded? range)
-        (error 'format-error "Bad range for ~a in ~a (~a), the range is not bounded" arg name range))
-      (when (any-bound-contains-e? range)
-        (error 'format-error
-               "Bad range for ~a in ~a (~a), symbol 'e' is not supported"
-               arg
-               name
-               (format-interval range)))
-
       (format "\t~a in ~a" arg (format-interval range))))
   (format "f(~a):\n~a" (string-join args ", ") (string-join arg-strings ",\n")))
 
-(define (params->pvs args)
+(define (params->reflow args)
   (format "~a: real" (string-join args ", ")))
 
-(define (program->pvs name args arg-ctxs body ret ctx used-vars)
-  (define pvs-input (pre->pvs-input name args arg-ctxs ctx))
+(define (program->reflow name args arg-ctxs body ret ctx used-vars)
+  (define reflow-input (pre->reflow-input name args arg-ctxs ctx))
   (define indent (ctx-lookup-extra ctx 'indent))
   (format "~a\n~a: THEORY\nBEGIN\nf(~a): real =\n~a~a~a\nEND ~a"
-          pvs-input
+          reflow-input
           name
-          (params->pvs args)
+          (params->reflow args)
           body
           indent
           ret
           name))
 
-(define core->pvs
-  (make-imperative-compiler "pvs"
-                            #:operator operator->pvs
-                            #:constant constant->pvs
+(define core->reflow
+  (make-imperative-compiler "reflow"
+                            #:operator operator->reflow
+                            #:constant constant->reflow
                             #:type (const "") ;; not supported in ReFLOW input
                             #:round ~a ;; not supported in ReFLOW input
                             #:implicit-round ~a ;; not supported in ReFLOW input
                             #:round-mode ~a ;; not supported in ReFLOW input
-                            #:program program->pvs
+                            #:program program->reflow
                             #:flags '()
-                            #:reserved pvs-reserved
-                            #:visitor pvs-visitor))
+                            #:reserved reflow-reserved
+                            #:visitor reflow-visitor))
 
-(define-compiler '("pvs") (const "") core->pvs (const "") pvs-supported)
+(define-compiler '("reflow") (const "") core->reflow (const "") reflow-supported)
 
 (module+ test
   (require rackunit)
-  (define compile0 core->pvs)
+  (define compile0 core->reflow)
   (define (compile* . exprs)
     (for ([expr exprs]
           [i (in-naturals 1)])
@@ -305,8 +286,7 @@
                      :name
                      "matrixDeterminant"
                      :pre
-                     (and (<= -10 a 10)
-                          (<= -10 b 10)
+                     (and (<= -10 b 10)
                           (<= -10 c 10)
                           (<= -10 d 10)
                           (<= -10 e 10)

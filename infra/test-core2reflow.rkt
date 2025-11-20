@@ -1,7 +1,7 @@
 #lang racket
 
 (require generic-flonum)
-(require "../src/core2pvs.rkt"
+(require "../src/core2reflow.rkt"
          "test-common.rkt")
 
 ;; A wrapper that calls functions inside C-output of Reflow
@@ -108,11 +108,11 @@ struct maybeBool someBool (bool val) {
   return result;
 }"))))
 
-(define (split-PVS pvs name)
-  (match-define (list pvs-ranges pvs-prog) (string-split pvs (format "\n~a" name)))
-  (values pvs-ranges (format "\n~a~a" name pvs-prog)))
+(define (split-reflow reflow name)
+  (match-define (list reflow-ranges reflow-prog) (string-split reflow (format "\n~a" name)))
+  (values reflow-ranges (format "\n~a~a" name reflow-prog)))
 
-(define (compile->pvs prog ctx type test-file)
+(define (compile->reflow prog ctx type test-file)
   (define N
     (if (list? (second prog))
         (length (second prog))
@@ -122,19 +122,19 @@ struct maybeBool someBool (bool val) {
   ;; Step 1. Generate precisa_prelude.c dependency
   (generate-precisa-prelude)
 
-  ;; Step 2. Rewrite FPCore to PVS
+  ;; Step 2. Rewrite FPCore to reflow
   (define prog-name "example")
-  (define pvs (core->pvs prog prog-name))
-  (define-values (pvs-ranges pvs-prog) (split-PVS pvs prog-name))
+  (define reflow (core->reflow prog prog-name))
+  (define-values (reflow-ranges reflow-prog) (split-reflow reflow prog-name))
 
   (call-with-output-file (format "/tmp/~a.pvs" prog-name)
                          #:exists 'replace
-                         (lambda (p) (fprintf p pvs-prog)))
+                         (lambda (p) (fprintf p reflow-prog)))
   (call-with-output-file (format "/tmp/~a.input" prog-name)
                          #:exists 'replace
-                         (lambda (p) (fprintf p pvs-ranges)))
+                         (lambda (p) (fprintf p reflow-ranges)))
 
-  ;; Step 3. Compile PVS to C (example.c) using Reflow
+  ;; Step 3. Compile reflow to C (example.c) using Reflow
   (parameterize ([current-error-port (open-output-string)])
     (define stdout
       (with-output-to-string
@@ -143,7 +143,7 @@ struct maybeBool someBool (bool val) {
           (format "reflow \"/tmp/~a.pvs\" \"/tmp/~a.input\" --format=double" prog-name prog-name)))))
     (define stderr (get-output-string (current-error-port)))
     (when (non-empty-string? stderr)
-      (error 'compile->pvs stderr)))
+      (error 'compile->reflow stderr)))
 
   ;; Step 4. Generate a wrapper for example.c to call a testing function directly
   (generate-wrapper N args test-file)
@@ -183,32 +183,31 @@ struct maybeBool someBool (bool val) {
 (define (c-format-output result)
   (format "~a" result))
 
-(define (pvs-filter core)
+(define (reflow-filter core)
   ;; Check for a successful compilation
   (with-handlers ([exn:fail? (lambda (e)
-                               (unless (or (string-contains? (exn-message e) "compile->pvs")
-                                           (string-contains? (exn-message e) "format-error"))
+                               (unless (string-contains? (exn-message e) "compile->reflow")
                                  (raise e))
                                #f)])
-    (core->pvs core "example")
-    (compile->pvs core "" "" "/tmp/test.c")
+    (core->reflow core "example")
+    (compile->reflow core "" "" "/tmp/test.c")
     (define args (second core))
     (if (null? args) #f #t)))
 
-(define pvs-tester
-  (tester "pvs"
-          compile->pvs
+(define reflow-tester
+  (tester "reflow"
+          compile->reflow
           run<-c
           c-equality
           c-format-args
           c-format-output
-          pvs-filter
-          pvs-supported
+          reflow-filter
+          reflow-supported
           #f))
 
 ; Command line
 (module+ main
-  (parameterize ([*tester* pvs-tester])
+  (parameterize ([*tester* reflow-tester])
     (let ([state
            (test-core (current-command-line-arguments) (current-input-port) "stdin" "/tmp/test.c")])
       (exit state))))

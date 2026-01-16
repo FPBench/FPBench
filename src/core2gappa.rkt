@@ -11,7 +11,7 @@
                       for for* tensor tensor*)))
     (curry set-member? '(SQRT2 SQRT1_2 TRUE FALSE))
     (curry set-member? '(binary32 binary64 binary80 binary128))
-    (curry equal? 'nearestEven)
+    (curry set-member? '(nearestEven toZero toPositive toNegative))
     #f))
 
 (define (fix-name name)
@@ -59,15 +59,25 @@
      (format "~a(~a)" (operator->gappa operator) (string-join args ", "))]
     [_ (error 'application->gappa "Unsupported operation ~a" operator)]))
 
-(define/match (type->rnd type)
-  [('real) ""]
-  [('binary32) "float<ieee_32,ne>"]
-  [('binary64) "float<ieee_64,ne>"]
-  [('binary128) "float<ieee_128,ne>"]
-  [('binary80) "float<x86_80,ne>"])
+(define (round-mode->gappa rm)
+  (match rm
+    ['nearestEven "ne"]
+    ['toZero "zr"]
+    ['toPositive "up"]
+    ['toNegative "dn"]
+    [_ (error 'round-mode->gappa "Unsupported rounding mode ~a" rm)]))
 
-(define (format-rounded type expr)
-  (define rnd (type->rnd type))
+(define (type->rnd type #:round [round-mode 'nearestEven])
+  (define rm-str (round-mode->gappa round-mode))
+  (match type
+    ['real ""]
+    ['binary32 (format "float<ieee_32,~a>" rm-str)]
+    ['binary64 (format "float<ieee_64,~a>" rm-str)]
+    ['binary128 (format "float<ieee_128,~a>" rm-str)]
+    ['binary80 (format "float<x86_80,~a>" rm-str)]))
+
+(define (format-rounded type expr #:round [round-mode 'nearestEven])
+  (define rnd (type->rnd type #:round round-mode))
   (if (equal? rnd "") (format "~a" expr) (format "~a(~a)" rnd expr)))
 
 (define *names* (make-parameter (mutable-set)))
@@ -82,19 +92,19 @@
   (set-add! (*names*) name*)
   name*)
 
-(define (expr->gappa expr #:names [names #hash()] #:type [type 'binary64])
+(define (expr->gappa expr #:names [names #hash()] #:type [type 'binary64] #:round [round-mode 'nearestEven])
   ;; Takes in an expression. Prints out all local definitions and returns an expression.
   (match expr
     [`(let ([,vars ,vals] ...) ,body)
      (define prefix (if (eq? type 'real) "M" ""))
      (define vars* (map (λ (v) (gensym (string-append prefix (~a v)))) vars))
      (for ([var* vars*] [val vals])
-       (printf "~a ~a= ~a;\n" (fix-name var*) (type->rnd type)
-               (expr->gappa val #:names names #:type type)))
+       (printf "~a ~a= ~a;\n" (fix-name var*) (type->rnd type #:round round-mode)
+               (expr->gappa val #:names names #:type type #:round round-mode)))
      (define names*
        (for/fold ([names* names]) ([var vars] [var* vars*])
          (dict-set names* var var*)))
-     (expr->gappa body #:names names* #:type type)]
+     (expr->gappa body #:names names* #:type type #:round round-mode)]
     [`(if ,cond ,ift ,iff)
      (error 'expr->gappa "Unsupported operation ~a" expr)]
     [`(while ,cond ([,vars ,inits ,updates] ...) ,retexpr)
@@ -103,32 +113,32 @@
     ; It is possible to replace (< a b) with (not (<= b a)) but this seems to be not very useful
     ; and complicates the approximation of rational numbers in the right hand sides of inequalities.
     ; Note: expressions must be canonicalized.
-    [`(< ,a ,b) (expr->gappa `(<= ,a ,b) #:names names #:type type)]
-    [`(> ,a ,b) (expr->gappa `(<= ,b ,a) #:names names #:type type)]
-    [`(>= ,a ,b) (expr->gappa `(<= ,b ,a) #:names names #:type type)]
+    [`(< ,a ,b) (expr->gappa `(<= ,a ,b) #:names names #:type type #:round round-mode)]
+    [`(> ,a ,b) (expr->gappa `(<= ,b ,a) #:names names #:type type #:round round-mode)]
+    [`(>= ,a ,b) (expr->gappa `(<= ,b ,a) #:names names #:type type #:round round-mode)]
     [(list '<= (? number? a) b)
      ; Approximate (round down) a if necessary (Gappa does not accept general rational numbers in inequalities)
-     (application->gappa '>= (list (expr->gappa b #:names names #:type type)
+     (application->gappa '>= (list (expr->gappa b #:names names #:type type #:round round-mode)
                                    (format-number a #:direction 'down)))]
     [(list '<= a (? number? b))
      ; Approximate (round up) b if necessary
-     (application->gappa '<= (list (expr->gappa a #:names names #:type type)
+     (application->gappa '<= (list (expr->gappa a #:names names #:type type #:round round-mode)
                                    (format-number b #:direction 'up)))]
     [`(<= ,a ,b)
      (error 'expr->gappa "Cannot translate the inequality: ~a" expr)]
     [(list (? operator? operator) args ...)
      (define args-gappa
-       (map (λ (arg) (expr->gappa arg #:names names #:type type)) args))
+       (map (λ (arg) (expr->gappa arg #:names names #:type type #:round round-mode)) args))
      (application->gappa operator args-gappa)]
     [(? constant?)
-     (format "~a(~a)" (type->rnd type) (constant->gappa expr))]
+     (format "~a(~a)" (type->rnd type #:round round-mode) (constant->gappa expr))]
     [(? symbol?)
      (fix-name (dict-ref names expr))]
     [(? number?)
      (define n-str (format-number expr))
      (if (string-contains? n-str "/")
-         (format "~a~a" (type->rnd type) n-str)
-         (format-rounded type n-str))]))
+         (format "~a~a" (type->rnd type #:round round-mode) n-str)
+         (format-rounded type n-str #:round round-mode))]))
 
 (define (remove-unsupported-inequalities expr)
   ; Should be called after remove-let and canonicalize.
@@ -163,6 +173,7 @@
   ; A special property :var-precision
   (define var-type
     (if var-precision var-precision (dict-ref properties ':var-precision 'real)))
+  (define round-mode (dict-ref properties ':round 'nearestEven))
   (define name* (dict-ref properties ':name name))
   (define pre ((compose canonicalize remove-let)
                (dict-ref properties ':pre 'TRUE)))
@@ -180,7 +191,7 @@
             (for/hash ([arg args])
               (define name (gensym (string-append "M" (~a arg))))
               (unless (eq? var-type 'real)
-                (printf "~a = ~a(~a);\n" (fix-name name) (type->rnd var-type)
+                (printf "~a = ~a(~a);\n" (fix-name name) (type->rnd var-type #:round round-mode)
                         (fix-name (gensym (string-append "T" (~a arg))))))
               (values arg name)))
 
@@ -190,23 +201,23 @@
               (define real-name (dict-ref real-vars arg))
               (if (eq? type var-type)
                   (printf "~a = ~a;\n" (fix-name arg) (fix-name real-name))
-                  (printf "~a = ~a(~a);\n" (fix-name arg) (type->rnd type) (fix-name real-name)))
+                  (printf "~a = ~a(~a);\n" (fix-name arg) (type->rnd type #:round round-mode) (fix-name real-name)))
               (values arg arg)))
 
           ; Generate real-valued expressions
           (printf "\n")
-          (define real-expr-body (expr->gappa body* #:names real-vars #:type 'real))
+          (define real-expr-body (expr->gappa body* #:names real-vars #:type 'real #:round round-mode))
           (printf "~a = ~a;\n\n" real-expr-name real-expr-body)
 
           ; Generate rounded expressions
-          (define expr-body (expr->gappa body* #:names vars #:type type))
-          (printf "~a ~a= ~a;\n\n" expr-name (type->rnd type) expr-body)
+          (define expr-body (expr->gappa body* #:names vars #:type type #:round round-mode))
+          (printf "~a ~a= ~a;\n\n" expr-name (type->rnd type #:round round-mode) expr-body)
 
           ; Generate preconditions (some inequalities may be skipped)
           (define pre*
             (let ([expr (remove-unsupported-inequalities pre)])
               (if expr
-                  (expr->gappa expr #:names real-vars #:type 'real)
+                  (expr->gappa expr #:names real-vars #:type 'real #:round round-mode)
                   "")))
 
           ; Generate ranges of variables

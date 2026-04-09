@@ -33,7 +33,7 @@ jobs:
         with:
           version: 8.15
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Build & install
@@ -41,10 +41,10 @@ jobs:
       - name: Build JSON
         run: make www/benchmarks.jsonp
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v4
         with:
           # Upload entire repository
           path: 'www/'
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

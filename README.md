@@ -79,7 +79,7 @@ Computations*, at FM’18, by H. Becker, P. Panchekha, E. Darulova, and
 Z. Tatlock
 
 > Described experiments combining
-> [Daisy](https://gitlab.mpi-sws.org/AVA/daisy-public) and
+> [Daisy](https://github.com/malyzajko/daisy) and
 > [Herbie](https://herbie.uwplse.org) using the FPBench format and
 > tools. All scripts are available in the `daisy_herbie` branch.
 

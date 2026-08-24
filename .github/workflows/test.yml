@@ -3,28 +3,40 @@ name: CI
 on: [push]
 
 env:
-  FPTAYLOR_VERSION: 'fabc895ddc595dc41fbe7ce511049c745e1f9136'
+  FPTAYLOR_VERSION: 'b5a77cae348400f21f83512210d9f43c4bffb381'
   REFLOW_VERSION: '6e4ea6a2a2ea1745bed99bdcd6dd1b91c4c3d615'
-  CAKEML_VERSION: 'v1217'
+  CAKEML_VERSION: 'v3400'
   CAKEML_BIN: '../cache/cakeml'
-  DAISY_VERSION: 'b483303f3914106173902669855d371ff73bf568'
+  DAISY_VERSION: '7544e92b05e1623ac7aefe6e0db4cbceb878d30c'
   DAISY_BASE: '../cache/daisy'
   # latest stable version
-  JULIA_VERSION: '1'
+  JULIA_VERSION: '1.12'
+  RACKET_VERSION: '9.3'
+  JAVA_VERSION: '25'
+  GO_VERSION: '1.27'
+  RUST_TOOLCHAIN: 'stable'
+  NODE_VERSION: '24'
+  FPTAYLOR_OCAML_VERSION: '4.14.2'
+  OCAML_VERSION: '5.5.0'
+  SBT_RUNNER_VERSION: '2.0.7'
+  Z3_VERSION: '5.1.0'
+  PYTHON_VERSION: '3.14'
+  GHC_VERSION: '9.14.1'
+  CABAL_VERSION: '3.16.1.0'
   
 jobs:
   unit:   # package setup, Racket unit testing
     name: "Unit Tests"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v7
       - name: "Install Racket"
-        uses: Bogdanp/setup-racket@v1.5
+        uses: Bogdanp/setup-racket@v1.15
         with:
           architecture: 'x64'
           distribution: 'full'
           variant: 'CS'
-          version: '8.2'
+          version: '${{ env.RACKET_VERSION }}'
 
       - name: "Install Packages"
         run: |
@@ -43,14 +55,14 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ 'unit' ]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v7
       - name: "Install Racket"
-        uses: Bogdanp/setup-racket@v1.5
+        uses: Bogdanp/setup-racket@v1.15
         with:
           architecture: 'x64'
           distribution: 'full'
           variant: 'CS'
-          version: '8.2'
+          version: '${{ env.RACKET_VERSION }}'
 
       - name: "Install Packages"
         run: |
@@ -83,14 +95,14 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ 'unit' ]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v7
       - name: "Install Racket"
-        uses: Bogdanp/setup-racket@v1.5
+        uses: Bogdanp/setup-racket@v1.15
         with:
           architecture: 'x64'
           distribution: 'full'
           variant: 'CS'
-          version: '8.2'
+          version: '${{ env.RACKET_VERSION }}'
 
       - name: "Install Packages"
         run: |
@@ -111,20 +123,20 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ 'unit' ]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v7
       - name: "Install Racket"
-        uses: Bogdanp/setup-racket@v1.5
+        uses: Bogdanp/setup-racket@v1.15
         with:
           architecture: 'x64'
           distribution: 'full'
           variant: 'CS'
-          version: '8.2'
+          version: '${{ env.RACKET_VERSION }}'
 
       - name: "Install Java"
-        uses: actions/setup-java@v2
+        uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
-          java-version: '11'
+          java-version: '${{ env.JAVA_VERSION }}'
 
       - name: "Install Packages"
         run: |
@@ -145,14 +157,19 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ 'unit' ]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v7
       - name: "Install Racket"
-        uses: Bogdanp/setup-racket@v1.5
+        uses: Bogdanp/setup-racket@v1.15
         with:
           architecture: 'x64'
           distribution: 'full'
           variant: 'CS'
-          version: '8.2'
+          version: '${{ env.RACKET_VERSION }}'
+
+      - name: "Install Go"
+        uses: actions/setup-go@v7
+        with:
+          go-version: '${{ env.GO_VERSION }}'
 
       - name: "Install Packages"
         run: |
@@ -173,21 +190,20 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ 'unit' ]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v7
       - name: "Install Racket"
-        uses: Bogdanp/setup-racket@v1.5
+        uses: Bogdanp/setup-racket@v1.15
         with:
           architecture: 'x64'
           distribution: 'full'
           variant: 'CS'
-          version: '8.2'
+          version: '${{ env.RACKET_VERSION }}'
 
       - name: "Install Rust"
-        uses: actions-rs/toolchain@v1
+        uses: actions-rust-lang/setup-rust-toolchain@v1.17.0
         with:
-          profile: minimal
-          toolchain: stable
-          override: true
+          toolchain: '${{ env.RUST_TOOLCHAIN }}'
+          rustflags: ''
 
       - name: "Install Packages"
         run: |
@@ -208,19 +224,19 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ 'unit' ]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v7
       - name: "Install Racket"
-        uses: Bogdanp/setup-racket@v1.5
+        uses: Bogdanp/setup-racket@v1.15
         with:
           architecture: 'x64'
           distribution: 'full'
           variant: 'CS'
-          version: '8.2'
+          version: '${{ env.RACKET_VERSION }}'
 
       - name: "Install Node.js"
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v7
         with:
-          node-version: '16'
+          node-version: '${{ env.NODE_VERSION }}'
 
       - name: "Install Packages"
         run: |
@@ -245,14 +261,14 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ 'unit' ]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v7
       - name: "Install Racket"
-        uses: Bogdanp/setup-racket@v1.5
+        uses: Bogdanp/setup-racket@v1.15
         with:
           architecture: 'x64'
           distribution: 'full'
           variant: 'CS'
-          version: '8.2'
+          version: '${{ env.RACKET_VERSION }}'
 
       - name: "Install Packages"
         run: |
@@ -273,27 +289,32 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ 'unit' ]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v7
       - name: "Install Racket"
-        uses: Bogdanp/setup-racket@v1.5
+        uses: Bogdanp/setup-racket@v1.15
         with:
           architecture: 'x64'
           distribution: 'full'
           variant: 'CS'
-          version: '8.2'
+          version: '${{ env.RACKET_VERSION }}'
       
       - name: "Install OCaml"
-        uses: ocaml/setup-ocaml@v3
+        uses: ocaml/setup-ocaml@v3.7.2
         with:
-          ocaml-compiler: '4.04.2'
+          ocaml-compiler: '${{ env.FPTAYLOR_OCAML_VERSION }}'
 
       - name: "Install Packages"
         run: |
           sudo apt-get update
           sudo apt-get install -y libmpfr6 libmpfr-dev
           eval $(opam env)
+          opam install -y num
           git clone https://github.com/soarlab/FPTaylor.git ../cache/fptaylor
-          (cd ../cache/fptaylor && git checkout ${FPTAYLOR_VERSION} && make clean-all && make)
+          (cd ../cache/fptaylor && \
+            git checkout ${FPTAYLOR_VERSION} && \
+            NUM_DIR="$(opam var lib)/num" && \
+            make clean-all && \
+            make ML="ocamlc -I ${NUM_DIR}" OPT_ML="ocamlopt -I ${NUM_DIR}")
           echo "${PWD}/../cache/fptaylor" >> $GITHUB_PATH
 
       - name: "Install as Racket package"
@@ -310,21 +331,25 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ 'unit' ]
     steps:
-      - uses: actions/checkout@v2
-      - uses: olafurpg/setup-scala@v11
+      - uses: actions/checkout@v7
       - name: "Install Racket"
-        uses: Bogdanp/setup-racket@v1.5
+        uses: Bogdanp/setup-racket@v1.15
         with:
           architecture: 'x64'
           distribution: 'full'
           variant: 'CS'
-          version: '8.2'
+          version: '${{ env.RACKET_VERSION }}'
 
       - name: "Install Java"
-        uses: actions/setup-java@v2
+        uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
-          java-version: '8'
+          java-version: '${{ env.JAVA_VERSION }}'
+
+      - name: "Install sbt"
+        uses: sbt/setup-sbt@v1.5.8
+        with:
+          sbt-runner-version: '${{ env.SBT_RUNNER_VERSION }}'
 
       - name: "Install Packages"
         run: |
@@ -336,8 +361,6 @@ jobs:
           git clone --recurse-submodules https://github.com/malyzajko/daisy ../cache/daisy
           cd ../cache/daisy
           git checkout ${DAISY_VERSION}
-          sed -i 's/) dependsOn (smtlib//g' build.sbt
-          sed -i 's/libraryDependencies ++= Seq(/libraryDependencies ++= Seq("com.regblanc" %% "scala-smtlib" % "0.2.1-42-gc68dbaa",/g' build.sbt
           sbt compile
           sbt script
           echo "${PWD}" >> $GITHUB_PATH
@@ -356,19 +379,19 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ 'unit' ]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v7
       - name: "Install Racket"
-        uses: Bogdanp/setup-racket@v1.5
+        uses: Bogdanp/setup-racket@v1.15
         with:
           architecture: 'x64'
           distribution: 'full'
           variant: 'CS'
-          version: '8.2'
+          version: '${{ env.RACKET_VERSION }}'
 
       - name: "Install Z3"
-        uses: pavpanchekha/setup-z3@1.2.2
+        uses: cda-tum/setup-z3@v1.7.3
         with:
-          version: '4.8.8'
+          version: '${{ env.Z3_VERSION }}'
 
       - name: "Install Packages"
         run: |
@@ -389,14 +412,14 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ 'unit' ]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v7
       - name: "Install Racket"
-        uses: Bogdanp/setup-racket@v1.5
+        uses: Bogdanp/setup-racket@v1.15
         with:
           architecture: 'x64'
           distribution: 'full'
           variant: 'CS'
-          version: '8.2'
+          version: '${{ env.RACKET_VERSION }}'
 
       - name: "Install Packages"
         run: |
@@ -421,19 +444,19 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ 'unit' ]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v7
       - name: "Install Racket"
-        uses: Bogdanp/setup-racket@v1.5
+        uses: Bogdanp/setup-racket@v1.15
         with:
           architecture: 'x64'
           distribution: 'full'
           variant: 'CS'
-          version: '8.2'
+          version: '${{ env.RACKET_VERSION }}'
 
       - name: "Install OCaml"
-        uses: ocaml/setup-ocaml@v3
+        uses: ocaml/setup-ocaml@v3.7.2
         with:
-          ocaml-compiler: 5
+          ocaml-compiler: '${{ env.OCAML_VERSION }}'
 
       - name: "Install Packages"
         run: |
@@ -458,14 +481,19 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ 'unit' ]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v7
       - name: "Install Racket"
-        uses: Bogdanp/setup-racket@v1.5
+        uses: Bogdanp/setup-racket@v1.15
         with:
           architecture: 'x64'
           distribution: 'full'
           variant: 'CS'
-          version: '8.2'
+          version: '${{ env.RACKET_VERSION }}'
+
+      - name: "Install Python"
+        uses: actions/setup-python@v7
+        with:
+          python-version: '${{ env.PYTHON_VERSION }}'
 
       - name: "Install Packages"
         run: |
@@ -486,14 +514,14 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ 'unit' ]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v7
       - name: "Install Racket"
-        uses: Bogdanp/setup-racket@v1.5
+        uses: Bogdanp/setup-racket@v1.15
         with:
           architecture: 'x64'
           distribution: 'full'
           variant: 'CS'
-          version: '8.2'
+          version: '${{ env.RACKET_VERSION }}'
 
       - name: "Install Packages"
         run: |
@@ -517,17 +545,17 @@ jobs:
   #   runs-on: ubuntu-latest
   #   needs: [ 'unit' ]
   #   steps:
-  #     - uses: actions/checkout@v2
+  #     - uses: actions/checkout@v7
   #     - name: "Install Racket"
-  #       uses: Bogdanp/setup-racket@v1.5
+  #       uses: Bogdanp/setup-racket@v1.15
   #       with:
   #         architecture: 'x64'
   #         distribution: 'full'
   #         variant: 'CS'
-  #         version: '8.2'
+  #         version: '${{ env.RACKET_VERSION }}'
 
   #     - name: "Install MATLAB"
-  #       uses: matlab-actions/setup-matlab@v0
+  #       uses: matlab-actions/setup-matlab@v3.0.2
 
   #     - name: "Install Packages"
   #       run: |
@@ -548,14 +576,14 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ 'unit' ]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v7
       - name: "Install Racket"
-        uses: Bogdanp/setup-racket@v1.5
+        uses: Bogdanp/setup-racket@v1.15
         with:
           architecture: 'x64'
           distribution: 'full'
           variant: 'CS'
-          version: '8.2'
+          version: '${{ env.RACKET_VERSION }}'
 
       - name: "Install Packages"
         run: |
@@ -571,22 +599,20 @@ jobs:
       - name: "Haskell test"
         run: make haskell-test
 
-  # Note: Julia 1.6.2 will crash when trying to print infinity
-  # Ubuntu 20.04 ships with Julia 1.4.1
   # Julia tests take forever, so split the jobs
   julia-sanity:    # Julia language
     name: "Julia Sanity Tests"
     runs-on: ubuntu-latest
     needs: [ 'unit' ]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v7
       - name: "Install Racket"
-        uses: Bogdanp/setup-racket@v1.5
+        uses: Bogdanp/setup-racket@v1.15
         with:
           architecture: 'x64'
           distribution: 'full'
           variant: 'CS'
-          version: '8.2'
+          version: '${{ env.RACKET_VERSION }}'
 
       - name: "Install Packages"
         run: |
@@ -594,9 +620,9 @@ jobs:
           sudo apt-get install -y libmpfr6 libmpfr-dev
 
       - name: "Install Julia"
-        uses: julia-actions/setup-julia@v1
+        uses: julia-actions/setup-julia@v3.0.2
         with:
-          version: '1'
+          version: '${{ env.JULIA_VERSION }}'
 
       - name: "Install as Racket package"
         run: raco pkg install --auto
@@ -609,14 +635,14 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ 'julia-sanity' ]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v7
       - name: "Install Racket"
-        uses: Bogdanp/setup-racket@v1.5
+        uses: Bogdanp/setup-racket@v1.15
         with:
           architecture: 'x64'
           distribution: 'full'
           variant: 'CS'
-          version: '8.2'
+          version: '${{ env.RACKET_VERSION }}'
 
       - name: "Install Packages"
         run: |
@@ -624,9 +650,9 @@ jobs:
           sudo apt-get install -y libmpfr6 libmpfr-dev
       
       - name: "Install Julia"
-        uses: julia-actions/setup-julia@v1
+        uses: julia-actions/setup-julia@v3.0.2
         with:
-          version: '1'
+          version: '${{ env.JULIA_VERSION }}'
 
       - name: "Install as Racket package"
         run: raco pkg install --auto
@@ -639,14 +665,14 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ 'julia-sanity' ]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v7
       - name: "Install Racket"
-        uses: Bogdanp/setup-racket@v1.5
+        uses: Bogdanp/setup-racket@v1.15
         with:
           architecture: 'x64'
           distribution: 'full'
           variant: 'CS'
-          version: '8.2'
+          version: '${{ env.RACKET_VERSION }}'
 
       - name: "Install Packages"
         run: |
@@ -654,9 +680,9 @@ jobs:
           sudo apt-get install -y libmpfr6 libmpfr-dev
 
       - name: "Install Julia"
-        uses: julia-actions/setup-julia@v1
+        uses: julia-actions/setup-julia@v3.0.2
         with:
-          version: '1'
+          version: '${{ env.JULIA_VERSION }}'
 
       - name: "Install as Racket package"
         run: raco pkg install --auto
@@ -669,14 +695,14 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ 'julia-sanity' ]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v7
       - name: "Install Racket"
-        uses: Bogdanp/setup-racket@v1.5
+        uses: Bogdanp/setup-racket@v1.15
         with:
           architecture: 'x64'
           distribution: 'full'
           variant: 'CS'
-          version: '8.2'
+          version: '${{ env.RACKET_VERSION }}'
 
       - name: "Install Packages"
         run: |
@@ -684,9 +710,9 @@ jobs:
           sudo apt-get install -y libmpfr6 libmpfr-dev
       
       - name: "Install Julia"
-        uses: julia-actions/setup-julia@v1
+        uses: julia-actions/setup-julia@v3.0.2
         with:
-          version: '1'
+          version: '${{ env.JULIA_VERSION }}'
 
       - name: "Install as Racket package"
         run: raco pkg install --auto
@@ -699,20 +725,20 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ 'unit' ]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v7
       - name: "Install Racket"
-        uses: Bogdanp/setup-racket@v1.5
+        uses: Bogdanp/setup-racket@v1.15
         with:
           architecture: 'x64'
           distribution: 'full'
           variant: 'CS'
-          version: '8.2'
+          version: '${{ env.RACKET_VERSION }}'
 
       - name: "Install Haskell"
-        uses: haskell/actions/setup@v2
+        uses: haskell-actions/setup@v2.11.0
         with:
-          ghc-version: "9.2.8"
-          cabal-version: "3.10.2.0"
+          ghc-version: '${{ env.GHC_VERSION }}'
+          cabal-version: '${{ env.CABAL_VERSION }}'
 
       - name: "Install Packages"
         run: |

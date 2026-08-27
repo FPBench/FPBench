@@ -23,6 +23,8 @@ env:
   PYTHON_VERSION: '3.14'
   GHC_VERSION: '9.14.1'
   CABAL_VERSION: '3.16.1.0'
+  REFLOW_GHC_VERSION: '9.2.8'
+  REFLOW_CABAL_VERSION: '3.10.2.0'
   
 jobs:
   unit:   # package setup, Racket unit testing
@@ -312,7 +314,7 @@ jobs:
           git clone https://github.com/soarlab/FPTaylor.git ../cache/fptaylor
           (cd ../cache/fptaylor && \
             git checkout ${FPTAYLOR_VERSION} && \
-            NUM_DIR="$(opam var lib)/num" && \
+            NUM_DIR="$(opam var lib:num)" && \
             make clean-all && \
             make ML="ocamlc -I ${NUM_DIR}" OPT_ML="ocamlopt -I ${NUM_DIR}")
           echo "${PWD}/../cache/fptaylor" >> $GITHUB_PATH
@@ -737,8 +739,8 @@ jobs:
       - name: "Install Haskell"
         uses: haskell-actions/setup@v2.11.0
         with:
-          ghc-version: '${{ env.GHC_VERSION }}'
-          cabal-version: '${{ env.CABAL_VERSION }}'
+          ghc-version: '${{ env.REFLOW_GHC_VERSION }}'
+          cabal-version: '${{ env.REFLOW_CABAL_VERSION }}'
 
       - name: "Install Packages"
         run: |

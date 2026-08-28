@@ -22,16 +22,19 @@
   cake-file)
 
 (define (run<-cml exec-name ctx types number?)
+  (define command
+    (string-join (cons exec-name (map value->string (dict-values ctx))) " "))
   (define out
     (with-output-to-string
      (λ ()
-       (system (string-join (cons exec-name (map value->string (dict-values ctx))) " ")))))
+       (system (format "~a 2>&1" command)))))
   (define out*
     (match (string-downcase (string-trim out))
       [(or "nan" "+nan" "-nan") +nan.0]
       [(or "inf" "+inf") +inf.0]
       ["-inf" -inf.0]
-      [out (string->number out)]))
+      [out (or (string->number out)
+               (error 'run<-cml "CakeML produced invalid output: ~s" out))]))
   (cons (->value out* 'binary64) out*))
 
 (define (cml-equality a b ulps type ignore?)

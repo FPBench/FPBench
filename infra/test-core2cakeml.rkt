@@ -16,7 +16,7 @@
       (fprintf p "val res = f ~a\nin\n"
         (if (zero? N) "()"
           (string-join (map (curry format "arg~a") (range N)) " ")))
-      (fprintf p "print_int (Word64.toInt res)\nend;\n\nmain ();")))
+      (fprintf p "print_int (Word64.toInt (Double.toWord res))\nend;\n\nmain ();")))
   (system (format "cake <~a >~a --reg_alg=0" test-file s-file))
   (system (format "cc $CAKEML_BIN/basis_ffi.c ~a -lm -o ~a" s-file cake-file))
   cake-file)

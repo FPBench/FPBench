@@ -16,7 +16,7 @@
       (fprintf p "val res = f ~a\nin\n"
         (if (zero? N) "()"
           (string-join (map (curry format "arg~a") (range N)) " ")))
-      (fprintf p "print_int (Word64.toInt (Double.toWord res))\nend;\n\nmain ();")))
+      (fprintf p "print (Double.toString res)\nend;\n\nmain ();")))
   (system (format "cake <~a >~a --reg_alg=0" test-file s-file))
   (system (format "cc $CAKEML_BIN/basis_ffi.c ~a -lm -o ~a" s-file cake-file))
   cake-file)
@@ -26,7 +26,12 @@
     (with-output-to-string
      (λ ()
        (system (string-join (cons exec-name (map value->string (dict-values ctx))) " ")))))
-  (define out* (floating-point-bytes->real (integer->integer-bytes (string->number out) 8 #f)))
+  (define out*
+    (match (string-downcase (string-trim out))
+      [(or "nan" "+nan" "-nan") +nan.0]
+      [(or "inf" "+inf") +inf.0]
+      ["-inf" -inf.0]
+      [out (string->number out)]))
   (cons (->value out* 'binary64) out*))
 
 (define (cml-equality a b ulps type ignore?)

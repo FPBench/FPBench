@@ -24,17 +24,18 @@
 (define (run<-cml exec-name ctx types number?)
   (define command
     (string-join (cons exec-name (map value->string (dict-values ctx))) " "))
+  (define status #f)
   (define out
     (with-output-to-string
      (λ ()
-       (system (format "~a 2>&1" command)))))
+       (set! status (system (format "~a 2>&1" command))))))
   (define out*
     (match (string-downcase (string-trim out))
       [(or "nan" "+nan" "-nan") +nan.0]
       [(or "inf" "+inf") +inf.0]
       ["-inf" -inf.0]
       [out (or (string->number out)
-               (error 'run<-cml "CakeML produced invalid output: ~s" out))]))
+               (error 'run<-cml "CakeML produced invalid output (status ~a, command ~a): ~s" status command out))]))
   (cons (->value out* 'binary64) out*))
 
 (define (cml-equality a b ulps type ignore?)

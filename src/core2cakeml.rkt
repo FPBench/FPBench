@@ -62,13 +62,23 @@
    [(list 'sqrt a) (format "(Double.sqrt ~a)" a)]
    [(list 'fma a b c) (format "(Double.fma ~a ~a ~a)" a b c)]))
 
+(define (double-from-word word)
+  (define-values (high low) (quotient/remainder word (expt 2 32)))
+  (format
+   "(Double.fromWord (Word64.orb (Word64.<< (Word64.fromInt ~a) 32) (Word64.fromInt ~a)))"
+   high low))
+
+(define (double-from-real value)
+  (double-from-word
+   (integer-bytes->integer (real->floating-point-bytes value 8) #f)))
+
 (define (constant->cml expr ctx)
   (match expr
-   ['INFINITY "(Double.fromString \"inf\")"]
-   ['NAN "(Double.fromString \"nan\")"]
+   ['INFINITY (double-from-real +inf.0)]
+   ['NAN (double-from-real +nan.0)]
    [(or 'TRUE 'FALSE) (string-titlecase (format "~a" expr))]
-   [(? hex?) (format "(Double.fromString \"~a\")" (real->double-flonum (hex->racket expr)))]
-   [(? number?) (format "(Double.fromString \"~a\")" (real->double-flonum expr))]
+   [(? hex?) (double-from-real (real->double-flonum (hex->racket expr)))]
+   [(? number?) (double-from-real (real->double-flonum expr))]
    [_  (~a expr)]))
 
 (define (params->cml args)

@@ -18,6 +18,9 @@ concurrency:
   group: "pages"
   cancel-in-progress: false
 
+env:
+  RACKET_VERSION: '9.3'
+
 jobs:
   # Single deploy job since we're just deploying
   deploy:
@@ -29,19 +32,19 @@ jobs:
       - name: "Install Packages"
         run: sudo apt-get install -y libmpfr6 libmpfr-dev
       - name: "Install Racket"
-        uses: Bogdanp/setup-racket@v1.11
+        uses: Bogdanp/setup-racket@v1.15
         with:
-          version: 8.15
+          version: '${{ env.RACKET_VERSION }}'
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
       - name: Setup Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
       - name: Build & install
         run: make setup
       - name: Build JSON
         run: make www/benchmarks.jsonp
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-pages-artifact@v5
         with:
           # Upload entire repository
           path: 'www/'

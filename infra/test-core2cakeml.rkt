@@ -12,7 +12,7 @@
       (fprintf p "~a\n" (core->cml prog "f"))
       (fprintf p "fun main () =\nlet\nval args = CommandLine.arguments()\n")
       (for ([i (range N)])
-        (fprintf p "val arg~a = Double.fromString (List.nth args ~a)\n" i i))
+        (fprintf p "val arg~a = Option.valOf (Double.fromString (List.nth args ~a))\n" i i))
       (fprintf p "val res = f ~a\nin\n"
         (if (zero? N) "()"
           (string-join (map (curry format "arg~a") (range N)) " ")))

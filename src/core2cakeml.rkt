@@ -62,13 +62,16 @@
    [(list 'sqrt a) (format "(Double.sqrt ~a)" a)]
    [(list 'fma a b c) (format "(Double.fma ~a ~a ~a)" a b c)]))
 
+(define (double-from-string str)
+  (format "(Option.valOf (Double.fromString \"~a\"))" str))
+
 (define (constant->cml expr ctx)
   (match expr
-   ['INFINITY "(Double.fromString \"inf\")"]
-   ['NAN "(Double.fromString \"nan\")"]
+   ['INFINITY (double-from-string "inf")]
+   ['NAN (double-from-string "nan")]
    [(or 'TRUE 'FALSE) (string-titlecase (format "~a" expr))]
-   [(? hex?) (format "(Double.fromString \"~a\")" (real->double-flonum (hex->racket expr)))]
-   [(? number?) (format "(Double.fromString \"~a\")" (real->double-flonum expr))]
+   [(? hex?) (double-from-string (real->double-flonum (hex->racket expr)))]
+   [(? number?) (double-from-string (real->double-flonum expr))]
    [_  (~a expr)]))
 
 (define (params->cml args)

@@ -12,7 +12,10 @@
       (fprintf p "~a\n" (core->cml prog "f"))
       (fprintf p "fun main () =\nlet\nval args = CommandLine.arguments()\n")
       (for ([i (range N)])
-        (fprintf p "val arg~a = Option.valOf (Double.fromString (List.nth args ~a))\n" i i))
+        (define arg-index (* 2 i))
+        (fprintf p
+          "val arg~a = Double.fromWord (Word64.orb (Word64.<< (Word64.fromInt (Option.valOf (Int.fromNatString (List.nth args ~a)))) 32) (Word64.fromInt (Option.valOf (Int.fromNatString (List.nth args ~a)))))\n"
+          i arg-index (add1 arg-index)))
       (fprintf p "val res = f ~a\nin\n"
         (if (zero? N) "()"
           (string-join (map (curry format "arg~a") (range N)) " ")))
@@ -21,9 +24,20 @@
   (system (format "cc $CAKEML_BIN/basis_ffi.c ~a -lm -o ~a" s-file cake-file))
   cake-file)
 
+(define (cml-arguments value)
+  (define word
+    (integer-bytes->integer
+     (real->floating-point-bytes (value->real value) 8)
+     #f))
+  (define-values (high low) (quotient/remainder word (expt 2 32)))
+  (list (~a high) (~a low)))
+
 (define (run<-cml exec-name ctx types number?)
   (define command
-    (string-join (cons exec-name (map value->string (dict-values ctx))) " "))
+    (string-join
+     (cons exec-name
+           (apply append (map cml-arguments (dict-values ctx))))
+     " "))
   (define status #f)
   (define out
     (with-output-to-string

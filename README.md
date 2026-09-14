@@ -46,6 +46,8 @@ FPBench develops two compiler tools for FPCore programs:
 These syntax and options for these tools are documented in
 [tools.md](tools.md).
 
+A [tree-sitter grammar](https://github.com/agilot/tree-sitter-fpcore) is also available for parsing FPCore programs.
+
 Standards
 ---------
 

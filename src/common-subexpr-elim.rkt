@@ -16,26 +16,26 @@
 (module+ test (require rackunit))
 
 (define *names* (make-parameter (mutable-set)))
+(define *next-name* (make-parameter 0))
 (define *expr-cse-able?* (make-parameter list?))
 
 ;;;;;; name generation
 
 (define (gensym name)
-  (define prefixed
-    (filter (λ (x) (string-prefix? (~a x) (~a name))) (set->list (*names*))))
-  (define options
-    (for/list ([_ (cons name prefixed)] [i (in-naturals)])
-      (string->symbol (format "~a_~a" name i))))
-  (define name*
-    (car (set-subtract options prefixed)))
-  (set-add! (*names*) name*)
-  name*)
+  (define candidate (string->symbol (format "~a_~a" name (*next-name*))))
+  (*next-name* (add1 (*next-name*)))
+  (if (set-member? (*names*) candidate)
+      (gensym name)
+      (begin
+        (set-add! (*names*) candidate)
+        candidate)))
 
 (define (add-name! name)
   (set-add! (*names*) name))
 
 (define (clear-names!)
-  (set-clear! (*names*)))
+  (set-clear! (*names*))
+  (*next-name* 0))
 
 ;; fuse let bindings together in 3 passes
 ;;  (1) expand single-binding let exprs to let* exprs
@@ -449,6 +449,12 @@
 
   (check-cse '(FPCore (a) (+ (+ a a) (+ a a)))
              '(FPCore (a) (let* ((t_0 (+ a a))) (+ t_0 t_0))))
+
+  (check-cse '(FPCore (a t_0) (+ (+ a a) (+ a a)))
+             '(FPCore (a t_0) (let* ((t_1 (+ a a))) (+ t_1 t_1))))
+
+  (check-cse '(FPCore (a t_0 t_3) (+ (+ a a) (+ a a)))
+             '(FPCore (a t_0 t_3) (let* ((t_1 (+ a a))) (+ t_1 t_1))))
 
   (check-cse '(FPCore (a x) (+ (- (+ a x) a)
                                (- (+ a x) a)))

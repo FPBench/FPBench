@@ -15,7 +15,10 @@
      (= n (string->number (number->string (exact->inexact n))))))
 
 (define/contract (core->json core)
-  (-> fpcore? jsexpr?)
+  (-> any/c jsexpr?)
+  (define features
+    (or (make-program-features core)
+        (raise-argument-error 'core->json "FPCore program" core)))
   (define-values (args props body)
    (match core
     [(list 'FPCore (list args ...) props ... body) (values args props body)]
@@ -39,7 +42,7 @@
    prop-hash
    'arguments (map ~pp args)
    'body (~pp body)
-   'operators (map ~pp (set->list (operators-in core)))
+   'operators (map ~pp (set->list (operators-in features)))
    'core (~pp core)
    'core_fptaylor core-fptaylor))
 

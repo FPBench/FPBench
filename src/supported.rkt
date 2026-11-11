@@ -1,7 +1,7 @@
 #lang racket
-(require racket/hash)
+(require racket/hash racket/set)
 (require "common.rkt" "fpcore-checker.rkt" "fpcore-visitor.rkt")
-(provide valid-core unsupported-features
+(provide valid-core make-program-features unsupported-features
          invert-op-proc invert-const-proc invert-rnd-mode-proc
          ieee754-ops ieee754-rounding-modes fpcore-ops fpcore-consts
          operators-in constants-in property-values)
@@ -44,120 +44,136 @@
 ;;; Core checking
 
 (struct supported-list (ops consts precisions round-modes tensor-args?))
+(struct program-features (operators constants properties arguments))
+
+(define/contract (make-program-features core)
+  (-> any/c (or/c #f program-features?))
+  (and (fpcore? core) (collect-program-features core)))
+
+(define (collect-program-features core)
+  (define-values (args props body)
+    (match core
+      [(list 'FPCore (list args ...) props ... body) (values args props body)]
+      [(list 'FPCore name (list args ...) props ... body) (values args props body)]))
+  (define operators (mutable-set))
+  (define constants (mutable-set))
+  (define properties (make-hash))
+  (define (add-properties! props)
+    (define-values (_ property-dict) (parse-properties props))
+    (for ([(property value) (in-dict property-dict)])
+      (hash-update! properties property
+                    (lambda (property-values)
+                      (set-add! property-values value)
+                      property-values)
+                    (mutable-set))))
+  (define-expr-visitor feature-visitor
+    [(visit-if vtor cond ift iff #:ctx [ctx '()])
+     (set-add! operators 'if)
+     (visit/ctx vtor cond ctx)
+     (visit/ctx vtor ift ctx)
+     (visit/ctx vtor iff ctx)]
+    [(visit-let_ vtor let_ vars vals body #:ctx [ctx '()])
+     (set-add! operators let_)
+     (for ([val (in-list vals)]) (visit/ctx vtor val ctx))
+     (visit/ctx vtor body ctx)]
+    [(visit-while_ vtor while_ cond vars inits updates body #:ctx [ctx '()])
+     (set-add! operators while_)
+     (visit/ctx vtor cond ctx)
+     (for ([init (in-list inits)] [update (in-list updates)])
+       (visit/ctx vtor init ctx)
+       (visit/ctx vtor update ctx))
+     (visit/ctx vtor body ctx)]
+    [(visit-for_ vtor for_ vars vals accums inits updates body #:ctx [ctx '()])
+     (set-add! operators for_)
+     (for ([val (in-list vals)]) (visit/ctx vtor val ctx))
+     (for ([init (in-list inits)] [update (in-list updates)])
+       (visit/ctx vtor init ctx)
+       (visit/ctx vtor update ctx))
+     (visit/ctx vtor body ctx)]
+    [(visit-tensor vtor vars vals body #:ctx [ctx '()])
+     (set-add! operators 'tensor)
+     (for ([val (in-list vals)]) (visit/ctx vtor val ctx))
+     (visit/ctx vtor body ctx)]
+    [(visit-tensor* vtor vars vals accums inits updates body #:ctx [ctx '()])
+     (set-add! operators 'tensor*)
+     (for ([val (in-list vals)]) (visit/ctx vtor val ctx))
+     (for ([init (in-list inits)] [update (in-list updates)])
+       (visit/ctx vtor init ctx)
+       (visit/ctx vtor update ctx))
+     (visit/ctx vtor body ctx)]
+    [(visit-! vtor props body #:ctx [ctx '()])
+     (set-add! operators '!)
+     (add-properties! props)
+     (visit/ctx vtor body ctx)]
+    [(visit-constant vtor constant #:ctx [ctx '()])
+     (set-add! constants constant)]
+    [(visit-op_ vtor operator args #:ctx [ctx '()])
+     (set-add! operators operator)
+     (for ([arg (in-list args)]) (visit/ctx vtor arg ctx))])
+  (add-properties! props)
+  (for ([arg (in-list args)])
+    (match arg
+      [(list '! arg-props ... name) (add-properties! arg-props)]
+      [_ (void)]))
+  (visit feature-visitor body)
+  (program-features
+   (for/set ([operator (in-set operators)]) operator)
+   (for/set ([constant (in-set constants)]) constant)
+   (for/hash ([(property property-values) (in-hash properties)])
+     (values property (for/set ([value (in-set property-values)]) value)))
+   (for/list ([arg (in-list args)])
+     (match arg
+       [(list '! arg-props ... name) name]
+       [_ arg]))))
+
+(define (core->features core)
+  (if (program-features? core) core (make-program-features core)))
 
 (define (valid-core core supp)
-  (define core-precs (dict-ref (property-values core) ':precision #f))
-  (define core-rnd-modes (dict-ref (property-values core) ':round #f))
-  (and (andmap (supported-list-ops supp) (set->list (operators-in core)))
-       (andmap (supported-list-consts supp) (set->list (constants-in core)))
-       (or (not core-precs)
-           (andmap (supported-list-precisions supp) (set->list core-precs)))
-       (or (not core-rnd-modes)
-           (andmap (supported-list-round-modes supp) (set->list core-rnd-modes)))
-       (or (supported-list-tensor-args? supp)
-           (andmap (negate list?) (arguments-in core)))))
+  (define features (core->features core))
+  (and features
+       (let* ([properties (program-features-properties features)]
+              [core-precs (dict-ref properties ':precision #f)]
+              [core-rnd-modes (dict-ref properties ':round #f)])
+         (and (for/and ([operator (in-set (program-features-operators features))])
+                ((supported-list-ops supp) operator))
+              (for/and ([constant (in-set (program-features-constants features))])
+                ((supported-list-consts supp) constant))
+              (or (not core-precs)
+                  (for/and ([prec (in-set core-precs)])
+                    ((supported-list-precisions supp) prec)))
+              (or (not core-rnd-modes)
+                  (for/and ([mode (in-set core-rnd-modes)])
+                    ((supported-list-round-modes supp) mode)))
+              (or (supported-list-tensor-args? supp)
+                  (for/and ([arg (in-list (program-features-arguments features))])
+                    (not (list? arg))))))))
 
 (define (unsupported-features core supp)
-  (define core-precs (dict-ref (property-values core) ':precision #f))
-  (define core-rnd-modes (dict-ref (property-values core) ':round #f))
+  (define features (core->features core))
+  (define core-properties (program-features-properties features))
+  (define core-precs (dict-ref core-properties ':precision #f))
+  (define core-rnd-modes (dict-ref core-properties ':round #f))
   (set-union
-    (filter-not (supported-list-ops supp) (set->list (operators-in core)))
-    (filter-not (supported-list-consts supp) (set->list (constants-in core)))
-    (if core-precs
-        (filter-not (supported-list-precisions supp) (set->list core-precs))
-        '())
-    (if core-rnd-modes
-        (filter-not (supported-list-round-modes supp) (set->list core-rnd-modes))
-        '())))
+   (filter-not (supported-list-ops supp)
+               (set->list (program-features-operators features)))
+   (filter-not (supported-list-consts supp)
+               (set->list (program-features-constants features)))
+   (if core-precs
+       (filter-not (supported-list-precisions supp) (set->list core-precs))
+       '())
+   (if core-rnd-modes
+       (filter-not (supported-list-round-modes supp) (set->list core-rnd-modes))
+       '())))
 
-(define/reduce-expr (operators-in-expr expr)
-; (-> expr? (set/c symbol?))
-  [(visit-if vtor cond ift iff)
-   (set-add (visit-if/reduce vtor cond ift iff) 'if)]
-  [(visit-let_ vtor let_ vars vals body)
-   (set-add (visit-let_/reduce vtor let_ vars vals body) let_)]
-  [(visit-while_ vtor while_ cond vars inits updates body)
-   (set-add (visit-while_/reduce vtor while_ cond vars inits updates body) while_)]
-  [(visit-for_ vtor for_ vars vals accums inits updates body)
-   (set-add (visit-for_/reduce vtor for_ vars vals accums inits updates body) for_)]
-  [(visit-tensor vtor vars vals body)
-   (set-add (visit-tensor/reduce vtor vars vals body) 'tensor)]
-  [(visit-tensor* vtor vars vals accums inits updates body)
-   (set-add (visit-tensor*/reduce vtor vars vals accums inits updates body) 'tensor*)]
-  [(visit-! vtor props body)
-   (set-add (visit vtor body) '!)]
-  [(visit-terminal_ vtor x)
-   (set)]
-  [(visit-op_ vtor op args)
-   (set-add (visit-op_/reduce vtor op args) op)]
-  [reduce
-   (λ (sets) (apply set-union (set) sets))])
+(define (operators-in core)
+  (program-features-operators (core->features core)))
 
-(define/contract (operators-in core)
-  (-> fpcore? (set/c symbol?))
-  (define-values (args props body)
-    (match core
-     [(list 'FPCore (list args ...) props ... body) (values args props body)]
-     [(list 'FPCore name (list args ...) props ... body) (values args props body)]))
-  (operators-in-expr body))
+(define (constants-in core)
+  (program-features-constants (core->features core)))
 
-(define/reduce-expr (constants-in-expr expr)
-; (-> expr? (set/c symbol?)
-  [(visit-terminal_ vtor x) (set)]
-  [(visit-constant vtor x) (set x)]
-  [reduce (λ (sets) (apply set-union (set) sets))])
-
-(define/contract (constants-in core)
-  (-> fpcore? (set/c symbol?))
-  (define-values (args props body)
-    (match core
-     [(list 'FPCore (list args ...) props ... body) (values args props body)]
-     [(list 'FPCore name (list args ...) props ... body) (values args props body)]))
-  (constants-in-expr body))
-
-(define (arguments-in core)
-  (define-values (args props body)
-    (match core
-     [(list 'FPCore (list args ...) props ... body) (values args props body)]
-     [(list 'FPCore name (list args ...) props ... body) (values args props body)]))
-  (for/list ([arg (in-list args)])
-    (match arg
-      [(list '! props ... name) name]
-      [_ arg])))
-
-(define property-hash? (hash/c symbol? (set/c any/c)))
-(define (property-hash-add prop-hash props)
-  (define-values (_ properties) (parse-properties props))
-  (for/fold ([prop-hash* prop-hash])
-            ([(k v) (in-dict properties)])
-    (hash-update prop-hash* k (curryr set-add v) (set))))
-
-(define/reduce-expr (property-values-expr expr)
-  [(visit-! vtor props body)
-   (property-hash-add (visit vtor body) props)]
-  [(visit-terminal_ vtor x)
-   (hash)]
-  [(reduce args)
-   (if (empty? args) (hash)
-       (apply (curryr hash-union #:combine/key
-                      (lambda (k v1 v2) (set-union v1 v2))) args))])
-
-(define (property-values-variables prop-hash vars)
-  (for/fold ([prop-hash* prop-hash]) ([var vars])
-    (match var
-      [(list '! props ... name)
-       (property-hash-add prop-hash* props)]
-      [_
-       prop-hash*])))
-
-(define/contract (property-values core)
-  (-> fpcore? property-hash?)
-  (define-values (args props body)
-    (match core
-     [(list 'FPCore (list args ...) props ... body) (values args props body)]
-     [(list 'FPCore name (list args ...) props ... body) (values args props body)]))
-  (define prop-hash (property-values-variables (property-values-expr body) args))
-  (property-hash-add prop-hash props))
+(define (property-values core)
+  (program-features-properties (core->features core)))
 
 (module+ test
   (define exprs (list
@@ -169,17 +185,75 @@
     `(while* (< a b) ([a 0 (+ a 2)] [b 100 (- b 1)]) (* (log a) (cos b)))
     `(! :precision binary64 (- (! :round toPositive (+ x y)) (! :round toNegative (+ x y))))))
 
+  (define features
+    (for/list ([expr (in-list exprs)])
+      (make-program-features `(FPCore () ,expr))))
+
   (check-equal?
-   (map list->set (map operators-in-expr exprs))
+   (map program-features-operators features)
    (map list->set `((+) (* +) (let sqrt /) 
                     (let* cbrt /) (while < + - * exp sin)
                     (while* < + - * log cos) (! - +))))
 
   (check-equal?
-    (map list->set (map constants-in-expr exprs))
+    (map program-features-constants features)
     (map list->set `(() (E) (LOG2E) (PI) () () ())))
 
   (check-equal?
-    (map property-values-expr exprs)
+    (map program-features-properties features)
     (list (hash) (hash) (hash) (hash) (hash) (hash)
-          (hash ':precision (set 'binary64) ':round (set 'toNegative 'toPositive)))))
+          (hash ':precision (set 'binary64) ':round (set 'toNegative 'toPositive))))
+
+  (define combined-features
+    (make-program-features
+     '(FPCore ((! :precision binary32 x) y)
+        :precision binary64
+        :round nearestEven
+        (! :precision binary16
+           (! :round toPositive
+              (let* ([a (+ x E)] [b (* a PI)])
+                (if (< a b) b a)))))))
+  (check-equal? (program-features-operators combined-features)
+                (set '! 'let* '+ '* 'if '<))
+  (check-equal? (program-features-constants combined-features)
+                (set 'E 'PI))
+  (check-equal? (program-features-properties combined-features)
+                (hash ':precision (set 'binary32 'binary64 'binary16)
+                      ':round (set 'nearestEven 'toPositive)))
+  (check-equal? (program-features-arguments combined-features) '(x y))
+
+  (define named-core
+    '(FPCore named ((! :precision binary32 x)) :precision binary64 :spec x x))
+  (define named-features (make-program-features named-core))
+  (check-equal? (program-features-operators named-features) (set))
+  (check-equal? (program-features-constants named-features) (set))
+  (check-equal? (program-features-properties named-features)
+                (hash ':precision (set 'binary32 'binary64) ':spec (set 'x)))
+  (check-equal? (program-features-arguments named-features) '(x))
+  (check-equal? (operators-in named-features) (program-features-operators named-features))
+  (check-equal? (constants-in named-features) (program-features-constants named-features))
+  (check-equal? (property-values named-features) (program-features-properties named-features))
+
+  (define check-core
+    '(FPCore (x) :precision binary64 :round nearestEven
+             (! :precision binary32 (! :round toPositive (+ x E)))))
+  (define check-features (make-program-features check-core))
+  (define supported-all
+    (supported-list (lambda (op) (and (memq op '(+ !)) #t))
+                    (lambda (const) (eq? const 'E))
+                    (lambda (prec) (and (memq prec '(binary32 binary64)) #t))
+                    (lambda (mode) (and (memq mode '(nearestEven toPositive)) #t))
+                    #t))
+  (define unsupported-round
+    (struct-copy supported-list supported-all
+                 [round-modes (lambda (mode) (eq? mode 'nearestEven))]))
+  (check-true (valid-core check-core supported-all))
+  (check-true (valid-core check-features supported-all))
+  (check-false (valid-core check-features unsupported-round))
+  (check-false (make-program-features 'not-a-core))
+  (check-false (valid-core 'not-a-core supported-all))
+  (check-false (set-mutable? (program-features-operators check-features)))
+  (check-false (set-mutable? (program-features-constants check-features)))
+  (check-false
+   (set-mutable?
+    (dict-ref (program-features-properties check-features) ':precision))))

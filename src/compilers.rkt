@@ -41,7 +41,7 @@
     [ctx-set-extra (-> compiler-ctx? any/c any/c compiler-ctx?)]
     [ctx-update-extra (->* (compiler-ctx? any/c any/c) (any/c) compiler-ctx?)]
     [ctx-lookup-extra (-> compiler-ctx? any/c any/c)]
-    [supported-by-lang? (-> fpcore? string? boolean?)]))
+    [supported-by-lang? (-> any/c string? boolean?)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;; compiler struct ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -52,14 +52,12 @@
 (define-syntax-rule (define-compiler arg ...)
   (compilers (cons (compiler arg ...) (compilers))))
 
-(define (supported-by-lang? fpcore lang)
+(define (supported-by-lang? core lang)
   (define compiler
     (for/first ([compiler (compilers)]
                 #:when (set-member? (compiler-extensions compiler) lang))
-        compiler))
-  (if compiler
-      (valid-core fpcore (compiler-supported compiler))
-      #f))
+      compiler))
+  (and compiler (valid-core core (compiler-supported compiler))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;; name generation ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -179,4 +177,3 @@
     (error 'default-compiler-visitor "Unsupported operation: ~a" op_)]
   [(visit-terminal_ vtor x #:ctx ctx)
     (error 'default-compiler-visitor "Unsupported: ~a" x)])
-

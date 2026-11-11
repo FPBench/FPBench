@@ -103,11 +103,12 @@
     [(list 'sinh arg) `(* (/ 1 2) (+ (exp ,arg) (/ (- 1) (exp ,arg))))]
     [(list 'cosh arg) `(* (/ 1 2) (+ (exp ,arg) (/ 1 (exp ,arg))))]
     [(list 'tanh arg) `(/ (+ (exp ,arg) (- (/ 1 (exp ,arg)))) (+ (exp ,arg) (/ 1 (exp ,arg))))]
+    [(list (and op (or 'fmin 'fmax)) arg1 arg2)
+     `(let ([left ,arg1] [right ,arg2])
+        (if (,(if (eq? op 'fmin) '< '>) left right) left right))]
     [(list 'asinh arg) `(log (+ ,arg (sqrt (+ (pow ,arg 2) 1))))]
     [(list 'acosh arg) `(log (+ ,arg (sqrt (- (pow ,arg 2) 1))))]
     [(list 'atanh arg) `(* (/ 1 2) (log (/ (+ 1 ,arg) (+ 1 (- ,arg)))))]
-    [(list 'fmin arg1 arg2) `(if (< ,arg1 ,arg2) ,arg1 ,arg2)]
-    [(list 'fmax arg1 arg2) `(if (> ,arg1 ,arg2) ,arg1 ,arg2)]
     [_ #f]))
 
 ;; Basic operations implemented in ReFLOW
@@ -156,20 +157,17 @@
  ;; to allow nesting over if-statement
  [(visit-if vtor cond ift iff #:ctx ctx)
   (define indent (ctx-lookup-extra ctx 'indent))
-  (define-values (ctx* tmpvar) ; allocate a variable
-    (parameterize ([current-output-port (open-output-nowhere)])
-      (define-values (_ ift-ctx) (visit/ctx vtor ift ctx))
-      (define prec (ctx-lookup-prop ift-ctx ':precision))
-      (ctx-random-name (ctx-update-props ctx `(:precision ,prec)))))
   (define-values (cond* cond-ctx) (visit/ctx vtor cond ctx))
   (define-values (ift* ift-ctx) (visit/ctx vtor ift ctx))
+  (define prec (ctx-lookup-prop ift-ctx ':precision))
+  (define-values (ctx* tmpvar)
+    (ctx-random-name (ctx-update-props ctx `(:precision ,prec))))
   (define-values (iff* iff-ctx) (visit/ctx vtor iff ctx))
   ; tabulations
   (printf "~a~a"
           indent
           (format let-format (format let-bind-format tmpvar (format if-format cond* ift* iff*)) ""))
-  (define ctx** (ctx-set-extra ctx 'indent (format "~a~a" indent "\t")))
-  (values tmpvar ctx**)]
+  (values tmpvar ctx)]
  ;; Currying anything outside of let-statement into let-body
  ;; to allow nesting over let-statement
  [(visit-let vtor vars vals body #:ctx ctx)
@@ -191,8 +189,7 @@
                   (string-join (map (curry format let-bind-format) vars* vals*)
                                (string-append let-bind-separator indent "    "))
                   ""))
-  (define ctx** (ctx-set-extra ctx* 'indent (format "~a~a" indent "\t")))
-  (define-values (body* body-ctx) (visit/ctx vtor body ctx**))
+  (define-values (body* body-ctx) (visit/ctx vtor body ctx*))
   (values body* body-ctx)]
  [(visit-let* vtor vars vals body #:ctx ctx)
   (visit/ctx vtor
@@ -208,7 +205,7 @@
     [(? list? rewrite) (visit/ctx vtor rewrite ctx)]
     [#f
      (define args*
-       (for/list ([arg args])
+       (for/list ([arg (in-list args)])
          (define-values (arg* arg-ctx) (visit/ctx vtor arg ctx))
          arg*))
      (values (operator->reflow op args* ctx)
@@ -295,4 +292,24 @@
                           (<= -10 h 10)
                           (<= -10 i 10))
                      (- (+ (+ (* (* a e) i) (* (* b f) g)) (* (* c d) h))
-                        (+ (+ (* (* c e) g) (* (* b d) i)) (* (* a f) h))))))
+                        (+ (+ (* (* c e) g) (* (* b d) i)) (* (* a f) h)))))
+
+  (define nested-minmax
+    (for/fold ([expr 'a]) ([i (in-range 6)])
+      `(,(if (even? i) 'fmin 'fmax) ,expr b)))
+  (define nested-minmax-reflow
+    (compile0 `(FPCore (a b) :precision binary64
+                       (fmin ,nested-minmax ,nested-minmax))
+              "nested-minmax"))
+  (check-equal? (length (regexp-match* #rx"= IF " nested-minmax-reflow)) 13)
+
+  (define let-count 256)
+  (define let-bindings
+    (for/list ([i (in-range let-count)])
+      (list (string->symbol (format "v~a" i))
+            (if (zero? i) 'a (string->symbol (format "v~a" (sub1 i)))))))
+  (define let-chain-reflow
+    (compile0 `(FPCore (a) :precision binary64
+                       (let* ,let-bindings ,(string->symbol (format "v~a" (sub1 let-count)))))
+              "let-chain"))
+  (check-true (< (string-length let-chain-reflow) 20000)))

@@ -26,10 +26,12 @@ env:
   REFLOW_GHC_VERSION: '9.2.8'
   REFLOW_CABAL_VERSION: '3.10.2.0'
   
+# Keep these pinned toolchain builds on the last known-good Ubuntu LTS until
+# the FPTaylor and Reflow dependencies support newer runner images.
 jobs:
   unit:   # package setup, Racket unit testing
     name: "Unit Tests"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
       - name: "Install Racket"
@@ -54,7 +56,7 @@ jobs:
 
   tools:  # front-end tools
     name: "Tools Tests"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [ 'unit' ]
     steps:
       - uses: actions/checkout@v7
@@ -94,7 +96,7 @@ jobs:
 
   c:    # C language
     name: "C Tests"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [ 'unit' ]
     steps:
       - uses: actions/checkout@v7
@@ -122,7 +124,7 @@ jobs:
 
   java:   # Java language
     name: "Java Tests"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [ 'unit' ]
     steps:
       - uses: actions/checkout@v7
@@ -156,7 +158,7 @@ jobs:
   
   go:    # Go langugae
     name: "Go Tests"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [ 'unit' ]
     steps:
       - uses: actions/checkout@v7
@@ -189,7 +191,7 @@ jobs:
 
   rust: # Rust language
     name: "Rust Tests"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [ 'unit' ]
     steps:
       - uses: actions/checkout@v7
@@ -223,7 +225,7 @@ jobs:
 
   js:    # JavaScript language
     name: "JavaScript Tests"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [ 'unit' ]
     steps:
       - uses: actions/checkout@v7
@@ -260,7 +262,7 @@ jobs:
 
   sollya:    # Sollya language
     name: "Sollya Tests"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [ 'unit' ]
     steps:
       - uses: actions/checkout@v7
@@ -288,7 +290,7 @@ jobs:
 
   fptaylor:   # FPTaylor language
     name: "FPTaylor Tests"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [ 'unit' ]
     steps:
       - uses: actions/checkout@v7
@@ -330,7 +332,7 @@ jobs:
 
   daisy:    # Scala language (daisy tool)
     name: "Scala (Daisy) Tests"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [ 'unit' ]
     steps:
       - uses: actions/checkout@v7
@@ -378,7 +380,7 @@ jobs:
 
   z3:    # SMT (Z3) language
     name: "SMT (Z3) Tests"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [ 'unit' ]
     steps:
       - uses: actions/checkout@v7
@@ -411,7 +413,7 @@ jobs:
 
   cakeml:   # CakeML language
     name: "CakeML Tests"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [ 'unit' ]
     steps:
       - uses: actions/checkout@v7
@@ -443,7 +445,7 @@ jobs:
 
   ocaml:    # OCaml language
     name: "OCaml Tests"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [ 'unit' ]
     steps:
       - uses: actions/checkout@v7
@@ -480,7 +482,7 @@ jobs:
 
   python:   # Python language
     name: "Python Tests"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [ 'unit' ]
     steps:
       - uses: actions/checkout@v7
@@ -513,7 +515,7 @@ jobs:
 
   fortran:    # Fortran language (2003)
     name: "Fortran Tests"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [ 'unit' ]
     steps:
       - uses: actions/checkout@v7
@@ -575,7 +577,7 @@ jobs:
 
   haskell:    # Haskell language
     name: "Haskell Tests"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [ 'unit' ]
     steps:
       - uses: actions/checkout@v7
@@ -604,7 +606,7 @@ jobs:
   # Julia tests take forever, so split the jobs
   julia-sanity:    # Julia language
     name: "Julia Sanity Tests"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [ 'unit' ]
     steps:
       - uses: actions/checkout@v7
@@ -634,7 +636,7 @@ jobs:
 
   julia-benchmarks:
     name: Julia Benchmarks
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [ 'julia-sanity' ]
     steps:
       - uses: actions/checkout@v7
@@ -664,7 +666,7 @@ jobs:
 
   julia-tests:
     name: Julia Tests (binary64, mixed)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [ 'julia-sanity' ]
     steps:
       - uses: actions/checkout@v7
@@ -694,7 +696,7 @@ jobs:
 
   julia-binary32-tests:
     name: Julia Tests (binary32)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [ 'julia-sanity' ]
     steps:
       - uses: actions/checkout@v7
@@ -724,7 +726,7 @@ jobs:
 
   reflow:
     name: Reflow tests (binary64)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [ 'unit' ]
     steps:
       - uses: actions/checkout@v7

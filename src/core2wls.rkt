@@ -211,7 +211,20 @@
                       body*)
               (format "Block[{~a = ~a}, ~a]" (car vars) (car vals*)
                       (loop (cdr vars) (cdr vals*)))))])
-      body-ctx)])
+      body-ctx)]
+  [(visit-let* vtor vars vals body #:ctx ctx)
+    (define-values (ctx* prefixes)
+      (for/fold ([ctx* ctx] [prefixes '()])
+                ([var (in-list vars)] [val (in-list vals)])
+        (define-values (val* val-ctx) (visit/ctx vtor val ctx*))
+        (define prec (ctx-lookup-prop val-ctx ':precision))
+        (define-values (name-ctx name) (ctx-unique-name ctx* var prec))
+        (values name-ctx (cons (format "Block[{~a = ~a}, " name val*) prefixes))))
+    (define-values (body* body-ctx) (visit/ctx vtor body ctx*))
+    (values (string-append (apply string-append (reverse prefixes))
+                           body*
+                           (make-string (length prefixes) #\]))
+            body-ctx)])
 
 (define core->wls*
   (make-lisp-compiler "lisp"
@@ -230,3 +243,9 @@
     (core->wls* prog name)))
 
 (define-compiler '("wl" "wls") (const "") core->wls (const "") wls-supported)
+
+(module+ test
+  (require rackunit)
+  (check-equal?
+   (core->wls '(FPCore (x) :precision real (let* ([a (+ x 1)] [b (+ a 2)]) b)) "f")
+   "f[x_] := Block[{a = (x + 1)}, Block[{b = (a + 2)}, b]]\n"))

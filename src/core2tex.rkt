@@ -164,88 +164,77 @@
    [(list 'or a ...) (string-join (map ~a a) " \\lor ")]
    [(list op args ...) (operator->tex op args)]))
 
-(define (collect-branches expr loc)
+(define (collect-branches expr)
   (match expr
     [`(if ,cond ,ift ,iff)
-     (cons (list cond ift loc)
-           (collect-branches iff (cons 3 loc)))]
+     (cons (list cond ift)
+           (collect-branches iff))]
     [else
-     (list (list #t expr loc))]))
-
-(define (tex->color color-loc loc color expr)
-  (cond 
-   [(string-prefix? expr "\\color{") expr]  ; avoid double coloring
-   [(and color-loc (equal? (reverse color-loc) loc))
-    (format "\\color{~a}{~a}" color expr)]
-   [else expr]))
+     (list (list #t expr))]))
 
 ;; Main texifier
 
-(define (stmt->tex expr ctx color-loc color [parens #t] [loc '(2)])
-  (tex->color color-loc loc color
-    (match expr
+(define (stmt->tex expr ctx [parens #t])
+  (match expr
      [`(let ([,vars ,vals] ...) ,body)
       (define vals*
-        (for/list ([val vals] [id (in-naturals 0)])
-          (expr->tex val ctx color-loc color parens
-                      (append (list 1 id 1) loc))))         
+        (for/list ([val (in-list vals)])
+          (expr->tex val ctx parens)))
       (string-append
         (format "~a := ~a\\\\\n~a"
                 (string-join (map ~a vars) ", ")
                 (string-join vals* ", ")
-                (stmt->tex body ctx color-loc color parens (cons 2 loc))))]
+                (stmt->tex body ctx parens)))]
      [`(let* ([,vars ,vals] ...) ,body)
       (define vals*
-        (for/list ([val vals] [id (in-naturals 0)])
-          (expr->tex val ctx color-loc color parens
-                      (append (list 1 id 1) loc))))
+        (for/list ([val (in-list vals)])
+          (expr->tex val ctx parens)))
       (format "~a\n~a"
               (string-join
-                (for/list ([var vars] [val vals*])
+                (for/list ([var (in-list vars)] [val (in-list vals*)])
                   (format "~a := ~a\\\\" var val))
                 "\n")
-              (stmt->tex body ctx color-loc color parens (cons 2 loc)))]
+              (stmt->tex body ctx parens))]
      [`(if ,cond ,ift ,iff)
       (define NL "\\\\\n")
       (define IND "\\;\\;\\;\\;")
       (with-output-to-string
         (λ ()
-          (for ([branch (collect-branches expr loc)] [n (in-naturals)])
+          (for ([branch (in-list (collect-branches expr))] [n (in-naturals)])
             (match branch
-              [(list #t bexpr bloc)
+              [(list #t bexpr)
               (printf "\\mathbf{else}:~a~a~a~a\n" NL IND
-                      (expr->tex bexpr ctx color-loc color #t (cons 2 bloc))
+                      (expr->tex bexpr ctx #t)
                       NL)]
-              [(list bcond bexpr bloc)
+              [(list bcond bexpr)
               (printf "\\mathbf{~a}\\;~a:~a~a~a~a\n"
                       (if (= n 0) "if" "elif")
-                      (expr->tex bcond ctx color-loc color #t (cons 1 bloc))
+                      (expr->tex bcond ctx #t)
                       NL IND
-                      (expr->tex bexpr ctx color-loc color #t (cons 2 bloc))
+                      (expr->tex bexpr ctx #t)
                       NL)]))))]
-     [_ (expr->tex expr ctx color-loc color parens loc)])))
+     [_ (expr->tex expr ctx parens)]))
 
-(define (expr->tex expr ctx color-loc color [parens #t] [loc '(2)])
-  (tex->color color-loc loc color
-    (match expr
+(define (expr->tex expr ctx [parens #t])
+  (match expr
      [`(let ([,vars ,vals] ...) ,body)
       (format "\\begin{array}{l}\n~a\n\\end{array}"
-        (stmt->tex expr ctx color-loc color parens loc))]
+        (stmt->tex expr ctx parens))]
      [`(let* ([,vars ,vals] ...) ,body)
       (format "\\begin{array}{l}\n~a\n\\end{array}"
-        (stmt->tex expr ctx color-loc color parens loc))]
+        (stmt->tex expr ctx parens))]
      [`(if ,cond ,ift ,iff)
       (format "\\begin{array}{l}\n~a\n\\end{array}"
-        (stmt->tex expr ctx color-loc color parens loc))]
+        (stmt->tex expr ctx parens))]
 
      [`(cast ,body)
       (format "\\langle ~a \\rangle_{\\text{~a}}"
-              (expr->tex body ctx color-loc color parens loc) (ctx-lookup-prop ctx ':precision))]
+              (expr->tex body ctx parens) (ctx-lookup-prop ctx ':precision))]
      [`(! ,props ... ,body) 
       (define curr-prec (ctx-lookup-prop ctx ':precision))
       (define curr-rnd (ctx-lookup-prop ctx ':round))
       (define ctx* (ctx-update-props ctx props))
-      (define body* (expr->tex body ctx* color-loc color parens loc))
+      (define body* (expr->tex body ctx* parens))
       (define new-prec (ctx-lookup-prop ctx* ':precision curr-prec))
       (define new-rnd (ctx-lookup-prop ctx* ':round curr-rnd))
       (cond
@@ -258,14 +247,14 @@
         [else body*])]
       
      [(list 'digits (? number? m) (? number? e) (? number? b))
-      (expr->tex (digits->number m e b) ctx color-loc color parens loc)]
+      (expr->tex (digits->number m e b) ctx parens)]
      [`(<= ,x ,(or -inf.0 -inf.f))
-       ( `(== ,x -inf.0) ctx parens loc)]
+       ( `(== ,x -inf.0) ctx parens)]
      [(list op args ...)
       (define-values (self-paren-level arg-paren-level) (precedence-levels op))
       (define texed-args
-        (for/list ([arg args] [id (in-naturals 1)])
-          (expr->tex arg ctx color-loc color arg-paren-level (cons id loc))))
+        (for/list ([arg (in-list args)])
+          (expr->tex arg ctx arg-paren-level)))
       (format ; omit parens if parent contex has lower precedence
         (if (or (precedence< parens self-paren-level) (equal? self-paren-level 'fn)) 
             "~a" 
@@ -273,16 +262,16 @@
         (application->tex op texed-args))]
         
      [(? hex?)
-      (expr->tex (hex->racket expr) ctx color-loc color parens loc)]
+      (expr->tex (hex->racket expr) ctx parens)]
      [(? exact-integer?)
       (number->string expr)]
      [(and (? rational?) (? exact?))
       (format "\\frac{~a}{~a}" (numerator expr) (denominator expr))]
      [(? (conjoin complex? (negate real?))) ;; Herbie stuff
       (format "~a ~a ~a i"
-              (expr->tex (real-part expr) ctx color-loc color '+ loc)
+              (expr->tex (real-part expr) ctx '+)
               (if (or (< (imag-part expr) 0) (equal? (imag-part expr) -0.0)) '- '+)
-              (expr->tex (abs (imag-part expr)) ctx color-loc color '+ loc))]
+              (expr->tex (abs (imag-part expr)) ctx '+))]
      [(or (list 'digits (? number?) (? number?) (? number?)) (? hex?) (? number?))
       (define expr* (number->string expr))
       (match expr*
@@ -299,16 +288,16 @@
                   (format "~a \\cdot 10^{~a}" significand exp)))
             (if (precedence< parens #f) num (format "\\left( ~a \\right)" num))])])]
      [(? constant?) (constant->tex expr)]
-     [(? symbol?) (variable->tex expr)])))
+     [(? symbol?) (variable->tex expr)]))
 
 ;; Exports
 
-(define (expr*->tex expr #:prec [prec 'binary64] #:loc [color-loc #f] #:color [color "red"])
+(define (expr*->tex expr #:prec [prec 'binary64])
   (define ctx (ctx-update-props (make-compiler-ctx) (list ':precision prec)))
-  (expr->tex expr ctx color-loc color))
+  (expr->tex expr ctx))
 
 ; Names are optional in TeX programs
-(define (core->tex prog [name ""] #:loc [color-loc #f] #:color [color "red"])
+(define (core->tex prog [name ""])
   (parameterize ([*gensym-used-names* (mutable-set)] 
                  [*gensym-collisions* 1] 
                  [*gensym-fix-name* fix-name])
@@ -320,12 +309,12 @@
 
     ; handle variable annotations
     (define arg-names
-      (for/list ([var args])
+      (for/list ([var (in-list args)])
         (match var
          [(list '! props ... name) (fix-name (~a name))]
          [_ (fix-name (~a var))])))
 
-    (define body* (expr->tex body ctx color-loc color))
+    (define body* (expr->tex body ctx))
     (if (non-empty-string? name)
         (format "\\mathsf{~a}\\left(~a\\right) = ~a\n"
                 name
@@ -348,6 +337,18 @@
                        :precision binary64
                        (let* ([sum (+ x y)]) (array sum (* sum y)))))
     "\\left[sum, sum \\cdot y\\right]"))
+  (check-true
+   (string-contains?
+    (core->tex '(FPCore (x) (if (> x 0) 1 (if (< x 0) -1 0))))
+    "\\mathbf{elif}"))
+  (check-exn exn:fail:contract?
+             (λ () (keyword-apply core->tex '(#:loc) '(#f) (list '(FPCore () 0)))))
+  (check-exn exn:fail:contract?
+             (λ () (keyword-apply core->tex '(#:color) '("red") (list '(FPCore () 0)))))
+  (check-exn exn:fail:contract?
+             (λ () (keyword-apply expr*->tex '(#:loc) (list '(2)) (list 'x))))
+  (check-exn exn:fail:contract?
+             (λ () (keyword-apply expr*->tex '(#:color) '("red") (list 'x))))
   (check-true (supported-by-lang? (make-program-features '(FPCore (x y) (array x y))) "tex"))
   (check-true (supported-by-lang? (make-program-features '(FPCore (v) (ref v 0))) "tex"))
   (check-true (supported-by-lang? (make-program-features '(FPCore ((v 3)) (ref v 0))) "tex")))

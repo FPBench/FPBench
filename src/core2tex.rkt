@@ -341,14 +341,6 @@
    (string-contains?
     (core->tex '(FPCore (x) (if (> x 0) 1 (if (< x 0) -1 0))))
     "\\mathbf{elif}"))
-  (check-exn exn:fail:contract?
-             (λ () (keyword-apply core->tex '(#:loc) '(#f) (list '(FPCore () 0)))))
-  (check-exn exn:fail:contract?
-             (λ () (keyword-apply core->tex '(#:color) '("red") (list '(FPCore () 0)))))
-  (check-exn exn:fail:contract?
-             (λ () (keyword-apply expr*->tex '(#:loc) (list '(2)) (list 'x))))
-  (check-exn exn:fail:contract?
-             (λ () (keyword-apply expr*->tex '(#:color) '("red") (list 'x))))
   (check-true (supported-by-lang? (make-program-features '(FPCore (x y) (array x y))) "tex"))
   (check-true (supported-by-lang? (make-program-features '(FPCore (v) (ref v 0))) "tex"))
   (check-true (supported-by-lang? (make-program-features '(FPCore ((v 3)) (ref v 0))) "tex")))

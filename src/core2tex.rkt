@@ -355,13 +355,12 @@
 
 ;; Exports
 
-;; Retain the color keywords for compatibility; TeX output is always uncolored.
-(define (expr*->tex expr #:prec [prec 'binary64] #:loc [_loc #f] #:color [_color "red"])
+(define (expr*->tex expr #:prec [prec 'binary64])
   (define ctx (ctx-update-props (make-compiler-ctx) (list ':precision prec)))
   (expr->tex expr ctx))
 
 ; Names are optional in TeX programs
-(define (core->tex prog [name ""] #:loc [_loc #f] #:color [_color "red"])
+(define (core->tex prog [name ""])
   (parameterize ([*gensym-used-names* (mutable-set)] 
                  [*gensym-collisions* 1] 
                  [*gensym-fix-name* fix-name])
@@ -425,9 +424,5 @@
   (check-equal? (expr*->tex '(== x y z)) "x = y \\land y = z")
   (check-equal? (expr*->tex '(!= x y z))
                 "x \\ne y \\land x \\ne z \\land y \\ne z")
-  (check-equal? (expr*->tex '(+ x y) #:loc '(2 1) #:color "blue")
-                "x + y")
-  (check-equal? (core->tex '(FPCore (x) (+ x 1)) #:loc '(2 1) #:color "blue")
-                "x + 1\n")
   (check-equal? (expr*->tex 'x_y) "x\\_y")
   (check-equal? (expr*->tex (string->symbol "0x1p+2")) "4"))

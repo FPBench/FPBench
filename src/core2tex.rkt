@@ -5,11 +5,11 @@
 
 (define tex-supported 
   (supported-list
-    (negate (curry set-member? '(while while* array dim size ref for for* tensor tensor*)))
+    (negate (curry set-member? '(while while* dim size for for* tensor tensor*)))
     (curry set-member? '(PI E INFINITY NAN TRUE FALSE))
     (const #t)
     ieee754-rounding-modes
-    #f))
+    #t)) ; allow tensor-valued arguments
 
 ;;
 ;;  This compiler is adapted from Herbie
@@ -30,6 +30,8 @@
   (match op
     [(or '+ '- 'neg 'or) (values '+ '+)]
     [(or '* 'and) (values '* '*)]
+    ['array (values 'fn #t)]
+    ['ref (values 'fn #t)]
     ['/ (values #f #t)]
     ['pow (values #f #f)]
     ['atan2 (values 'fn #t)]
@@ -91,6 +93,8 @@
 
 (define (operator->tex op args)
   (match op
+   ['array      (format "\\left[~a\\right]" (string-join args ", "))]
+   ['ref        (format "~a\\left[~a\\right]" (first args) (second args))]
    ['==         (format "~a = ~a" (first args) (second args))]
    ['>          (format "~a > ~a" (first args) (second args))]
    ['<          (format "~a < ~a" (first args) (second args))]
@@ -330,3 +334,20 @@
         (format "~a\n" body*))))
     
 (define-compiler '("tex") (const "") core->tex (const "") tex-supported)
+
+(module+ test
+  (require rackunit)
+  (check-equal? (core->tex '(FPCore (x y) :precision binary64 (array (+ x y) (* x y))))
+                "\\left[x + y, x \\cdot y\\right]\n")
+  (check-equal? (core->tex '(FPCore (v) :precision binary64 (ref v 0))) "v\\left[0\\right]\n")
+  (check-equal? (core->tex '(FPCore (x y) :precision binary64 (ref (array x y) 1)))
+                "\\left[x, y\\right]\\left[1\\right]\n")
+  (check-true
+   (string-contains?
+    (core->tex '(FPCore (x y)
+                       :precision binary64
+                       (let* ([sum (+ x y)]) (array sum (* sum y)))))
+    "\\left[sum, sum \\cdot y\\right]"))
+  (check-true (supported-by-lang? (make-program-features '(FPCore (x y) (array x y))) "tex"))
+  (check-true (supported-by-lang? (make-program-features '(FPCore (v) (ref v 0))) "tex"))
+  (check-true (supported-by-lang? (make-program-features '(FPCore ((v 3)) (ref v 0))) "tex")))

@@ -87,18 +87,23 @@
 
 ; kahn's algorithm
 (define (topo-sort deps)
-  (define (filter-no-edges deps)
-    (map car (filter (compose null? cdr) deps)))
-  (let loop ([sorted '()] [deps deps] [no-edges (filter-no-edges deps)])
+  (define done (mutable-set))
+  (define (take-ready deps)
+    (match deps
+      ['() (values #f '())]
+      [(cons (cons idx edges) rest)
+       (define remaining (filter-not (curry set-member? done) edges))
+       (if (null? remaining)
+           (values idx rest)
+           (let-values ([(chosen rest*) (take-ready rest)])
+             (values chosen (cons (cons idx remaining) rest*))))]))
+  (let loop ([sorted '()] [deps deps])
+    (define-values (chosen rest) (take-ready deps))
     (cond
-     [(null? no-edges) (append (reverse sorted) (map car deps))]
+     [(not chosen) (append (reverse sorted) (map car rest))]
      [else 
-      (define chosen (car no-edges))
-      (define deps*
-        (for/list ([v (in-list deps)] #:unless (= (car v) chosen))
-          (cons (car v) (filter-not (curry = chosen) (cdr v)))))
-      (define edges* (filter-no-edges deps*))
-      (loop (cons chosen sorted) deps* edges*)])))
+      (set-add! done chosen)
+      (loop (cons chosen sorted) rest)])))
 
 (define (dict-set** dict keys vals)
   (for/fold ([dict dict]) ([k keys] [v vals])

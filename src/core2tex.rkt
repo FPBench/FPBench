@@ -20,11 +20,10 @@
 ;
 ; args-paren-level : #t --> do not paren args
 ;                    #f --> paren args
-(define precedence-ordering '(#t + * fn #f))
-
 (define (precedence< a b)
-  (< (index-of precedence-ordering a)
-     (index-of precedence-ordering b)))
+  (define (rank x)
+    (case x [(#t) 0] [(+) 1] [(*) 2] [(fn) 3] [(#f) 4]))
+  (< (rank a) (rank b)))
 
 (define (precedence-levels op)
   (match op
@@ -292,6 +291,42 @@
 
 ;; Exports
 
+(define (expr->rope expr ctx [parens #t])
+  (match expr
+    [(? symbol?)
+     (cond [(hex? expr) (expr->tex expr ctx parens)]
+           [(constant? expr) (constant->tex expr)]
+           [else (variable->tex expr)])]
+    [(? exact-integer?) (number->string expr)]
+    [(? inexact-real?)
+     (define text (number->string expr))
+     (if (and (not (string-prefix? text ".0"))
+              (not (string-suffix? text ".0"))
+              (not (string-contains? text "e"))
+              (not (string-contains? text "f"))
+              (not (string-contains? text "nan")))
+         text
+         (expr->tex expr ctx parens))]
+    [(list (and op (or '+ '- '* '/ 'fmin 'fmax 'hypot)) left right)
+     (define-values (self-level arg-level) (precedence-levels op))
+     (define parenthesize? (and (not (precedence< parens self-level))
+                                (not (equal? self-level 'fn))))
+     (list (if parenthesize? "\\left(" "")
+           (match op
+             ['/ "\\frac{"]
+             ['fmin "\\mathsf{min}\\left("]
+             ['fmax "\\mathsf{max}\\left("]
+             ['hypot "\\mathsf{hypot}\\left("]
+             [_ ""])
+           (expr->rope left ctx arg-level)
+           (match op
+             ['+ " + "] ['- " - "] ['* " \\cdot "] ['/ "}{"]
+             [(or 'fmin 'fmax 'hypot) ", "])
+           (expr->rope right ctx arg-level)
+           (match op ['/ "}"] [(or 'fmin 'fmax 'hypot) "\\right)"] [_ ""])
+           (if parenthesize? "\\right)" ""))]
+    [_ (expr->tex expr ctx parens)]))
+
 (define (expr*->tex expr #:prec [prec 'binary64])
   (define ctx (ctx-update-props (make-compiler-ctx) (list ':precision prec)))
   (expr->tex expr ctx))
@@ -314,7 +349,7 @@
          [(list '! props ... name) (fix-name (~a name))]
          [_ (fix-name (~a var))])))
 
-    (define body* (expr->tex body ctx))
+    (define body* (apply string-append (flatten (expr->rope body ctx))))
     (if (non-empty-string? name)
         (format "\\mathsf{~a}\\left(~a\\right) = ~a\n"
                 name
@@ -326,6 +361,13 @@
 
 (module+ test
   (require rackunit)
+  (check-equal? (core->tex '(FPCore (x y z) (* (+ x y) (/ (fmin x y) (hypot y z)))))
+                "\\left(x + y\\right) \\cdot \\frac{\\mathsf{min}\\left(x, y\\right)}{\\mathsf{hypot}\\left(y, z\\right)}\n")
+  (check-equal? (core->tex '(FPCore (x y z) (- (fmax x y) (- y z))))
+                "\\mathsf{max}\\left(x, y\\right) - \\left(y - z\\right)\n")
+  (for ([x (in-list (list 0.0 -0.0 0.25 -2.5 10.0 1e-20 1e20 +inf.0 -inf.0 +nan.0))])
+    (check-equal? (core->tex `(FPCore () ,x)) (string-append (expr*->tex x) "\n")))
+  (check-equal? (core->tex '(FPCore (x) (+ x 0x1.8p+1))) "x + 3\n")
   (check-equal? (core->tex '(FPCore (x y) :precision binary64 (array (+ x y) (* x y))))
                 "\\left[x + y, x \\cdot y\\right]\n")
   (check-equal? (core->tex '(FPCore (v) :precision binary64 (ref v 0))) "v\\left[0\\right]\n")

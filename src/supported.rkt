@@ -1,13 +1,14 @@
 #lang racket
 (require racket/hash racket/set)
 (require "common.rkt" "fpcore-checker.rkt" "fpcore-visitor.rkt")
-(provide valid-core make-program-features unsupported-features
+(provide valid-core unsupported-features
          invert-op-proc invert-const-proc invert-rnd-mode-proc
          ieee754-ops ieee754-rounding-modes fpcore-ops fpcore-consts
          operators-in constants-in property-values)
 
 (provide
   (contract-out
+    [make-program-features (-> any/c (or/c #f program-features?))]
     [struct supported-list
      ([ops (-> symbol? boolean?)]
       [consts (-> symbol? boolean?)]
@@ -46,8 +47,7 @@
 (struct supported-list (ops consts precisions round-modes tensor-args?))
 (struct program-features (operators constants properties arguments))
 
-(define/contract (make-program-features core)
-  (-> any/c (or/c #f program-features?))
+(define (make-program-features core)
   (and (fpcore? core) (collect-program-features core)))
 
 (define (collect-program-features core)

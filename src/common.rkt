@@ -33,8 +33,10 @@
    '(array dim size ref)
    '(< > <= >= == != and or not isfinite isinf isnan isnormal signbit)))
 
+(define operator-set (list->seteq operators))
+
 (define (operator? x)
-  (set-member? operators x))
+  (set-member? operator-set x))
 
 (define constants
   '(E LOG2E LOG10E LN2 LN10
@@ -42,8 +44,10 @@
       SQRT2 SQRT1_2 MAXFLOAT HUGE_VAL
       INFINITY NAN TRUE FALSE))
 
+(define constant-set (list->seteq constants))
+
 (define (constant? x)
-  (set-member? constants x))
+  (set-member? constant-set x))
 
 (define (variable? var)
   (and (symbol? var) (not (constant? var))))
@@ -126,3 +130,11 @@
   (if (enclosed-by-paren-pair str)
       (trim-infix-parens (substring str 1 (sub1 (string-length str))))
       str))
+
+(module+ test
+  (require rackunit)
+  (for ([x (in-list (append operators constants
+                            (list 'unknown (string->uninterned-symbol "+")
+                                  "PI" 1 #f '(+ x y))))])
+    (check-equal? (operator? x) (set-member? operators x))
+    (check-equal? (constant? x) (set-member? constants x))))

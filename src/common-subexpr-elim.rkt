@@ -87,23 +87,25 @@
 
 ; kahn's algorithm
 (define (topo-sort deps)
-  (define done (mutable-set))
-  (define (take-ready deps)
-    (match deps
-      ['() (values #f '())]
-      [(cons (cons idx edges) rest)
-       (define remaining (filter-not (curry set-member? done) edges))
-       (if (null? remaining)
-           (values idx rest)
-           (let-values ([(chosen rest*) (take-ready rest)])
-             (values chosen (cons (cons idx remaining) rest*))))]))
-  (let loop ([sorted '()] [deps deps])
-    (define-values (chosen rest) (take-ready deps))
-    (cond
-     [(not chosen) (append (reverse sorted) (map car rest))]
-     [else 
-      (set-add! done chosen)
-      (loop (cons chosen sorted) rest)])))
+  (define counts (make-hash))
+  (define users (make-hash))
+  (for ([entry (in-list deps)])
+    (define idx (car entry))
+    (define edges (cdr entry))
+    (hash-set! counts idx (length edges))
+    (for ([edge (in-list edges)])
+      (hash-update! users edge (lambda (old) (cons idx old)) '())))
+  (let loop ([ready (for/list ([entry (in-list deps)] #:when (null? (cdr entry))) (car entry))]
+             [sorted '()])
+    (if (null? ready)
+        (reverse sorted)
+        (let ([next
+               (for*/fold ([next '()])
+                          ([idx (in-list ready)] [user (in-list (hash-ref users idx '()))])
+                 (define remaining (sub1 (hash-ref counts user)))
+                 (hash-set! counts user remaining)
+                 (if (zero? remaining) (cons user next) next))])
+          (loop next (append (reverse ready) sorted))))))
 
 (define (dict-set** dict keys vals)
   (for/fold ([dict dict]) ([k keys] [v vals])
@@ -337,23 +339,28 @@
   ; idx -> (loc, deps ...)
   ; order of let bindings must respect dependencies
   (define common-deps
-    (let loop ([idx root])
-      (match (hash-ref exprs idx)
-       [(list (or 'let 'let* 'tensor) vars vals body) ; don't propogate
-        (merge-deps idx (map loop (cons body vals)))]
-       [(list (or 'while 'while*) cond vars inits updates body) ; don't propogate
-        (merge-deps idx (map loop (append (list cond body) inits updates)))]
-       [(list (or 'for 'for* 'tensor*) vars vals accums inits updates body) ; don't propogate
-        (merge-deps idx (map loop (append vals inits updates (list body))))]
-       [(list '! props body) ; don't propogate
-        (merge-deps idx (list (loop body)))]
-       [(list op args ...)
-        (define deps (merge-deps idx (map loop args)))
-        (define prop-up  ; pull up all common idxs bound one level below
-          (for/hash ([(k v) (in-hash deps)] #:when (set-member? args (car v)))
-            (values k (cons idx (cdr v)))))
-        (hash-union deps prop-up #:combine (λ (x y) y))]
-       [(box x) (hash)]))) ; ignore constants
+    ; The indexed expressions form a DAG; analyze each node only once.
+    (let ([cache (make-hash)])
+      (let loop ([idx root])
+        (hash-ref!
+         cache idx
+         (lambda ()
+           (match (hash-ref exprs idx)
+            [(list (or 'let 'let* 'tensor) vars vals body) ; don't propogate
+             (merge-deps idx (map loop (cons body vals)))]
+            [(list (or 'while 'while*) cond vars inits updates body) ; don't propogate
+             (merge-deps idx (map loop (append (list cond body) inits updates)))]
+            [(list (or 'for 'for* 'tensor*) vars vals accums inits updates body) ; don't propogate
+             (merge-deps idx (map loop (append vals inits updates (list body))))]
+            [(list '! props body) ; don't propogate
+             (merge-deps idx (list (loop body)))]
+            [(list op args ...)
+             (define deps (merge-deps idx (map loop args)))
+             (define prop-up  ; pull up all common idxs bound one level below
+               (for/hash ([(k v) (in-hash deps)] #:when (set-member? args (car v)))
+                 (values k (cons idx (cdr v)))))
+             (hash-union deps prop-up #:combine (λ (x y) y))]
+            [(box x) (hash)])))))) ; ignore constants
         
 
   ; let locations

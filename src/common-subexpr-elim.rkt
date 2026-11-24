@@ -11,7 +11,9 @@
    [core-common-subexpr-elim (-> fpcore? fpcore?)]
    [fuse-let (-> expr? expr?)]  ; ml-canonicalizer.rkt
    [fpcore-fuse-let (-> fpcore? fpcore?)]
-   [*expr-cse-able?* (parameter/c (-> expr? boolean?))]))
+   ;; CSE only invokes the callback on subexpressions of its validated input.
+   ;; Keep result checks internally and input checks for public callback calls.
+   [*expr-cse-able?* (parameter/c (-> any/c boolean?) (-> expr? boolean?))]))
 
 (module+ test (require rackunit))
 
@@ -442,6 +444,22 @@
      (printf "~a\n" (core-common-subexpr-elim expr)))))
 
 (module+ test
+  (require (prefix-in public: (submod "..")))
+  ;; Exercise the exported parameter boundary, not the uncontracted local one.
+  (check-exn exn:fail:contract?
+             (lambda () ((public:*expr-cse-able?*) #t)))
+  (check-exn exn:fail:contract?
+             (lambda () (parameterize ([public:*expr-cse-able?* 1]) (void))))
+  (parameterize ([public:*expr-cse-able?* (lambda (expr) 'not-a-boolean)])
+    (check-exn exn:fail:contract?
+               (lambda () (public:core-common-subexpr-elim
+                            '(FPCore (x) (+ (+ x 1) (+ x 1))))))
+    (check-exn exn:fail:contract?
+               (lambda () ((public:*expr-cse-able?*) '(+ x 1)))))
+  (parameterize ([public:*expr-cse-able?* (lambda (expr) (error 'callback "unexpected call"))])
+    (check-exn exn:fail:contract?
+               (lambda () (public:core-common-subexpr-elim '(not-an-fpcore)))))
+
   (define-syntax-rule (check-cse in out)
     (check-equal? (core-common-subexpr-elim in) out))
   (define-syntax-rule (check-fuse-let in out)
